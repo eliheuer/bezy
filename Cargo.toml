@@ -4,4 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = "0.14.2"
+bevy = "0.15.1"
+norad = "0.14.2"
+anyhow = "1.0"
