@@ -24,7 +24,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     commands.spawn((
-        Text::new("Hello Bezy!"),
+        Text::new(get_basic_font_info()),
         TextFont {
             font: asset_server.load("fonts/SkynetGrotesk-RegularDisplay.ttf"),
             ..default()
@@ -55,4 +55,15 @@ fn try_load_ufo() -> Result<Ufo> {
     let path = "design-assets/test-fonts/test-font-001.ufo";
     let ufo = Ufo::load(path)?;
     Ok(ufo)
+}
+
+fn get_basic_font_info() -> String {
+    match try_load_ufo() {
+        Ok(ufo) => {
+            let family_name = ufo.font_info.family_name.unwrap_or_default();
+            let style_name = ufo.font_info.style_name.unwrap_or_default();
+            format!("Font: {} {}", family_name, style_name)
+        }
+        Err(e) => format!("Error loading font: {:?}", e)
+    }
 }
