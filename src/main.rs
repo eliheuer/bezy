@@ -1,108 +1,30 @@
 //! A font editor made with Bevy, with inspiration from Runebender.
 
-//use bevy::prelude::*;
-use bevy::{
-    color::palettes::css::GOLD,
-    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
-    prelude::*,
-};
-use norad::Font;
+use bevy::prelude::*;
+use norad::Font as Ufo;
 use anyhow::Result;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bezy".into(),
+                resolution: (1024., 768.).into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .add_systems(Startup, setup)
-        .add_systems(Update, (text_update_system, text_color_system))
         .run();
 }
 
-// Marker struct to help identify the FPS UI component, since there may be many Text components
-#[derive(Component)]
-struct FpsText;
-
-// Marker struct to help identify the color-changing Text component
-#[derive(Component)]
-struct AnimatedText;
-
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    load_ufo();
     // UI camera
     commands.spawn(Camera2d);
-    // Text with one section
-    commands.spawn((
-        // Accepts a `String` or any type that converts into a `String`, such as `&str`
-        Text::new("hello bevy!"),
-        TextFont {
-            // This font is loaded and will be used instead of the default font.
-            font: asset_server.load("fonts/SkynetGrotesk-RegularDisplay.ttf"),
-            font_size: 67.0,
-            ..default()
-        },
-        // Set the justification of the Text
-        TextLayout::new_with_justify(JustifyText::Center),
-        // Set the style of the Node itself.
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            right: Val::Px(5.0),
-            ..default()
-        },
-        AnimatedText,
-    ));
 
-    // Text with multiple sections
-    commands
-        .spawn((
-            // Create a Text with multiple child spans.
-            Text::new("FPS: "),
-            TextFont {
-                // This font is loaded and will be used instead of the default font.
-                font: asset_server.load("fonts/SkynetGrotesk-RegularDisplay.ttf"),
-                font_size: 42.0,
-                ..default()
-            },
-        ))
-        .with_child((
-            TextSpan::default(),
-            if cfg!(feature = "default_font") {
-                (
-                    TextFont {
-                        font_size: 33.0,
-                        // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
-                        ..default()
-                    },
-                    TextColor(GOLD.into()),
-                )
-            } else {
-                (
-                    // "default_font" feature is unavailable, load a font to use instead.
-                    TextFont {
-                        font: asset_server.load("fonts/SkynetGrotesk-RegularDisplay.ttf"),
-                        font_size: 33.0,
-                        ..Default::default()
-                    },
-                    TextColor(GOLD.into()),
-                )
-            },
-            FpsText,
-        ));
-
-    #[cfg(feature = "default_font")]
     commands.spawn((
-        // Here we are able to call the `From` method instead of creating a new `TextSection`.
-        // This will use the default font (a minimal subset of FiraMono) and apply the default styling.
-        Text::new("From an &str into a Text with the default font!"),
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            left: Val::Px(15.0),
-            ..default()
-        },
-    ));
-
-    #[cfg(not(feature = "default_font"))]
-    commands.spawn((
-        Text::new("Default font disabled"),
+        Text::new("Hello Bezy!"),
         TextFont {
             font: asset_server.load("fonts/SkynetGrotesk-RegularDisplay.ttf"),
             ..default()
@@ -114,41 +36,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
     ));
-}
-
-fn text_color_system(time: Res<Time>, mut query: Query<&mut TextColor, With<AnimatedText>>) {
-    for mut text_color in &mut query {
-        let seconds = time.elapsed_secs();
-
-        // Update the color of the ColorText span.
-        text_color.0 = Color::srgb(
-            ops::sin(1.25 * seconds) / 2.0 + 0.5,
-            ops::sin(0.75 * seconds) / 2.0 + 0.5,
-            ops::sin(0.50 * seconds) / 2.0 + 0.5,
-        );
-    }
-}
-
-fn text_update_system(
-    diagnostics: Res<DiagnosticsStore>,
-    mut query: Query<&mut TextSpan, With<FpsText>>,
-) {
-    for mut span in &mut query {
-        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(value) = fps.smoothed() {
-                // Update the value of the second section
-                **span = format!("{value:.2}");
-            }
-        }
-    }
 }
 
 /// Loads the UFO font
-fn load_ufo_font() {
+fn load_ufo() {
     match try_load_ufo() {
-        Ok(font) => {
-            let family_name = font.font_info.family_name.unwrap_or_default();
-            let style_name = font.font_info.style_name.unwrap_or_default();
+        Ok(ufo) => {
+            let family_name = ufo.font_info.family_name.unwrap_or_default();
+            let style_name = ufo.font_info.style_name.unwrap_or_default();
             println!("Successfully loaded UFO font: {} {}", family_name, style_name);
         }
         Err(e) => eprintln!("Error loading UFO file: {:?}", e),
@@ -156,8 +51,8 @@ fn load_ufo_font() {
 }
 
 /// Tries to load the UFO font 
-fn try_load_ufo() -> Result<Font> {
+fn try_load_ufo() -> Result<Ufo> {
     let path = "design-assets/test-fonts/test-font-001.ufo";
-    let font = Font::load(path)?;
-    Ok(font)
+    let ufo = Ufo::load(path)?;
+    Ok(ufo)
 }
