@@ -1,4 +1,4 @@
-//! A font editor made with Bevy, with inspiration from Runebender.
+// A font editor made with the Bevy game engine.
 
 use bevy::prelude::*;
 use norad::Font as Ufo;
@@ -16,7 +16,7 @@ fn main() {
             }),
             ..default()
         }))
-        .insert_resource(ClearColor(Color::rgb(0.1, 0.1, 0.1))) // Darker gray background
+        .insert_resource(ClearColor(Color::srgb(0.1, 0.1, 0.1))) // Darker gray background
         .add_systems(Startup, (setup, spawn_grid))
         .run();
 }
@@ -33,11 +33,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new(get_basic_font_info()),
         TextFont {
             font: asset_server.load("fonts/SkynetGrotesk-RegularDisplay.ttf"),
+            font_size: 64.0,
             ..default()
         },
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(32.0),
+            bottom: Val::Px(16.0),
             left: Val::Px(32.0),
             ..default()
         },
@@ -73,7 +74,7 @@ fn get_basic_font_info() -> String {
         Ok(ufo) => {
             let family_name = ufo.font_info.family_name.unwrap_or_default();
             let style_name = ufo.font_info.style_name.unwrap_or_default();
-            format!("Font: {} - {}", family_name, style_name)
+            format!("Font: {} {}", family_name, style_name)
         }
         Err(e) => format!("Error loading font: {:?}", e)
     }
@@ -87,7 +88,7 @@ fn spawn_grid(mut commands: Commands) {
     let grid_position = Vec2::new(0.0, 0.0); // Center of the window
     
     // Create vertical lines
-    for i in 0..=256 {
+    for i in 0..=1024 {
         let x = grid_position.x - (grid_size / 2.0) + (i as f32);
         commands.spawn((
             Sprite {
@@ -95,20 +96,20 @@ fn spawn_grid(mut commands: Commands) {
                 custom_size: Some(Vec2::new(1.0, grid_size)),
                 ..default()
             },
-            Transform::from_xyz(x * 4.0, grid_position.y, 0.0),
+            Transform::from_xyz(x * 16.0, grid_position.y, 0.0),
         ));
     }
 
     // Create horizontal lines
-    for i in 0..=256 {
+    for i in 0..=1024 {
         let y = grid_position.y - (grid_size / 2.0) + (i as f32);
         commands.spawn((
             Sprite {
                 color: Color::srgba(0.5, 0.5, 0.5, 0.2),
-                custom_size: Some(Vec2::new(grid_size * 4.0, 1.0)),
+                custom_size: Some(Vec2::new(grid_size * 16.0, 1.0)),
                 ..default()
             },
-            Transform::from_xyz(grid_position.x, y * 4.0, 0.0),
+            Transform::from_xyz(grid_position.x, y * 16.0, 0.0),
         ));
     }
 }
