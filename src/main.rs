@@ -83,33 +83,34 @@ fn get_basic_font_info() -> String {
 /// Spawns a grid centered in the window.
 /// Creates both vertical and horizontal lines with semi-transparent gray color.
 fn spawn_grid(mut commands: Commands) {
-    // Calculate grid position to center it
-    let grid_size = 256.0;
+    // Get window dimensions (using a larger value to ensure coverage)
+    let window_width = 2048.0;  // Doubled from window width
+    let window_height = 1536.0; // Doubled from window height
     let grid_position = Vec2::new(0.0, 0.0); // Center of the window
     
     // Create vertical lines
-    for i in 0..=1024 {
-        let x = grid_position.x - (grid_size / 2.0) + (i as f32);
+    for i in -512..=512 {  // Increased range
+        let x = grid_position.x + (i as f32);
         commands.spawn((
             Sprite {
-                color: Color::srgba(0.5, 0.5, 0.5, 0.2),
-                custom_size: Some(Vec2::new(1.0, grid_size)),
+                color: Color::srgba(0.9, 0.9, 0.9, 0.2),
+                custom_size: Some(Vec2::new(1.0, window_height)),
                 ..default()
             },
-            Transform::from_xyz(x * 16.0, grid_position.y, 0.0),
+            Transform::from_xyz(x * 32.0, grid_position.y, 0.0),
         ));
     }
 
     // Create horizontal lines
-    for i in 0..=1024 {
-        let y = grid_position.y - (grid_size / 2.0) + (i as f32);
+    for i in -512..=512 {  // Increased range
+        let y = grid_position.y + (i as f32);
         commands.spawn((
             Sprite {
-                color: Color::srgba(0.5, 0.5, 0.5, 0.2),
-                custom_size: Some(Vec2::new(grid_size * 16.0, 1.0)),
+                color: Color::srgba(0.9, 0.9, 0.9, 0.2),
+                custom_size: Some(Vec2::new(window_width, 1.0)),
                 ..default()
             },
-            Transform::from_xyz(grid_position.x, y * 16.0, 0.0),
+            Transform::from_xyz(grid_position.x, y * 32.0, 0.0),
         ));
     }
 }
