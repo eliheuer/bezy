@@ -1,13 +1,22 @@
 // A font editor made with the Bevy game engine.
 
 use bevy::prelude::*;
+use bevy::color::palettes::basic::*;
+use bevy::winit::WinitSettings;
 use norad::Font as Ufo;
 use anyhow::Result;
+
+// Constants, think of this like the "settings" for the UI.
+const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 /// Main entry point for the Bezy font editor application.
 /// Sets up the window and initializes the Bevy app with required plugins and systems.
 fn main() {
     App::new()
+        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
+        .insert_resource(WinitSettings::desktop_app())
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bezy".into(),
@@ -18,6 +27,7 @@ fn main() {
         }))
         .insert_resource(ClearColor(Color::srgb(0.1, 0.1, 0.1))) // Darker gray background
         .add_systems(Startup, (setup, spawn_grid))
+        .add_systems(Update, button_system)
         .run();
 }
 
@@ -43,6 +53,42 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
     ));
+    // Spawn a button
+    commands
+    .spawn(Node {
+        width: Val::Percent(100.0),
+        height: Val::Percent(100.0),
+        align_items: AlignItems::Center,
+        justify_content: JustifyContent::Center,
+        ..default()
+    })
+    .with_children(|parent| {
+        parent
+            .spawn((
+                Button,
+                Node {
+                    width: Val::Px(126.0),
+                    height: Val::Px(62.0),
+                    
+                    justify_content: JustifyContent::Center,
+                    // vertically center child text
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BorderColor(Color::srgb(0.2, 0.2, 0.2)),
+                BorderRadius::all(Val::Px(0.0)),
+                BackgroundColor(NORMAL_BUTTON),
+            ))
+            .with_child((
+                Text::new("Button"),
+                TextFont {
+                    font: asset_server.load("fonts/SkynetGrotesk-RegularDisplay.ttf"),
+                    font_size: 33.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.9, 0.9, 0.9)),
+            ));
+    });
 }
 
 /// Loads and validates the UFO font file, printing status to console.
@@ -112,5 +158,39 @@ fn spawn_grid(mut commands: Commands) {
             },
             Transform::from_xyz(grid_position.x, y * 32.0, 0.0),
         ));
+    }
+}
+
+fn button_system(
+    mut interaction_query: Query<
+        (
+            &Interaction,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &Children,
+        ),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut text_query: Query<&mut Text>,
+) {
+    for (interaction, mut color, mut border_color, children) in &mut interaction_query {
+        let mut text = text_query.get_mut(children[0]).unwrap();
+        match *interaction {
+            Interaction::Pressed => {
+                **text = "Press".to_string();
+                *color = PRESSED_BUTTON.into();
+                border_color.0 = RED.into();
+            }
+            Interaction::Hovered => {
+                **text = "Hover".to_string();
+                *color = HOVERED_BUTTON.into();
+                border_color.0 = Color::WHITE;
+            }
+            Interaction::None => {
+                **text = "Button".to_string();
+                *color = NORMAL_BUTTON.into();
+                border_color.0 = Color::BLACK;
+            }
+        }
     }
 }
