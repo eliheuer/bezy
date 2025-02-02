@@ -1,7 +1,6 @@
 // A font editor made with the Bevy game engine.
 
 use bevy::prelude::*;
-use bevy::color::palettes::basic::*;
 use bevy::winit::WinitSettings;
 use norad::Font as Ufo;
 use anyhow::Result;
@@ -77,6 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             width: Val::Px(60.0),
                             height: Val::Px(60.0),
                             margin: UiRect::all(Val::Px(4.0)),
+                            border: UiRect::all(Val::Px(2.0)),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             ..default()
@@ -186,7 +186,7 @@ fn button_system(
             Interaction::Pressed => {
                 **text = "P".to_string();
                 *color = PRESSED_BUTTON.into();
-                border_color.0 = RED.into();
+                border_color.0 = Color::WHITE;
             }
             Interaction::Hovered => {
                 **text = "H".to_string();
