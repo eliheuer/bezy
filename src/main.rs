@@ -42,8 +42,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Text::new(get_basic_font_info()),
         TextFont {
-            font: asset_server.load("fonts/SkynetGrotesk-RegularDisplay.ttf"),
-            font_size: 64.0,
+            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+            font_size: 96.0,
             ..default()
         },
         Node {
@@ -56,10 +56,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn a button
     commands
     .spawn(Node {
-        width: Val::Percent(100.0),
-        height: Val::Percent(100.0),
-        align_items: AlignItems::Center,
-        justify_content: JustifyContent::Center,
+        position_type: PositionType::Absolute,
+        top: Val::Px(32.0),     // One grid unit from top (32px)
+        left: Val::Px(32.0),    // One grid unit from left (32px)
+        width: Val::Auto,       // Auto width instead of 100%
+        height: Val::Auto,      // Auto height instead of 100%
         ..default()
     })
     .with_children(|parent| {
@@ -69,20 +70,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Node {
                     width: Val::Px(126.0),
                     height: Val::Px(62.0),
-                    
+                    border: UiRect::all(Val::Px(2.0)),
                     justify_content: JustifyContent::Center,
-                    // vertically center child text
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                BorderColor(Color::srgb(0.2, 0.2, 0.2)),
+                BorderColor(Color::WHITE),
                 BorderRadius::all(Val::Px(0.0)),
                 BackgroundColor(NORMAL_BUTTON),
             ))
             .with_child((
                 Text::new("Button"),
                 TextFont {
-                    font: asset_server.load("fonts/SkynetGrotesk-RegularDisplay.ttf"),
+                    font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
                     font_size: 33.0,
                     ..default()
                 },
@@ -107,7 +107,7 @@ fn load_ufo() {
 /// Attempts to load the UFO font file and returns a Result.
 /// Returns Ok(Ufo) if successful, or an Error if loading fails.
 fn try_load_ufo() -> Result<Ufo> {
-    let path = "design-assets/test-fonts/test-font-001.ufo";
+    let path = "assets/fonts/bezy-grotesk-regular.ufo";
     let ufo = Ufo::load(path)?;
     Ok(ufo)
 }
@@ -120,7 +120,7 @@ fn get_basic_font_info() -> String {
         Ok(ufo) => {
             let family_name = ufo.font_info.family_name.unwrap_or_default();
             let style_name = ufo.font_info.style_name.unwrap_or_default();
-            format!("Font: {} {}", family_name, style_name)
+            format!("{} {}", family_name, style_name)
         }
         Err(e) => format!("Error loading font: {:?}", e)
     }
@@ -139,7 +139,7 @@ fn spawn_grid(mut commands: Commands) {
         let x = grid_position.x + (i as f32);
         commands.spawn((
             Sprite {
-                color: Color::srgba(0.9, 0.9, 0.9, 0.2),
+                color: Color::srgba(0.9, 0.9, 0.9, 0.1),
                 custom_size: Some(Vec2::new(1.0, window_height)),
                 ..default()
             },
@@ -152,7 +152,7 @@ fn spawn_grid(mut commands: Commands) {
         let y = grid_position.y + (i as f32);
         commands.spawn((
             Sprite {
-                color: Color::srgba(0.9, 0.9, 0.9, 0.2),
+                color: Color::srgba(0.9, 0.9, 0.9, 0.1),
                 custom_size: Some(Vec2::new(window_width, 1.0)),
                 ..default()
             },
@@ -189,7 +189,7 @@ fn button_system(
             Interaction::None => {
                 **text = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
-                border_color.0 = Color::BLACK;
+                border_color.0 = Color::WHITE;
             }
         }
     }
