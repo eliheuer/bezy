@@ -35,15 +35,16 @@ fn main() {
 /// Spawns the UI camera and creates the font info text display.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     load_ufo();
-    // UI camera
+
+    // Spawn UI camera
     commands.spawn(Camera2d);
 
-    // Text
+    // Spawn your font info text (unchanged)
     commands.spawn((
         Text::new(get_basic_font_info()),
         TextFont {
             font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-            font_size: 96.0,
+            font_size: 64.0,
             ..default()
         },
         Node {
@@ -53,42 +54,48 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
     ));
-    // Spawn a button
+
+    // Spawn a container for the buttons in the upper left corner.
+    // We set its flex direction to Row so its children are arranged horizontally.
     commands
-    .spawn(Node {
-        position_type: PositionType::Absolute,
-        top: Val::Px(32.0),     // One grid unit from top (32px)
-        left: Val::Px(32.0),    // One grid unit from left (32px)
-        width: Val::Auto,       // Auto width instead of 100%
-        height: Val::Auto,      // Auto height instead of 100%
-        ..default()
-    })
-    .with_children(|parent| {
-        parent
-            .spawn((
-                Button,
-                Node {
-                    width: Val::Px(126.0),
-                    height: Val::Px(62.0),
-                    border: UiRect::all(Val::Px(2.0)),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                BorderColor(Color::WHITE),
-                BorderRadius::all(Val::Px(0.0)),
-                BackgroundColor(NORMAL_BUTTON),
-            ))
-            .with_child((
-                Text::new("Button"),
-                TextFont {
-                    font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                    font_size: 33.0,
-                    ..default()
-                },
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-            ));
-    });
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(32.0),
+            left: Val::Px(32.0),
+            // Ensure horizontal layout
+            flex_direction: FlexDirection::Row,
+            ..default()
+        })
+        .with_children(|parent| {
+            // Create 5 buttons showing the letters "A" through "E"
+            // Each button is square (60x60 pixels) with a bit of margin.
+            for letter in ["A", "B", "C", "D", "E"] {
+                parent
+                    .spawn((
+                        Button,
+                        Node {
+                            width: Val::Px(60.0),
+                            height: Val::Px(60.0),
+                            margin: UiRect::all(Val::Px(4.0)),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BorderColor(Color::WHITE),
+                        BorderRadius::all(Val::Px(0.0)),
+                        BackgroundColor(NORMAL_BUTTON),
+                    ))
+                    .with_child((
+                        Text::new(letter),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 24.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    ));
+            }
+        });
 }
 
 /// Loads and validates the UFO font file, printing status to console.
@@ -177,17 +184,17 @@ fn button_system(
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
-                **text = "Press".to_string();
+                **text = "P".to_string();
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = RED.into();
             }
             Interaction::Hovered => {
-                **text = "Hover".to_string();
+                **text = "H".to_string();
                 *color = HOVERED_BUTTON.into();
                 border_color.0 = Color::WHITE;
             }
             Interaction::None => {
-                **text = "Button".to_string();
+                **text = "B".to_string();
                 *color = NORMAL_BUTTON.into();
                 border_color.0 = Color::WHITE;
             }
