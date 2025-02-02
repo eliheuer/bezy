@@ -4,11 +4,20 @@ use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use norad::Font as Ufo;
 use anyhow::Result;
+use rand::Rng;
 
 // Constants, think of this like the "settings" for the UI.
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+
+// Component to mark our path points
+#[derive(Component)]
+struct PathPoint;
+
+const NUM_POINTS: usize = 8; // Number of points in our path
+const POINT_RADIUS: f32 = 5.0; // Size of the point circles
+const PATH_COLOR: Color = Color::srgb(0.8, 0.0, 0.0); // Red color for points and lines
 
 /// Main entry point for the Bezy font editor application.
 /// Sets up the window and initializes the Bevy app with required plugins and systems.
@@ -25,7 +34,7 @@ fn main() {
             ..default()
         }))
         .insert_resource(ClearColor(Color::srgb(0.1, 0.1, 0.1))) // Darker gray background
-        .add_systems(Startup, (setup, spawn_grid))
+        .add_systems(Startup, (setup, spawn_grid, spawn_path_points))
         .add_systems(Update, button_system)
         .run();
 }
@@ -199,5 +208,54 @@ fn button_system(
                 border_color.0 = Color::WHITE;
             }
         }
+    }
+}
+
+fn spawn_path_points(mut commands: Commands) {
+    let mut rng = rand::thread_rng();
+    
+    // Generate random points within a reasonable area
+    let points: Vec<(Entity, Vec2)> = (0..NUM_POINTS)
+        .map(|_| {
+            let x = rng.gen_range(-300.0..300.0);
+            let y = rng.gen_range(-200.0..200.0);
+            let position = Vec2::new(x, y);
+            
+            let entity = commands.spawn((
+                PathPoint,
+                Sprite {
+                    color: PATH_COLOR,
+                    custom_size: Some(Vec2::new(POINT_RADIUS * 2.0, POINT_RADIUS * 2.0)),
+                    ..default()
+                },
+                Transform::from_xyz(position.x, position.y, 1.0),
+                GlobalTransform::default(),
+            )).id();
+            
+            (entity, position)
+        })
+        .collect();
+
+    // Create connections between points
+    for i in 0..points.len() {
+        let next_index = (i + 1) % points.len();
+        
+        // Spawn line connecting to next point
+        let start = points[i].1;
+        let end = points[next_index].1;
+        let mid = (start + end) / 2.0;
+        let distance = (end - start).length();
+        let rotation = (end - start).y.atan2((end - start).x);
+
+        commands.spawn((
+            Sprite {
+                color: PATH_COLOR,
+                custom_size: Some(Vec2::new(distance, 2.0)),
+                ..default()
+            },
+            Transform::from_xyz(mid.x, mid.y, 0.0)
+                .with_rotation(Quat::from_rotation_z(rotation)),
+            GlobalTransform::default(),
+        ));
     }
 }
