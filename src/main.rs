@@ -15,7 +15,7 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 #[derive(Component)]
 struct PathPoint;
 
-const NUM_POINTS: usize = 8; // Number of points in our path
+const NUM_POINTS: usize = 32; // Number of points in our path
 const POINT_RADIUS: f32 = 5.0; // Size of the point circles
 const PATH_COLOR: Color = Color::srgb(0.8, 0.0, 0.0); // Red color for points and lines
 
