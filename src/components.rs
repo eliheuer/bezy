@@ -1,7 +1,5 @@
 use crate::theme::*;
-use anyhow::Result;
 use bevy::prelude::*;
-use norad::Font as Ufo;
 use rand::Rng;
 
 // Component to mark our path points
