@@ -2,11 +2,13 @@
 
 mod components;
 mod theme;
+mod setup;
 
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use components::*;
 use theme::*;
+use crate::setup::setup;
 
 fn main() {
     App::new()
