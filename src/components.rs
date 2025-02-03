@@ -1,8 +1,8 @@
+use crate::theme::*;
+use anyhow::Result;
 use bevy::prelude::*;
 use norad::Font as Ufo;
-use anyhow::Result;
 use rand::Rng;
-use crate::theme::*;
 
 // Component to mark our path points
 #[derive(Component)]
@@ -16,8 +16,6 @@ pub struct AnimationIndices {
 
 #[derive(Component, Deref, DerefMut)]
 pub struct AnimationTimer(Timer);
-    
-
 
 /// Initial setup system that runs on startup.
 /// Spawns the UI camera and creates the font info text display.
@@ -94,7 +92,10 @@ fn load_ufo() {
         Ok(ufo) => {
             let family_name = ufo.font_info.family_name.unwrap_or_default();
             let style_name = ufo.font_info.style_name.unwrap_or_default();
-            println!("Successfully loaded UFO font: {} {}", family_name, style_name);
+            println!(
+                "Successfully loaded UFO font: {} {}",
+                family_name, style_name
+            );
         }
         Err(e) => eprintln!("Error loading UFO file: {:?}", e),
     }
@@ -118,7 +119,7 @@ fn get_basic_font_info() -> String {
             let style_name = ufo.font_info.style_name.unwrap_or_default();
             format!("{} {}", family_name, style_name)
         }
-        Err(e) => format!("Error loading font: {:?}", e)
+        Err(e) => format!("Error loading font: {:?}", e),
     }
 }
 
@@ -126,12 +127,13 @@ fn get_basic_font_info() -> String {
 /// Creates both vertical and horizontal lines with semi-transparent gray color.
 pub fn spawn_grid(mut commands: Commands) {
     // Get window dimensions (using a larger value to ensure coverage)
-    let window_width = 2048.0;  // Doubled from window width
+    let window_width = 2048.0; // Doubled from window width
     let window_height = 1536.0; // Doubled from window height
     let grid_position = Vec2::new(0.0, 0.0); // Center of the window
-    
+
     // Create vertical lines
-    for i in -512..=512 {  // Increased range
+    for i in -512..=512 {
+        // Increased range
         let x = grid_position.x + (i as f32);
         commands.spawn((
             Sprite {
@@ -144,7 +146,8 @@ pub fn spawn_grid(mut commands: Commands) {
     }
 
     // Create horizontal lines
-    for i in -512..=512 {  // Increased range
+    for i in -512..=512 {
+        // Increased range
         let y = grid_position.y + (i as f32);
         commands.spawn((
             Sprite {
@@ -193,25 +196,27 @@ pub fn button_system(
 
 pub fn spawn_path_points(mut commands: Commands) {
     let mut rng = rand::thread_rng();
-    
+
     // Generate random points within a reasonable area
     let points: Vec<(Entity, Vec2)> = (0..NUM_POINTS)
         .map(|_| {
             let x = rng.gen_range(-300.0..300.0);
             let y = rng.gen_range(-200.0..200.0);
             let position = Vec2::new(x, y);
-            
-            let entity = commands.spawn((
-                PathPoint,
-                Sprite {
-                    color: PATH_COLOR,
-                    custom_size: Some(Vec2::new(POINT_RADIUS * 2.0, POINT_RADIUS * 2.0)),
-                    ..default()
-                },
-                Transform::from_xyz(position.x, position.y, 1.0),
-                GlobalTransform::default(),
-            )).id();
-            
+
+            let entity = commands
+                .spawn((
+                    PathPoint,
+                    Sprite {
+                        color: PATH_COLOR,
+                        custom_size: Some(Vec2::new(POINT_RADIUS * 2.0, POINT_RADIUS * 2.0)),
+                        ..default()
+                    },
+                    Transform::from_xyz(position.x, position.y, 1.0),
+                    GlobalTransform::default(),
+                ))
+                .id();
+
             (entity, position)
         })
         .collect();
@@ -219,7 +224,7 @@ pub fn spawn_path_points(mut commands: Commands) {
     // Create connections between points
     for i in 0..points.len() {
         let next_index = (i + 1) % points.len();
-        
+
         // Spawn line connecting to next point
         let start = points[i].1;
         let end = points[next_index].1;
@@ -233,8 +238,7 @@ pub fn spawn_path_points(mut commands: Commands) {
                 custom_size: Some(Vec2::new(distance, 2.0)),
                 ..default()
             },
-            Transform::from_xyz(mid.x, mid.y, 0.0)
-                .with_rotation(Quat::from_rotation_z(rotation)),
+            Transform::from_xyz(mid.x, mid.y, 0.0).with_rotation(Quat::from_rotation_z(rotation)),
             GlobalTransform::default(),
         ));
     }
@@ -277,8 +281,7 @@ pub fn spawn_animated_sprite(
                 index: animation_indices.first,
             },
         ),
-        Transform::from_xyz(0.0, -200.0, 2.0)
-            .with_scale(Vec3::splat(12.0)),
+        Transform::from_xyz(0.0, -200.0, 2.0).with_scale(Vec3::splat(12.0)),
         animation_indices,
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
     ));
