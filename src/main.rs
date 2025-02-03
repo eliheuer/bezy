@@ -6,18 +6,21 @@ use norad::Font as Ufo;
 use anyhow::Result;
 use rand::Rng;
 
-// Constants, think of this like the "settings" for the UI.
-const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+mod theme;
+use theme::*;
 
 // Component to mark our path points
 #[derive(Component)]
 struct PathPoint;
 
-const NUM_POINTS: usize = 32; // Number of points in our path
-const POINT_RADIUS: f32 = 5.0; // Size of the point circles
-const PATH_COLOR: Color = Color::srgb(0.8, 0.0, 0.0); // Red color for points and lines
+#[derive(Component)]
+struct AnimationIndices {
+    first: usize,
+    last: usize,
+}
+
+#[derive(Component, Deref, DerefMut)]
+struct AnimationTimer(Timer);
 
 /// Main entry point for the Bezy font editor application.
 /// Sets up the window and initializes the Bevy app with required plugins and systems.
@@ -25,17 +28,18 @@ fn main() {
     App::new()
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bezy".into(),
-                resolution: (1024., 768.).into(),
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bezy".into(),
+                    resolution: (1024., 768.).into(),
+                    ..default()
+                }),
                 ..default()
-            }),
-            ..default()
-        }))
+            }))
         .insert_resource(ClearColor(Color::srgb(0.1, 0.1, 0.1))) // Darker gray background
-        .add_systems(Startup, (setup, spawn_grid, spawn_path_points))
-        .add_systems(Update, button_system)
+        .add_systems(Startup, (setup, spawn_grid, spawn_path_points, spawn_animated_sprite))
+        .add_systems(Update, (button_system, animate_sprite))
         .run();
 }
 
@@ -258,4 +262,48 @@ fn spawn_path_points(mut commands: Commands) {
             GlobalTransform::default(),
         ));
     }
+}
+
+fn animate_sprite(
+    time: Res<Time>,
+    mut query: Query<(&AnimationIndices, &mut AnimationTimer, &mut Sprite)>,
+) {
+    for (indices, mut timer, mut sprite) in &mut query {
+        timer.tick(time.delta());
+
+        if timer.just_finished() {
+            if let Some(atlas) = &mut sprite.texture_atlas {
+                atlas.index = if atlas.index == indices.last {
+                    indices.first
+                } else {
+                    atlas.index + 1
+                };
+            }
+        }
+    }
+}
+
+fn spawn_animated_sprite(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+) {
+    let texture = asset_server.load("raster/bevy/gabe-idle-run.png");
+    let layout = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
+    let texture_atlas_layout = texture_atlas_layouts.add(layout);
+    let animation_indices = AnimationIndices { first: 1, last: 6 };
+
+    commands.spawn((
+        Sprite::from_atlas_image(
+            texture,
+            TextureAtlas {
+                layout: texture_atlas_layout,
+                index: animation_indices.first,
+            },
+        ),
+        Transform::from_xyz(0.0, -200.0, 2.0)
+            .with_scale(Vec3::splat(12.0)),
+        animation_indices,
+        AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+    ));
 }
