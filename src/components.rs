@@ -159,11 +159,19 @@ pub fn spawn_animated_sprite(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    window_query: Query<&Window>,
 ) {
+    let window = window_query.single();
     let texture = asset_server.load("raster/bevy/gabe-idle-run.png");
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
     let animation_indices = AnimationIndices { first: 1, last: 6 };
+
+    // Calculate position based on window size and margins
+    let margin = 32.0; // Same as text margin
+    let sprite_size = 24.0 * 6.0; // 24 pixels * scale of 6
+    let x_pos = window.width() / 2.0 - margin - sprite_size / 2.0;
+    let y_pos = -window.height() / 2.0 + margin + sprite_size / 2.0;
 
     commands.spawn((
         Sprite::from_atlas_image(
@@ -173,8 +181,22 @@ pub fn spawn_animated_sprite(
                 index: animation_indices.first,
             },
         ),
-        Transform::from_xyz(0.0, -200.0, 2.0).with_scale(Vec3::splat(12.0)),
+        Transform::from_xyz(x_pos, y_pos, 2.0).with_scale(Vec3::splat(6.0)),
         animation_indices,
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
     ));
+}
+
+pub fn update_sprite_position(
+    mut sprite_query: Query<&mut Transform, With<AnimationTimer>>,
+    window_query: Query<&Window>,
+) {
+    let window = window_query.single();
+    let margin = 32.0;
+    let sprite_size = 24.0 * 6.0;
+    
+    for mut transform in &mut sprite_query {
+        transform.translation.x = window.width() / 2.0 - margin - sprite_size / 2.0;
+        transform.translation.y = -window.height() / 2.0 + margin + sprite_size / 2.0;
+    }
 }

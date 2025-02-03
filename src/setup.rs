@@ -1,7 +1,8 @@
 use crate::theme::*;
-use bevy::prelude::*;
 use anyhow::Result;
+use bevy::prelude::*;
 use norad::Font as Ufo;
+use std::path::PathBuf;
 
 /// Loads and validates the UFO font file, printing status to console.
 /// Currently loads a test font from the design-assets directory.
@@ -22,8 +23,9 @@ fn load_ufo() {
 /// Attempts to load the UFO font file and returns a Result.
 /// Returns Ok(Ufo) if successful, or an Error if loading fails.
 fn try_load_ufo() -> Result<Ufo> {
-    let path = "assets/fonts/bezy-grotesk-regular.ufo";
-    let ufo = Ufo::load(path)?;
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let font_path = manifest_dir.join("assets/fonts/bezy-grotesk-regular.ufo");
+    let ufo = Ufo::load(font_path)?;
     Ok(ufo)
 }
 

@@ -1,18 +1,23 @@
 // A font editor made with the Bevy game engine.
 
 mod components;
-mod theme;
 mod setup;
+mod theme;
 
+use crate::setup::setup;
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use components::*;
 use theme::*;
-use crate::setup::setup;
 
 fn main() {
     App::new()
         .insert_resource(WinitSettings::desktop_app())
+        // .insert_resource(WinitSettings {
+        //     focused_mode: bevy::winit::UpdateMode::Continuous,
+        //     unfocused_mode: bevy::winit::UpdateMode::Continuous,
+        //     ..default()
+        // })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_plugins({
             let window_config = Window {
@@ -44,6 +49,7 @@ fn main() {
             (
                 button_system,
                 animate_sprite,
+                update_sprite_position,
             ),
         )
         .run();
