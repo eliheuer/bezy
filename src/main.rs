@@ -30,8 +30,19 @@ fn main() {
         })
         .add_systems(
             Startup,
-            (setup, spawn_grid, spawn_path_points, spawn_animated_sprite),
+            (
+                setup,
+                spawn_grid,
+                spawn_path_points,
+                spawn_animated_sprite,
+            ),
         )
-        .add_systems(Update, (button_system, animate_sprite))
+        .add_systems(
+            Update,
+            (
+                button_system,
+                animate_sprite,
+            ),
+        )
         .run();
 }
