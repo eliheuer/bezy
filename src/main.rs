@@ -1,14 +1,18 @@
 // A font editor made with the Bevy game engine.
 
 mod components;
+mod grid;
 mod setup;
+mod stub;
 mod theme;
 
 use crate::setup::setup;
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use components::*;
+use grid::spawn_grid;
 use theme::*;
+use crate::stub::spawn_path_points;
 
 fn main() {
     App::new()
