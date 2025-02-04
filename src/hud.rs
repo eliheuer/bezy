@@ -14,15 +14,15 @@ pub fn button_system(
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
-                border_color.0 = Color::WHITE;
+                border_color.0 = PRESSED_BUTTON_OUTLINE_COLOR;
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();
-                border_color.0 = Color::WHITE;
+                border_color.0 = HOVERED_BUTTON_OUTLINE_COLOR;
             }
             Interaction::None => {
                 *color = NORMAL_BUTTON.into();
-                border_color.0 = Color::WHITE;
+                border_color.0 = NORMAL_BUTTON_OUTLINE_COLOR;
             }
         }
     }

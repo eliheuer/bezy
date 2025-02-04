@@ -94,16 +94,16 @@ pub fn setup(
                     .spawn((
                         Button,
                         Node {
-                            width: Val::Px(60.0),
-                            height: Val::Px(60.0),
-                            margin: UiRect::all(Val::Px(4.0)),
-                            border: UiRect::all(Val::Px(2.0)),
+                            width: Val::Px(32.0),
+                            height: Val::Px(32.0),
+                            margin: UiRect::all(Val::Px(8.0)),
+                            border: UiRect::all(Val::Px(1.0)),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             ..default()
                         },
                         BorderColor(Color::WHITE),
-                        BorderRadius::all(Val::Px(0.0)),
+                        BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
                         BackgroundColor(NORMAL_BUTTON),
                     ))
                     .with_child((
