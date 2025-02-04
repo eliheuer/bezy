@@ -6,19 +6,13 @@ pub struct PressedButtonText;
 
 pub fn button_system(
     mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &mut BorderColor, &Children),
+        (&Interaction, &mut BackgroundColor, &mut BorderColor),
         (Changed<Interaction>, With<Button>),
     >,
-    button_text_query: Query<&Text, Without<PressedButtonText>>,
-    mut center_text_query: Query<&mut Text, With<PressedButtonText>>,
 ) {
-    for (interaction, mut color, mut border_color, children) in &mut interaction_query {
-        let button_text = button_text_query.get(children[0]).unwrap();
+    for (interaction, mut color, mut border_color) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                if let Ok(mut center_text) = center_text_query.get_single_mut() {
-                    *center_text = button_text.clone();
-                }
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = Color::WHITE;
             }

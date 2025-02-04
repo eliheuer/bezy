@@ -46,8 +46,17 @@ fn get_basic_font_info() -> String {
 
 /// Initial setup system that runs on startup.
 /// Spawns the UI camera and creates the font info text display.
-pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+) {
     load_ufo();
+
+    // Load toolbar spritesheet
+    let texture = asset_server.load("raster/icons/main-toolbar.png");
+    let layout = TextureAtlasLayout::from_grid(UVec2::splat(32), 8, 1, None, None);
+    let texture_atlas_layout = texture_atlas_layouts.add(layout);
 
     // Spawn UI camera
     commands.spawn(Camera2d);
@@ -80,8 +89,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
-            // Create 8 buttons showing the tool names
-            for tool in ["Select", "Pen", "Hyper", "Knife", "Pan", "Measure", "Rectangle", "Oval"] {
+            for index in 0..8 {
                 parent
                     .spawn((
                         Button,
@@ -99,13 +107,14 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         BackgroundColor(NORMAL_BUTTON),
                     ))
                     .with_child((
-                        Text::new(tool),
-                        TextFont {
-                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                            font_size: 24.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                        Sprite::from_atlas_image(
+                            texture.clone(),
+                            TextureAtlas {
+                                layout: texture_atlas_layout.clone(),
+                                index,
+                            },
+                        ),
+                        Transform::from_scale(Vec3::splat(1.5)),
                     ));
             }
         });
