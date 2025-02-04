@@ -79,9 +79,9 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
-            // Create 5 buttons showing the letters "A" through "E"
+            // Create 8 buttons showing the letters "A" through "H"
             // Each button is square (60x60 pixels) with a bit of margin.
-            for letter in ["A", "B", "C", "D", "E"] {
+            for letter in ["A", "B", "C", "D", "E", "F", "G", "H"] {
                 parent
                     .spawn((
                         Button,
