@@ -1,8 +1,10 @@
+//! Drawing algorithms and helpers
+
 use bevy::prelude::*;
 
 /// Spawns a grid centered in the window.
 /// Creates both vertical and horizontal lines with semi-transparent gray color.
-pub fn spawn_grid(mut commands: Commands) {
+pub fn draw_grid(mut commands: Commands) {
     // Get window dimensions (using a larger value to ensure coverage)
     let window_width = 2048.0; // Doubled from window width
     let window_height = 1536.0; // Doubled from window height
@@ -36,3 +38,6 @@ pub fn spawn_grid(mut commands: Commands) {
         ));
     }
 }
+
+
+
