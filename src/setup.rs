@@ -3,6 +3,7 @@ use anyhow::Result;
 use bevy::prelude::*;
 use norad::Font as Ufo;
 use std::path::PathBuf;
+use crate::hud::PressedButtonText;
 
 /// Loads and validates the UFO font file, printing status to console.
 /// Currently loads a test font from the design-assets directory.
@@ -79,9 +80,8 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
-            // Create 8 buttons showing the letters "A" through "H"
-            // Each button is square (60x60 pixels) with a bit of margin.
-            for letter in ["A", "B", "C", "D", "E", "F", "G", "H"] {
+            // Create 8 buttons showing the tool names
+            for tool in ["Select", "Pen", "Hyper", "Knife", "Pan", "Measure", "Rectangle", "Oval"] {
                 parent
                     .spawn((
                         Button,
@@ -99,7 +99,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         BackgroundColor(NORMAL_BUTTON),
                     ))
                     .with_child((
-                        Text::new(letter),
+                        Text::new(tool),
                         TextFont {
                             font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
                             font_size: 24.0,
@@ -109,4 +109,26 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ));
             }
         });
+
+    // Add center text display
+    commands.spawn((
+        Text::new(""),
+        TextFont {
+            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+            font_size: 64.0,
+            ..default()
+        },
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Percent(50.0),
+            top: Val::Percent(50.0),
+            // Center the text
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            // Negative margins of half the text size to center it
+            margin: UiRect::new(Val::Px(-200.0), Val::Px(0.0), Val::Px(-32.0), Val::Px(0.0)),
+            ..default()
+        },
+        PressedButtonText,
+    ));
 }

@@ -7,10 +7,11 @@ mod hud;
 mod draw;
 mod camera;
 
-use crate::setup::setup;
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use theme::*;
+
+use crate::setup::setup;
 use crate::stub::{spawn_path_points, animate_sprite, spawn_animated_sprite, update_sprite_position};
 use crate::hud::button_system;
 use crate::draw::draw_grid;
@@ -19,11 +20,6 @@ use crate::camera::{CameraState, camera_zoom};
 fn main() {
     App::new()
         .insert_resource(WinitSettings::desktop_app())
-        // .insert_resource(WinitSettings {
-        //     focused_mode: bevy::winit::UpdateMode::Continuous,
-        //     unfocused_mode: bevy::winit::UpdateMode::Continuous,
-        //     ..default()
-        // })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(CameraState::default())
         .add_plugins({
