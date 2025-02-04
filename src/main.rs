@@ -5,6 +5,7 @@ mod stub;
 mod theme;
 mod hud;
 mod draw;
+mod camera;
 
 use crate::setup::setup;
 use bevy::prelude::*;
@@ -13,6 +14,7 @@ use theme::*;
 use crate::stub::{spawn_path_points, animate_sprite, spawn_animated_sprite, update_sprite_position};
 use crate::hud::button_system;
 use crate::draw::draw_grid;
+use crate::camera::{CameraState, camera_zoom};
 
 fn main() {
     App::new()
@@ -23,6 +25,7 @@ fn main() {
         //     ..default()
         // })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
+        .insert_resource(CameraState::default())
         .add_plugins({
             let window_config = Window {
                 title: "Bezy".into(),
@@ -54,6 +57,7 @@ fn main() {
                 button_system,
                 animate_sprite,
                 update_sprite_position,
+                camera_zoom,
             ),
         )
         .run();
