@@ -1,9 +1,9 @@
+use crate::hud::PressedButtonText;
 use crate::theme::*;
 use anyhow::Result;
 use bevy::prelude::*;
 use norad::Font as Ufo;
 use std::path::PathBuf;
-use crate::hud::PressedButtonText;
 
 /// Loads and validates the UFO font file, printing status to console.
 /// Currently loads a test font from the design-assets directory.

@@ -1,6 +1,6 @@
+use crate::theme::*;
 use bevy::prelude::*;
 use rand::Rng;
-use crate::theme::*;
 
 // Component to mark our path points
 #[derive(Component)]
@@ -123,7 +123,7 @@ pub fn update_sprite_position(
     let window = window_query.single();
     let margin = 32.0;
     let sprite_size = 24.0 * 6.0;
-    
+
     for mut transform in &mut sprite_query {
         transform.translation.x = window.width() / 2.0 - margin - sprite_size / 2.0;
         transform.translation.y = -window.height() / 2.0 + margin + sprite_size / 2.0;

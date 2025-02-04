@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::theme::*;
+use bevy::prelude::*;
 
 #[derive(Component)]
 pub struct PressedButtonText;

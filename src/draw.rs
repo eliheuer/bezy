@@ -38,6 +38,3 @@ pub fn draw_grid(mut commands: Commands) {
         ));
     }
 }
-
-
-

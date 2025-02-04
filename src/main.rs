@@ -1,21 +1,23 @@
 // A font editor made with the Bevy game engine.
 
+mod camera;
+mod draw;
+mod hud;
 mod setup;
 mod stub;
 mod theme;
-mod hud;
-mod draw;
-mod camera;
 
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use theme::*;
 
-use crate::setup::setup;
-use crate::stub::{spawn_path_points, animate_sprite, spawn_animated_sprite, update_sprite_position};
-use crate::hud::button_system;
+use crate::camera::{camera_zoom, CameraState};
 use crate::draw::draw_grid;
-use crate::camera::{CameraState, camera_zoom};
+use crate::hud::button_system;
+use crate::setup::setup;
+use crate::stub::{
+    animate_sprite, spawn_animated_sprite, spawn_path_points, update_sprite_position,
+};
 
 fn main() {
     App::new()
@@ -40,12 +42,7 @@ fn main() {
         })
         .add_systems(
             Startup,
-            (
-                setup,
-                spawn_path_points,
-                spawn_animated_sprite,
-                draw_grid,
-            ),
+            (setup, spawn_path_points, spawn_animated_sprite, draw_grid),
         )
         .add_systems(
             Update,
