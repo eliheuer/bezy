@@ -56,7 +56,13 @@ pub fn create_app() -> App {
                 update_sprite_position,
                 camera_zoom,
                 update_debug_text,
+                handle_edit_mode,
             ),
         );
     app
+}
+
+fn handle_edit_mode(mut commands: Commands, current_mode: Res<CurrentEditMode>) {
+    let system = current_mode.0.get_system();
+    system.update(&mut commands);
 }

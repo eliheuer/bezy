@@ -1,3 +1,4 @@
+use crate::main_toolbar::*;
 use crate::theme::*;
 use bevy::prelude::*;
 
@@ -18,6 +19,21 @@ pub enum EditMode {
     Measure,
     Square,
     Circle,
+}
+
+impl EditMode {
+    pub fn get_system(&self) -> Box<dyn EditModeSystem> {
+        match self {
+            EditMode::Select => Box::new(SelectMode),
+            EditMode::Pen => Box::new(PenMode),
+            EditMode::Hyper => Box::new(HyperMode),
+            EditMode::Knife => Box::new(KnifeMode),
+            EditMode::Pan => Box::new(PanMode),
+            EditMode::Measure => Box::new(MeasureMode),
+            EditMode::Square => Box::new(SquareMode),
+            EditMode::Circle => Box::new(CircleMode),
+        }
+    }
 }
 
 #[derive(Resource, Default)]
