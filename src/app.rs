@@ -11,6 +11,8 @@ use crate::stub::{
 use crate::theme::BACKGROUND_COLOR;
 
 pub fn create_app() -> App {
+    let mut app = App::new();
+
     let window_config = Window {
         title: "Bezy".into(),
         resolution: (1024., 768.).into(),
@@ -22,15 +24,13 @@ pub fn create_app() -> App {
         ..default()
     };
 
-    let mut app = App::new();
-    
     app.insert_resource(WinitSettings::desktop_app())
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(CameraState::default())
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())
-                .set(window_plugin)
+                .set(window_plugin),
         )
         .add_systems(
             Startup,
@@ -45,6 +45,5 @@ pub fn create_app() -> App {
                 camera_zoom,
             ),
         );
-
     app
-} 
+}
