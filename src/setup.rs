@@ -5,8 +5,6 @@ use bevy::prelude::*;
 use norad::Font as Ufo;
 use std::path::PathBuf;
 
-/// Loads and validates the UFO font file, printing status to console.
-/// Currently loads a test font from the design-assets directory.
 fn load_ufo() {
     match try_load_ufo() {
         Ok(ufo) => {
@@ -61,7 +59,7 @@ pub fn setup(
     // Spawn UI camera
     commands.spawn(Camera2d);
 
-    // Spawn your font info text (unchanged)
+    // Temporary text for debugging
     commands.spawn((
         Text::new(get_basic_font_info()),
         TextFont {
@@ -77,7 +75,7 @@ pub fn setup(
         },
     ));
 
-    // Spawn a container for the buttons in the upper left corner.
+    // Spawn a container for the main toolbar buttons in the upper left corner.
     // We set its flex direction to Row so its children are arranged horizontally.
     commands
         .spawn(Node {
@@ -94,10 +92,11 @@ pub fn setup(
                     .spawn((
                         Button,
                         Node {
-                            width: Val::Px(32.0),
-                            height: Val::Px(32.0),
-                            margin: UiRect::all(Val::Px(8.0)),
-                            border: UiRect::all(Val::Px(1.0)),
+                            width: Val::Px(64.0),
+                            height: Val::Px(64.0),
+                            padding: UiRect::all(Val::Px(4.0)),
+                            margin: UiRect::all(Val::Px(4.0)),
+                            border: UiRect::all(Val::Px(2.0)),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             ..default()
@@ -114,30 +113,23 @@ pub fn setup(
                                 index,
                             },
                         ),
-                        Transform::from_scale(Vec3::splat(1.5)),
+                        Transform::from_scale(Vec3::splat(4.0)),
                     ));
             }
         });
 
-    // Add center text display
     commands.spawn((
-        Text::new(""),
+        Text::new("\u{E000}"),
         TextFont {
             font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-            font_size: 64.0,
+            font_size: 768.0,
             ..default()
         },
         Node {
             position_type: PositionType::Absolute,
-            left: Val::Percent(50.0),
-            top: Val::Percent(50.0),
-            // Center the text
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            // Negative margins of half the text size to center it
-            margin: UiRect::new(Val::Px(-200.0), Val::Px(0.0), Val::Px(-32.0), Val::Px(0.0)),
+            top: Val::Px(-256.0),
+            right: Val::Px(16.0),
             ..default()
         },
-        PressedButtonText,
     ));
 }
