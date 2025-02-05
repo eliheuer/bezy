@@ -1,4 +1,9 @@
-// A font editor made with the Bevy game engine.
+// A font editor made with Rust and the Bevy game engine.
+//     +y
+//      ↑
+// -x ←-+-> +x
+//      ↓
+//     -y
 
 mod app;
 mod camera;

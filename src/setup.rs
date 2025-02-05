@@ -1,41 +1,6 @@
-use crate::hud::PressedButtonText;
-use crate::theme::*;
-use anyhow::Result;
 use bevy::prelude::*;
-use norad::Font as Ufo;
-use std::path::PathBuf;
-
-fn load_ufo() {
-    match try_load_ufo() {
-        Ok(ufo) => {
-            let family_name = ufo.font_info.family_name.unwrap_or_default();
-            let style_name = ufo.font_info.style_name.unwrap_or_default();
-            println!(
-                "Successfully loaded UFO font: {} {}",
-                family_name, style_name
-            );
-        }
-        Err(e) => eprintln!("Error loading UFO file: {:?}", e),
-    }
-}
-
-fn try_load_ufo() -> Result<Ufo> {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let font_path = manifest_dir.join("assets/fonts/bezy-grotesk-regular.ufo");
-    let ufo = Ufo::load(font_path)?;
-    Ok(ufo)
-}
-
-fn get_basic_font_info() -> String {
-    match try_load_ufo() {
-        Ok(ufo) => {
-            let family_name = ufo.font_info.family_name.unwrap_or_default();
-            let style_name = ufo.font_info.style_name.unwrap_or_default();
-            format!("{} {}", family_name, style_name)
-        }
-        Err(e) => format!("Error loading font: {:?}", e),
-    }
-}
+use crate::theme::*;
+use crate::stub::load_ufo;
 
 /// Initial setup system that runs on startup.
 pub fn setup(
@@ -53,7 +18,7 @@ pub fn setup(
     // Spawn UI camera
     commands.spawn(Camera2d);
 
-    // Temporary text for debugging
+/*     // Temporary text for debugging
     commands.spawn((
         Text::new(get_basic_font_info()),
         TextFont {
@@ -68,7 +33,7 @@ pub fn setup(
             ..default()
         },
     ));
-
+ */
     // Spawn a container for the main toolbar buttons in the upper left corner.
     // We set its flex direction to Row so its children are arranged horizontally.
     commands

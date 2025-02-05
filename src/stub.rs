@@ -1,6 +1,9 @@
 use crate::theme::*;
 use bevy::prelude::*;
 use rand::Rng;
+use anyhow::Result;
+use norad::Font as Ufo;
+use std::path::PathBuf;
 
 #[derive(Component)]
 pub struct PathPoint;
@@ -14,14 +17,18 @@ pub struct AnimationIndices {
 #[derive(Component, Deref, DerefMut)]
 pub struct AnimationTimer(Timer);
 
+fn green(text: String) -> String {
+    format!("\x1b[32m{}\x1b[0m", text)
+}
+
 pub fn spawn_path_points(mut commands: Commands) {
     let mut rng = rand::thread_rng();
 
     // Generate random points within a reasonable area
     let points: Vec<(Entity, Vec2)> = (0..NUM_POINTS)
         .map(|_| {
-            let x = rng.gen_range(-300.0..300.0);
-            let y = rng.gen_range(-200.0..200.0);
+            let x = rng.gen_range(-512.0..512.0);
+            let y = rng.gen_range(-256.0..256.0);
             let position = Vec2::new(x, y);
 
             let entity = commands
@@ -96,15 +103,11 @@ pub fn spawn_animated_sprite(
     let animation_indices = AnimationIndices { first: 1, last: 6 };
 
     // Calculate position based on window size and margins
-    let margin = 16.0;
-    let sprite_size = 24.0 * 8.0;
-    let x_pos = window.width() / 2.0 - margin - sprite_size / 2.0;
-    let y_pos = -window.height() / 2.0 + margin + sprite_size / 2.0;
+    let x_pos = window.width() / 2.0;
+    let y_pos = -window.height() / 2.0;
 
-    println!("Window dimensions: {}x{}", window.width(), window.height());
-    println!("Sprite position: ({}, {})", x_pos, y_pos);
-    println!("Sprite size: {}", sprite_size);
-    println!("Margin: {}", margin);
+    println!("{}", green(format!("Window dimensions: {}x{}", window.width(), window.height())));
+    println!("{}", green(format!("Sprite position: ({}, {})", x_pos, y_pos)));
 
     commands.spawn((
         Sprite::from_atlas_image(
@@ -114,7 +117,7 @@ pub fn spawn_animated_sprite(
                 index: animation_indices.first,
             },
         ),
-        Transform::from_xyz(x_pos, y_pos, 2.0).with_scale(Vec3::splat(8.0)),
+        Transform::from_xyz(x_pos, y_pos, 2.0).with_scale(Vec3::splat(16.0)),
         animation_indices,
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
     ));
@@ -132,4 +135,53 @@ pub fn update_sprite_position(
         transform.translation.x = window.width() / 2.0 - margin - sprite_size / 2.0;
         transform.translation.y = -window.height() / 2.0 + margin + sprite_size / 2.0;
     }
+}
+
+pub fn load_ufo() {
+    match try_load_ufo() {
+        Ok(ufo) => {
+            let family_name = ufo.font_info.family_name.unwrap_or_default();
+            let style_name = ufo.font_info.style_name.unwrap_or_default();
+            println!(
+                "Successfully loaded UFO font: {} {}",
+                family_name, style_name
+            );
+        }
+        Err(e) => eprintln!("Error loading UFO file: {:?}", e),
+    }
+}
+
+fn try_load_ufo() -> Result<Ufo> {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let font_path = manifest_dir.join("assets/fonts/bezy-grotesk-regular.ufo");
+    let ufo = Ufo::load(font_path)?;
+    Ok(ufo)
+}
+
+fn get_basic_font_info() -> String {
+    match try_load_ufo() {
+        Ok(ufo) => {
+            let family_name = ufo.font_info.family_name.unwrap_or_default();
+            let style_name = ufo.font_info.style_name.unwrap_or_default();
+            format!("{} {}", family_name, style_name)
+        }
+        Err(e) => format!("Error loading font: {:?}", e),
+    }
+}
+
+pub fn spawn_debug_text(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn((
+        Text::new(get_basic_font_info()),
+        TextFont {
+            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+            font_size: 64.0,
+            ..default()
+        },
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(16.0),
+            left: Val::Px(32.0),
+            ..default()
+        },
+    ));
 }
