@@ -4,13 +4,13 @@ use bevy::winit::WinitSettings;
 
 use crate::camera::{camera_zoom, CameraState};
 use crate::draw::draw_grid;
-use crate::hud::button_system;
 use crate::setup::setup;
 use crate::stub::{
     animate_sprite, spawn_animated_sprite, spawn_debug_text, spawn_path_points,
     update_sprite_position,
 };
 use crate::theme::BACKGROUND_COLOR;
+use crate::toolbar::main_toolbar_button_system;
 
 pub fn create_app() -> App {
     let mut app = App::new();
@@ -47,7 +47,7 @@ pub fn create_app() -> App {
         .add_systems(
             Update,
             (
-                button_system,
+                main_toolbar_button_system,
                 animate_sprite,
                 update_sprite_position,
                 camera_zoom,
