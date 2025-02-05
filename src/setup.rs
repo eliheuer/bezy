@@ -19,8 +19,6 @@ fn load_ufo() {
     }
 }
 
-/// Attempts to load the UFO font file and returns a Result.
-/// Returns Ok(Ufo) if successful, or an Error if loading fails.
 fn try_load_ufo() -> Result<Ufo> {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let font_path = manifest_dir.join("assets/fonts/bezy-grotesk-regular.ufo");
@@ -28,9 +26,6 @@ fn try_load_ufo() -> Result<Ufo> {
     Ok(ufo)
 }
 
-/// Retrieves basic font information as a formatted string.
-/// Returns a string containing the font family name and style,
-/// or an error message if the font cannot be loaded.
 fn get_basic_font_info() -> String {
     match try_load_ufo() {
         Ok(ufo) => {
@@ -43,7 +38,6 @@ fn get_basic_font_info() -> String {
 }
 
 /// Initial setup system that runs on startup.
-/// Spawns the UI camera and creates the font info text display.
 pub fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -94,7 +88,7 @@ pub fn setup(
                         Node {
                             width: Val::Px(64.0),
                             height: Val::Px(64.0),
-                            padding: UiRect::all(Val::Px(4.0)),
+                            padding: UiRect::all(Val::Px(0.0)),
                             margin: UiRect::all(Val::Px(4.0)),
                             border: UiRect::all(Val::Px(2.0)),
                             justify_content: JustifyContent::Center,
@@ -113,7 +107,7 @@ pub fn setup(
                                 index,
                             },
                         ),
-                        Transform::from_scale(Vec3::splat(4.0)),
+                        Transform::from_scale(Vec3::splat(1.0)),
                     ));
             }
         });
