@@ -58,13 +58,11 @@ pub fn spawn_main_toolbar(
 
                 parent
                     .spawn(Node {
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Center,
                         margin: UiRect::all(Val::Px(4.0)),
                         ..default()
                     })
                     .with_children(|button_container| {
-                        // Spawn the button
+                        // Spawn the button with both icon and text
                         button_container
                             .spawn((
                                 Button,
@@ -83,23 +81,26 @@ pub fn spawn_main_toolbar(
                                 BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
                                 BackgroundColor(NORMAL_BUTTON),
                             ))
-                            .with_child(Sprite::from_atlas_image(
-                                texture.clone(),
-                                TextureAtlas {
-                                    layout: texture_atlas_layout.clone(),
-                                    index,
-                                },
-                            ));
-
-                        // Spawn the label text
-                        button_container.spawn((
-                            Text::new(button_name.to_string()),
-                            TextFont {
-                                font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                                font_size: 14.0,
-                                ..default()
-                            },
-                        ));
+                            .with_children(|button| {
+                                // Add the sprite
+                                button.spawn(Sprite::from_atlas_image(
+                                    texture.clone(),
+                                    TextureAtlas {
+                                        layout: texture_atlas_layout.clone(),
+                                        index,
+                                    },
+                                ));
+                                
+                                // Add the text label
+                                button.spawn((
+                                    Text::new(button_name.to_string()),
+                                    TextFont {
+                                        font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                                        font_size: 14.0,
+                                        ..default()
+                                    },
+                                ));
+                            });
                     });
             }
         });
