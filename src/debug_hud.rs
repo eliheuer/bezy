@@ -1,7 +1,7 @@
 // A hud for debugging
 
-use bevy::prelude::*;
 use crate::toolbar::CurrentEditMode;
+use bevy::prelude::*;
 
 #[derive(Component)]
 pub struct DebugText;

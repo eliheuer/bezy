@@ -90,7 +90,7 @@ pub fn spawn_main_toolbar(
                                         index,
                                     },
                                 ));
-                                
+
                                 // Add the text label
                                 button.spawn((
                                     Text::new(button_name.to_string()),
@@ -108,13 +108,18 @@ pub fn spawn_main_toolbar(
 
 pub fn main_toolbar_button_system(
     mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &mut BorderColor, &ButtonName),
+        (
+            &Interaction,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &ButtonName,
+        ),
         With<MainToolbarButton>,
     >,
     mut current_mode: ResMut<CurrentEditMode>,
 ) {
     // First handle any new interactions
-    for (interaction, mut color, mut border_color, button_name) in &mut interaction_query {
+    for (interaction, _color, _border_color, button_name) in &mut interaction_query {
         if *interaction == Interaction::Pressed {
             // Update the current edit mode based on the button pressed
             let new_mode = match button_name.0.as_str() {

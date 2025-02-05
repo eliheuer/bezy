@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 
 use crate::camera::{camera_zoom, CameraState};
+use crate::debug_hud::{spawn_debug_hud, update_debug_text};
 use crate::draw::draw_grid;
 use crate::setup::setup;
 use crate::stub::{
@@ -12,7 +13,6 @@ use crate::stub::{
 use crate::theme::BACKGROUND_COLOR;
 use crate::toolbar::main_toolbar_button_system;
 use crate::toolbar::CurrentEditMode;
-use crate::debug_hud::{spawn_debug_hud, update_debug_text};
 
 pub fn create_app() -> App {
     let mut app = App::new();
