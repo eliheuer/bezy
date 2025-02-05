@@ -1,7 +1,5 @@
 # Prefix: Languagesystems
-# automatic
 languagesystem DFLT dflt;
-
 languagesystem arab dflt;
 
 feature aalt {
