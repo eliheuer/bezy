@@ -12,6 +12,7 @@ use crate::stub::{
 use crate::theme::BACKGROUND_COLOR;
 use crate::toolbar::main_toolbar_button_system;
 use crate::toolbar::CurrentEditMode;
+use crate::debug_hud::{spawn_debug_hud, update_debug_text};
 
 pub fn create_app() -> App {
     let mut app = App::new();
@@ -43,6 +44,7 @@ pub fn create_app() -> App {
                 spawn_path_points,
                 spawn_animated_sprite,
                 spawn_debug_text,
+                spawn_debug_hud,
                 draw_grid,
             ),
         )
@@ -53,6 +55,7 @@ pub fn create_app() -> App {
                 animate_sprite,
                 update_sprite_position,
                 camera_zoom,
+                update_debug_text,
             ),
         );
     app

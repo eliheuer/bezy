@@ -8,6 +8,7 @@ mod setup;
 mod stub;
 mod theme;
 mod toolbar;
+mod debug_hud;
 
 fn main() {
     app::create_app().run();
