@@ -1,6 +1,6 @@
-use bevy::prelude::*;
-use crate::theme::*;
 use crate::stub::load_ufo;
+use crate::theme::*;
+use bevy::prelude::*;
 
 /// Initial setup system that runs on startup.
 pub fn setup(
@@ -18,22 +18,22 @@ pub fn setup(
     // Spawn UI camera
     commands.spawn(Camera2d);
 
-/*     // Temporary text for debugging
-    commands.spawn((
-        Text::new(get_basic_font_info()),
-        TextFont {
-            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-            font_size: 64.0,
-            ..default()
-        },
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(16.0),
-            left: Val::Px(32.0),
-            ..default()
-        },
-    ));
- */
+    /*     // Temporary text for debugging
+       commands.spawn((
+           Text::new(get_basic_font_info()),
+           TextFont {
+               font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+               font_size: 64.0,
+               ..default()
+           },
+           Node {
+               position_type: PositionType::Absolute,
+               bottom: Val::Px(16.0),
+               left: Val::Px(32.0),
+               ..default()
+           },
+       ));
+    */
     // Spawn a container for the main toolbar buttons in the upper left corner.
     // We set its flex direction to Row so its children are arranged horizontally.
     commands

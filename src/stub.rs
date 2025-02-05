@@ -1,8 +1,8 @@
 use crate::theme::*;
-use bevy::prelude::*;
-use rand::Rng;
 use anyhow::Result;
+use bevy::prelude::*;
 use norad::Font as Ufo;
+use rand::Rng;
 use std::path::PathBuf;
 
 #[derive(Component)]
@@ -106,8 +106,18 @@ pub fn spawn_animated_sprite(
     let x_pos = window.width() / 2.0;
     let y_pos = -window.height() / 2.0;
 
-    println!("{}", green(format!("Window dimensions: {}x{}", window.width(), window.height())));
-    println!("{}", green(format!("Sprite position: ({}, {})", x_pos, y_pos)));
+    println!(
+        "{}",
+        green(format!(
+            "Window dimensions: {}x{}",
+            window.width(),
+            window.height()
+        ))
+    );
+    println!(
+        "{}",
+        green(format!("Sprite position: ({}, {})", x_pos, y_pos))
+    );
 
     commands.spawn((
         Sprite::from_atlas_image(
