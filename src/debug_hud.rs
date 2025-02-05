@@ -12,13 +12,13 @@ pub fn spawn_debug_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new(""),
         TextFont {
             font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-            font_size: 96.0,
+            font_size: 32.0,
             ..default()
         },
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(512.0),
-            left: Val::Px(16.0),
+            top: Val::Px(128.0 - 16.0),
+            left: Val::Px(36.0),
             ..default()
         },
     ));
