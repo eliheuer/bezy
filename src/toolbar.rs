@@ -30,13 +30,13 @@ pub fn spawn_main_toolbar(
             for index in 0..8 {
                 let button_name = match index {
                     0 => "Select",
-                    1 => "Draw",
-                    2 => "Scale",
-                    3 => "Rotate",
-                    4 => "Move",
-                    5 => "Add",
-                    6 => "Delete",
-                    7 => "Settings",
+                    1 => "Pen",
+                    2 => "Hyper",
+                    3 => "Knife",
+                    4 => "Pan",
+                    5 => "Measure",
+                    6 => "Square",
+                    7 => "Circle",
                     _ => "Unknown",
                 };
 
