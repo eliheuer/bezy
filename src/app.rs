@@ -11,6 +11,7 @@ use crate::stub::{
 };
 use crate::theme::BACKGROUND_COLOR;
 use crate::toolbar::main_toolbar_button_system;
+use crate::toolbar::CurrentEditMode;
 
 pub fn create_app() -> App {
     let mut app = App::new();
@@ -29,6 +30,7 @@ pub fn create_app() -> App {
     app.insert_resource(WinitSettings::desktop_app())
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(CameraState::default())
+        .insert_resource(CurrentEditMode::default())
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())

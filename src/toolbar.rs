@@ -7,6 +7,22 @@ pub struct MainToolbarButton;
 #[derive(Component)]
 pub struct ButtonName(pub String);
 
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
+pub enum EditMode {
+    #[default]
+    Select,
+    Pen,
+    Hyper,
+    Knife,
+    Pan,
+    Measure,
+    Square,
+    Circle,
+}
+
+#[derive(Resource, Default)]
+pub struct CurrentEditMode(pub EditMode);
+
 pub fn spawn_main_toolbar(
     commands: &mut Commands,
     asset_server: &AssetServer,
@@ -91,21 +107,54 @@ pub fn spawn_main_toolbar(
 
 pub fn main_toolbar_button_system(
     mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &mut BorderColor),
-        (Changed<Interaction>, With<MainToolbarButton>),
+        (&Interaction, &mut BackgroundColor, &mut BorderColor, &ButtonName),
+        With<MainToolbarButton>,
     >,
+    mut current_mode: ResMut<CurrentEditMode>,
 ) {
-    for (interaction, mut color, mut border_color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
+    // First handle any new interactions
+    for (interaction, mut color, mut border_color, button_name) in &mut interaction_query {
+        if *interaction == Interaction::Pressed {
+            // Update the current edit mode based on the button pressed
+            let new_mode = match button_name.0.as_str() {
+                "Select" => EditMode::Select,
+                "Pen" => EditMode::Pen,
+                "Hyper" => EditMode::Hyper,
+                "Knife" => EditMode::Knife,
+                "Pan" => EditMode::Pan,
+                "Measure" => EditMode::Measure,
+                "Square" => EditMode::Square,
+                "Circle" => EditMode::Circle,
+                _ => EditMode::Select,
+            };
+            current_mode.0 = new_mode;
+        }
+    }
+
+    // Then update all button appearances based on the current mode
+    for (interaction, mut color, mut border_color, button_name) in &mut interaction_query {
+        let is_current_mode = match button_name.0.as_str() {
+            "Select" => current_mode.0 == EditMode::Select,
+            "Pen" => current_mode.0 == EditMode::Pen,
+            "Hyper" => current_mode.0 == EditMode::Hyper,
+            "Knife" => current_mode.0 == EditMode::Knife,
+            "Pan" => current_mode.0 == EditMode::Pan,
+            "Measure" => current_mode.0 == EditMode::Measure,
+            "Square" => current_mode.0 == EditMode::Square,
+            "Circle" => current_mode.0 == EditMode::Circle,
+            _ => false,
+        };
+
+        match (*interaction, is_current_mode) {
+            (Interaction::Pressed, _) | (_, true) => {
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = PRESSED_BUTTON_OUTLINE_COLOR;
             }
-            Interaction::Hovered => {
+            (Interaction::Hovered, false) => {
                 *color = HOVERED_BUTTON.into();
                 border_color.0 = HOVERED_BUTTON_OUTLINE_COLOR;
             }
-            Interaction::None => {
+            (Interaction::None, false) => {
                 *color = NORMAL_BUTTON.into();
                 border_color.0 = NORMAL_BUTTON_OUTLINE_COLOR;
             }
