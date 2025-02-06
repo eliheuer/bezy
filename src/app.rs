@@ -2,7 +2,7 @@
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 
-use crate::camera::{camera_zoom, CameraState};
+use crate::camera::{camera_zoom, camera_pan, CameraState};
 use crate::debug_hud::{spawn_debug_hud, update_debug_text};
 use crate::draw::draw_grid;
 use crate::setup::setup;
@@ -55,6 +55,7 @@ pub fn create_app() -> App {
                 animate_sprite,
                 update_sprite_position,
                 camera_zoom,
+                camera_pan,
                 update_debug_text,
                 handle_edit_mode,
             ),
