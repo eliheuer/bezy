@@ -30,7 +30,11 @@
       <point x="192" y="72" type="curve" smooth="yes"/>
       <point x="0" y="72" type="line"/>
     </contour>
-    <component base="behDotless-ar.init"/>
-    <component base="dotbelow-ar"/>
   </outline>
+  <lib>
+    <dict>
+      <key>com.schriftgestaltung.Glyphs.lastChange</key>
+      <string>2025-02-06 21:26:43 +0000</string>
+    </dict>
+  </lib>
 </glyph>

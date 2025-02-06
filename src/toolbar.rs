@@ -183,3 +183,8 @@ pub fn main_toolbar_button_system(
         }
     }
 }
+
+pub fn handle_edit_mode(mut commands: Commands, current_mode: Res<CurrentEditMode>) {
+    let system = current_mode.0.get_system();
+    system.update(&mut commands);
+}

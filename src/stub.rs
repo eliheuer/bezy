@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use norad::Font as Ufo;
 use rand::Rng;
 use std::path::PathBuf;
+use std::env;
 
 #[derive(Component)]
 pub struct PathPoint;
@@ -148,7 +149,7 @@ pub fn update_sprite_position(
 }
 
 pub fn load_ufo() {
-    match try_load_ufo() {
+    match load_ufo_from_args() {
         Ok(ufo) => {
             let family_name = ufo.font_info.family_name.unwrap_or_default();
             let style_name = ufo.font_info.style_name.unwrap_or_default();
@@ -158,24 +159,6 @@ pub fn load_ufo() {
             );
         }
         Err(e) => eprintln!("Error loading UFO file: {:?}", e),
-    }
-}
-
-fn try_load_ufo() -> Result<Ufo> {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let font_path = manifest_dir.join("assets/fonts/bezy-grotesk-regular.ufo");
-    let ufo = Ufo::load(font_path)?;
-    Ok(ufo)
-}
-
-fn get_basic_font_info() -> String {
-    match try_load_ufo() {
-        Ok(ufo) => {
-            let family_name = ufo.font_info.family_name.unwrap_or_default();
-            let style_name = ufo.font_info.style_name.unwrap_or_default();
-            format!("{} {}", family_name, style_name)
-        }
-        Err(e) => format!("Error loading font: {:?}", e),
     }
 }
 
@@ -194,4 +177,44 @@ pub fn spawn_debug_text(mut commands: Commands, asset_server: Res<AssetServer>) 
             ..default()
         },
     ));
+    commands.spawn((
+        Text::new("أشهد يا إلهي"),
+        TextFont {
+            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+            font_size: 64.0,
+            ..default()
+        },
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(16.0),
+            right: Val::Px(32.0),
+            ..default()
+        },
+    ));
+}
+
+pub fn load_ufo_from_args() -> Result<Ufo, Box<dyn std::error::Error>> {
+    let args: Vec<String> = env::args().collect();
+    
+    if args.len() != 2 {
+        return Err("Usage: program <path-to-ufo-file>".into());
+    }
+    
+    let font_path = PathBuf::from(&args[1]);
+    if !font_path.exists() {
+        return Err(format!("File not found: {}", font_path.display()).into());
+    }
+    
+    Ok(Ufo::load(font_path)?)
+}
+
+fn get_basic_font_info() -> String {
+    match load_ufo_from_args() {
+        Ok(ufo) => {
+            let family_name = ufo.font_info.family_name.unwrap_or_default();
+            let style_name = ufo.font_info.style_name.unwrap_or_default();
+            format!("UFO: {} {}", family_name, style_name)
+        }
+        Err(e) => format!("UFO: Error loading font: {:?}", e),
+    }
 }

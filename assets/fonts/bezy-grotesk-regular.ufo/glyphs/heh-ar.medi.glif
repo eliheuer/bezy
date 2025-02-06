@@ -10,8 +10,6 @@
       <point x="72" y="-8" type="line"/>
       <point x="64" y="0" type="line"/>
       <point x="0" y="0" type="line"/>
-      <point x="-16" y="16" type="line"/>
-      <point x="-16" y="92" type="line"/>
       <point x="0" y="108" type="line"/>
       <point x="64" y="108" type="line"/>
       <point x="72" y="116" type="line"/>
@@ -71,4 +69,10 @@
       <point x="204" y="-156"/>
     </contour>
   </outline>
+  <lib>
+    <dict>
+      <key>com.schriftgestaltung.Glyphs.lastChange</key>
+      <string>2025-02-06 21:54:10 +0000</string>
+    </dict>
+  </lib>
 </glyph>

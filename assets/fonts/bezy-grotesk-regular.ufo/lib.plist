@@ -4,8 +4,10 @@
   <dict>
     <key>com.schriftgestaltung.DisplayStrings</key>
     <array>
-      <string>غ</string>
-      <string>/E000</string>
+      <string>أشهد يا إلهي </string>
+      <string> UFO: Bezy Grotesk Regular </string>
+      <string>I</string>
+      <string>:</string>
     </array>
     <key>com.schriftgestaltung.appVersion</key>
     <string>3337</string>
@@ -278,6 +280,10 @@
       <string>decimalseparator-ar</string>
       <string>thousandseparator-ar</string>
     </array>
+    <key>com.schriftgestaltung.keyboardIncrementBig</key>
+    <integer>8</integer>
+    <key>com.schriftgestaltung.keyboardIncrementHuge</key>
+    <integer>16</integer>
     <key>com.schriftgestaltung.useNiceNames</key>
     <false/>
     <key>public.glyphOrder</key>
@@ -544,6 +550,21 @@
       <string>nine-ar</string>
       <string>decimalseparator-ar</string>
       <string>thousandseparator-ar</string>
+      <string>period</string>
+      <string>comma</string>
+      <string>colon</string>
+      <string>semicolon</string>
+      <string>ellipsis</string>
+      <string>exclam</string>
+      <string>exclamdown</string>
+      <string>question</string>
+      <string>questiondown</string>
+      <string>periodcentered</string>
+      <string>bullet</string>
+      <string>asterisk</string>
+      <string>numbersign</string>
+      <string>slash</string>
+      <string>backslash</string>
       <string>E000</string>
     </array>
     <key>public.postscriptNames</key>

@@ -94,10 +94,14 @@
     <string>alefabove-ar.glif</string>
     <key>alefbelow-ar</key>
     <string>alefbelow-ar.glif</string>
+    <key>asterisk</key>
+    <string>asterisk.glif</string>
     <key>asterisk-ar</key>
     <string>asterisk-ar.glif</string>
     <key>b</key>
     <string>b.glif</string>
+    <key>backslash</key>
+    <string>backslash.glif</string>
     <key>beh-ar</key>
     <string>beh-ar.glif</string>
     <key>beh-ar.fina</key>
@@ -114,8 +118,14 @@
     <string>behD_otless-ar.init.glif</string>
     <key>behDotless-ar.medi</key>
     <string>behD_otless-ar.medi.glif</string>
+    <key>bullet</key>
+    <string>bullet.glif</string>
     <key>c</key>
     <string>c.glif</string>
+    <key>colon</key>
+    <string>colon.glif</string>
+    <key>comma</key>
+    <string>comma.glif</string>
     <key>comma-ar</key>
     <string>comma-ar.glif</string>
     <key>d</key>
@@ -150,6 +160,12 @@
     <string>e.glif</string>
     <key>eight-ar</key>
     <string>eight-ar.glif</string>
+    <key>ellipsis</key>
+    <string>ellipsis.glif</string>
+    <key>exclam</key>
+    <string>exclam.glif</string>
+    <key>exclamdown</key>
+    <string>exclamdown.glif</string>
     <key>f</key>
     <string>f.glif</string>
     <key>fatha-ar</key>
@@ -324,6 +340,8 @@
     <string>noonghunna-ar.glif</string>
     <key>noonghunna-ar.fina</key>
     <string>noonghunna-ar.fina.glif</string>
+    <key>numbersign</key>
+    <string>numbersign.glif</string>
     <key>o</key>
     <string>o.glif</string>
     <key>one-ar</key>
@@ -336,6 +354,10 @@
     <string>parenright-ar.glif</string>
     <key>percent-ar</key>
     <string>percent-ar.glif</string>
+    <key>period</key>
+    <string>period.glif</string>
+    <key>periodcentered</key>
+    <string>periodcentered.glif</string>
     <key>q</key>
     <string>q.glif</string>
     <key>qaf-ar</key>
@@ -350,8 +372,12 @@
     <string>qafD_otless-ar.glif</string>
     <key>qafDotless-ar.fina</key>
     <string>qafD_otless-ar.fina.glif</string>
+    <key>question</key>
+    <string>question.glif</string>
     <key>question-ar</key>
     <string>question-ar.glif</string>
+    <key>questiondown</key>
+    <string>questiondown.glif</string>
     <key>r</key>
     <string>r.glif</string>
     <key>reh-ar</key>
@@ -376,6 +402,8 @@
     <string>seen-ar.init.glif</string>
     <key>seen-ar.medi</key>
     <string>seen-ar.medi.glif</string>
+    <key>semicolon</key>
+    <string>semicolon.glif</string>
     <key>semicolon-ar</key>
     <string>semicolon-ar.glif</string>
     <key>seven-ar</key>
@@ -406,6 +434,8 @@
     <string>sheen-ar.medi.glif</string>
     <key>six-ar</key>
     <string>six-ar.glif</string>
+    <key>slash</key>
+    <string>slash.glif</string>
     <key>space</key>
     <string>space.glif</string>
     <key>sukun-ar</key>

@@ -11,15 +11,14 @@ use crate::stub::{
     update_sprite_position,
 };
 use crate::theme::BACKGROUND_COLOR;
-use crate::toolbar::main_toolbar_button_system;
-use crate::toolbar::CurrentEditMode;
+use crate::toolbar::{main_toolbar_button_system, handle_edit_mode, CurrentEditMode};
 
 pub fn create_app() -> App {
     let mut app = App::new();
 
     let window_config = Window {
         title: "Bezy".into(),
-        resolution: (1024., 768.).into(),
+        resolution: (1024. + 256., 768.).into(),
         ..default()
     };
 
@@ -61,9 +60,4 @@ pub fn create_app() -> App {
             ),
         );
     app
-}
-
-fn handle_edit_mode(mut commands: Commands, current_mode: Res<CurrentEditMode>) {
-    let system = current_mode.0.get_system();
-    system.update(&mut commands);
 }
