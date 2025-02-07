@@ -10,6 +10,7 @@ mod setup;
 mod stub;
 mod theme;
 mod toolbar;
+mod ufo;
 
 fn main() {
     app::create_app().run();

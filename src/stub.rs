@@ -1,10 +1,7 @@
 use crate::theme::*;
-use anyhow::Result;
+use crate::ufo::get_basic_font_info;
 use bevy::prelude::*;
-use norad::Font as Ufo;
 use rand::Rng;
-use std::env;
-use std::path::PathBuf;
 
 #[derive(Component)]
 pub struct PathPoint;
@@ -148,20 +145,6 @@ pub fn update_sprite_position(
     }
 }
 
-pub fn load_ufo() {
-    match load_ufo_from_args() {
-        Ok(ufo) => {
-            let family_name = ufo.font_info.family_name.unwrap_or_default();
-            let style_name = ufo.font_info.style_name.unwrap_or_default();
-            println!(
-                "Successfully loaded UFO font: {} {}",
-                family_name, style_name
-            );
-        }
-        Err(e) => eprintln!("Error loading UFO file: {:?}", e),
-    }
-}
-
 pub fn spawn_debug_text(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Text::new(get_basic_font_info()),
@@ -191,30 +174,4 @@ pub fn spawn_debug_text(mut commands: Commands, asset_server: Res<AssetServer>) 
             ..default()
         },
     ));
-}
-
-pub fn load_ufo_from_args() -> Result<Ufo, Box<dyn std::error::Error>> {
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() != 2 {
-        return Err("Usage: program <path-to-ufo-file>".into());
-    }
-
-    let font_path = PathBuf::from(&args[1]);
-    if !font_path.exists() {
-        return Err(format!("File not found: {}", font_path.display()).into());
-    }
-
-    Ok(Ufo::load(font_path)?)
-}
-
-fn get_basic_font_info() -> String {
-    match load_ufo_from_args() {
-        Ok(ufo) => {
-            let family_name = ufo.font_info.family_name.unwrap_or_default();
-            let style_name = ufo.font_info.style_name.unwrap_or_default();
-            format!("UFO: {} {}", family_name, style_name)
-        }
-        Err(e) => format!("UFO: Error loading font: {:?}", e),
-    }
 }

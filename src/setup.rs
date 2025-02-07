@@ -1,5 +1,5 @@
 use crate::hud::spawn_hud;
-use crate::stub::load_ufo;
+use crate::ufo::load_ufo;
 use bevy::prelude::*;
 
 /// Initial setup system that runs on startup.
