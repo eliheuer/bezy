@@ -7,6 +7,7 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub struct DebugText;
 
+#[allow(dead_code)]
 pub fn spawn_debug_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         DebugText,

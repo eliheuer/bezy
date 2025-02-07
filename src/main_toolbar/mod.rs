@@ -19,6 +19,7 @@ pub use select::SelectMode;
 pub use square::SquareMode;
 
 // Trait that all edit modes must implement
+#[allow(dead_code)]
 pub trait EditModeSystem: Send + Sync {
     fn update(&self, commands: &mut Commands);
 

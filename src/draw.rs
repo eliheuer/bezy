@@ -6,13 +6,12 @@ use bevy::prelude::*;
 /// Creates both vertical and horizontal lines with semi-transparent gray color.
 pub fn draw_grid(mut commands: Commands) {
     // Get window dimensions (using a larger value to ensure coverage)
-    let window_width = 2048.0; // Doubled from window width
-    let window_height = 1536.0; // Doubled from window height
+    let window_width = 2048.0;
+    let window_height = 2048.0;
     let grid_position = Vec2::new(0.0, 0.0); // Center of the window
 
     // Create vertical lines
     for i in -512..=512 {
-        // Increased range
         let x = grid_position.x + (i as f32);
         commands.spawn((
             Sprite {

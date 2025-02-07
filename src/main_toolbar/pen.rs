@@ -4,7 +4,7 @@ use bevy::prelude::*;
 pub struct PenMode;
 
 impl EditModeSystem for PenMode {
-    fn update(&self, commands: &mut Commands) {
+    fn update(&self, _commands: &mut Commands) {
         // Implementation for pen mode update
     }
 

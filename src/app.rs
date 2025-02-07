@@ -43,7 +43,7 @@ pub fn create_app() -> App {
                 spawn_path_points,
                 spawn_animated_sprite,
                 spawn_debug_text,
-                //spawn_debug_hud,
+                spawn_debug_hud,
                 draw_grid,
             ),
         )

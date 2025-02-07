@@ -4,7 +4,7 @@ use bevy::prelude::*;
 pub struct SelectMode;
 
 impl EditModeSystem for SelectMode {
-    fn update(&self, commands: &mut Commands) {
+    fn update(&self, _commands: &mut Commands) {
         // Implementation for select mode update
     }
 
