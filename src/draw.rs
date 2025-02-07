@@ -67,7 +67,7 @@ pub fn update_grid(
             GridLine,
             Sprite {
                 color: Color::srgba(0.9, 0.9, 0.9, 0.1),
-                custom_size: Some(Vec2::new(1.0 / zoom, visible_height)),
+                custom_size: Some(Vec2::new(1.0, visible_height)),
                 ..default()
             },
             Transform::from_xyz(screen_pos.x, 0.0, 0.0),
@@ -84,7 +84,7 @@ pub fn update_grid(
             GridLine,
             Sprite {
                 color: Color::srgba(0.9, 0.9, 0.9, 0.1),
-                custom_size: Some(Vec2::new(visible_width, 1.0 / zoom)),
+                custom_size: Some(Vec2::new(visible_width, 1.0)),
                 ..default()
             },
             Transform::from_xyz(0.0, screen_pos.y, 0.0),
