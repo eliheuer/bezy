@@ -3,8 +3,8 @@ use anyhow::Result;
 use bevy::prelude::*;
 use norad::Font as Ufo;
 use rand::Rng;
-use std::path::PathBuf;
 use std::env;
+use std::path::PathBuf;
 
 #[derive(Component)]
 pub struct PathPoint;
@@ -195,16 +195,16 @@ pub fn spawn_debug_text(mut commands: Commands, asset_server: Res<AssetServer>) 
 
 pub fn load_ufo_from_args() -> Result<Ufo, Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
-    
+
     if args.len() != 2 {
         return Err("Usage: program <path-to-ufo-file>".into());
     }
-    
+
     let font_path = PathBuf::from(&args[1]);
     if !font_path.exists() {
         return Err(format!("File not found: {}", font_path.display()).into());
     }
-    
+
     Ok(Ufo::load(font_path)?)
 }
 

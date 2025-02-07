@@ -2,7 +2,7 @@
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 
-use crate::camera::{camera_zoom, camera_pan, CameraState};
+use crate::camera::{camera_pan, camera_zoom, CameraState};
 use crate::debug_hud::{spawn_debug_hud, update_debug_text};
 use crate::draw::draw_grid;
 use crate::setup::setup;
@@ -11,14 +11,14 @@ use crate::stub::{
     update_sprite_position,
 };
 use crate::theme::BACKGROUND_COLOR;
-use crate::toolbar::{main_toolbar_button_system, handle_edit_mode, CurrentEditMode};
+use crate::toolbar::{handle_edit_mode, main_toolbar_button_system, CurrentEditMode};
 
 pub fn create_app() -> App {
     let mut app = App::new();
 
     let window_config = Window {
         title: "Bezy".into(),
-        resolution: (1024. + 256., 768.).into(),
+        resolution: (256. * 5., 256. * 3.).into(),
         ..default()
     };
 
@@ -43,7 +43,7 @@ pub fn create_app() -> App {
                 spawn_path_points,
                 spawn_animated_sprite,
                 spawn_debug_text,
-                spawn_debug_hud,
+                //spawn_debug_hud,
                 draw_grid,
             ),
         )

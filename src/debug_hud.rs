@@ -1,5 +1,6 @@
 // A hud for debugging
 
+use crate::theme::get_debug_text_style;
 use crate::toolbar::CurrentEditMode;
 use bevy::prelude::*;
 
@@ -10,11 +11,7 @@ pub fn spawn_debug_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         DebugText,
         Text::new(""),
-        TextFont {
-            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-            font_size: 32.0,
-            ..default()
-        },
+        get_debug_text_style(&asset_server),
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(128.0 - 16.0),
@@ -29,6 +26,6 @@ pub fn update_debug_text(
     current_mode: Res<CurrentEditMode>,
 ) {
     if let Ok(mut text) = text_query.get_single_mut() {
-        text.0 = format!("Edit Mode {:?}", current_mode.0);
+        text.0 = format!("Edit Mode: {:?}", current_mode.0);
     }
 }
