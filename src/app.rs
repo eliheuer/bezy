@@ -6,10 +6,7 @@ use crate::camera::{camera_pan, camera_zoom, CameraState};
 use crate::debug_hud::{spawn_debug_hud, update_debug_text};
 use crate::draw::draw_grid;
 use crate::setup::setup;
-use crate::stub::{
-    animate_sprite, spawn_animated_sprite, spawn_debug_text, spawn_path_points,
-    update_sprite_position,
-};
+use crate::stub::{spawn_debug_text, spawn_path_points};
 use crate::theme::BACKGROUND_COLOR;
 use crate::toolbar::{handle_edit_mode, main_toolbar_button_system, CurrentEditMode};
 
@@ -41,7 +38,6 @@ pub fn create_app() -> App {
             (
                 setup,
                 spawn_path_points,
-                spawn_animated_sprite,
                 spawn_debug_text,
                 spawn_debug_hud,
                 draw_grid,
@@ -51,8 +47,6 @@ pub fn create_app() -> App {
             Update,
             (
                 main_toolbar_button_system,
-                animate_sprite,
-                update_sprite_position,
                 camera_zoom,
                 camera_pan,
                 update_debug_text,
