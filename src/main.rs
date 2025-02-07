@@ -3,6 +3,7 @@
 mod app;
 mod camera;
 mod debug_hud;
+mod design_space;
 mod draw;
 mod hud;
 mod main_toolbar;
