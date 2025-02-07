@@ -1,7 +1,6 @@
 use crate::theme::*;
 use crate::ufo::get_basic_font_info;
 use bevy::prelude::*;
-use rand::Rng;
 
 #[derive(Component)]
 pub struct PathPoint;
@@ -11,21 +10,24 @@ fn _green_text(text: String) -> String {
 }
 
 pub fn spawn_path_points(mut commands: Commands) {
-    let mut rng = rand::thread_rng();
+    // Define a simple path with fixed points
+    let points = vec![
+        Vec2::new(-8.0, -8.0),
+        Vec2::new(-8.0, 8.0),
+        Vec2::new(8.0, 8.0),
+        Vec2::new(8.0, -8.0),
+    ];
 
-    // Generate random points within a reasonable area
-    let points: Vec<(Entity, Vec2)> = (0..NUM_POINTS)
-        .map(|_| {
-            let x = rng.gen_range(-512.0..512.0);
-            let y = rng.gen_range(-256.0..256.0);
-            let position = Vec2::new(x, y);
-
+    // Spawn points
+    let point_entities: Vec<(Entity, Vec2)> = points
+        .into_iter()
+        .map(|position| {
             let entity = commands
                 .spawn((
                     PathPoint,
                     Sprite {
                         color: PATH_COLOR,
-                        custom_size: Some(Vec2::new(POINT_RADIUS * 2.0, POINT_RADIUS * 2.0)),
+                        custom_size: Some(Vec2::new(POINT_RADIUS * 1.0, POINT_RADIUS * 1.0)),
                         ..default()
                     },
                     Transform::from_xyz(position.x, position.y, 1.0),
@@ -38,12 +40,10 @@ pub fn spawn_path_points(mut commands: Commands) {
         .collect();
 
     // Create connections between points
-    for i in 0..points.len() {
-        let next_index = (i + 1) % points.len();
-
-        // Spawn line connecting to next point
-        let start = points[i].1;
-        let end = points[next_index].1;
+    for i in 0..point_entities.len() {
+        let next_index = (i + 1) % point_entities.len();
+        let start = point_entities[i].1;
+        let end = point_entities[next_index].1;
         let mid = (start + end) / 2.0;
         let distance = (end - start).length();
         let rotation = (end - start).y.atan2((end - start).x);
@@ -51,7 +51,7 @@ pub fn spawn_path_points(mut commands: Commands) {
         commands.spawn((
             Sprite {
                 color: PATH_COLOR,
-                custom_size: Some(Vec2::new(distance, 2.0)),
+                custom_size: Some(Vec2::new(distance, 1.0)),
                 ..default()
             },
             Transform::from_xyz(mid.x, mid.y, 0.0).with_rotation(Quat::from_rotation_z(rotation)),
