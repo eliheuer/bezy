@@ -6,6 +6,9 @@ use bevy::prelude::*;
 pub struct MainToolbarButton;
 
 #[derive(Component)]
+pub struct TextColor(pub Color);
+
+#[derive(Component)]
 pub struct ButtonName(pub String);
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
@@ -79,14 +82,20 @@ pub fn spawn_main_toolbar(
                                 BackgroundColor(NORMAL_BUTTON),
                             ))
                             .with_children(|button| {
-                                // Add the text label
+                                // Add the text label or icon
+                                let text_content = if button_name.to_string() == "Select" {
+                                    "\u{E010}".to_string()
+                                } else {
+                                    button_name.to_string()
+                                };
                                 button.spawn((
-                                    Text::new(button_name.to_string()),
+                                    Text::new(text_content),
                                     TextFont {
                                         font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                                        font_size: 14.0,
+                                        font_size: if button_name.to_string() == "Select" { 48.0 } else { 14.0 },
                                         ..default()
                                     },
+                                    TextColor(Color::WHITE),
                                 ));
                             });
                     });
@@ -101,13 +110,15 @@ pub fn main_toolbar_button_system(
             &mut BackgroundColor,
             &mut BorderColor,
             &ButtonName,
+            Entity,
         ),
         With<MainToolbarButton>,
     >,
+    mut text_query: Query<(&Parent, &mut TextColor)>,
     mut current_mode: ResMut<CurrentEditMode>,
 ) {
     // First handle any new interactions
-    for (interaction, _color, _border_color, button_name) in &mut interaction_query {
+    for (interaction, _color, _border_color, button_name, _entity) in &mut interaction_query {
         if *interaction == Interaction::Pressed {
             // Update the current edit mode based on the button pressed
             let new_mode = match button_name.0.as_str() {
@@ -126,7 +137,7 @@ pub fn main_toolbar_button_system(
     }
 
     // Then update all button appearances based on the current mode
-    for (interaction, mut color, mut border_color, button_name) in &mut interaction_query {
+    for (interaction, mut color, mut border_color, button_name, entity) in &mut interaction_query {
         let is_current_mode = match button_name.0.as_str() {
             "Select" => current_mode.0 == EditMode::Select,
             "Pen" => current_mode.0 == EditMode::Pen,
@@ -139,6 +150,7 @@ pub fn main_toolbar_button_system(
             _ => false,
         };
 
+        // Update button colors
         match (*interaction, is_current_mode) {
             (Interaction::Pressed, _) | (_, true) => {
                 *color = PRESSED_BUTTON.into();
@@ -151,6 +163,17 @@ pub fn main_toolbar_button_system(
             (Interaction::None, false) => {
                 *color = NORMAL_BUTTON.into();
                 border_color.0 = NORMAL_BUTTON_OUTLINE_COLOR;
+            }
+        }
+
+        // Update text color for this button
+        for (parent, mut text_color) in &mut text_query {
+            if parent.get() == entity {
+                text_color.0 = if is_current_mode {
+                    Color::BLACK
+                } else {
+                    Color::WHITE
+                };
             }
         }
     }
