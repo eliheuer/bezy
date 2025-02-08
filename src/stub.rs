@@ -9,7 +9,7 @@ fn _green_text(text: String) -> String {
     format!("\x1b[32m{}\x1b[0m", text)
 }
 
-pub fn spawn_path_points(mut commands: Commands) {
+pub fn debug_points_basic_spawn(mut commands: Commands) {
     // Define a simple path with fixed points
     let points = vec![
         Vec2::new(-8.0, -8.0),
