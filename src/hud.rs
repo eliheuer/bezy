@@ -9,10 +9,9 @@ use bevy::prelude::*;
 pub fn spawn_hud(
     commands: &mut Commands,
     asset_server: &AssetServer,
-    texture_atlas_layouts: &mut Assets<TextureAtlasLayout>,
 ) {
     // Spawn main toolbar
-    spawn_main_toolbar(commands, asset_server, texture_atlas_layouts);
+    spawn_main_toolbar(commands, asset_server);
 
     // Spawn glyph preview
     commands.spawn((

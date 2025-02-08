@@ -42,13 +42,7 @@ pub struct CurrentEditMode(pub EditMode);
 pub fn spawn_main_toolbar(
     commands: &mut Commands,
     asset_server: &AssetServer,
-    texture_atlas_layouts: &mut Assets<TextureAtlasLayout>,
 ) {
-    // Load toolbar spritesheet
-    let texture = asset_server.load("raster/icons/main-toolbar.png");
-    let layout = TextureAtlasLayout::from_grid(UVec2::splat(32), 8, 1, None, None);
-    let texture_atlas_layout = texture_atlas_layouts.add(layout);
-
     // Spawn a container for the main toolbar buttons
     commands
         .spawn(Node {
@@ -59,26 +53,13 @@ pub fn spawn_main_toolbar(
             ..default()
         })
         .with_children(|parent| {
-            for index in 0..8 {
-                let button_name = match index {
-                    0 => "Select",
-                    1 => "Pen",
-                    2 => "Hyper",
-                    3 => "Knife",
-                    4 => "Pan",
-                    5 => "Measure",
-                    6 => "Square",
-                    7 => "Circle",
-                    _ => "Unknown",
-                };
-
+            for (_index, button_name) in ["Select", "Pen", "Hyper", "Knife", "Pan", "Measure", "Square", "Circle"].iter().enumerate() {
                 parent
                     .spawn(Node {
                         margin: UiRect::all(Val::Px(4.0)),
                         ..default()
                     })
                     .with_children(|button_container| {
-                        // Spawn the button with both icon and text
                         button_container
                             .spawn((
                                 Button,
@@ -98,15 +79,6 @@ pub fn spawn_main_toolbar(
                                 BackgroundColor(NORMAL_BUTTON),
                             ))
                             .with_children(|button| {
-                                // Add the sprite
-                                button.spawn(Sprite::from_atlas_image(
-                                    texture.clone(),
-                                    TextureAtlas {
-                                        layout: texture_atlas_layout.clone(),
-                                        index,
-                                    },
-                                ));
-
                                 // Add the text label
                                 button.spawn((
                                     Text::new(button_name.to_string()),
