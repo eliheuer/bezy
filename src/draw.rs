@@ -50,6 +50,7 @@ pub fn update_grid(
     // Using a larger value to ensure coverage of the visible area
     let visible_width = 2048.0 / zoom;
     let visible_height = 2048.0 / zoom;
+    let line_thickness = 1.0 / zoom;
 
     // Calculate grid line positions
     let min_x = (-visible_width / 2.0).floor() as i32;
@@ -67,7 +68,7 @@ pub fn update_grid(
             GridLine,
             Sprite {
                 color: Color::srgba(0.9, 0.9, 0.9, 0.1),
-                custom_size: Some(Vec2::new(1.0, visible_height)),
+                custom_size: Some(Vec2::new(line_thickness, visible_height)),
                 ..default()
             },
             Transform::from_xyz(screen_pos.x, 0.0, 0.0),
@@ -84,7 +85,7 @@ pub fn update_grid(
             GridLine,
             Sprite {
                 color: Color::srgba(0.9, 0.9, 0.9, 0.1),
-                custom_size: Some(Vec2::new(visible_width, 1.0)),
+                custom_size: Some(Vec2::new(visible_width, line_thickness)),
                 ..default()
             },
             Transform::from_xyz(0.0, screen_pos.y, 0.0),
