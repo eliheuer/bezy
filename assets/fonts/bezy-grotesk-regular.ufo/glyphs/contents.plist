@@ -12,10 +12,6 @@
     <string>D_.glif</string>
     <key>E</key>
     <string>E_.glif</string>
-    <key>E000</key>
-    <string>E_000.glif</string>
-    <key>E010</key>
-    <string>E_010.glif</string>
     <key>E011</key>
     <string>E_011.glif</string>
     <key>E012</key>
@@ -258,6 +254,8 @@
     <string>hamzabelowK_asra-ar.glif</string>
     <key>hamzabelowKasratan-ar</key>
     <string>hamzabelowK_asratan-ar.glif</string>
+    <key>harfbuzz</key>
+    <string>harfbuzz.glif</string>
     <key>heh-ar</key>
     <string>heh-ar.glif</string>
     <key>heh-ar.fina</key>
@@ -424,6 +422,8 @@
     <string>seen-ar.init.glif</string>
     <key>seen-ar.medi</key>
     <string>seen-ar.medi.glif</string>
+    <key>select</key>
+    <string>select.glif</string>
     <key>semicolon</key>
     <string>semicolon.glif</string>
     <key>semicolon-ar</key>

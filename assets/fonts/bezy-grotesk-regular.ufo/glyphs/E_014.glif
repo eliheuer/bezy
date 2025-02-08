@@ -3,11 +3,39 @@
   <advance width="600"/>
   <unicode hex="E014"/>
   <outline>
+    <contour>
+      <point x="450" y="43" type="line"/>
+      <point x="209" y="49" type="line"/>
+      <point x="192" y="188" type="line"/>
+      <point x="53" y="240" type="line"/>
+      <point x="-50" y="472" type="line"/>
+      <point x="-19" y="492" type="line"/>
+      <point x="73" y="406" type="line"/>
+      <point x="62" y="384" type="line"/>
+      <point x="123" y="339" type="line"/>
+      <point x="89" y="739" type="line"/>
+      <point x="111" y="769" type="line"/>
+      <point x="155" y="759" type="line"/>
+      <point x="191" y="491" type="line"/>
+      <point x="234" y="496" type="line"/>
+      <point x="197" y="810" type="line"/>
+      <point x="254" y="813" type="line"/>
+      <point x="294" y="514" type="line"/>
+      <point x="323" y="515" type="line"/>
+      <point x="341" y="756" type="line"/>
+      <point x="376" y="753" type="line"/>
+      <point x="382" y="511" type="line"/>
+      <point x="413" y="501" type="line"/>
+      <point x="433" y="694" type="line"/>
+      <point x="476" y="683" type="line"/>
+      <point x="442" y="223" type="line"/>
+      <point x="476" y="58" type="line"/>
+    </contour>
   </outline>
   <lib>
     <dict>
       <key>com.schriftgestaltung.Glyphs.lastChange</key>
-      <string>2025-02-08 20:39:19 +0000</string>
+      <string>2025-02-08 22:03:33 +0000</string>
     </dict>
   </lib>
 </glyph>

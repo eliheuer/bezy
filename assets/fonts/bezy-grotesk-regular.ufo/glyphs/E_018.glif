@@ -3,11 +3,49 @@
   <advance width="600"/>
   <unicode hex="E018"/>
   <outline>
+    <contour>
+      <point x="92" y="720" type="line"/>
+      <point x="114" y="734" type="line"/>
+      <point x="371" y="559" type="line"/>
+      <point x="538" y="354" type="line"/>
+      <point x="535" y="328" type="line"/>
+      <point x="387" y="291" type="line"/>
+      <point x="434" y="168" type="line"/>
+      <point x="509" y="60" type="line"/>
+      <point x="502" y="40" type="line"/>
+      <point x="320" y="-29" type="line"/>
+      <point x="303" y="5" type="line"/>
+      <point x="285" y="129" type="line"/>
+      <point x="250" y="239" type="line"/>
+      <point x="155" y="195" type="line"/>
+      <point x="98" y="164" type="line"/>
+      <point x="61" y="175" type="line"/>
+      <point x="85" y="466" type="line"/>
+    </contour>
+    <contour>
+      <point x="123" y="653" type="line"/>
+      <point x="123" y="463" type="line"/>
+      <point x="103" y="226" type="line"/>
+      <point x="118" y="216" type="line"/>
+      <point x="158" y="251" type="line"/>
+      <point x="259" y="299" type="line"/>
+      <point x="327" y="148" type="line"/>
+      <point x="336" y="27" type="line"/>
+      <point x="331" y="1" type="line"/>
+      <point x="457" y="49" type="line"/>
+      <point x="468" y="58" type="line"/>
+      <point x="419" y="120" type="line"/>
+      <point x="343" y="317" type="line"/>
+      <point x="463" y="347" type="line"/>
+      <point x="473" y="379" type="line"/>
+      <point x="343" y="522" type="line"/>
+      <point x="145" y="679" type="line"/>
+    </contour>
   </outline>
   <lib>
     <dict>
       <key>com.schriftgestaltung.Glyphs.lastChange</key>
-      <string>2025-02-08 20:39:45 +0000</string>
+      <string>2025-02-08 21:18:29 +0000</string>
     </dict>
   </lib>
 </glyph>
