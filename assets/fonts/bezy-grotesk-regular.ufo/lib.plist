@@ -8,6 +8,7 @@
       <string> UFO: Bezy Grotesk Regular </string>
       <string>I</string>
       <string>:</string>
+      <string>/E010</string>
     </array>
     <key>com.schriftgestaltung.appVersion</key>
     <string>3337</string>
@@ -565,7 +566,18 @@
       <string>numbersign</string>
       <string>slash</string>
       <string>backslash</string>
+      <string>E011</string>
+      <string>E012</string>
+      <string>E013</string>
+      <string>E014</string>
+      <string>E015</string>
+      <string>E016</string>
+      <string>E017</string>
+      <string>E018</string>
+      <string>E019</string>
+      <string>E020</string>
       <string>E000</string>
+      <string>E010</string>
     </array>
     <key>public.postscriptNames</key>
     <dict>
