@@ -4,7 +4,6 @@ use bevy::winit::WinitSettings;
 
 use crate::camera::{camera_pan, camera_zoom, CameraState};
 use crate::debug_hud::{spawn_debug_hud, update_debug_text};
-use crate::draw::{draw_grid, update_grid};
 use crate::setup::setup;
 use crate::stub::{spawn_debug_text, spawn_path_points};
 use crate::theme::BACKGROUND_COLOR;
@@ -35,13 +34,7 @@ pub fn create_app() -> App {
         )
         .add_systems(
             Startup,
-            (
-                setup,
-                spawn_path_points,
-                spawn_debug_text,
-                spawn_debug_hud,
-                draw_grid,
-            ),
+            (setup, spawn_path_points, spawn_debug_text, spawn_debug_hud),
         )
         .add_systems(
             Update,
@@ -51,7 +44,6 @@ pub fn create_app() -> App {
                 camera_pan,
                 update_debug_text,
                 handle_edit_mode,
-                update_grid,
             ),
         );
     app
