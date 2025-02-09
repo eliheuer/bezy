@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 
 use crate::camera::{camera_pan, camera_zoom, CameraState};
-use crate::debug_hud::{spawn_debug_hud, update_debug_text};
+use crate::debug_hud::{spawn_debug_hud, update_debug_hud};
 use crate::setup::setup;
 use crate::stub::{debug_points_basic_spawn, spawn_debug_text};
 use crate::theme::BACKGROUND_COLOR;
@@ -47,7 +47,7 @@ pub fn create_app() -> App {
                 main_toolbar_button_system,
                 camera_zoom,
                 camera_pan,
-                update_debug_text,
+                update_debug_hud,
                 handle_edit_mode,
             ),
         );

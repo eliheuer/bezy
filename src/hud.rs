@@ -6,10 +6,7 @@ use crate::toolbar::spawn_main_toolbar;
 use bevy::prelude::*;
 
 /// Spawns all HUD elements including toolbars and overlays
-pub fn spawn_hud(
-    commands: &mut Commands,
-    asset_server: &AssetServer,
-) {
+pub fn spawn_hud(commands: &mut Commands, asset_server: &AssetServer) {
     // Spawn main toolbar
     spawn_main_toolbar(commands, asset_server);
 

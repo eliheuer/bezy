@@ -42,10 +42,7 @@ impl EditMode {
 #[derive(Resource, Default)]
 pub struct CurrentEditMode(pub EditMode);
 
-pub fn spawn_main_toolbar(
-    commands: &mut Commands,
-    asset_server: &AssetServer,
-) {
+pub fn spawn_main_toolbar(commands: &mut Commands, asset_server: &AssetServer) {
     // Spawn a container for the main toolbar buttons
     commands
         .spawn(Node {
@@ -56,7 +53,12 @@ pub fn spawn_main_toolbar(
             ..default()
         })
         .with_children(|parent| {
-            for (_index, button_name) in ["Select", "Pen", "Hyper", "Knife", "Pan", "Measure", "Square", "Circle"].iter().enumerate() {
+            for (_index, button_name) in [
+                "Select", "Pen", "Hyper", "Knife", "Pan", "Measure", "Square", "Circle",
+            ]
+            .iter()
+            .enumerate()
+            {
                 parent
                     .spawn(Node {
                         margin: UiRect::all(Val::Px(4.0)),
@@ -82,17 +84,25 @@ pub fn spawn_main_toolbar(
                                 BackgroundColor(NORMAL_BUTTON),
                             ))
                             .with_children(|button| {
-                                // Add the text label or icon
-                                let text_content = if button_name.to_string() == "Select" {
-                                    "\u{E010}".to_string()
-                                } else {
-                                    button_name.to_string()
-                                };
+                                // Add the icon for the button
+                                let icon = match button_name.to_string().as_str() {
+                                    "Select" => "\u{E010}",
+                                    "Pen" => "\u{E011}",
+                                    "Hyper" => "\u{E012}",
+                                    "Knife" => "\u{E013}",
+                                    "Pan" => "\u{E014}",
+                                    "Measure" => "\u{E015}",
+                                    "Square" => "\u{E016}",
+                                    "Circle" => "\u{E017}",
+                                    _ => "",
+                                }
+                                .to_string();
+
                                 button.spawn((
-                                    Text::new(text_content),
+                                    Text::new(icon),
                                     TextFont {
                                         font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                                        font_size: if button_name.to_string() == "Select" { 48.0 } else { 14.0 },
+                                        font_size: 48.0, // Consistent size for all icons
                                         ..default()
                                     },
                                     TextColor(Color::WHITE),

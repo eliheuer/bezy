@@ -16,13 +16,13 @@ pub fn spawn_debug_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(128.0 - 16.0),
-            left: Val::Px(36.0),
+            left: Val::Px(32.0 + 4.0), // + = optical adjustment
             ..default()
         },
     ));
 }
 
-pub fn update_debug_text(
+pub fn update_debug_hud(
     mut text_query: Query<&mut Text, With<DebugText>>,
     current_mode: Res<CurrentEditMode>,
 ) {
