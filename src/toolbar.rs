@@ -20,8 +20,8 @@ pub enum EditMode {
     Knife,
     Pan,
     Measure,
-    Square,
-    Circle,
+    Primitives,
+    Text,
 }
 
 impl EditMode {
@@ -33,8 +33,8 @@ impl EditMode {
             EditMode::Knife => Box::new(KnifeMode),
             EditMode::Pan => Box::new(PanMode),
             EditMode::Measure => Box::new(MeasureMode),
-            EditMode::Square => Box::new(SquareMode),
-            EditMode::Circle => Box::new(CircleMode),
+            EditMode::Primitives => Box::new(PrimitivesMode),
+            EditMode::Text => Box::new(TextMode),
         }
     }
 }
@@ -54,7 +54,14 @@ pub fn spawn_main_toolbar(commands: &mut Commands, asset_server: &AssetServer) {
         })
         .with_children(|parent| {
             for (_index, button_name) in [
-                "Select", "Pen", "Hyper", "Knife", "Pan", "Measure", "Square", "Circle",
+                "Select",
+                "Pen",
+                "Hyper",
+                "Knife",
+                "Pan",
+                "Measure",
+                "Primitives",
+                "Text",
             ]
             .iter()
             .enumerate()
@@ -92,8 +99,8 @@ pub fn spawn_main_toolbar(commands: &mut Commands, asset_server: &AssetServer) {
                                     "Knife" => "\u{E013}",
                                     "Pan" => "\u{E014}",
                                     "Measure" => "\u{E015}",
-                                    "Square" => "\u{E016}",
-                                    "Circle" => "\u{E017}",
+                                    "Primitives" => "\u{E016}",
+                                    "Text" => "\u{E017}",
                                     _ => "",
                                 }
                                 .to_string();
@@ -138,8 +145,8 @@ pub fn main_toolbar_button_system(
                 "Knife" => EditMode::Knife,
                 "Pan" => EditMode::Pan,
                 "Measure" => EditMode::Measure,
-                "Square" => EditMode::Square,
-                "Circle" => EditMode::Circle,
+                "Primitives" => EditMode::Primitives,
+                "Text" => EditMode::Text,
                 _ => EditMode::Select,
             };
             current_mode.0 = new_mode;
@@ -155,8 +162,8 @@ pub fn main_toolbar_button_system(
             "Knife" => current_mode.0 == EditMode::Knife,
             "Pan" => current_mode.0 == EditMode::Pan,
             "Measure" => current_mode.0 == EditMode::Measure,
-            "Square" => current_mode.0 == EditMode::Square,
-            "Circle" => current_mode.0 == EditMode::Circle,
+            "Primitives" => current_mode.0 == EditMode::Primitives,
+            "Text" => current_mode.0 == EditMode::Text,
             _ => false,
         };
 

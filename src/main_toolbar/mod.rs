@@ -1,26 +1,25 @@
 use bevy::prelude::*;
 
-mod circle;
 mod hyper;
 mod knife;
 mod measure;
 mod pan;
 mod pen;
+mod primitives;
 mod select;
-mod square;
+mod text;
 
-pub use circle::CircleMode;
 pub use hyper::HyperMode;
 pub use knife::KnifeMode;
 pub use measure::MeasureMode;
 pub use pan::PanMode;
 pub use pen::PenMode;
+pub use primitives::PrimitivesMode;
 pub use select::SelectMode;
-pub use square::SquareMode;
+pub use text::TextMode;
 
 // Trait that all edit modes must implement
-#[allow(dead_code)]
-pub trait EditModeSystem: Send + Sync {
+pub trait EditModeSystem: Send + Sync + 'static {
     fn update(&self, commands: &mut Commands);
 
     // Default implementations for lifecycle methods

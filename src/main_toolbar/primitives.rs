@@ -1,11 +1,11 @@
-use super::EditModeSystem;
+use crate::main_toolbar::EditModeSystem;
 use bevy::prelude::*;
 
-pub struct SquareMode;
+pub struct PrimitivesMode;
 
-impl EditModeSystem for SquareMode {
+impl EditModeSystem for PrimitivesMode {
     fn update(&self, _commands: &mut Commands) {
-        // Implementation for square mode update
+        // TODO: Implement primitives mode behavior
     }
 
     fn on_enter(&self) {
