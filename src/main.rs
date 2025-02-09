@@ -8,10 +8,10 @@ mod draw;
 mod hud;
 mod main_toolbar;
 mod setup;
-mod stub;
 mod theme;
 mod toolbar;
 mod ufo;
+mod world_space;
 
 fn main() {
     app::create_app().run();

@@ -3,9 +3,8 @@ use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 
 use crate::camera::{camera_pan, camera_zoom, CameraState};
-use crate::debug_hud::{spawn_debug_hud, update_debug_hud};
+use crate::debug_hud::{spawn_debug_text, spawn_main_toolbar_debug, update_main_toolbar_debug};
 use crate::setup::setup;
-use crate::stub::{debug_points_basic_spawn, spawn_debug_text};
 use crate::theme::BACKGROUND_COLOR;
 use crate::toolbar::{handle_edit_mode, main_toolbar_button_system, CurrentEditMode};
 
@@ -32,22 +31,14 @@ pub fn create_app() -> App {
                 .set(ImagePlugin::default_nearest())
                 .set(window_plugin),
         )
-        .add_systems(
-            Startup,
-            (
-                setup,
-                debug_points_basic_spawn,
-                spawn_debug_text,
-                spawn_debug_hud,
-            ),
-        )
+        .add_systems(Startup, (setup, spawn_main_toolbar_debug, spawn_debug_text))
         .add_systems(
             Update,
             (
                 main_toolbar_button_system,
                 camera_zoom,
                 camera_pan,
-                update_debug_hud,
+                update_main_toolbar_debug,
                 handle_edit_mode,
             ),
         );
