@@ -1,6 +1,5 @@
 use super::EditModeSystem;
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
 pub struct TextMode;
 
 impl EditModeSystem for TextMode {

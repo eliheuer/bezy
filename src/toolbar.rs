@@ -137,6 +137,10 @@ pub fn main_toolbar_button_system(
     // First handle any new interactions
     for (interaction, _color, _border_color, button_name, _entity) in &mut interaction_query {
         if *interaction == Interaction::Pressed {
+            // Get the old mode's system and call on_exit
+            let old_system = current_mode.0.get_system();
+            old_system.on_exit();
+
             // Update the current edit mode based on the button pressed
             let new_mode = match button_name.0.as_str() {
                 "Select" => EditMode::Select,
@@ -149,6 +153,11 @@ pub fn main_toolbar_button_system(
                 "Text" => EditMode::Text,
                 _ => EditMode::Select,
             };
+
+            // Get the new mode's system and call on_enter
+            let new_system = new_mode.get_system();
+            new_system.on_enter();
+
             current_mode.0 = new_mode;
         }
     }
