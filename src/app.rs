@@ -4,6 +4,7 @@ use bevy::winit::WinitSettings;
 
 use crate::camera::{handle_camera_pan, handle_camera_zoom, CameraState};
 use crate::debug_hud::{spawn_debug_text, spawn_main_toolbar_debug, update_main_toolbar_debug};
+use crate::grid::{toggle_grid, update_grid, GridSettings};
 use crate::setup::setup;
 use crate::theme::BACKGROUND_COLOR;
 use crate::toolbar::{handle_toolbar_mode_selection, update_current_edit_mode, CurrentEditMode};
@@ -30,13 +31,22 @@ pub fn create_app() -> App {
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(CameraState::default())
         .insert_resource(CurrentEditMode::default())
+        .insert_resource(GridSettings::default())
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())
                 .set(window_plugin),
         )
         // When the app starts, run the setup system and spawn everything
-        .add_systems(Startup, (setup, spawn_main_toolbar_debug, spawn_debug_text, spawn_debug_path))
+        .add_systems(
+            Startup,
+            (
+                setup,
+                spawn_main_toolbar_debug,
+                spawn_debug_text,
+                spawn_debug_path,
+            ),
+        )
         // Update the app and get input
         .add_systems(
             Update,
@@ -46,6 +56,8 @@ pub fn create_app() -> App {
                 handle_camera_pan,
                 update_main_toolbar_debug,
                 update_current_edit_mode,
+                toggle_grid,
+                update_grid,
             ),
         );
     app
