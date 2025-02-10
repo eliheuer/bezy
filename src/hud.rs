@@ -1,4 +1,3 @@
-// TODO: Implement the HUD
 // This should be a top level component that contains the toolbar
 // and the rest of the UI that is not part of the zoomable design space or world
 
@@ -11,6 +10,10 @@ pub fn spawn_hud(commands: &mut Commands, asset_server: &AssetServer) {
     spawn_main_toolbar(commands, asset_server);
 
     // Spawn glyph preview
+    spawn_glyph_preview(commands, asset_server);
+}
+
+fn spawn_glyph_preview(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
         Text::new("\u{E000}"),
         TextFont {
@@ -21,7 +24,7 @@ pub fn spawn_hud(commands: &mut Commands, asset_server: &AssetServer) {
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(-190.0),
-            right: Val::Px(16.0),
+            right: Val::Px(8.0),
             ..default()
         },
     ));
