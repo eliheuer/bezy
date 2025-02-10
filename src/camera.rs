@@ -1,5 +1,6 @@
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
 
 #[derive(Resource)]
 pub struct CameraState {
@@ -67,4 +68,15 @@ pub fn handle_camera_pan(
     for mut transform in &mut query {
         transform.translation = Vec3::new(camera_state.position.x, camera_state.position.y, 0.0);
     }
+}
+
+pub fn spawn_camera(commands: &mut Commands, order: i32, layer: u8) {
+    commands.spawn((
+        Camera2d,
+        Camera {
+            order: order.try_into().unwrap(),
+            ..default()
+        },
+        RenderLayers::layer(layer.into()),
+    ));
 }
