@@ -7,6 +7,7 @@ use crate::debug_hud::{spawn_debug_text, spawn_main_toolbar_debug, update_main_t
 use crate::setup::setup;
 use crate::theme::BACKGROUND_COLOR;
 use crate::toolbar::{handle_toolbar_mode_selection, update_current_edit_mode, CurrentEditMode};
+use crate::world_space::spawn_debug_path;
 
 // Create the app and add the plugins and systems
 pub fn create_app() -> App {
@@ -35,7 +36,7 @@ pub fn create_app() -> App {
                 .set(window_plugin),
         )
         // When the app starts, run the setup system and spawn everything
-        .add_systems(Startup, (setup, spawn_main_toolbar_debug, spawn_debug_text))
+        .add_systems(Startup, (setup, spawn_main_toolbar_debug, spawn_debug_text, spawn_debug_path))
         // Update the app and get input
         .add_systems(
             Update,
