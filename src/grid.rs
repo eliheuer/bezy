@@ -1,4 +1,5 @@
 use crate::camera::CameraState;
+use crate::debug::green_text;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 
@@ -34,7 +35,7 @@ pub fn toggle_grid(
 
 // Calculate the appropriate grid spacing based on zoom level
 fn calculate_grid_spacing(zoom: f32) -> f32 {
-    let base_spacing = 100.0; // Start with a much larger base spacing
+    let base_spacing = 64.0; // Start with a much larger base spacing
     let zoom_factor = 1.0 / zoom;
 
     // Adjust spacing based on zoom, but maintain larger intervals
@@ -72,6 +73,12 @@ pub fn update_grid(
     let window = windows.single();
     let window_width = window.resolution.width();
     let window_height = window.resolution.height();
+
+    println!(
+        "Window dimensions: {} x {}",
+        green_text(window_width.to_string()),
+        green_text(window_height.to_string())
+    );
 
     let grid_spacing = calculate_grid_spacing(camera_state.zoom);
 
@@ -112,7 +119,7 @@ pub fn update_grid(
         commands.spawn((
             GridLine,
             Sprite {
-                color: Color::rgba(0.5, 0.5, 0.5, 0.1),
+                color: Color::srgba(0.5, 0.5, 0.5, 0.1),
                 custom_size: Some(Vec2::new(1.0, window_height)),
                 ..default()
             },
@@ -130,7 +137,7 @@ pub fn update_grid(
         commands.spawn((
             GridLine,
             Sprite {
-                color: Color::rgba(0.5, 0.5, 0.5, 0.1),
+                color: Color::srgba(0.5, 0.5, 0.5, 0.1),
                 custom_size: Some(Vec2::new(window_width, 1.0)),
                 ..default()
             },

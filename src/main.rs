@@ -2,6 +2,7 @@
 
 mod app;
 mod camera;
+mod debug;
 mod debug_hud;
 mod design_space;
 mod draw;

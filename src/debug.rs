@@ -1,7 +1,7 @@
 // General purpose debugging functions
 
 #[allow(dead_code)]
-fn green_text(text: String) -> String {
+pub fn green_text(text: String) -> String {
     format!("\x1b[32m{}\x1b[0m", text)
 }
 

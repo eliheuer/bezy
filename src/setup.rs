@@ -9,7 +9,14 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     load_ufo();
 
     // Spawn the main camera
-    commands.spawn((Camera2dBundle::default(), RenderLayers::layer(0)));
+    commands.spawn((
+        Camera2d,
+        Camera {
+            order: 0,
+            ..default()
+        },
+        RenderLayers::layer(0),
+    ));
 
     // Spawn all HUD elements
     spawn_hud(&mut commands, &asset_server);
