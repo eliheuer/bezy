@@ -2,7 +2,7 @@
 
 Bezy is a font editor built with the Bevy game engine and Rust. It is designed for simplicity, customizability, and ease of use for LLM assisted vibes coding. 
 
-![Bezy Font Editor Screenshot](docs/images/bezy-screenshot-001.png)
+![Bezy Font Editor Screenshot](docs/images/bezy-screenshot-002.png)
 
 ## Installation
 
