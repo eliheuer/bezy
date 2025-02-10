@@ -12,7 +12,9 @@ pub const HOVERED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.99, 0.99, 0.99);
 pub const PRESSED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(1.0, 0.6, 0.0);
 
 // Path Drawing
+#[allow(dead_code)]
 pub const POINT_RADIUS: f32 = 4.0;
+#[allow(dead_code)]
 pub const PATH_COLOR: Color = Color::srgb(0.8, 0.0, 0.0);
 
 // Background Color

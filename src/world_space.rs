@@ -2,8 +2,10 @@ use crate::theme::*;
 use bevy::prelude::*;
 
 #[derive(Component)]
+#[allow(dead_code)]
 pub struct PathPoint;
 
+#[allow(dead_code)]
 pub fn spawn_debug_path(mut commands: Commands) {
     // Define a simple path with fixed points
     let points = vec![
