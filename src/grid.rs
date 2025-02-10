@@ -33,34 +33,6 @@ pub fn toggle_grid(
     }
 }
 
-// Calculate the appropriate grid spacing based on zoom level
-fn calculate_grid_spacing(zoom: f32) -> f32 {
-    // Base grid unit is 8.0 in design space
-    const BASE_GRID_UNIT: f32 = 8.0;
-
-    // When zoom is high (zoomed in), we want finer grid lines (1 unit)
-    // When zoom is low (zoomed out), we want coarser grid lines (8 units, 16 units, etc)
-    if zoom > 4.0 {
-        // Very zoomed in - show every unit
-        1.0
-    } else if zoom > 2.0 {
-        // Zoomed in - show every 2 units
-        2.0
-    } else if zoom > 1.0 {
-        // Slightly zoomed in - show every 4 units
-        4.0
-    } else if zoom > 0.5 {
-        // Default zoom - show every 8 units
-        BASE_GRID_UNIT
-    } else if zoom > 0.25 {
-        // Zoomed out - show every 16 units
-        BASE_GRID_UNIT * 2.0
-    } else {
-        // Very zoomed out - show every 32 units
-        BASE_GRID_UNIT * 4.0
-    }
-}
-
 // Define a constant for the grid render layer
 const GRID_LAYER: usize = 1;
 
@@ -81,27 +53,29 @@ pub fn update_grid(
         return;
     }
 
+    const BASE_GRID_SPACING: f32 = 1.0;
+
+    // Match the reference implementation's grid spacing calculation exactly
+    let grid_spacing = if camera_state.zoom < 1.0 {
+        // When zoomed out, increase the spacing
+        BASE_GRID_SPACING * (1.0 / camera_state.zoom).ceil()
+    } else {
+        BASE_GRID_SPACING
+    };
+
     let window = windows.single();
     let window_width = window.resolution.width();
     let window_height = window.resolution.height();
 
-    let grid_spacing = calculate_grid_spacing(camera_state.zoom);
+    // Calculate visible area in design space
+    let visible_width = window_width * camera_state.zoom;
+    let visible_height = window_height * camera_state.zoom;
 
-    // Calculate the visible range in world coordinates
-    let half_width = window_width / (2.0 * camera_state.zoom);
-    let half_height = window_height / (2.0 * camera_state.zoom);
-
-    // Calculate grid boundaries in world space, clamped to reasonable design space limits
-    let min_x = (camera_state.position.x - half_width).max(-64.0);
-    let max_x = (camera_state.position.x + half_width).min(64.0);
-    let min_y = (camera_state.position.y - half_height).max(-64.0);
-    let max_y = (camera_state.position.y + half_height).min(64.0);
-
-    // Calculate grid line positions, ensuring they align with design space units
-    let start_x = (min_x / grid_spacing).floor() * grid_spacing;
-    let end_x = (max_x / grid_spacing).ceil() * grid_spacing;
-    let start_y = (min_y / grid_spacing).floor() * grid_spacing;
-    let end_y = (max_y / grid_spacing).ceil() * grid_spacing;
+    // Calculate grid boundaries in design space
+    let x_start = (camera_state.position.x - visible_width / 2.0).floor();
+    let x_end = (camera_state.position.x + visible_width / 2.0).ceil();
+    let y_start = (camera_state.position.y - visible_height / 2.0).floor();
+    let y_end = (camera_state.position.y + visible_height / 2.0).ceil();
 
     // Create a camera for the grid
     commands.spawn((
@@ -114,25 +88,19 @@ pub fn update_grid(
         GridCamera,
     ));
 
-    // Spawn vertical lines
-    let mut x = start_x;
-    while x <= end_x {
-        let screen_x = (x - camera_state.position.x) * camera_state.zoom + window_width / 2.0;
+    // Fixed opacity for debugging
+    let grid_fade = 0.3;
 
-        // Determine line thickness and opacity based on if it's a major grid line
-        let (thickness, alpha) = if x.abs() % 32.0 == 0.0 {
-            (2.0, 0.3) // Major grid line
-        } else if x.abs() % 16.0 == 0.0 {
-            (1.5, 0.25) // Medium grid line
-        } else {
-            (1.0, 0.2) // Minor grid line
-        };
+    // Draw vertical lines
+    let mut x = x_start;
+    while x <= x_end {
+        let screen_x = (x - camera_state.position.x) / camera_state.zoom + window_width / 2.0;
 
         commands.spawn((
             GridLine,
             Sprite {
-                color: Color::srgba(0.5, 0.5, 0.5, alpha),
-                custom_size: Some(Vec2::new(thickness, window_height)),
+                color: Color::srgba(0.5, 0.5, 0.5, grid_fade),
+                custom_size: Some(Vec2::new(0.5, window_height)),
                 ..default()
             },
             Transform::from_xyz(screen_x - window_width / 2.0, 0.0, 0.0),
@@ -142,25 +110,16 @@ pub fn update_grid(
         x += grid_spacing;
     }
 
-    // Spawn horizontal lines
-    let mut y = start_y;
-    while y <= end_y {
-        let screen_y = (y - camera_state.position.y) * camera_state.zoom + window_height / 2.0;
-
-        // Determine line thickness and opacity based on if it's a major grid line
-        let (thickness, alpha) = if y.abs() % 32.0 == 0.0 {
-            (2.0, 0.3) // Major grid line
-        } else if y.abs() % 16.0 == 0.0 {
-            (1.5, 0.25) // Medium grid line
-        } else {
-            (1.0, 0.2) // Minor grid line
-        };
+    // Draw horizontal lines
+    let mut y = y_start;
+    while y <= y_end {
+        let screen_y = (y - camera_state.position.y) / camera_state.zoom + window_height / 2.0;
 
         commands.spawn((
             GridLine,
             Sprite {
-                color: Color::srgba(0.5, 0.5, 0.5, alpha),
-                custom_size: Some(Vec2::new(window_width, thickness)),
+                color: Color::srgba(0.5, 0.5, 0.5, grid_fade),
+                custom_size: Some(Vec2::new(window_width, 0.5)),
                 ..default()
             },
             Transform::from_xyz(0.0, screen_y - window_height / 2.0, 0.0),
