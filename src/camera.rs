@@ -26,7 +26,8 @@ pub fn handle_camera_zoom(
         // Adjust zoom speed/sensitivity here
         let zoom_delta = scroll_event.y * 0.1;
         let new_zoom = camera_state.zoom + zoom_delta;
-        camera_state.zoom = new_zoom.clamp(0.1, 10.0);
+        // Clamp sets the upper and lower bounds of the zoom level
+        camera_state.zoom = new_zoom.clamp(0.01, 50.0);
 
         for mut transform in &mut query {
             transform.scale = Vec3::splat(camera_state.zoom);

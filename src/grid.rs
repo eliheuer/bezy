@@ -1,5 +1,5 @@
 use crate::camera::CameraState;
-use crate::debug::green_text;
+// use crate::debug::green_text;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 
@@ -35,11 +35,13 @@ pub fn toggle_grid(
 
 // Calculate the appropriate grid spacing based on zoom level
 fn calculate_grid_spacing(zoom: f32) -> f32 {
-    let base_spacing = 64.0; // Start with a much larger base spacing
+    let base_spacing = 8.0;
     let zoom_factor = 1.0 / zoom;
 
-    // Adjust spacing based on zoom, but maintain larger intervals
-    if zoom_factor > 4.0 {
+    // Adjust spacing based on zoom, maintaining power of 2 intervals
+    if zoom_factor > 8.0 {
+        base_spacing * 8.0
+    } else if zoom_factor > 4.0 {
         base_spacing * 4.0
     } else if zoom_factor > 2.0 {
         base_spacing * 2.0
@@ -74,33 +76,25 @@ pub fn update_grid(
     let window_width = window.resolution.width();
     let window_height = window.resolution.height();
 
-    println!(
-        "Window dimensions: {} x {}",
-        green_text(window_width.to_string()),
-        green_text(window_height.to_string())
-    );
-
     let grid_spacing = calculate_grid_spacing(camera_state.zoom);
 
     // Calculate the visible range in world coordinates
     let half_width = window_width / (2.0 * camera_state.zoom);
     let half_height = window_height / (2.0 * camera_state.zoom);
 
-    let start_x = ((camera_state.position.x - half_width) / grid_spacing).floor() * grid_spacing;
-    let end_x = ((camera_state.position.x + half_width) / grid_spacing).ceil() * grid_spacing;
-    let start_y = ((camera_state.position.y - half_height) / grid_spacing).floor() * grid_spacing;
-    let end_y = ((camera_state.position.y + half_height) / grid_spacing).ceil() * grid_spacing;
+    // Calculate grid boundaries in world space
+    let min_x = camera_state.position.x - half_width;
+    let max_x = camera_state.position.x + half_width;
+    let min_y = camera_state.position.y - half_height;
+    let max_y = camera_state.position.y + half_height;
 
-    // Limit the number of lines to prevent overdraw
-    let max_lines = 50; // Maximum number of lines in each direction
-    let x_step = ((end_x - start_x) / grid_spacing)
-        .max(1.0)
-        .min(max_lines as f32);
-    let y_step = ((end_y - start_y) / grid_spacing)
-        .max(1.0)
-        .min(max_lines as f32);
+    // Calculate grid line positions
+    let start_x = (min_x / grid_spacing).floor() * grid_spacing;
+    let end_x = (max_x / grid_spacing).ceil() * grid_spacing;
+    let start_y = (min_y / grid_spacing).floor() * grid_spacing;
+    let end_y = (max_y / grid_spacing).ceil() * grid_spacing;
 
-    // Create a camera for the grid that won't be affected by zoom
+    // Create a camera for the grid
     commands.spawn((
         Camera2d,
         Camera {
@@ -112,37 +106,40 @@ pub fn update_grid(
     ));
 
     // Spawn vertical lines
-    for i in 0..=x_step as i32 {
-        let world_x = start_x + (i as f32 * grid_spacing);
-        let screen_x = (world_x - camera_state.position.x) * camera_state.zoom + window_width / 2.0;
+    let mut x = start_x;
+    while x <= end_x {
+        let screen_x = (x - camera_state.position.x) * camera_state.zoom + window_width / 2.0;
 
         commands.spawn((
             GridLine,
             Sprite {
-                color: Color::srgba(0.5, 0.5, 0.5, 0.1),
+                color: Color::srgba(0.5, 0.5, 0.5, 0.2),
                 custom_size: Some(Vec2::new(1.0, window_height)),
                 ..default()
             },
-            Transform::from_xyz(screen_x - window_width / 2.0, 0.0, -1.0),
+            Transform::from_xyz(screen_x - window_width / 2.0, 0.0, 0.0),
             RenderLayers::layer(GRID_LAYER),
         ));
+
+        x += grid_spacing;
     }
 
     // Spawn horizontal lines
-    for i in 0..=y_step as i32 {
-        let world_y = start_y + (i as f32 * grid_spacing);
-        let screen_y =
-            (world_y - camera_state.position.y) * camera_state.zoom + window_height / 2.0;
+    let mut y = start_y;
+    while y <= end_y {
+        let screen_y = (y - camera_state.position.y) * camera_state.zoom + window_height / 2.0;
 
         commands.spawn((
             GridLine,
             Sprite {
-                color: Color::srgba(0.5, 0.5, 0.5, 0.1),
+                color: Color::srgba(0.5, 0.5, 0.5, 0.2),
                 custom_size: Some(Vec2::new(window_width, 1.0)),
                 ..default()
             },
-            Transform::from_xyz(0.0, screen_y - window_height / 2.0, -1.0),
+            Transform::from_xyz(0.0, screen_y - window_height / 2.0, 0.0),
             RenderLayers::layer(GRID_LAYER),
         ));
+
+        y += grid_spacing;
     }
 }
