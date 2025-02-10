@@ -38,21 +38,26 @@ fn calculate_grid_spacing(zoom: f32) -> f32 {
     // Base grid unit is 8.0 in design space
     const BASE_GRID_UNIT: f32 = 8.0;
 
-    // We want to adjust the visible grid lines based on zoom while maintaining
-    // the relationship between design space and world space
-    if zoom < 0.125 {
-        // Very zoomed out
-        BASE_GRID_UNIT * 8.0
-    } else if zoom < 0.25 {
-        BASE_GRID_UNIT * 4.0
-    } else if zoom < 0.5 {
-        BASE_GRID_UNIT * 2.0
-    } else if zoom < 2.0 {
+    // When zoom is high (zoomed in), we want finer grid lines (1 unit)
+    // When zoom is low (zoomed out), we want coarser grid lines (8 units, 16 units, etc)
+    if zoom > 4.0 {
+        // Very zoomed in - show every unit
+        1.0
+    } else if zoom > 2.0 {
+        // Zoomed in - show every 2 units
+        2.0
+    } else if zoom > 1.0 {
+        // Slightly zoomed in - show every 4 units
+        4.0
+    } else if zoom > 0.5 {
+        // Default zoom - show every 8 units
         BASE_GRID_UNIT
-    } else if zoom < 4.0 {
-        BASE_GRID_UNIT / 2.0
+    } else if zoom > 0.25 {
+        // Zoomed out - show every 16 units
+        BASE_GRID_UNIT * 2.0
     } else {
-        BASE_GRID_UNIT / 4.0
+        // Very zoomed out - show every 32 units
+        BASE_GRID_UNIT * 4.0
     }
 }
 
