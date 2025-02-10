@@ -16,7 +16,7 @@ impl Default for CameraState {
     }
 }
 
-pub fn camera_zoom(
+pub fn handle_camera_zoom(
     mut camera_state: ResMut<CameraState>,
     mut scroll_events: EventReader<MouseWheel>,
     mut query: Query<&mut Transform, With<Camera>>,
@@ -33,7 +33,7 @@ pub fn camera_zoom(
     }
 }
 
-pub fn camera_pan(
+pub fn handle_camera_pan(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut camera_state: ResMut<CameraState>,

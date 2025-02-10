@@ -120,7 +120,7 @@ pub fn spawn_main_toolbar(commands: &mut Commands, asset_server: &AssetServer) {
         });
 }
 
-pub fn main_toolbar_button_system(
+pub fn handle_toolbar_mode_selection(
     mut interaction_query: Query<
         (
             &Interaction,
@@ -205,7 +205,7 @@ pub fn main_toolbar_button_system(
     }
 }
 
-pub fn handle_edit_mode(mut commands: Commands, current_mode: Res<CurrentEditMode>) {
+pub fn update_current_edit_mode(mut commands: Commands, current_mode: Res<CurrentEditMode>) {
     let system = current_mode.0.get_system();
     system.update(&mut commands);
 }
