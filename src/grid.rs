@@ -1,5 +1,6 @@
 use crate::camera::CameraState;
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
 
 // Component to mark grid lines
 #[derive(Component)]
@@ -47,6 +48,9 @@ fn calculate_grid_spacing(zoom: f32) -> f32 {
         base_spacing / 2.0
     }
 }
+
+// Define a constant for the grid render layer
+const GRID_LAYER: usize = 1;
 
 // System to update grid based on camera state
 pub fn update_grid(
@@ -96,6 +100,7 @@ pub fn update_grid(
             order: -1,
             ..default()
         },
+        RenderLayers::layer(GRID_LAYER),
         GridCamera,
     ));
 
@@ -112,6 +117,7 @@ pub fn update_grid(
                 ..default()
             },
             Transform::from_xyz(screen_x - window_width / 2.0, 0.0, -1.0),
+            RenderLayers::layer(GRID_LAYER),
         ));
     }
 
@@ -129,6 +135,7 @@ pub fn update_grid(
                 ..default()
             },
             Transform::from_xyz(0.0, screen_y - window_height / 2.0, -1.0),
+            RenderLayers::layer(GRID_LAYER),
         ));
     }
 }
