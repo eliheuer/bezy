@@ -35,20 +35,24 @@ pub fn toggle_grid(
 
 // Calculate the appropriate grid spacing based on zoom level
 fn calculate_grid_spacing(zoom: f32) -> f32 {
-    let base_spacing = 8.0;
-    let zoom_factor = 1.0 / zoom;
+    // Base grid unit is 8.0 in design space
+    const BASE_GRID_UNIT: f32 = 8.0;
 
-    // Adjust spacing based on zoom, maintaining power of 2 intervals
-    if zoom_factor > 8.0 {
-        base_spacing * 8.0
-    } else if zoom_factor > 4.0 {
-        base_spacing * 4.0
-    } else if zoom_factor > 2.0 {
-        base_spacing * 2.0
-    } else if zoom_factor > 1.0 {
-        base_spacing
+    // We want to adjust the visible grid lines based on zoom while maintaining
+    // the relationship between design space and world space
+    if zoom < 0.125 {
+        // Very zoomed out
+        BASE_GRID_UNIT * 8.0
+    } else if zoom < 0.25 {
+        BASE_GRID_UNIT * 4.0
+    } else if zoom < 0.5 {
+        BASE_GRID_UNIT * 2.0
+    } else if zoom < 2.0 {
+        BASE_GRID_UNIT
+    } else if zoom < 4.0 {
+        BASE_GRID_UNIT / 2.0
     } else {
-        base_spacing / 2.0
+        BASE_GRID_UNIT / 4.0
     }
 }
 
@@ -82,13 +86,13 @@ pub fn update_grid(
     let half_width = window_width / (2.0 * camera_state.zoom);
     let half_height = window_height / (2.0 * camera_state.zoom);
 
-    // Calculate grid boundaries in world space
-    let min_x = camera_state.position.x - half_width;
-    let max_x = camera_state.position.x + half_width;
-    let min_y = camera_state.position.y - half_height;
-    let max_y = camera_state.position.y + half_height;
+    // Calculate grid boundaries in world space, clamped to reasonable design space limits
+    let min_x = (camera_state.position.x - half_width).max(-64.0);
+    let max_x = (camera_state.position.x + half_width).min(64.0);
+    let min_y = (camera_state.position.y - half_height).max(-64.0);
+    let max_y = (camera_state.position.y + half_height).min(64.0);
 
-    // Calculate grid line positions
+    // Calculate grid line positions, ensuring they align with design space units
     let start_x = (min_x / grid_spacing).floor() * grid_spacing;
     let end_x = (max_x / grid_spacing).ceil() * grid_spacing;
     let start_y = (min_y / grid_spacing).floor() * grid_spacing;
@@ -110,11 +114,20 @@ pub fn update_grid(
     while x <= end_x {
         let screen_x = (x - camera_state.position.x) * camera_state.zoom + window_width / 2.0;
 
+        // Determine line thickness and opacity based on if it's a major grid line
+        let (thickness, alpha) = if x.abs() % 32.0 == 0.0 {
+            (2.0, 0.3) // Major grid line
+        } else if x.abs() % 16.0 == 0.0 {
+            (1.5, 0.25) // Medium grid line
+        } else {
+            (1.0, 0.2) // Minor grid line
+        };
+
         commands.spawn((
             GridLine,
             Sprite {
-                color: Color::srgba(0.5, 0.5, 0.5, 0.2),
-                custom_size: Some(Vec2::new(1.0, window_height)),
+                color: Color::srgba(0.5, 0.5, 0.5, alpha),
+                custom_size: Some(Vec2::new(thickness, window_height)),
                 ..default()
             },
             Transform::from_xyz(screen_x - window_width / 2.0, 0.0, 0.0),
@@ -129,11 +142,20 @@ pub fn update_grid(
     while y <= end_y {
         let screen_y = (y - camera_state.position.y) * camera_state.zoom + window_height / 2.0;
 
+        // Determine line thickness and opacity based on if it's a major grid line
+        let (thickness, alpha) = if y.abs() % 32.0 == 0.0 {
+            (2.0, 0.3) // Major grid line
+        } else if y.abs() % 16.0 == 0.0 {
+            (1.5, 0.25) // Medium grid line
+        } else {
+            (1.0, 0.2) // Minor grid line
+        };
+
         commands.spawn((
             GridLine,
             Sprite {
-                color: Color::srgba(0.5, 0.5, 0.5, 0.2),
-                custom_size: Some(Vec2::new(window_width, 1.0)),
+                color: Color::srgba(0.5, 0.5, 0.5, alpha),
+                custom_size: Some(Vec2::new(window_width, thickness)),
                 ..default()
             },
             Transform::from_xyz(0.0, screen_y - window_height / 2.0, 0.0),
