@@ -4,6 +4,7 @@ use crate::theme::get_default_text_style;
 use crate::toolbar::CurrentEditMode;
 use crate::ufo::get_basic_font_info;
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
 
 #[derive(Component)]
 pub struct MainToolbarDebugText;
@@ -22,6 +23,7 @@ pub fn spawn_main_toolbar_debug(
             left: Val::Px(32.0 + 4.0), // + = optical adjustment
             ..default()
         },
+        RenderLayers::layer(1),  // UI layer
     ));
 }
 
@@ -47,6 +49,7 @@ pub fn spawn_debug_text(
             left: Val::Px(32.0),
             ..default()
         },
+        RenderLayers::layer(1),  // UI layer
     ));
     commands.spawn((
         Text::new("أشهد يا إلهي"),
@@ -57,5 +60,6 @@ pub fn spawn_debug_text(
             right: Val::Px(32.0),
             ..default()
         },
+        RenderLayers::layer(1),  // UI layer
     ));
 }

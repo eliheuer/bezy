@@ -9,9 +9,6 @@ pub struct DesignCamera;
 pub struct UiCamera;
 
 #[derive(Component)]
-pub struct GridCamera;
-
-#[derive(Component)]
 pub struct CoordinateDisplay;
 
 // Main camera for the design space (bezier curves, points, etc.)
@@ -19,32 +16,12 @@ pub fn spawn_design_camera(commands: &mut Commands) {
     commands.spawn((
         Camera2d,
         Camera {
-            order: 0,
+            order: 0,  // Main camera renders in the middle
             ..default()
         },
         DesignCamera,
-        RenderLayers::layer(0),
-        PanCam {
-            grab_buttons: vec![MouseButton::Right], // Use right mouse button for panning
-            enabled: true,
-            zoom_to_cursor: true,
-            min_scale: 0.01,
-            max_scale: 50.0,
-            ..default()
-        },
-    ));
-}
-
-// Grid camera that renders underneath the design space
-pub fn spawn_grid_camera(commands: &mut Commands) {
-    commands.spawn((
-        Camera2d,
-        Camera {
-            order: -1,
-            ..default()
-        },
-        RenderLayers::layer(1),
-        GridCamera,
+        RenderLayers::layer(0),  // Main design layer
+        PanCam::default(),
     ));
 }
 
@@ -53,16 +30,13 @@ pub fn spawn_ui_camera(commands: &mut Commands) {
     commands.spawn((
         Camera2d,
         Camera {
-            order: 1,
+            order: 1,  // UI camera renders on top
             ..default()
         },
-        RenderLayers::layer(2),
+        RenderLayers::layer(1),  // UI layer
         UiCamera,
     ));
 }
-
-// Define a constant for the grid render layer
-pub const GRID_LAYER: usize = 1;
 
 pub fn update_coordinate_display(
     camera_query: Query<&GlobalTransform, With<DesignCamera>>,

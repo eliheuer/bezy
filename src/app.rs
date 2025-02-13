@@ -7,7 +7,6 @@ use crate::cameras::{toggle_camera_controls, update_coordinate_display};
 use crate::debug_hud::{
     spawn_debug_text, spawn_main_toolbar_debug, update_main_toolbar_debug,
 };
-use crate::grid::{toggle_grid, update_grid, GridSettings};
 use crate::setup::setup;
 use crate::theme::BACKGROUND_COLOR;
 use crate::toolbar::{
@@ -35,7 +34,6 @@ pub fn create_app() -> App {
     app.insert_resource(WinitSettings::desktop_app())
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(CurrentEditMode::default())
-        .insert_resource(GridSettings::default())
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())
@@ -59,8 +57,6 @@ pub fn create_app() -> App {
                 handle_toolbar_mode_selection,
                 update_main_toolbar_debug,
                 update_current_edit_mode,
-                toggle_grid,
-                update_grid,
                 update_coordinate_display,
                 toggle_camera_controls,
             ),
