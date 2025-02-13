@@ -182,6 +182,10 @@
     <string>eight-ar.glif</string>
     <key>ellipsis</key>
     <string>ellipsis.glif</string>
+    <key>emdash</key>
+    <string>emdash.glif</string>
+    <key>endash</key>
+    <string>endash.glif</string>
     <key>exclam</key>
     <string>exclam.glif</string>
     <key>exclamdown</key>
@@ -270,6 +274,8 @@
     <string>heh-ar.init.glif</string>
     <key>heh-ar.medi</key>
     <string>heh-ar.medi.glif</string>
+    <key>hyphen</key>
+    <string>hyphen.glif</string>
     <key>i</key>
     <string>i.glif</string>
     <key>j</key>
@@ -542,6 +548,8 @@
     <string>twodotsverticalbelow-ar.glif</string>
     <key>u</key>
     <string>u.glif</string>
+    <key>underscore</key>
+    <string>underscore.glif</string>
     <key>v</key>
     <string>v.glif</string>
     <key>veh-ar</key>

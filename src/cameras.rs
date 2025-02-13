@@ -45,7 +45,11 @@ pub fn update_coordinate_display(
     if let Ok(camera_transform) = camera_query.get_single() {
         let camera_pos = camera_transform.translation().truncate();
         for mut text in &mut query {
-            text.0 = format!("X: {:.1}, Y: {:.1}", camera_pos.x, camera_pos.y);
+            text.0 = format!(
+                "Camera Location: x:{}, y:{}",
+                camera_pos.x.round(),
+                camera_pos.y.round()
+            );
         }
     }
 }

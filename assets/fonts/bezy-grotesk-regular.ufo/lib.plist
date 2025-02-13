@@ -4,25 +4,18 @@
   <dict>
     <key>com.schriftgestaltung.DisplayStrings</key>
     <array>
-      <string>أشهد يا إلهي </string>
+      <string>أ/seen-ar.init شهد يا إلهي بانك خلقتني لعرفانك وعباد/behDotless-ar.init تك</string>
       <string> UFO: Bezy Grotesk Regular </string>
       <string>I</string>
       <string>:</string>
-      <string>/select</string>
-      <string>/E011</string>
-      <string>/E012</string>
-      <string>/E013</string>
-      <string>/E014</string>
-      <string>/E015</string>
-      <string>/E016</string>
-      <string>/E017</string>
-      <string>/E018</string>
-      <string>/E019</string>
-      <string>/E020</string>
-      <string>/E011/E012/E013/E014/E015/E016/E017/E018/E019/E020/harfbuzz/select</string>
-      <string>0</string>
-      <string>.</string>
-      <string>−</string>
+      <string>/hah-ar.init</string>
+      <string>/dotabove-ar</string>
+      <string>/lam-ar.medi</string>
+      <string>/fehDotless-ar.medi</string>
+      <string>/twodotsverticalabove-ar</string>
+      <string>/twodotsverticalbelow-ar</string>
+      <string>/twodotshorizontalabove-ar</string>
+      <string>/behDotless-ar.medi</string>
     </array>
     <key>com.schriftgestaltung.appVersion</key>
     <string>3337</string>
@@ -586,6 +579,10 @@
       <string>numbersign</string>
       <string>slash</string>
       <string>backslash</string>
+      <string>hyphen</string>
+      <string>endash</string>
+      <string>emdash</string>
+      <string>underscore</string>
       <string>minus</string>
       <string>harfbuzz</string>
       <string>select</string>

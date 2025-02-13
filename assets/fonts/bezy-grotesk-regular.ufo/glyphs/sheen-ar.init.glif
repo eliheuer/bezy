@@ -3,12 +3,12 @@
   <advance width="876"/>
   <outline>
     <component base="seen-ar.init"/>
-    <component base="threedotsupabove-ar" xOffset="312" yOffset="-176"/>
+    <component base="threedotsupabove-ar" xOffset="312" yOffset="-119"/>
   </outline>
   <lib>
     <dict>
       <key>com.schriftgestaltung.Glyphs.lastChange</key>
-      <string>2025-02-06 21:23:50 +0000</string>
+      <string>2025-02-13 22:01:10 +0000</string>
     </dict>
   </lib>
 </glyph>

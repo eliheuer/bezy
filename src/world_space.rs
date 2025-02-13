@@ -30,7 +30,7 @@ pub fn spawn_debug_path(mut commands: Commands) {
                         )),
                         ..default()
                     },
-                    Transform::from_xyz(position.x, position.y, 1.0),
+                    Transform::from_xyz(position.x, position.y, 10.0),
                     GlobalTransform::default(),
                 ))
                 .id();
@@ -54,7 +54,7 @@ pub fn spawn_debug_path(mut commands: Commands) {
                 custom_size: Some(Vec2::new(distance, 1.0)),
                 ..default()
             },
-            Transform::from_xyz(mid.x, mid.y, 0.0)
+            Transform::from_xyz(mid.x, mid.y, 10.0)
                 .with_rotation(Quat::from_rotation_z(rotation)),
             GlobalTransform::default(),
         ));
