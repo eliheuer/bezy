@@ -23,7 +23,7 @@ pub fn spawn_main_toolbar_debug(
             left: Val::Px(32.0 + 4.0), // + = optical adjustment
             ..default()
         },
-        RenderLayers::layer(1),  // UI layer
+        RenderLayers::layer(1), // UI layer
     ));
 }
 
@@ -49,7 +49,7 @@ pub fn spawn_debug_text(
             left: Val::Px(32.0),
             ..default()
         },
-        RenderLayers::layer(1),  // UI layer
+        RenderLayers::layer(1), // UI layer
     ));
     commands.spawn((
         Text::new("أشهد يا إلهي"),
@@ -60,6 +60,6 @@ pub fn spawn_debug_text(
             right: Val::Px(32.0),
             ..default()
         },
-        RenderLayers::layer(1),  // UI layer
+        RenderLayers::layer(1), // UI layer
     ));
 }

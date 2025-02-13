@@ -16,11 +16,11 @@ pub fn spawn_design_camera(commands: &mut Commands) {
     commands.spawn((
         Camera2d,
         Camera {
-            order: 0,  // Main camera renders in the middle
+            order: 0, // Main camera renders in the middle
             ..default()
         },
         DesignCamera,
-        RenderLayers::layer(0),  // Main design layer
+        RenderLayers::layer(0), // Main design layer
         PanCam::default(),
     ));
 }
@@ -30,10 +30,10 @@ pub fn spawn_ui_camera(commands: &mut Commands) {
     commands.spawn((
         Camera2d,
         Camera {
-            order: 1,  // UI camera renders on top
+            order: 1, // UI camera renders on top
             ..default()
         },
-        RenderLayers::layer(1),  // UI layer
+        RenderLayers::layer(1), // UI layer
         UiCamera,
     ));
 }
