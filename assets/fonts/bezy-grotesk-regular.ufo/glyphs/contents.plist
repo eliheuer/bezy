@@ -176,6 +176,8 @@
     <string>doublestroke-ar.glif</string>
     <key>e</key>
     <string>e.glif</string>
+    <key>eight</key>
+    <string>eight.glif</string>
     <key>eight-ar</key>
     <string>eight-ar.glif</string>
     <key>ellipsis</key>
@@ -206,8 +208,12 @@
     <string>fehD_otless-ar.init.glif</string>
     <key>fehDotless-ar.medi</key>
     <string>fehD_otless-ar.medi.glif</string>
+    <key>five</key>
+    <string>five.glif</string>
     <key>five-ar</key>
     <string>five-ar.glif</string>
+    <key>four</key>
+    <string>four.glif</string>
     <key>four-ar</key>
     <string>four-ar.glif</string>
     <key>g</key>
@@ -344,8 +350,12 @@
     <string>meem-ar.medi.glif</string>
     <key>miniKeheh-ar</key>
     <string>miniK_eheh-ar.glif</string>
+    <key>minus</key>
+    <string>minus.glif</string>
     <key>n</key>
     <string>n.glif</string>
+    <key>nine</key>
+    <string>nine.glif</string>
     <key>nine-ar</key>
     <string>nine-ar.glif</string>
     <key>noon-ar</key>
@@ -364,6 +374,8 @@
     <string>numbersign.glif</string>
     <key>o</key>
     <string>o.glif</string>
+    <key>one</key>
+    <string>one.glif</string>
     <key>one-ar</key>
     <string>one-ar.glif</string>
     <key>p</key>
@@ -428,6 +440,8 @@
     <string>semicolon.glif</string>
     <key>semicolon-ar</key>
     <string>semicolon-ar.glif</string>
+    <key>seven</key>
+    <string>seven.glif</string>
     <key>seven-ar</key>
     <string>seven-ar.glif</string>
     <key>shadda-ar</key>
@@ -454,6 +468,8 @@
     <string>sheen-ar.init.glif</string>
     <key>sheen-ar.medi</key>
     <string>sheen-ar.medi.glif</string>
+    <key>six</key>
+    <string>six.glif</string>
     <key>six-ar</key>
     <string>six-ar.glif</string>
     <key>slash</key>
@@ -498,6 +514,8 @@
     <string>theh-ar.medi.glif</string>
     <key>thousandseparator-ar</key>
     <string>thousandseparator-ar.glif</string>
+    <key>three</key>
+    <string>three.glif</string>
     <key>three-ar</key>
     <string>three-ar.glif</string>
     <key>threedotsdownabove-ar</key>
@@ -510,6 +528,8 @@
     <string>threedotsupabove-ar.glif</string>
     <key>threedotsupbelow-ar</key>
     <string>threedotsupbelow-ar.glif</string>
+    <key>two</key>
+    <string>two.glif</string>
     <key>two-ar</key>
     <string>two-ar.glif</string>
     <key>twodotshorizontalabove-ar</key>
@@ -578,6 +598,8 @@
     <string>zain-ar.glif</string>
     <key>zain-ar.fina</key>
     <string>zain-ar.fina.glif</string>
+    <key>zero</key>
+    <string>zero.glif</string>
     <key>zero-ar</key>
     <string>zero-ar.glif</string>
   </dict>

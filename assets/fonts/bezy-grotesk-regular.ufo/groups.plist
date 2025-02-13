@@ -14,9 +14,25 @@
     <array>
       <string>V</string>
     </array>
+    <key>public.kern1.eight</key>
+    <array>
+      <string>eight</string>
+    </array>
+    <key>public.kern1.five</key>
+    <array>
+      <string>five</string>
+    </array>
+    <key>public.kern1.four</key>
+    <array>
+      <string>four</string>
+    </array>
     <key>public.kern1.n</key>
     <array>
       <string>r</string>
+    </array>
+    <key>public.kern1.nine</key>
+    <array>
+      <string>nine</string>
     </array>
     <key>public.kern1.o</key>
     <array>
@@ -24,9 +40,33 @@
       <string>e</string>
       <string>o</string>
     </array>
+    <key>public.kern1.one</key>
+    <array>
+      <string>one</string>
+    </array>
+    <key>public.kern1.seven</key>
+    <array>
+      <string>seven</string>
+    </array>
+    <key>public.kern1.six</key>
+    <array>
+      <string>six</string>
+    </array>
     <key>public.kern1.t</key>
     <array>
       <string>t</string>
+    </array>
+    <key>public.kern1.three</key>
+    <array>
+      <string>three</string>
+    </array>
+    <key>public.kern1.two</key>
+    <array>
+      <string>two</string>
+    </array>
+    <key>public.kern1.zero</key>
+    <array>
+      <string>zero</string>
     </array>
     <key>public.kern2.A</key>
     <array>
@@ -40,19 +80,59 @@
     <array>
       <string>V</string>
     </array>
+    <key>public.kern2.eight</key>
+    <array>
+      <string>eight</string>
+    </array>
+    <key>public.kern2.five</key>
+    <array>
+      <string>five</string>
+    </array>
+    <key>public.kern2.four</key>
+    <array>
+      <string>four</string>
+    </array>
+    <key>public.kern2.nine</key>
+    <array>
+      <string>nine</string>
+    </array>
     <key>public.kern2.o</key>
     <array>
       <string>c</string>
       <string>e</string>
       <string>o</string>
     </array>
+    <key>public.kern2.one</key>
+    <array>
+      <string>one</string>
+    </array>
     <key>public.kern2.r</key>
     <array>
       <string>r</string>
     </array>
+    <key>public.kern2.seven</key>
+    <array>
+      <string>seven</string>
+    </array>
+    <key>public.kern2.six</key>
+    <array>
+      <string>six</string>
+    </array>
     <key>public.kern2.t</key>
     <array>
       <string>t</string>
+    </array>
+    <key>public.kern2.three</key>
+    <array>
+      <string>three</string>
+    </array>
+    <key>public.kern2.two</key>
+    <array>
+      <string>two</string>
+    </array>
+    <key>public.kern2.zero</key>
+    <array>
+      <string>zero</string>
     </array>
   </dict>
 </plist>
