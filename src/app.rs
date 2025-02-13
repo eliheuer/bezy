@@ -1,11 +1,9 @@
 // Creates the app and adds the plugins and systems
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
+use bevy_pancam::PanCamPlugin;
 
-use crate::cameras::{
-    handle_camera_pan, handle_camera_zoom, update_coordinate_display,
-    CameraState,
-};
+use crate::cameras::{toggle_camera_controls, update_coordinate_display};
 use crate::debug_hud::{
     spawn_debug_text, spawn_main_toolbar_debug, update_main_toolbar_debug,
 };
@@ -36,7 +34,6 @@ pub fn create_app() -> App {
     // Pay attention to the order of the systems
     app.insert_resource(WinitSettings::desktop_app())
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .insert_resource(CameraState::default())
         .insert_resource(CurrentEditMode::default())
         .insert_resource(GridSettings::default())
         .add_plugins(
@@ -44,6 +41,7 @@ pub fn create_app() -> App {
                 .set(ImagePlugin::default_nearest())
                 .set(window_plugin),
         )
+        .add_plugins(PanCamPlugin::default())
         // When the app starts, run the setup system and spawn everything
         .add_systems(
             Startup,
@@ -59,13 +57,12 @@ pub fn create_app() -> App {
             Update,
             (
                 handle_toolbar_mode_selection,
-                handle_camera_zoom,
-                handle_camera_pan,
                 update_main_toolbar_debug,
                 update_current_edit_mode,
                 toggle_grid,
                 update_grid,
                 update_coordinate_display,
+                toggle_camera_controls,
             ),
         );
     app

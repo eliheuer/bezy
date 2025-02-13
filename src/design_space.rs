@@ -23,20 +23,28 @@ impl DesignPoint {
     #[allow(dead_code)]
     pub fn from_screen_space(
         screen_point: Vec2,
-        camera_transform: &Transform,
+        camera_transform: &GlobalTransform,
     ) -> Self {
-        // Unproject the screen point using the camera's transform
-        let design_point = screen_point / camera_transform.scale.x;
+        // Convert screen point to world space using the camera's transform
+        let world_point = camera_transform
+            .compute_matrix()
+            .inverse()
+            .transform_point3(screen_point.extend(0.0));
+
         DesignPoint {
-            x: design_point.x,
-            y: design_point.y,
+            x: world_point.x,
+            y: world_point.y,
         }
     }
 
     /// Convert a design space point to screen space
     #[allow(dead_code)]
-    pub fn to_screen_space(&self, camera_transform: &Transform) -> Vec2 {
-        // Project the design point using the camera's transform
-        Vec2::new(self.x, self.y) * camera_transform.scale.x
+    pub fn to_screen_space(&self, camera_transform: &GlobalTransform) -> Vec2 {
+        // Convert design point to screen space using the camera's transform
+        let screen_point = camera_transform
+            .compute_matrix()
+            .transform_point3(Vec3::new(self.x, self.y, 0.0));
+
+        Vec2::new(screen_point.x, screen_point.y)
     }
 }

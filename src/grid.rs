@@ -1,5 +1,4 @@
-use crate::cameras::CameraState;
-use crate::cameras::GRID_LAYER;
+use crate::cameras::{DesignCamera, GRID_LAYER};
 // use crate::debug::green_text;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
@@ -33,12 +32,12 @@ pub fn toggle_grid(
 // System to update grid based on camera state
 pub fn update_grid(
     mut commands: Commands,
-    camera_state: Res<CameraState>,
     grid_settings: Res<GridSettings>,
     grid_query: Query<Entity, With<GridLine>>,
     windows: Query<&Window>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
 ) {
-    // Remove existing grid lines and camera
+    // Remove existing grid lines
     for entity in grid_query.iter() {
         commands.entity(entity).despawn();
     }
@@ -47,29 +46,35 @@ pub fn update_grid(
         return;
     }
 
+    let (_camera, camera_transform) = camera_query.single();
+    let window = windows.single();
+
     const BASE_GRID_SPACING: f32 = 1.0;
+    let camera_scale = camera_transform.compute_transform().scale.x;
 
     // Match the reference implementation's grid spacing calculation exactly
-    let grid_spacing = if camera_state.zoom < 1.0 {
+    let grid_spacing = if camera_scale < 1.0 {
         // When zoomed out, increase the spacing
-        BASE_GRID_SPACING * (1.0 / camera_state.zoom).ceil()
+        BASE_GRID_SPACING * (1.0 / camera_scale).ceil()
     } else {
         BASE_GRID_SPACING
     };
 
-    let window = windows.single();
     let window_width = window.resolution.width();
     let window_height = window.resolution.height();
 
-    // Calculate visible area in design space
-    let visible_width = window_width * camera_state.zoom;
-    let visible_height = window_height * camera_state.zoom;
+    // Calculate visible area in world space
+    let visible_width = window_width / camera_scale;
+    let visible_height = window_height / camera_scale;
 
-    // Calculate grid boundaries in design space
-    let x_start = (camera_state.position.x - visible_width / 2.0).floor();
-    let x_end = (camera_state.position.x + visible_width / 2.0).ceil();
-    let y_start = (camera_state.position.y - visible_height / 2.0).floor();
-    let y_end = (camera_state.position.y + visible_height / 2.0).ceil();
+    // Get camera position in world space
+    let camera_pos = camera_transform.translation().truncate();
+
+    // Calculate grid boundaries in world space
+    let x_start = (camera_pos.x - visible_width / 2.0).floor();
+    let x_end = (camera_pos.x + visible_width / 2.0).ceil();
+    let y_start = (camera_pos.y - visible_height / 2.0).floor();
+    let y_end = (camera_pos.y + visible_height / 2.0).ceil();
 
     // Fixed opacity for debugging
     let grid_fade = 0.3;
@@ -77,17 +82,14 @@ pub fn update_grid(
     // Draw vertical lines
     let mut x = x_start;
     while x <= x_end {
-        let screen_x = (x - camera_state.position.x) / camera_state.zoom
-            + window_width / 2.0;
-
         commands.spawn((
             GridLine,
             Sprite {
                 color: Color::srgba(0.5, 0.5, 0.5, grid_fade),
-                custom_size: Some(Vec2::new(0.5, window_height)),
+                custom_size: Some(Vec2::new(0.5, visible_height)),
                 ..default()
             },
-            Transform::from_xyz(screen_x - window_width / 2.0, 0.0, 0.0),
+            Transform::from_xyz(x, camera_pos.y, 0.0),
             RenderLayers::layer(GRID_LAYER),
         ));
 
@@ -97,17 +99,14 @@ pub fn update_grid(
     // Draw horizontal lines
     let mut y = y_start;
     while y <= y_end {
-        let screen_y = (y - camera_state.position.y) / camera_state.zoom
-            + window_height / 2.0;
-
         commands.spawn((
             GridLine,
             Sprite {
                 color: Color::srgba(0.5, 0.5, 0.5, grid_fade),
-                custom_size: Some(Vec2::new(window_width, 0.5)),
+                custom_size: Some(Vec2::new(visible_width, 0.5)),
                 ..default()
             },
-            Transform::from_xyz(0.0, screen_y - window_height / 2.0, 0.0),
+            Transform::from_xyz(camera_pos.x, y, 0.0),
             RenderLayers::layer(GRID_LAYER),
         ));
 
