@@ -2,12 +2,19 @@
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 
-use crate::camera::{handle_camera_pan, handle_camera_zoom, CameraState};
-use crate::debug_hud::{spawn_debug_text, spawn_main_toolbar_debug, update_main_toolbar_debug};
+use crate::cameras::{
+    handle_camera_pan, handle_camera_zoom, update_coordinate_display,
+    CameraState,
+};
+use crate::debug_hud::{
+    spawn_debug_text, spawn_main_toolbar_debug, update_main_toolbar_debug,
+};
 use crate::grid::{toggle_grid, update_grid, GridSettings};
 use crate::setup::setup;
 use crate::theme::BACKGROUND_COLOR;
-use crate::toolbar::{handle_toolbar_mode_selection, update_current_edit_mode, CurrentEditMode};
+use crate::toolbar::{
+    handle_toolbar_mode_selection, update_current_edit_mode, CurrentEditMode,
+};
 use crate::world_space::spawn_debug_path;
 
 // Create the app and add the plugins and systems
@@ -58,6 +65,7 @@ pub fn create_app() -> App {
                 update_current_edit_mode,
                 toggle_grid,
                 update_grid,
+                update_coordinate_display,
             ),
         );
     app

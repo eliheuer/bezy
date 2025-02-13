@@ -21,7 +21,10 @@ impl DesignPoint {
 
     /// Convert a point from screen space to design space
     #[allow(dead_code)]
-    pub fn from_screen_space(screen_point: Vec2, camera_transform: &Transform) -> Self {
+    pub fn from_screen_space(
+        screen_point: Vec2,
+        camera_transform: &Transform,
+    ) -> Self {
         // Unproject the screen point using the camera's transform
         let design_point = screen_point / camera_transform.scale.x;
         DesignPoint {

@@ -1,4 +1,5 @@
-use crate::camera::CameraState;
+use crate::cameras::CameraState;
+use crate::cameras::GRID_LAYER;
 // use crate::debug::green_text;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
@@ -6,10 +7,6 @@ use bevy::render::view::RenderLayers;
 // Component to mark grid lines
 #[derive(Component)]
 pub struct GridLine;
-
-// Component to mark the grid camera
-#[derive(Component)]
-pub struct GridCamera;
 
 // Resource to track grid visibility
 #[derive(Resource)]
@@ -33,15 +30,12 @@ pub fn toggle_grid(
     }
 }
 
-// Define a constant for the grid render layer
-const GRID_LAYER: usize = 1;
-
 // System to update grid based on camera state
 pub fn update_grid(
     mut commands: Commands,
     camera_state: Res<CameraState>,
     grid_settings: Res<GridSettings>,
-    grid_query: Query<Entity, Or<(With<GridLine>, With<GridCamera>)>>,
+    grid_query: Query<Entity, With<GridLine>>,
     windows: Query<&Window>,
 ) {
     // Remove existing grid lines and camera
@@ -77,24 +71,14 @@ pub fn update_grid(
     let y_start = (camera_state.position.y - visible_height / 2.0).floor();
     let y_end = (camera_state.position.y + visible_height / 2.0).ceil();
 
-    // Create a camera for the grid
-    commands.spawn((
-        Camera2d,
-        Camera {
-            order: -1,
-            ..default()
-        },
-        RenderLayers::layer(GRID_LAYER),
-        GridCamera,
-    ));
-
     // Fixed opacity for debugging
     let grid_fade = 0.3;
 
     // Draw vertical lines
     let mut x = x_start;
     while x <= x_end {
-        let screen_x = (x - camera_state.position.x) / camera_state.zoom + window_width / 2.0;
+        let screen_x = (x - camera_state.position.x) / camera_state.zoom
+            + window_width / 2.0;
 
         commands.spawn((
             GridLine,
@@ -113,7 +97,8 @@ pub fn update_grid(
     // Draw horizontal lines
     let mut y = y_start;
     while y <= y_end {
-        let screen_y = (y - camera_state.position.y) / camera_state.zoom + window_height / 2.0;
+        let screen_y = (y - camera_state.position.y) / camera_state.zoom
+            + window_height / 2.0;
 
         commands.spawn((
             GridLine,

@@ -24,7 +24,10 @@ pub fn spawn_debug_path(mut commands: Commands) {
                     PathPoint,
                     Sprite {
                         color: PATH_COLOR,
-                        custom_size: Some(Vec2::new(POINT_RADIUS * 1.0, POINT_RADIUS * 1.0)),
+                        custom_size: Some(Vec2::new(
+                            POINT_RADIUS * 1.0,
+                            POINT_RADIUS * 1.0,
+                        )),
                         ..default()
                     },
                     Transform::from_xyz(position.x, position.y, 1.0),
@@ -51,7 +54,8 @@ pub fn spawn_debug_path(mut commands: Commands) {
                 custom_size: Some(Vec2::new(distance, 1.0)),
                 ..default()
             },
-            Transform::from_xyz(mid.x, mid.y, 0.0).with_rotation(Quat::from_rotation_z(rotation)),
+            Transform::from_xyz(mid.x, mid.y, 0.0)
+                .with_rotation(Quat::from_rotation_z(rotation)),
             GlobalTransform::default(),
         ));
     }

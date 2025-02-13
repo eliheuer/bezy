@@ -1,7 +1,7 @@
 //! A font editor made with Rust and the Bevy game engine.
 
 mod app;
-mod camera;
+mod cameras;
 mod debug;
 mod debug_hud;
 mod design_space;

@@ -87,28 +87,33 @@ pub fn spawn_main_toolbar(commands: &mut Commands, asset_server: &AssetServer) {
                                     ..default()
                                 },
                                 BorderColor(Color::WHITE),
-                                BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
+                                BorderRadius::all(Val::Px(
+                                    BUTTON_BORDER_RADIUS,
+                                )),
                                 BackgroundColor(NORMAL_BUTTON),
                             ))
                             .with_children(|button| {
                                 // Add the icon for the button
-                                let icon = match button_name.to_string().as_str() {
-                                    "Select" => "\u{E010}",
-                                    "Pen" => "\u{E011}",
-                                    "Hyper" => "\u{E012}",
-                                    "Knife" => "\u{E013}",
-                                    "Pan" => "\u{E014}",
-                                    "Measure" => "\u{E015}",
-                                    "Primitives" => "\u{E016}",
-                                    "Text" => "\u{E017}",
-                                    _ => "",
-                                }
-                                .to_string();
+                                let icon =
+                                    match button_name.to_string().as_str() {
+                                        "Select" => "\u{E010}",
+                                        "Pen" => "\u{E011}",
+                                        "Hyper" => "\u{E012}",
+                                        "Knife" => "\u{E013}",
+                                        "Pan" => "\u{E014}",
+                                        "Measure" => "\u{E015}",
+                                        "Primitives" => "\u{E016}",
+                                        "Text" => "\u{E017}",
+                                        _ => "",
+                                    }
+                                    .to_string();
 
                                 button.spawn((
                                     Text::new(icon),
                                     TextFont {
-                                        font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                                        font: asset_server.load(
+                                            "fonts/bezy-grotesk-regular.ttf",
+                                        ),
                                         font_size: 48.0, // Consistent size for all icons
                                         ..default()
                                     },
@@ -135,7 +140,9 @@ pub fn handle_toolbar_mode_selection(
     mut current_mode: ResMut<CurrentEditMode>,
 ) {
     // First handle any new interactions
-    for (interaction, _color, _border_color, button_name, _entity) in &mut interaction_query {
+    for (interaction, _color, _border_color, button_name, _entity) in
+        &mut interaction_query
+    {
         if *interaction == Interaction::Pressed {
             // Get the old mode's system and call on_exit
             let old_system = current_mode.0.get_system();
@@ -163,7 +170,9 @@ pub fn handle_toolbar_mode_selection(
     }
 
     // Then update all button appearances based on the current mode
-    for (interaction, mut color, mut border_color, button_name, entity) in &mut interaction_query {
+    for (interaction, mut color, mut border_color, button_name, entity) in
+        &mut interaction_query
+    {
         let is_current_mode = match button_name.0.as_str() {
             "Select" => current_mode.0 == EditMode::Select,
             "Pen" => current_mode.0 == EditMode::Pen,
@@ -205,7 +214,10 @@ pub fn handle_toolbar_mode_selection(
     }
 }
 
-pub fn update_current_edit_mode(mut commands: Commands, current_mode: Res<CurrentEditMode>) {
+pub fn update_current_edit_mode(
+    mut commands: Commands,
+    current_mode: Res<CurrentEditMode>,
+) {
     let system = current_mode.0.get_system();
     system.update(&mut commands);
 }

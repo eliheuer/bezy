@@ -8,7 +8,10 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub struct MainToolbarDebugText;
 
-pub fn spawn_main_toolbar_debug(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn spawn_main_toolbar_debug(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
     commands.spawn((
         MainToolbarDebugText,
         Text::new(""),
@@ -31,7 +34,10 @@ pub fn update_main_toolbar_debug(
     }
 }
 
-pub fn spawn_debug_text(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn spawn_debug_text(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
     commands.spawn((
         Text::new(get_basic_font_info()),
         get_default_text_style(&asset_server),
