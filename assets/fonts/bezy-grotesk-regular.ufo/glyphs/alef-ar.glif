@@ -2,6 +2,8 @@
 <glyph name="alef-ar" format="2">
   <advance width="224"/>
   <unicode hex="0627"/>
+  <anchor x="112" y="768" name="top"/>
+  <anchor x="112" y="0" name="bottom"/>
   <outline>
     <contour>
       <point x="80" y="0" type="line"/>
@@ -14,4 +16,10 @@
       <point x="64" y="16" type="line"/>
     </contour>
   </outline>
+  <lib>
+    <dict>
+      <key>com.schriftgestaltung.Glyphs.lastChange</key>
+      <string>2025-02-14 06:13:34 +0000</string>
+    </dict>
+  </lib>
 </glyph>

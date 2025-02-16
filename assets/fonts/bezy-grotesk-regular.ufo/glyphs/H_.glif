@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <glyph name="H" format="2">
-  <advance width="752"/>
+  <advance width="736"/>
   <unicode hex="0048"/>
   <outline>
     <contour>
@@ -9,18 +9,18 @@
       <point x="168" y="16" type="line"/>
       <point x="168" y="352" type="line"/>
       <point x="176" y="360" type="line"/>
-      <point x="576" y="360" type="line"/>
-      <point x="584" y="352" type="line"/>
-      <point x="584" y="16" type="line"/>
-      <point x="600" y="0" type="line"/>
-      <point x="672" y="0" type="line"/>
-      <point x="688" y="16" type="line"/>
-      <point x="688" y="752" type="line"/>
-      <point x="672" y="768" type="line"/>
-      <point x="600" y="768" type="line"/>
-      <point x="584" y="752" type="line"/>
-      <point x="584" y="456" type="line"/>
-      <point x="576" y="448" type="line"/>
+      <point x="560" y="360" type="line"/>
+      <point x="568" y="352" type="line"/>
+      <point x="568" y="16" type="line"/>
+      <point x="584" y="0" type="line"/>
+      <point x="656" y="0" type="line"/>
+      <point x="672" y="16" type="line"/>
+      <point x="672" y="752" type="line"/>
+      <point x="656" y="768" type="line"/>
+      <point x="584" y="768" type="line"/>
+      <point x="568" y="752" type="line"/>
+      <point x="568" y="456" type="line"/>
+      <point x="560" y="448" type="line"/>
       <point x="176" y="448" type="line"/>
       <point x="168" y="456" type="line"/>
       <point x="168" y="752" type="line"/>
@@ -30,4 +30,10 @@
       <point x="64" y="16" type="line"/>
     </contour>
   </outline>
+  <lib>
+    <dict>
+      <key>com.schriftgestaltung.Glyphs.lastChange</key>
+      <string>2025-02-16 03:20:05 +0000</string>
+    </dict>
+  </lib>
 </glyph>

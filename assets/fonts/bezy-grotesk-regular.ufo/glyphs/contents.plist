@@ -34,6 +34,8 @@
     <string>E_020.glif</string>
     <key>F</key>
     <string>F_.glif</string>
+    <key>F001</key>
+    <string>F_001.glif</string>
     <key>G</key>
     <string>G_.glif</string>
     <key>H</key>
@@ -274,6 +276,8 @@
     <string>heh-ar.init.glif</string>
     <key>heh-ar.medi</key>
     <string>heh-ar.medi.glif</string>
+    <key>heh-ar.medi.001</key>
+    <string>heh-ar.medi.001.glif</string>
     <key>hyphen</key>
     <string>hyphen.glif</string>
     <key>i</key>
@@ -360,6 +364,8 @@
     <string>minus.glif</string>
     <key>n</key>
     <string>n.glif</string>
+    <key>newGlyph</key>
+    <string>newG_lyph.glif</string>
     <key>nine</key>
     <string>nine.glif</string>
     <key>nine-ar</key>

@@ -1,14 +1,14 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <glyph name="sheen-ar.init" format="2">
-  <advance width="876"/>
+  <advance width="840"/>
   <outline>
     <component base="seen-ar.init"/>
-    <component base="threedotsupabove-ar" xOffset="312" yOffset="-119"/>
+    <component base="threedotsupabove-ar" xOffset="296" yOffset="-112"/>
   </outline>
   <lib>
     <dict>
       <key>com.schriftgestaltung.Glyphs.lastChange</key>
-      <string>2025-02-13 22:01:10 +0000</string>
+      <string>2025-02-14 08:54:09 +0000</string>
     </dict>
   </lib>
 </glyph>

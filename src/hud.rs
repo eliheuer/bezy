@@ -38,7 +38,7 @@ fn spawn_coordinate_display(
         Node {
             position_type: PositionType::Absolute,
             left: Val::Px(32.0),
-            bottom: Val::Px(64.0 + 8.0),
+            bottom: Val::Px(64.0 + 16.0),
             ..default()
         },
         Text::new("X: 0.0, Y: 0.0"),

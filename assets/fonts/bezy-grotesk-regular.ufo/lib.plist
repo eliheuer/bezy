@@ -4,23 +4,45 @@
   <dict>
     <key>com.schriftgestaltung.DisplayStrings</key>
     <array>
-      <string>أ/seen-ar.init شهد يا إلهي بانك خلقتني لعرفانك وعباد/behDotless-ar.init تك</string>
-      <string> UFO: Bezy Grotesk Regular </string>
-      <string>I</string>
-      <string>:</string>
-      <string>/hah-ar.init</string>
-      <string>/dotabove-ar</string>
-      <string>/lam-ar.medi</string>
-      <string>/fehDotless-ar.medi</string>
-      <string>/twodotsverticalabove-ar</string>
-      <string>/twodotsverticalbelow-ar</string>
-      <string>/twodotshorizontalabove-ar</string>
-      <string>/behDotless-ar.medi</string>
+      <string>ٔأ/seen-ar.init/threedotsupabove-ar شهد شهد يا ٕإلهي بانك خلقتني لعرفانك وعباد/behDotless-ar.init تك</string>
+      <string>UFO: Bezy Grotesk Regular</string>
+      <string>/F001 HOnotBezy
+
+HOHOHOHHHOOOH
+
+</string>
     </array>
     <key>com.schriftgestaltung.appVersion</key>
     <string>3337</string>
     <key>com.schriftgestaltung.disablesAutomaticAlignment</key>
     <false/>
+    <key>com.schriftgestaltung.font.userData</key>
+    <dict>
+      <key>GSDimensionPlugin.Dimensions</key>
+      <dict>
+        <key>m001</key>
+        <dict>
+          <key>HH</key>
+          <string>88</string>
+          <key>HV</key>
+          <string>104</string>
+          <key>OH</key>
+          <string>96</string>
+          <key>OV</key>
+          <string>108</string>
+          <key>nV</key>
+          <string>96</string>
+          <key>nd</key>
+          <string>70</string>
+          <key>oH</key>
+          <string>80</string>
+          <key>oV</key>
+          <string>96</string>
+          <key>tH</key>
+          <string>80</string>
+        </dict>
+      </dict>
+    </dict>
     <key>com.schriftgestaltung.formatVersion</key>
     <integer>3</integer>
     <key>com.schriftgestaltung.glyphOrder</key>
@@ -288,6 +310,12 @@
       <string>decimalseparator-ar</string>
       <string>thousandseparator-ar</string>
     </array>
+    <key>com.schriftgestaltung.gridSize</key>
+    <integer>2</integer>
+    <key>com.schriftgestaltung.keyboardIncrementBig</key>
+    <integer>4</integer>
+    <key>com.schriftgestaltung.keyboardIncrementHuge</key>
+    <integer>8</integer>
     <key>com.schriftgestaltung.useNiceNames</key>
     <false/>
     <key>public.glyphOrder</key>
@@ -554,6 +582,7 @@
       <string>nine-ar</string>
       <string>decimalseparator-ar</string>
       <string>thousandseparator-ar</string>
+      <string>heh-ar.medi.001</string>
       <string>zero</string>
       <string>one</string>
       <string>two</string>
@@ -596,6 +625,8 @@
       <string>E018</string>
       <string>E019</string>
       <string>E020</string>
+      <string>F001</string>
+      <string>newGlyph</string>
     </array>
     <key>public.postscriptNames</key>
     <dict>
