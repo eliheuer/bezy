@@ -24,7 +24,7 @@ pub const PATH_COLOR: Color = Color::srgb(0.8, 0.0, 0.0);
 pub const BACKGROUND_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
 
 // Button Styling
-pub const BUTTON_BORDER_RADIUS: f32 = 8.0;
+pub const BUTTON_BORDER_RADIUS: f32 = 0.0;
 
 pub fn get_default_text_style(asset_server: &Res<AssetServer>) -> TextFont {
     TextFont {

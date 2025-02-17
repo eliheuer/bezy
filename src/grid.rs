@@ -10,8 +10,8 @@ pub fn spawn_grid_of_squares(commands: &mut Commands) {
         grid_size: 128,      // Total number of squares in each dimension
         grid_unit_size: 16., // Width and height of each grid unit in pixels
         colors: GridColors {
-            light: rgb_linear_from_gray(0.05),
-            dark: rgb_linear_from_gray(0.025),
+            light: rgb_linear_from_gray(0.03),
+            dark: rgb_linear_from_gray(0.015),
         },
     };
 
