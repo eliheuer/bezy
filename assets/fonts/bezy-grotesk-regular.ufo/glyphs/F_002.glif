@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<glyph name="E012" format="2">
-  <advance width="752"/>
-  <unicode hex="E012"/>
+<glyph name="F002" format="2">
+  <advance width="816"/>
+  <unicode hex="F002"/>
   <outline>
     <contour>
       <point x="334" y="340" type="curve" smooth="yes"/>
@@ -66,7 +66,7 @@
   <lib>
     <dict>
       <key>com.schriftgestaltung.Glyphs.lastChange</key>
-      <string>2025-02-17 00:52:19 +0000</string>
+      <string>2025-02-17 00:51:05 +0000</string>
     </dict>
   </lib>
 </glyph>

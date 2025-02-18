@@ -11,6 +11,9 @@
 HOHOHOHHHOOOH
 
 </string>
+      <string>BELIVE IN
+SOMETHING</string>
+      <string>/select</string>
     </array>
     <key>com.schriftgestaltung.appVersion</key>
     <string>3337</string>
@@ -312,10 +315,6 @@ HOHOHOHHHOOOH
     </array>
     <key>com.schriftgestaltung.gridSize</key>
     <integer>2</integer>
-    <key>com.schriftgestaltung.keyboardIncrementBig</key>
-    <integer>4</integer>
-    <key>com.schriftgestaltung.keyboardIncrementHuge</key>
-    <integer>8</integer>
     <key>com.schriftgestaltung.useNiceNames</key>
     <false/>
     <key>public.glyphOrder</key>
@@ -626,6 +625,8 @@ HOHOHOHHHOOOH
       <string>E019</string>
       <string>E020</string>
       <string>F001</string>
+      <string>F002</string>
+      <string>F003</string>
       <string>newGlyph</string>
     </array>
     <key>public.postscriptNames</key>

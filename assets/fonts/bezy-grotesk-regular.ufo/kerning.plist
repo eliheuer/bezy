@@ -19,6 +19,11 @@
       <key>public.kern2.A</key>
       <integer>-128</integer>
     </dict>
+    <key>public.kern1.o</key>
+    <dict>
+      <key>public.kern2.z</key>
+      <integer>-24</integer>
+    </dict>
     <key>public.kern1.t</key>
     <dict>
       <key>public.kern2.o</key>

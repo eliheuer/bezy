@@ -64,6 +64,10 @@
     <array>
       <string>two</string>
     </array>
+    <key>public.kern1.z</key>
+    <array>
+      <string>z</string>
+    </array>
     <key>public.kern1.zero</key>
     <array>
       <string>zero</string>
@@ -129,6 +133,10 @@
     <key>public.kern2.two</key>
     <array>
       <string>two</string>
+    </array>
+    <key>public.kern2.z</key>
+    <array>
+      <string>z</string>
     </array>
     <key>public.kern2.zero</key>
     <array>
