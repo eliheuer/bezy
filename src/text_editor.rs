@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 /// Component for the text editor
+#[allow(dead_code)]
 #[derive(Component, Default)]
 pub struct TextEditor {
     text: String,
@@ -8,6 +9,7 @@ pub struct TextEditor {
 }
 
 /// System to spawn the text editor
+#[allow(dead_code)]
 pub fn spawn_text_editor(mut commands: Commands) {
     commands.spawn((
         TextEditor::default(),
@@ -86,8 +88,8 @@ pub fn handle_text_input(
 }
 
 /// System to update text display
-pub fn update_text_display(text_editor: Query<&TextEditor>) {
-    if let Ok(editor) = text_editor.get_single() {
+pub fn update_text_display(text_editor: Query<(Entity, &TextEditor), Changed<TextEditor>>) {
+    for (_entity, editor) in text_editor.iter() {
         info!("Text: {}", editor.text);
     }
 }

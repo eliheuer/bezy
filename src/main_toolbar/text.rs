@@ -3,12 +3,14 @@ use bevy::prelude::*;
 use bevy::input::ButtonInput as Input;
 
 #[derive(Component, Default)]
+#[allow(dead_code)]
 pub struct TextModeUI {
     text: String,
 }
 
 /// Resource to hold the text mode state
 #[derive(Resource)]
+#[allow(dead_code)]
 pub struct TextModeState {
     text_entity: Option<Entity>,
 }
@@ -21,6 +23,7 @@ impl Default for TextModeState {
     }
 }
 
+#[allow(dead_code)]
 pub struct TextMode;
 
 impl EditModeSystem for TextMode {
@@ -38,17 +41,17 @@ impl EditModeSystem for TextMode {
 }
 
 // System to set up text mode UI
+#[allow(dead_code)]
 pub fn setup_text_mode(mut commands: Commands) {
     commands.spawn((
         TextModeUI::default(),
-        NodeBundle {
-            background_color: BackgroundColor(Color::rgb(0.9, 0.9, 0.9)),
-            ..default()
-        },
+        Node::default(),
+        BackgroundColor(Color::rgb(0.9, 0.9, 0.9)),
     ));
 }
 
 // System to handle text input
+#[allow(dead_code)]
 pub fn handle_text_input(
     mut text_ui: Query<&mut TextModeUI>,
     keyboard: Res<Input<KeyCode>>,
@@ -104,6 +107,7 @@ pub fn handle_text_input(
 }
 
 // System to update text display
+#[allow(dead_code)]
 pub fn update_text_display(text_ui: Query<&TextModeUI>) {
     if let Ok(editor) = text_ui.get_single() {
         info!("Text: {}", editor.text);
@@ -111,6 +115,7 @@ pub fn update_text_display(text_ui: Query<&TextModeUI>) {
 }
 
 // System to clean up text mode UI
+#[allow(dead_code)]
 pub fn cleanup_text_mode(
     mut commands: Commands,
     state: Option<Res<TextModeState>>,
@@ -124,6 +129,7 @@ pub fn cleanup_text_mode(
 }
 
 // Add these systems to your app setup
+#[allow(dead_code)]
 pub fn register_text_mode(app: &mut App) {
     app.add_systems(Update, (
         handle_text_input,
