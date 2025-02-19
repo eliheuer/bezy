@@ -2,8 +2,11 @@
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use bevy_pancam::PanCamPlugin;
+use norad::Ufo;
+use std::path::PathBuf;
 
 use crate::cameras::{toggle_camera_controls, update_coordinate_display};
+use crate::data::AppState;
 use crate::debug_hud::{
     spawn_debug_text, spawn_main_toolbar_debug, update_main_toolbar_debug,
 };
@@ -32,7 +35,8 @@ pub fn create_app() -> App {
 
     // Sequence of events to start and run the app
     // Pay attention to the order of the systems
-    app.insert_resource(WinitSettings::desktop_app())
+    app.init_resource::<AppState>()
+        .insert_resource(WinitSettings::desktop_app())
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(CurrentEditMode::default())
         .add_plugins(
@@ -42,11 +46,12 @@ pub fn create_app() -> App {
         )
         .add_plugins(PanCamPlugin::default())
         .add_plugins(TextEditorPlugin)
+        // Initialize font state before setup
+        .add_systems(Startup, (crate::ufo::initialize_font_state, setup))
         // When the app starts, run the setup system and spawn everything
         .add_systems(
             Startup,
             (
-                setup,
                 spawn_main_toolbar_debug,
                 spawn_debug_text,
                 spawn_debug_path,

@@ -2,6 +2,7 @@
 
 mod app;
 mod cameras;
+mod data;
 mod debug;
 mod debug_hud;
 mod design_space;
