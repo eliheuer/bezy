@@ -3,7 +3,6 @@ use crate::grid::spawn_grid_of_squares;
 use crate::hud::spawn_hud;
 use crate::ufo::load_ufo;
 use bevy::prelude::*;
-use rand::prelude::random;
 
 /// Initial setup system that runs on startup.
 pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {

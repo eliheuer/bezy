@@ -10,9 +10,11 @@ mod grid;
 mod hud;
 mod main_toolbar;
 mod setup;
+mod text_editor;
 mod theme;
 mod toolbar;
 mod ufo;
+mod virtual_font;
 mod world_space;
 
 fn main() {

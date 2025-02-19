@@ -8,6 +8,7 @@ use crate::debug_hud::{
     spawn_debug_text, spawn_main_toolbar_debug, update_main_toolbar_debug,
 };
 use crate::setup::setup;
+use crate::text_editor::TextEditorPlugin;
 use crate::theme::BACKGROUND_COLOR;
 use crate::toolbar::{
     handle_toolbar_mode_selection, update_current_edit_mode, CurrentEditMode,
@@ -40,6 +41,7 @@ pub fn create_app() -> App {
                 .set(window_plugin),
         )
         .add_plugins(PanCamPlugin::default())
+        .add_plugins(TextEditorPlugin)
         // When the app starts, run the setup system and spawn everything
         .add_systems(
             Startup,
