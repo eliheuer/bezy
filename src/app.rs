@@ -17,6 +17,7 @@ use crate::toolbar::{
     handle_toolbar_mode_selection, update_current_edit_mode, CurrentEditMode,
 };
 use crate::world_space::spawn_debug_path;
+use crate::design_space::DesignSpacePlugin;
 
 // Create the app and add the plugins and systems
 pub fn create_app() -> App {
@@ -46,6 +47,7 @@ pub fn create_app() -> App {
         )
         .add_plugins(PanCamPlugin::default())
         .add_plugins(TextEditorPlugin)
+        .add_plugins(DesignSpacePlugin)
         // Initialize font state before setup
         .add_systems(Startup, (crate::ufo::initialize_font_state, setup))
         // When the app starts, run the setup system and spawn everything

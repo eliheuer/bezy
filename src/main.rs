@@ -15,6 +15,7 @@ mod text_editor;
 mod theme;
 mod toolbar;
 mod ufo;
+mod tests;
 mod virtual_font;
 mod world_space;
 
