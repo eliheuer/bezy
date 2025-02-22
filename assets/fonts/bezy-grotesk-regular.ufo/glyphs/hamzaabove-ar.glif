@@ -2,12 +2,12 @@
 <glyph name="hamzaabove-ar" format="2">
   <advance width="224"/>
   <unicode hex="0654"/>
-  <anchor x="112" y="768" name="top"/>
+  <anchor x="112" y="768" name="_top"/>
   <outline>
     <contour>
-      <point x="16" y="832" type="line"/>
-      <point x="208" y="832" type="line"/>
-      <point x="224" y="848" type="line"/>
+      <point x="16" y="848" type="line"/>
+      <point x="208" y="848" type="line"/>
+      <point x="224" y="864" type="line"/>
       <point x="224" y="888" type="line"/>
       <point x="208" y="904" type="line"/>
       <point x="176" y="904" type="line" smooth="yes"/>
@@ -37,13 +37,13 @@
       <point x="60" y="904" type="line"/>
       <point x="16" y="904" type="line"/>
       <point x="0" y="888" type="line"/>
-      <point x="0" y="848" type="line"/>
+      <point x="0" y="864" type="line"/>
     </contour>
   </outline>
   <lib>
     <dict>
       <key>com.schriftgestaltung.Glyphs.lastChange</key>
-      <string>2025-02-14 09:47:10 +0000</string>
+      <string>2025-02-22 05:17:15 +0000</string>
     </dict>
   </lib>
 </glyph>

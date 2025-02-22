@@ -3,12 +3,12 @@
   <advance width="668"/>
   <outline>
     <component base="hah-ar.init"/>
-    <component base="dotabove-ar" xOffset="192" yOffset="-136"/>
+    <component base="dotabove-ar" xOffset="174" yOffset="-128"/>
   </outline>
   <lib>
     <dict>
       <key>com.schriftgestaltung.Glyphs.lastChange</key>
-      <string>2025-02-13 22:23:32 +0000</string>
+      <string>2025-02-22 08:12:58 +0000</string>
     </dict>
   </lib>
 </glyph>

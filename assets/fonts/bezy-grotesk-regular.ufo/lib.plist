@@ -4,16 +4,24 @@
   <dict>
     <key>com.schriftgestaltung.DisplayStrings</key>
     <array>
-      <string>ٔأ/seen-ar.init/threedotsupabove-ar شهد شهد يا ٕإلهي بانك خلقتني لعرفانك وعباد/behDotless-ar.init تك</string>
-      <string>UFO: Bezy Grotesk Regular</string>
+      <string>أشهد يا إلهي بانك خلقتني لعرفانك وعباد/behDotless-ar.init تك</string>
+      <string> UHFO: Bezy Grotesk Regular</string>
       <string>/F001 HOnotBezy
 
 HOHOHOHHHOOOH
 
 </string>
-      <string>BELIVE IN
-SOMETHING</string>
-      <string>/select</string>
+      <string>/E010</string>
+      <string>/E011</string>
+      <string>nanbncndnenfngnhninjnknlnmnnonpnqnrnsntnunvnwnxnynzn</string>
+      <string>ٔ/alefHamzaabove-ar.fina</string>
+      <string>/behDotless-ar.init</string>
+      <string>/behDotless-ar.init/beh-ar.init</string>
+      <string>/dotabove-ar</string>
+      <string>/dotbelow-ar</string>
+      <string>/E007 Font.Garden</string>
+      <string>/E008</string>
+      <string>/E009</string>
     </array>
     <key>com.schriftgestaltung.appVersion</key>
     <string>3337</string>
@@ -315,6 +323,10 @@ SOMETHING</string>
     </array>
     <key>com.schriftgestaltung.gridSize</key>
     <integer>2</integer>
+    <key>com.schriftgestaltung.keyboardIncrementBig</key>
+    <integer>4</integer>
+    <key>com.schriftgestaltung.keyboardIncrementHuge</key>
+    <integer>8</integer>
     <key>com.schriftgestaltung.useNiceNames</key>
     <false/>
     <key>public.glyphOrder</key>
@@ -612,8 +624,13 @@ SOMETHING</string>
       <string>emdash</string>
       <string>underscore</string>
       <string>minus</string>
-      <string>harfbuzz</string>
-      <string>select</string>
+      <string>E000</string>
+      <string>E005</string>
+      <string>E006</string>
+      <string>E007</string>
+      <string>E008</string>
+      <string>E009</string>
+      <string>E010</string>
       <string>E011</string>
       <string>E012</string>
       <string>E013</string>
@@ -624,10 +641,11 @@ SOMETHING</string>
       <string>E018</string>
       <string>E019</string>
       <string>E020</string>
+      <string>newGlyph</string>
       <string>F001</string>
       <string>F002</string>
       <string>F003</string>
-      <string>newGlyph</string>
+      <string>E004</string>
     </array>
     <key>public.postscriptNames</key>
     <dict>

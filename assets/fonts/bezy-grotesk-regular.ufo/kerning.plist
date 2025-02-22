@@ -4,6 +4,8 @@
   <dict>
     <key>period</key>
     <dict>
+      <key>public.kern2.O</key>
+      <integer>-112</integer>
       <key>public.kern2.one</key>
       <integer>-64</integer>
     </dict>
@@ -13,6 +15,11 @@
       <integer>-128</integer>
       <key>public.kern2.V</key>
       <integer>-128</integer>
+    </dict>
+    <key>public.kern1.F</key>
+    <dict>
+      <key>public.kern2.o</key>
+      <integer>-48</integer>
     </dict>
     <key>public.kern1.V</key>
     <dict>
