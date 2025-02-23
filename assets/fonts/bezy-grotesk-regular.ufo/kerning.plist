@@ -2,6 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
+    <key>n</key>
+    <dict>
+      <key>public.kern2.t</key>
+      <integer>-8</integer>
+    </dict>
     <key>period</key>
     <dict>
       <key>public.kern2.O</key>
@@ -19,7 +24,7 @@
     <key>public.kern1.F</key>
     <dict>
       <key>public.kern2.o</key>
-      <integer>-48</integer>
+      <integer>-40</integer>
     </dict>
     <key>public.kern1.V</key>
     <dict>

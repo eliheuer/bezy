@@ -1,2 +1,7 @@
 /target
 *.ttf
+ai_context/
+assets/fonts/.DS_Store
+assets/fonts/build-anim.sh
+assets/fonts/build-image.sh
+assets/fonts/drawbot-images/

@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <glyph name="feh-ar.medi" format="2">
-  <advance width="560"/>
+  <advance width="688"/>
   <outline>
     <component base="fehDotless-ar.medi"/>
     <component base="dotabove-ar" xOffset="196" yOffset="-128"/>
