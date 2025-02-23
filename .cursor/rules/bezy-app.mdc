@@ -1,0 +1,21 @@
+---
+description: Bezy app main rules and best practices
+globs: src/** ai_context/**
+---
+
+# Bezy Rules
+
+## Overview
+
+Bezy is a font editing application writen in Rust and Bevy.
+
+It is designed to have a simple readable codebase, that junior programmers, type designers, frontend engineers, and LLMs can easily understand and work with.
+
+It is a loose port of a previous font editor called Runebender, the major difference being that Runbender uses the Druid GUI framework and Bezy uses the Bevy ECS game engine.
+
+Besy is designed to feel like a video game, it should be fast, fun, and engaging to use, like being immersed in a uniqe world.
+
+I am porting code from Runbender to Bezy, that means I am porting from Druid to Bevy. The Runebender and Bevy repos are in the ai_context directory for refrance when porting.
+
+
+
