@@ -46,7 +46,7 @@ pub fn setup_text_mode(mut commands: Commands) {
     commands.spawn((
         TextModeUI::default(),
         Node::default(),
-        BackgroundColor(Color::rgb(0.9, 0.9, 0.9)),
+        BackgroundColor(Color::srgb(0.9, 0.9, 0.9)),
     ));
 }
 

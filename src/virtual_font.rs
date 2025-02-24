@@ -1,11 +1,11 @@
-use bevy::prelude::*;
-
 #[derive(Debug, Default)]
+#[allow(dead_code)]
 pub struct VirtualFont {
     text: String,
     cursor_position: usize,
 }
 
+#[allow(dead_code)]
 impl VirtualFont {
     /// Create a new virtual font
     pub fn new() -> Self {

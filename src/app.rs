@@ -2,8 +2,6 @@
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use bevy_pancam::PanCamPlugin;
-use norad::Ufo;
-use std::path::PathBuf;
 
 use crate::cameras::{toggle_camera_controls, update_coordinate_display};
 use crate::data::AppState;

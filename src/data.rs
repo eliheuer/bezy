@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use bevy::prelude::*;
-use norad::glyph::{Contour, ContourPoint, Glyph, GlyphName, PointType};
+use norad::glyph::{ContourPoint, Glyph, GlyphName, PointType};
 use norad::{FontInfo, Ufo};
 
 /// This is by convention.
@@ -29,6 +29,7 @@ impl AppState {
 
 /// A workspace is a single font, corresponding to a UFO file on disk.
 #[derive(Clone, Default)]
+#[allow(dead_code)]
 pub struct Workspace {
     pub font: Arc<FontObject>,
     /// The currently selected glyph (in the main glyph list) if any.
@@ -39,6 +40,7 @@ pub struct Workspace {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct FontObject {
     pub path: Option<Arc<Path>>,
     pub ufo: Ufo,
@@ -46,6 +48,7 @@ pub struct FontObject {
 
 /// Detailed information about a specific glyph.
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct GlyphDetail {
     pub glyph: Arc<Glyph>,
     pub outline: Arc<BezPath>,
@@ -81,6 +84,7 @@ impl Workspace {
         self.info = SimpleFontInfo::from_font(&self.font);
     }
 
+    #[allow(dead_code)]
     pub fn save(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let font_obj = Arc::make_mut(&mut self.font);
         font_obj.update_info(&self.info);
@@ -103,6 +107,7 @@ impl Workspace {
         }
     }
 
+    #[allow(dead_code)]
     pub fn units_per_em(&self) -> f64 {
         self.font
             .ufo
@@ -112,12 +117,14 @@ impl Workspace {
             .unwrap_or(DEFAULT_UNITS_PER_EM)
     }
 
+    #[allow(dead_code)]
     pub fn font_mut(&mut self) -> &mut FontObject {
         Arc::make_mut(&mut self.font)
     }
 }
 
 impl FontObject {
+    #[allow(dead_code)]
     fn update_info(&mut self, info: &SimpleFontInfo) {
         let existing_info = SimpleFontInfo::from_font(self);
         if existing_info != *info {
@@ -257,6 +264,7 @@ impl PartialEq for FontMetrics {
 }
 
 /// Convert a glyph's path from the UFO representation into a `BezPath`
+#[allow(dead_code)]
 pub(crate) fn path_for_glyph(glyph: &Glyph) -> Option<BezPath> {
     let mut path = BezPath::new();
     if let Some(outline) = &glyph.outline {
@@ -325,6 +333,7 @@ pub(crate) fn path_for_glyph(glyph: &Glyph) -> Option<BezPath> {
     Some(path)
 }
 
+#[allow(dead_code)]
 fn backup_ufo_at_path(path: &Path) -> Result<Option<PathBuf>, std::io::Error> {
     if !path.exists() {
         return Ok(None);
@@ -350,6 +359,7 @@ fn backup_ufo_at_path(path: &Path) -> Result<Option<PathBuf>, std::io::Error> {
     Ok(Some(backup_dir))
 }
 
+#[allow(dead_code)]
 fn temp_write_path(path: &Path) -> PathBuf {
     let mut n = 0;
     let backup_date = chrono::Local::now();
@@ -374,10 +384,15 @@ pub struct BezPath {
 }
 
 #[derive(Clone, Component)]
+#[allow(dead_code)]
 pub enum PathCommand {
+    #[allow(dead_code)]
     MoveTo(Vec2),
+    #[allow(dead_code)]
     LineTo(Vec2),
+    #[allow(dead_code)]
     QuadTo(Vec2, Vec2),
+    #[allow(dead_code)]
     CurveTo(Vec2, Vec2, Vec2),
     ClosePath,
 }

@@ -13,10 +13,8 @@ pub struct TextEditor {
 pub fn spawn_text_editor(mut commands: Commands) {
     commands.spawn((
         TextEditor::default(),
-        NodeBundle {
-            background_color: BackgroundColor(Color::rgb(0.9, 0.9, 0.9)),
-            ..default()
-        },
+        Node::default(),
+        BackgroundColor(Color::srgb(0.9, 0.9, 0.9)),
     ));
 }
 

@@ -47,6 +47,7 @@ pub struct DVec2 {
 }
 
 impl DPoint {
+    #[allow(dead_code)]
     pub const ZERO: DPoint = DPoint { x: 0.0, y: 0.0 };
 
     /// Should only be used with inputs already in design space, such as when
@@ -61,10 +62,12 @@ impl DPoint {
         DPoint { x, y }
     }
 
+    #[allow(dead_code)]
     pub fn from_screen(point: Vec2, vport: ViewPort) -> DPoint {
         vport.from_screen(point)
     }
 
+    #[allow(dead_code)]
     pub fn to_screen(self, vport: ViewPort) -> Vec2 {
         vport.to_screen(self)
     }
@@ -72,6 +75,7 @@ impl DPoint {
     /// Create a new `DPoint` from a `Vec2` in design space. This should only
     /// be used to convert back to a `DPoint` after using `Vec2` to do vector
     /// math in design space.
+    #[allow(dead_code)]
     pub fn from_raw(point: impl Into<Vec2>) -> DPoint {
         let point = point.into();
         DPoint::new(point.x.round(), point.y.round())
@@ -84,6 +88,7 @@ impl DPoint {
     }
 
     /// Convert this `DPoint` to a `DVec2`.
+    #[allow(dead_code)]
     pub fn to_dvec2(self) -> DVec2 {
         let DPoint { x, y } = self;
         DVec2 { x, y }
@@ -91,6 +96,7 @@ impl DPoint {
 
     /// Given another point, lock whichever axis has the smallest difference
     /// between the two points to the value of that point.
+    #[allow(dead_code)]
     pub(crate) fn axis_locked_to(self, other: DPoint) -> DPoint {
         let dxy = other - self;
         if dxy.x.abs() > dxy.y.abs() {
@@ -100,6 +106,7 @@ impl DPoint {
         }
     }
 
+    #[allow(dead_code)]
     pub fn lerp(self, other: DPoint, t: f32) -> DPoint {
         DPoint::from_raw(Vec2::new(
             self.x + (other.x - self.x) * t,
@@ -109,6 +116,7 @@ impl DPoint {
 }
 
 impl DVec2 {
+    #[allow(dead_code)]
     pub const ZERO: DVec2 = DVec2 { x: 0.0, y: 0.0 };
 
     fn new(x: f32, y: f32) -> DVec2 {
@@ -116,23 +124,26 @@ impl DVec2 {
         DVec2 { x, y }
     }
 
+    #[allow(dead_code)]
     pub fn from_raw(vec2: impl Into<Vec2>) -> DVec2 {
         let vec2 = vec2.into();
         DVec2::new(vec2.x.round(), vec2.y.round())
     }
 
-    #[doc(hidden)]
+    #[allow(dead_code)]
     #[inline]
     pub(super) fn to_raw(self) -> Vec2 {
         Vec2::new(self.x, self.y)
     }
 
+    #[allow(dead_code)]
     #[inline]
     pub fn length(self) -> f32 {
         self.to_raw().length()
     }
 
     /// The vector snapped to the closest axis.
+    #[allow(dead_code)]
     pub fn axis_locked(self) -> DVec2 {
         if self.x.abs() > self.y.abs() {
             DVec2::new(self.x, 0.0)
@@ -141,11 +152,13 @@ impl DVec2 {
         }
     }
 
+    #[allow(dead_code)]
     #[inline]
     pub(crate) fn zero_x(self) -> DVec2 {
         DVec2::new(0.0, self.y)
     }
 
+    #[allow(dead_code)]
     #[inline]
     pub(crate) fn zero_y(self) -> DVec2 {
         DVec2::new(self.x, 0.0)
@@ -153,10 +166,12 @@ impl DVec2 {
 }
 
 impl ViewPort {
+    #[allow(dead_code)]
     pub fn offset(&self) -> Vec2 {
         self.offset
     }
 
+    #[allow(dead_code)]
     pub fn set_offset(&mut self, offset: Vec2) {
         self.offset = offset;
     }
@@ -190,10 +205,21 @@ impl ViewPort {
     }
 
     // rects get special treatment because they can't be transformed with a matrix directly
+    #[allow(dead_code)]
     pub fn rect_to_screen(&self, rect: Rect) -> Rect {
         let p0 = self.to_screen(DPoint::from_raw(rect.min));
         let p1 = self.to_screen(DPoint::from_raw(rect.max));
         Rect::from_corners(p0, p1)
+    }
+
+    #[allow(dead_code)]
+    pub fn get_color(&self) -> Color {
+        Color::srgba(1.0, 0.0, 0.0, 1.0)
+    }
+
+    #[allow(dead_code)]
+    pub fn get_hover_color(&self) -> Color {
+        Color::srgba(1.0, 0.0, 0.0, 1.0)
     }
 }
 
@@ -304,12 +330,12 @@ pub fn debug_coordinates(
     gizmos.line_2d(
         Vec2::new(-10.0, 0.0),
         Vec2::new(10.0, 0.0),
-        Color::rgba(1.0, 0.0, 0.0, 1.0)
+        Color::srgba(1.0, 0.0, 0.0, 1.0)
     );
     gizmos.line_2d(
         Vec2::new(0.0, -10.0),
         Vec2::new(0.0, 10.0),
-        Color::rgba(1.0, 0.0, 0.0, 1.0)
+        Color::srgba(1.0, 0.0, 0.0, 1.0)
     );
 }
 

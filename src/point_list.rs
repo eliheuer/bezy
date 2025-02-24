@@ -4,6 +4,7 @@ use norad::glyph::Contour;
 use crate::point::EditPoint;
 
 /// A list of points forming a contour in a glyph's outline
+#[allow(dead_code)]
 #[derive(Component, Debug, Clone)]
 pub struct PointList {
     /// The points in the contour

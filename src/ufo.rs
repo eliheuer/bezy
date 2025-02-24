@@ -67,6 +67,7 @@ pub fn load_ufo_from_path(path: &str) -> Result<Ufo, Box<dyn std::error::Error>>
     Ok(Ufo::load(font_path)?)
 }
 
+#[allow(dead_code)]
 fn load_and_set_font(state: &mut AppState, arg: &str) {
     let path = PathBuf::from(arg);
     if let Ok(ufo) = load_ufo_from_path(arg) {
@@ -77,6 +78,7 @@ fn load_and_set_font(state: &mut AppState, arg: &str) {
     }
 }
 
+#[allow(dead_code)]
 pub fn try_load_ufo_from_args(mut state: ResMut<AppState>) {
     if let Some(arg) = env::args().nth(1) {
         if let Ok(ufo) = load_ufo_from_path(&arg) {
