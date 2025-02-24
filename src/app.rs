@@ -8,6 +8,7 @@ use crate::data::AppState;
 use crate::debug_hud::{
     spawn_debug_text, spawn_main_toolbar_debug, update_main_toolbar_debug,
 };
+use crate::draw::DrawPlugin;
 use crate::setup::setup;
 use crate::text_editor::TextEditorPlugin;
 use crate::theme::BACKGROUND_COLOR;
@@ -46,6 +47,7 @@ pub fn create_app() -> App {
         .add_plugins(PanCamPlugin::default())
         .add_plugins(TextEditorPlugin)
         .add_plugins(DesignSpacePlugin)
+        .add_plugins(DrawPlugin)
         // Initialize font state before setup
         .add_systems(Startup, (crate::ufo::initialize_font_state, setup))
         // When the app starts, run the setup system and spawn everything
