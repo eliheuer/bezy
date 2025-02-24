@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "0.15.2", features = ["dynamic_linking"] }
-norad = "0.15.0"
+norad = { version = "0.3.1", features = ["druid", "rayon"] }
 anyhow = "1.0"
 spline = { version = "0.3.0", git = "https://github.com/eliheuer/spline.git", rev = "229f7e7" }
 kurbo = "0.11.1"
