@@ -3,6 +3,8 @@
 use bevy::prelude::*;
 use crate::design_space::{ViewPort, DPoint};
 use crate::data::{FontMetrics, AppState};
+use crate::theme::{ON_CURVE_POINT_RADIUS, OFF_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR, 
+                  OFF_CURVE_POINT_COLOR, PATH_LINE_COLOR, PATH_LINE_WIDTH, USE_SQUARE_FOR_ON_CURVE};
 use norad::Glyph;
 
 /// System that draws basic test elements for development
@@ -198,10 +200,6 @@ fn draw_glyph_points(
         // Log information about the glyph for debugging
         println!("Glyph '{}' has {} contours", glyph.name, outline.contours.len());
         
-        // Color for drawing points
-        let point_color = Color::srgba(0.0, 0.5, 1.0, 1.0);
-        let control_point_color = Color::srgba(1.0, 0.3, 0.3, 0.8); // Red for control points
-        
         // Iterate through all contours
         for (contour_idx, contour) in outline.contours.iter().enumerate() {
             println!("Contour {} has {} points", contour_idx, contour.points.len());
@@ -211,17 +209,39 @@ fn draw_glyph_points(
                 let point_pos = (point.x as f32, point.y as f32);
                 let screen_pos = viewport.to_screen(DPoint::from(point_pos));
                 
-                // Use different sizes and colors based on point type
-                let (size, color) = match point.typ {
-                    norad::PointType::Move | norad::PointType::Line | norad::PointType::Curve => 
-                        (6.0, point_color),
-                    norad::PointType::OffCurve => 
-                        (4.0, control_point_color),
-                    _ => (4.0, point_color)
+                // Determine if point is on-curve or off-curve
+                let is_on_curve = match point.typ {
+                    norad::PointType::Move | norad::PointType::Line | norad::PointType::Curve => true,
+                    _ => false
                 };
                 
-                // Draw a circle for each point
-                gizmos.circle_2d(screen_pos, size, color);
+                // Use different sizes and colors based on point type
+                let (size, color) = if is_on_curve {
+                    (ON_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR)
+                } else {
+                    (OFF_CURVE_POINT_RADIUS, OFF_CURVE_POINT_COLOR)
+                };
+                
+                // Draw the appropriate shape based on point type
+                if is_on_curve && USE_SQUARE_FOR_ON_CURVE {
+                    // For on-curve points, draw a square
+                    let half_size = size / 1.4; // Adjusting size for visual balance
+                    
+                    // Draw a square using lines
+                    let top_left = Vec2::new(screen_pos.x - half_size, screen_pos.y + half_size);
+                    let top_right = Vec2::new(screen_pos.x + half_size, screen_pos.y + half_size);
+                    let bottom_right = Vec2::new(screen_pos.x + half_size, screen_pos.y - half_size);
+                    let bottom_left = Vec2::new(screen_pos.x - half_size, screen_pos.y - half_size);
+                    
+                    // Draw the square sides
+                    gizmos.line_2d(top_left, top_right, color);
+                    gizmos.line_2d(top_right, bottom_right, color);
+                    gizmos.line_2d(bottom_right, bottom_left, color);
+                    gizmos.line_2d(bottom_left, top_left, color);
+                } else {
+                    // For off-curve points or if squares are disabled, draw a circle
+                    gizmos.circle_2d(screen_pos, size, color);
+                }
                 
                 // Draw a line connecting on-curve and off-curve points
                 if point_idx > 0 {
@@ -230,8 +250,7 @@ fn draw_glyph_points(
                     let prev_screen_pos = viewport.to_screen(DPoint::from(prev_pos));
                     
                     // Draw line between points
-                    let line_color = Color::srgba(0.5, 0.5, 0.5, 0.7);
-                    gizmos.line_2d(prev_screen_pos, screen_pos, line_color);
+                    gizmos.line_2d(prev_screen_pos, screen_pos, PATH_LINE_COLOR);
                 }
                 
                 // Useful debug info
@@ -251,8 +270,7 @@ fn draw_glyph_points(
                 let last_screen_pos = viewport.to_screen(DPoint::from(last_pos));
                 
                 // Draw closing line
-                let line_color = Color::srgba(0.5, 0.5, 0.5, 0.7);
-                gizmos.line_2d(last_screen_pos, first_screen_pos, line_color);
+                gizmos.line_2d(last_screen_pos, first_screen_pos, PATH_LINE_COLOR);
             }
         }
     } else {

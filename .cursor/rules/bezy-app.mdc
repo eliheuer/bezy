@@ -1,6 +1,7 @@
 ---
 description: Bezy app main rules and best practices
 globs: src/** ai_context/**
+alwaysApply: false
 ---
 # Bezy Rules
 
