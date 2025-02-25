@@ -68,8 +68,8 @@ pub fn spawn_debug_text(
         RenderLayers::layer(1), // UI layer
     ));
     commands.spawn((
-        Text::new("أشهد يا إلهي بانك خلقتني لعرفانك وعبادتك"),
-        // Text::new("أشهد يا إلهي بانك خلقتني"),
+        // Text::new("أشهد يا إلهي بانك خلقتني لعرفانك وعبادتك"),
+        Text::new("أشهد يا إلهي بانك خلقتني"),
         // TextFont {
         //     font: asset_server.load(DEFAULT_FONT_PATH),
         //     font_size: 64.0,

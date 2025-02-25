@@ -46,7 +46,7 @@ pub fn update_coordinate_display(
         let camera_pos = camera_transform.translation().truncate();
         for mut text in &mut query {
             text.0 = format!(
-                "Camera Location: x:{}, y:{}",
+                "Camera Location: {} {}",
                 camera_pos.x.round(),
                 camera_pos.y.round()
             );
