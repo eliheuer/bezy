@@ -24,6 +24,7 @@ svg = "0.10.0"
 chrono = "0.4"
 rand = "0.8"
 bevy_pancam = "0.17.0"
+bevy_prototype_lyon = "0.10.0"
 
 # Enable small optimizations for local code
 [profile.dev]
