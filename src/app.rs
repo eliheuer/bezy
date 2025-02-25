@@ -9,6 +9,7 @@ use crate::data::AppState;
 use crate::debug_hud::{
     spawn_debug_text, spawn_main_toolbar_debug, update_main_toolbar_debug,
 };
+use crate::design_space::DesignSpacePlugin;
 use crate::draw::DrawPlugin;
 use crate::setup::setup;
 use crate::text_editor::TextEditorPlugin;
@@ -16,7 +17,6 @@ use crate::theme::BACKGROUND_COLOR;
 use crate::toolbar::{
     handle_toolbar_mode_selection, update_current_edit_mode, CurrentEditMode,
 };
-use crate::design_space::DesignSpacePlugin;
 
 // Create the app and add the plugins and systems
 pub fn create_app(cli_args: CliArgs) -> App {
@@ -39,7 +39,7 @@ pub fn create_app(cli_args: CliArgs) -> App {
         .insert_resource(WinitSettings::desktop_app())
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(CurrentEditMode::default())
-        .insert_resource(cli_args)  // Add CLI args as a resource
+        .insert_resource(cli_args) // Add CLI args as a resource
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())
@@ -52,13 +52,7 @@ pub fn create_app(cli_args: CliArgs) -> App {
         // Initialize font state before setup
         .add_systems(Startup, (crate::ufo::initialize_font_state, setup))
         // When the app starts, run the setup system and spawn everything
-        .add_systems(
-            Startup,
-            (
-                spawn_main_toolbar_debug,
-                spawn_debug_text,
-            ),
-        )
+        .add_systems(Startup, (spawn_main_toolbar_debug, spawn_debug_text))
         // Update the app and get input
         .add_systems(
             Update,

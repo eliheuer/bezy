@@ -23,7 +23,9 @@ pub fn handle_text_input(
     mut text_editor: Query<&mut TextEditor>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
-    let Ok(mut editor) = text_editor.get_single_mut() else { return };
+    let Ok(mut editor) = text_editor.get_single_mut() else {
+        return;
+    };
     let cursor_pos = editor.cursor_position;
 
     // Handle backspace
@@ -86,7 +88,9 @@ pub fn handle_text_input(
 }
 
 /// System to update text display
-pub fn update_text_display(text_editor: Query<(Entity, &TextEditor), Changed<TextEditor>>) {
+pub fn update_text_display(
+    text_editor: Query<(Entity, &TextEditor), Changed<TextEditor>>,
+) {
     for (_entity, editor) in text_editor.iter() {
         info!("Text: {}", editor.text);
     }
@@ -98,9 +102,6 @@ pub struct TextEditorPlugin;
 impl Plugin for TextEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_text_editor)
-            .add_systems(Update, (
-                handle_text_input,
-                update_text_display,
-            ));
+            .add_systems(Update, (handle_text_input, update_text_display));
     }
-} 
+}

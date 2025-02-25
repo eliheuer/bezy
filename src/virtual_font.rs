@@ -43,4 +43,4 @@ impl VirtualFont {
     pub fn set_cursor_position(&mut self, pos: usize) {
         self.cursor_position = pos.min(self.text.len());
     }
-} 
+}

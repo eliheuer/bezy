@@ -1,6 +1,6 @@
 use super::EditModeSystem;
-use bevy::prelude::*;
 use bevy::input::ButtonInput as Input;
+use bevy::prelude::*;
 
 #[derive(Component, Default)]
 #[allow(dead_code)]
@@ -17,9 +17,7 @@ pub struct TextModeState {
 
 impl Default for TextModeState {
     fn default() -> Self {
-        Self {
-            text_entity: None,
-        }
+        Self { text_entity: None }
     }
 }
 
@@ -56,7 +54,9 @@ pub fn handle_text_input(
     mut text_ui: Query<&mut TextModeUI>,
     keyboard: Res<Input<KeyCode>>,
 ) {
-    let Ok(mut editor) = text_ui.get_single_mut() else { return };
+    let Ok(mut editor) = text_ui.get_single_mut() else {
+        return;
+    };
 
     // Handle backspace
     if keyboard.just_pressed(KeyCode::Backspace) {
@@ -131,8 +131,5 @@ pub fn cleanup_text_mode(
 // Add these systems to your app setup
 #[allow(dead_code)]
 pub fn register_text_mode(app: &mut App) {
-    app.add_systems(Update, (
-        handle_text_input,
-        update_text_display,
-    ));
+    app.add_systems(Update, (handle_text_input, update_text_display));
 }

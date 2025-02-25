@@ -18,11 +18,11 @@ pub fn spawn_grid_of_squares(commands: &mut Commands) {
     // Calculate where the grid center should be
     // We want a grid unit's corner to be at (0,0), not its center
     let half_total_size = config.grid_unit_size * config.grid_size as f32 / 2.0;
-    
+
     // Shift the grid by half a grid unit so the corner is at (0,0) instead of the center
     let grid_offset_x = half_total_size - config.grid_unit_size / 2.0;
     let grid_offset_y = half_total_size - config.grid_unit_size / 2.0;
-    
+
     let square_size = Vec2::new(config.grid_unit_size, config.grid_unit_size);
 
     for x in 0..config.grid_size {
@@ -33,7 +33,7 @@ pub fn spawn_grid_of_squares(commands: &mut Commands) {
             // 3. Position is the center of each square (for the sprite)
             let position = Vec2::new(
                 x as f32 * config.grid_unit_size - grid_offset_x,
-                y as f32 * config.grid_unit_size - grid_offset_y
+                y as f32 * config.grid_unit_size - grid_offset_y,
             );
 
             // Determine the color of the square

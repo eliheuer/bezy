@@ -94,7 +94,7 @@ impl Workspace {
             let temp_path = temp_write_path(path);
             info!("saving to {:?}", temp_path);
             font_obj.ufo.save(&temp_path)?;
-            
+
             // Backup existing data if needed
             if let Some(backup_path) = backup_ufo_at_path(path)? {
                 info!("backing up existing data to {:?}", backup_path);
@@ -128,8 +128,9 @@ impl FontObject {
     fn update_info(&mut self, info: &SimpleFontInfo) {
         let existing_info = SimpleFontInfo::from_font(self);
         if existing_info != *info {
-            let font_info = self.ufo.font_info.get_or_insert_with(FontInfo::default);
-            
+            let font_info =
+                self.ufo.font_info.get_or_insert_with(FontInfo::default);
+
             if existing_info.family_name != info.family_name {
                 font_info.family_name = Some(info.family_name.clone());
             }
@@ -137,22 +138,42 @@ impl FontObject {
                 font_info.style_name = Some(info.style_name.clone());
             }
             if existing_info.metrics.units_per_em != info.metrics.units_per_em {
-                font_info.units_per_em = Some(norad::NonNegativeIntegerOrFloat::try_from(info.metrics.units_per_em).unwrap());
+                font_info.units_per_em = Some(
+                    norad::NonNegativeIntegerOrFloat::try_from(
+                        info.metrics.units_per_em,
+                    )
+                    .unwrap(),
+                );
             }
             if existing_info.metrics.descender != info.metrics.descender {
-                font_info.descender = info.metrics.descender.map(|v| norad::IntegerOrFloat::try_from(v).unwrap());
+                font_info.descender = info
+                    .metrics
+                    .descender
+                    .map(|v| norad::IntegerOrFloat::try_from(v).unwrap());
             }
             if existing_info.metrics.ascender != info.metrics.ascender {
-                font_info.ascender = info.metrics.ascender.map(|v| norad::IntegerOrFloat::try_from(v).unwrap());
+                font_info.ascender = info
+                    .metrics
+                    .ascender
+                    .map(|v| norad::IntegerOrFloat::try_from(v).unwrap());
             }
             if existing_info.metrics.x_height != info.metrics.x_height {
-                font_info.x_height = info.metrics.x_height.map(|v| norad::IntegerOrFloat::try_from(v).unwrap());
+                font_info.x_height = info
+                    .metrics
+                    .x_height
+                    .map(|v| norad::IntegerOrFloat::try_from(v).unwrap());
             }
             if existing_info.metrics.cap_height != info.metrics.cap_height {
-                font_info.cap_height = info.metrics.cap_height.map(|v| norad::IntegerOrFloat::try_from(v).unwrap());
+                font_info.cap_height = info
+                    .metrics
+                    .cap_height
+                    .map(|v| norad::IntegerOrFloat::try_from(v).unwrap());
             }
             if existing_info.metrics.italic_angle != info.metrics.italic_angle {
-                font_info.italic_angle = info.metrics.italic_angle.map(|v| norad::IntegerOrFloat::try_from(v).unwrap());
+                font_info.italic_angle = info
+                    .metrics
+                    .italic_angle
+                    .map(|v| norad::IntegerOrFloat::try_from(v).unwrap());
             }
         }
     }
@@ -168,10 +189,7 @@ impl Default for FontObject {
         let mut ufo = Ufo::new();
         ufo.font_info = Some(font_info);
 
-        FontObject {
-            path: None,
-            ufo,
-        }
+        FontObject { path: None, ufo }
     }
 }
 
@@ -220,7 +238,7 @@ impl Default for SimpleFontInfo {
 
 impl PartialEq for SimpleFontInfo {
     fn eq(&self, other: &Self) -> bool {
-        self.family_name == other.family_name 
+        self.family_name == other.family_name
             && self.style_name == other.style_name
             && self.metrics == other.metrics
     }
@@ -229,7 +247,10 @@ impl PartialEq for SimpleFontInfo {
 impl From<&FontInfo> for FontMetrics {
     fn from(src: &FontInfo) -> FontMetrics {
         FontMetrics {
-            units_per_em: src.units_per_em.map(|v| v.get() as f64).unwrap_or(DEFAULT_UNITS_PER_EM),
+            units_per_em: src
+                .units_per_em
+                .map(|v| v.get() as f64)
+                .unwrap_or(DEFAULT_UNITS_PER_EM),
             descender: src.descender.map(|v| v.get() as f64),
             x_height: src.x_height.map(|v| v.get() as f64),
             cap_height: src.cap_height.map(|v| v.get() as f64),
@@ -288,22 +309,27 @@ pub(crate) fn path_for_glyph(glyph: &Glyph) -> Option<BezPath> {
 
             let mut controls = Vec::with_capacity(2);
 
-            let mut add_curve = |to_point: &ContourPoint, controls: &mut Vec<ContourPoint>| {
-                match controls.as_slice() {
-                    &[] => path.line_to((to_point.x as f64, to_point.y as f64)),
-                    &[ref a] => path.quad_to(
-                        (a.x as f64, a.y as f64),
-                        (to_point.x as f64, to_point.y as f64),
-                    ),
-                    &[ref a, ref b] => path.curve_to(
-                        (a.x as f64, a.y as f64),
-                        (b.x as f64, b.y as f64),
-                        (to_point.x as f64, to_point.y as f64),
-                    ),
-                    _illegal => panic!("existence of second point implies first"),
+            let mut add_curve =
+                |to_point: &ContourPoint, controls: &mut Vec<ContourPoint>| {
+                    match controls.as_slice() {
+                        &[] => {
+                            path.line_to((to_point.x as f64, to_point.y as f64))
+                        }
+                        &[ref a] => path.quad_to(
+                            (a.x as f64, a.y as f64),
+                            (to_point.x as f64, to_point.y as f64),
+                        ),
+                        &[ref a, ref b] => path.curve_to(
+                            (a.x as f64, a.y as f64),
+                            (b.x as f64, b.y as f64),
+                            (to_point.x as f64, to_point.y as f64),
+                        ),
+                        _illegal => {
+                            panic!("existence of second point implies first")
+                        }
+                    };
+                    controls.clear();
                 };
-                controls.clear();
-            };
 
             let mut idx = (start_idx + 1) % contour.points.len();
             while idx != start_idx {
@@ -311,7 +337,10 @@ pub(crate) fn path_for_glyph(glyph: &Glyph) -> Option<BezPath> {
                 match next.typ {
                     PointType::OffCurve => controls.push(next.clone()),
                     PointType::Line => {
-                        debug_assert!(controls.is_empty(), "line type cannot follow offcurve");
+                        debug_assert!(
+                            controls.is_empty(),
+                            "line type cannot follow offcurve"
+                        );
                         add_curve(next, &mut controls);
                     }
                     PointType::Curve => add_curve(next, &mut controls),
@@ -319,7 +348,9 @@ pub(crate) fn path_for_glyph(glyph: &Glyph) -> Option<BezPath> {
                         warn!("quadratic curves are currently ignored");
                         add_curve(next, &mut controls);
                     }
-                    PointType::Move => debug_assert!(false, "illegal move point in path?"),
+                    PointType::Move => {
+                        debug_assert!(false, "illegal move point in path?")
+                    }
                 }
                 idx = (idx + 1) % contour.points.len();
             }
@@ -399,17 +430,17 @@ pub enum PathCommand {
 
 impl BezPath {
     pub fn new() -> Self {
-        BezPath {
-            path: Vec::new(),
-        }
+        BezPath { path: Vec::new() }
     }
 
     pub fn move_to(&mut self, to: (f64, f64)) {
-        self.path.push(PathCommand::MoveTo(Vec2::new(to.0 as f32, to.1 as f32)));
+        self.path
+            .push(PathCommand::MoveTo(Vec2::new(to.0 as f32, to.1 as f32)));
     }
 
     pub fn line_to(&mut self, to: (f64, f64)) {
-        self.path.push(PathCommand::LineTo(Vec2::new(to.0 as f32, to.1 as f32)));
+        self.path
+            .push(PathCommand::LineTo(Vec2::new(to.0 as f32, to.1 as f32)));
     }
 
     pub fn quad_to(&mut self, ctrl: (f64, f64), to: (f64, f64)) {
@@ -419,7 +450,12 @@ impl BezPath {
         ));
     }
 
-    pub fn curve_to(&mut self, ctrl1: (f64, f64), ctrl2: (f64, f64), to: (f64, f64)) {
+    pub fn curve_to(
+        &mut self,
+        ctrl1: (f64, f64),
+        ctrl2: (f64, f64),
+        to: (f64, f64),
+    ) {
         self.path.push(PathCommand::CurveTo(
             Vec2::new(ctrl1.0 as f32, ctrl1.1 as f32),
             Vec2::new(ctrl2.0 as f32, ctrl2.1 as f32),

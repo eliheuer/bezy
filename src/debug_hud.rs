@@ -1,10 +1,10 @@
 // A debug display for the main toolbar state
 
+use crate::data::AppState;
 use crate::theme::get_default_text_style;
 use crate::theme::DEFAULT_FONT_PATH;
 use crate::toolbar::CurrentEditMode;
 use crate::ufo::get_basic_font_info_from_state;
-use crate::data::AppState;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 

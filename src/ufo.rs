@@ -13,7 +13,9 @@ pub fn get_basic_font_info_from_state(app_state: &AppState) -> String {
     }
 }
 
-pub fn load_ufo_from_path(path: &str) -> Result<Ufo, Box<dyn std::error::Error>> {
+pub fn load_ufo_from_path(
+    path: &str,
+) -> Result<Ufo, Box<dyn std::error::Error>> {
     let font_path = PathBuf::from(path);
     if !font_path.exists() {
         return Err(format!("File not found: {}", font_path.display()).into());
@@ -23,7 +25,10 @@ pub fn load_ufo_from_path(path: &str) -> Result<Ufo, Box<dyn std::error::Error>>
 }
 
 // System that initializes the font state
-pub fn initialize_font_state(mut commands: Commands, cli_args: Res<crate::cli::CliArgs>) {
+pub fn initialize_font_state(
+    mut commands: Commands,
+    cli_args: Res<crate::cli::CliArgs>,
+) {
     // Check if a UFO path was provided via CLI
     if let Some(ufo_path) = &cli_args.ufo_path {
         // Load UFO file from the path provided via CLI

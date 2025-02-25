@@ -8,8 +8,8 @@
 use std::fmt;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
+use bevy::math::{Mat3, Vec2, Vec3};
 use bevy::prelude::*;
-use bevy::math::{Vec2, Mat3, Vec3};
 
 /// The position of the view, relative to the design space.
 #[derive(Component, Debug, Clone, Copy, PartialEq)]
@@ -54,7 +54,10 @@ impl DPoint {
     /// loaded from file.
     pub(crate) fn new(x: f32, y: f32) -> DPoint {
         assert!(
-            x.is_finite() && y.is_finite() && x.fract() == 0. && y.fract() == 0.,
+            x.is_finite()
+                && y.is_finite()
+                && x.fract() == 0.
+                && y.fract() == 0.,
             "({}, {})",
             x,
             y
@@ -120,7 +123,12 @@ impl DVec2 {
     pub const ZERO: DVec2 = DVec2 { x: 0.0, y: 0.0 };
 
     fn new(x: f32, y: f32) -> DVec2 {
-        assert!(x.is_finite() && y.is_finite() && x.fract() == 0. && y.fract() == 0.);
+        assert!(
+            x.is_finite()
+                && y.is_finite()
+                && x.fract() == 0.
+                && y.fract() == 0.
+        );
         DVec2 { x, y }
     }
 
@@ -185,7 +193,11 @@ impl ViewPort {
         Mat3::from_cols(
             Vec3::new(self.zoom, 0.0, 0.0),
             Vec3::new(0.0, y_scale, 0.0),
-            Vec3::new(self.offset.x * self.zoom, self.offset.y * self.zoom, 1.0),
+            Vec3::new(
+                self.offset.x * self.zoom,
+                self.offset.y * self.zoom,
+                1.0,
+            ),
         )
     }
 
@@ -195,7 +207,8 @@ impl ViewPort {
 
     pub fn from_screen(&self, point: impl Into<Vec2>) -> DPoint {
         let point = point.into();
-        let transformed = self.inverse_transform_matrix().transform_point2(point);
+        let transformed =
+            self.inverse_transform_matrix().transform_point2(point);
         DPoint::new(transformed.x.round(), transformed.y.round())
     }
 
@@ -323,19 +336,17 @@ impl Default for ViewPort {
 }
 
 /// System that draws debug coordinate lines in the design space
-pub fn debug_coordinates(
-    mut gizmos: Gizmos,
-) {
+pub fn debug_coordinates(mut gizmos: Gizmos) {
     // Draw a cross at (0,0)
     gizmos.line_2d(
         Vec2::new(-10.0, 0.0),
         Vec2::new(10.0, 0.0),
-        Color::srgba(1.0, 0.0, 0.0, 1.0)
+        Color::srgba(1.0, 0.0, 0.0, 1.0),
     );
     gizmos.line_2d(
         Vec2::new(0.0, -10.0),
         Vec2::new(0.0, 10.0),
-        Color::srgba(1.0, 0.0, 0.0, 1.0)
+        Color::srgba(1.0, 0.0, 0.0, 1.0),
     );
 }
 

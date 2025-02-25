@@ -28,4 +28,4 @@ impl From<&ContourPoint> for EditPoint {
             point_type: point.typ.clone(),
         }
     }
-} 
+}

@@ -24,10 +24,8 @@ impl PointList {
 
     /// Create a point list from a norad Contour
     pub fn from_contour(contour: &Contour) -> Self {
-        let points = contour.points.iter()
-            .map(EditPoint::from)
-            .collect();
-        
+        let points = contour.points.iter().map(EditPoint::from).collect();
+
         PointList {
             points,
             closed: true,
@@ -38,4 +36,4 @@ impl PointList {
     pub fn points(&self) -> &[EditPoint] {
         &self.points
     }
-} 
+}

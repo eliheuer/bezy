@@ -13,7 +13,7 @@ pub struct CliArgs {
     /// Unicode codepoint to display for testing (in hexadecimal, e.g., 0048 for 'H')
     #[arg(long = "test-unicode")]
     pub test_unicode: Option<String>,
-    
+
     /// Display debug information
     #[arg(long, default_value_t = false)]
     pub debug: bool,
@@ -24,24 +24,27 @@ impl CliArgs {
     pub fn parse_args() -> Self {
         Self::parse()
     }
-    
+
     /// Get the glyph name for the specified Unicode codepoint or a default
     pub fn get_test_glyph(&self) -> String {
         match &self.test_unicode {
             Some(unicode_str) => {
                 // Try to parse the hex string
-                match u32::from_str_radix(unicode_str.trim_start_matches("0x"), 16) {
+                match u32::from_str_radix(
+                    unicode_str.trim_start_matches("0x"),
+                    16,
+                ) {
                     Ok(codepoint) => {
                         // Convert to a char if it's a valid Unicode codepoint
                         match char::from_u32(codepoint) {
                             Some(c) => c.to_string(),
-                            None => "H".to_string() // Default to 'H' if invalid
+                            None => "H".to_string(), // Default to 'H' if invalid
                         }
-                    },
-                    Err(_) => "H".to_string() // Default to 'H' if parsing fails
+                    }
+                    Err(_) => "H".to_string(), // Default to 'H' if parsing fails
                 }
-            },
-            None => "H".to_string() // Default to 'H' if not specified
+            }
+            None => "H".to_string(), // Default to 'H' if not specified
         }
     }
-} 
+}
