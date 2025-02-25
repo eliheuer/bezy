@@ -11,6 +11,7 @@ use crate::debug_hud::{
 };
 use crate::design_space::DesignSpacePlugin;
 use crate::draw::DrawPlugin;
+use crate::main_toolbar::MainToolbarPlugin;
 use crate::setup::setup;
 use crate::text_editor::TextEditorPlugin;
 use crate::theme::BACKGROUND_COLOR;
@@ -49,6 +50,7 @@ pub fn create_app(cli_args: CliArgs) -> App {
         .add_plugins(TextEditorPlugin)
         .add_plugins(DesignSpacePlugin)
         .add_plugins(DrawPlugin)
+        .add_plugins(MainToolbarPlugin)
         // Initialize font state before setup
         .add_systems(Startup, (crate::ufo::initialize_font_state, setup))
         // When the app starts, run the setup system and spawn everything
