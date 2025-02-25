@@ -1,17 +1,13 @@
 use bevy::prelude::*;
-
-// Gray with an "a" the american way
-fn rgb_linear_from_gray(gray: f32) -> Color {
-    Color::linear_rgb(gray, gray, gray)
-}
+use crate::theme::{GRID_SIZE, GRID_UNIT_SIZE, GRID_COLOR_LIGHT, GRID_COLOR_DARK};
 
 pub fn spawn_grid_of_squares(commands: &mut Commands) {
     let config = GridConfig {
-        grid_size: 128,      // Total number of squares in each dimension
-        grid_unit_size: 16., // Width and height of each grid unit in pixels
+        grid_size: GRID_SIZE,      // Use constant from theme
+        grid_unit_size: GRID_UNIT_SIZE, // Use constant from theme
         colors: GridColors {
-            light: rgb_linear_from_gray(0.03),
-            dark: rgb_linear_from_gray(0.015),
+            light: GRID_COLOR_LIGHT, // Use color from theme
+            dark: GRID_COLOR_DARK,   // Use color from theme
         },
     };
 
