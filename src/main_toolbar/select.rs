@@ -1,6 +1,7 @@
 use super::EditModeSystem;
 use bevy::prelude::*;
 use std::time::Duration;
+use crate::toolbar::{CurrentEditMode, EditMode};
 
 /// Component to mark an entity as selected
 #[derive(Component, Debug, Default, Clone, Copy)]
@@ -28,22 +29,23 @@ pub struct SelectPlugin;
 impl Plugin for SelectPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectionState>()
-           .init_resource::<SelectionDebugTimer>()
-           .add_systems(Update, (
-               debug_selection_state,
-               debug_camera_info,
-               debug_scene_entities
-           ));
+           .init_resource::<SelectionDebugTimer>();
     }
 }
 
 /// System that periodically logs debug information about the selection state
-fn debug_selection_state(
+pub fn debug_selection_state(
     time: Res<Time>,
     mut timer: ResMut<SelectionDebugTimer>,
     selection_state: Res<SelectionState>,
     selected_query: Query<Entity, With<Selected>>,
+    current_mode: Res<CurrentEditMode>,
 ) {
+    // Only run when Select mode is active
+    if current_mode.0 != EditMode::Select {
+        return;
+    }
+
     if timer.0.tick(time.delta()).just_finished() {
         let selected_count = selected_query.iter().count();
         let state_count = selection_state.selected_points.len();
@@ -73,12 +75,18 @@ fn debug_selection_state(
 }
 
 /// System to debug camera information
-fn debug_camera_info(
+pub fn debug_camera_info(
     time: Res<Time>,
     mut timer: Local<Timer>,
     cameras: Query<(Entity, &Camera, Option<&Name>, Option<&bevy::render::camera::OrthographicProjection>)>,
     pan_cams: Query<Entity, With<bevy_pancam::PanCam>>,
+    current_mode: Res<CurrentEditMode>,
 ) {
+    // Only run when Select mode is active
+    if current_mode.0 != EditMode::Select {
+        return;
+    }
+
     // Initialize timer on first run
     if timer.duration() == Duration::ZERO {
         *timer = Timer::new(Duration::from_secs(5), TimerMode::Repeating);
@@ -113,11 +121,17 @@ fn debug_camera_info(
 }
 
 /// System to debug entity information in the scene
-fn debug_scene_entities(
+pub fn debug_scene_entities(
     time: Res<Time>,
     mut timer: Local<Timer>,
     transforms: Query<(Entity, &GlobalTransform, Option<&Name>)>,
+    current_mode: Res<CurrentEditMode>,
 ) {
+    // Only run when Select mode is active
+    if current_mode.0 != EditMode::Select {
+        return;
+    }
+
     // Initialize timer on first run
     if timer.duration() == Duration::ZERO {
         *timer = Timer::new(Duration::from_secs(10), TimerMode::Repeating);
@@ -177,7 +191,13 @@ pub fn select_point_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
     mut selection_state: ResMut<SelectionState>,
+    current_mode: Res<CurrentEditMode>,
 ) {
+    // Only run when Select mode is active
+    if current_mode.0 != EditMode::Select {
+        return;
+    }
+
     // Only handle left mouse button clicks
     if !buttons.just_pressed(MouseButton::Left) {
         return;
@@ -332,7 +352,13 @@ pub fn draw_selected_points_system(
     selected_query: Query<Entity, With<Selected>>,
     transform_query: Query<&GlobalTransform>,
     mut gizmos: Gizmos,
+    current_mode: Res<CurrentEditMode>,
 ) {
+    // Only run when Select mode is active
+    if current_mode.0 != EditMode::Select {
+        return;
+    }
+
     // Use a very distinctive color for selected points
     let selected_color = Color::rgb(1.0, 0.0, 0.0); // Bright red for maximum visibility
     let outline_color = Color::rgb(1.0, 1.0, 1.0); // White outline for contrast

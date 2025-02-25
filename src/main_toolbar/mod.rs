@@ -15,7 +15,10 @@ pub use measure::MeasureMode;
 pub use pan::PanMode;
 pub use pen::PenMode;
 pub use primitives::PrimitivesMode;
-pub use select::{SelectMode, SelectPlugin, select_point_system, draw_selected_points_system, Selected, SelectionState};
+pub use select::{
+    SelectMode, SelectPlugin, select_point_system, draw_selected_points_system, 
+    Selected, SelectionState, debug_selection_state, debug_camera_info, debug_scene_entities
+};
 pub use text::TextMode;
 
 // Trait that all edit modes must implement
@@ -40,6 +43,9 @@ impl Plugin for MainToolbarPlugin {
                 // Selection systems
                 select_point_system,
                 draw_selected_points_system,
+                select::debug_selection_state,
+                select::debug_camera_info,
+                select::debug_scene_entities,
             ));
             
         info!("MainToolbarPlugin initialized with selection functionality");
