@@ -16,7 +16,6 @@ use crate::theme::BACKGROUND_COLOR;
 use crate::toolbar::{
     handle_toolbar_mode_selection, update_current_edit_mode, CurrentEditMode,
 };
-use crate::world_space::spawn_debug_path;
 use crate::design_space::DesignSpacePlugin;
 
 // Create the app and add the plugins and systems
@@ -58,7 +57,6 @@ pub fn create_app(cli_args: CliArgs) -> App {
             (
                 spawn_main_toolbar_debug,
                 spawn_debug_text,
-                spawn_debug_path,
             ),
         )
         // Update the app and get input
