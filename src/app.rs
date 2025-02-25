@@ -70,6 +70,7 @@ pub fn create_app(cli_args: CliArgs) -> App {
                 update_current_edit_mode,
                 update_coordinate_display,
                 toggle_camera_controls,
+                crate::debug_hud::update_font_info_text,
             ),
         );
     app

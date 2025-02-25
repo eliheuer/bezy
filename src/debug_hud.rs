@@ -3,12 +3,16 @@
 use crate::theme::get_default_text_style;
 use crate::theme::DEFAULT_FONT_PATH;
 use crate::toolbar::CurrentEditMode;
-use crate::ufo::get_basic_font_info;
+use crate::ufo::get_basic_font_info_from_state;
+use crate::data::AppState;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 
 #[derive(Component)]
 pub struct MainToolbarDebugText;
+
+#[derive(Component)]
+pub struct FontInfoText;
 
 pub fn spawn_main_toolbar_debug(
     mut commands: Commands,
@@ -37,12 +41,23 @@ pub fn update_main_toolbar_debug(
     }
 }
 
+pub fn update_font_info_text(
+    mut text_query: Query<&mut Text, With<FontInfoText>>,
+    app_state: Res<AppState>,
+) {
+    if let Ok(mut text) = text_query.get_single_mut() {
+        text.0 = get_basic_font_info_from_state(&app_state);
+    }
+}
+
 pub fn spawn_debug_text(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    app_state: Res<AppState>,
 ) {
     commands.spawn((
-        Text::new(get_basic_font_info()),
+        FontInfoText,
+        Text::new(get_basic_font_info_from_state(&app_state)),
         get_default_text_style(&asset_server),
         Node {
             position_type: PositionType::Absolute,
