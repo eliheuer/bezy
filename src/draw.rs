@@ -217,10 +217,14 @@ fn draw_glyph_points(
                 
                 // Draw the appropriate shape based on point type
                 if is_on_curve && USE_SQUARE_FOR_ON_CURVE {
-                    // For on-curve points, draw a square
+                    // For on-curve points, draw a square outline
                     let half_size = size / 1.4; // Adjusting size for visual balance
                     
-                    // Draw a square using lines
+                    // Draw a filled square by first drawing a circle fill then the square outline
+                    // First draw a filled circle inside the square
+                    gizmos.circle_2d(screen_pos, half_size * 0.8, color);
+                    
+                    // Then draw the square outline
                     let top_left = Vec2::new(screen_pos.x - half_size, screen_pos.y + half_size);
                     let top_right = Vec2::new(screen_pos.x + half_size, screen_pos.y + half_size);
                     let bottom_right = Vec2::new(screen_pos.x + half_size, screen_pos.y - half_size);
@@ -232,7 +236,7 @@ fn draw_glyph_points(
                     gizmos.line_2d(bottom_right, bottom_left, color);
                     gizmos.line_2d(bottom_left, top_left, color);
                 } else {
-                    // For off-curve points or if squares are disabled, draw a circle
+                    // For off-curve points or if squares are disabled, draw a filled circle
                     gizmos.circle_2d(screen_pos, size, color);
                 }
                 
