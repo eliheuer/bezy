@@ -2,6 +2,7 @@
 
 mod app;
 mod cameras;
+mod cli;
 mod data;
 mod debug;
 mod debug_hud;
@@ -20,5 +21,9 @@ mod virtual_font;
 mod world_space;
 
 fn main() {
-    app::create_app().run();
+    // Parse command line arguments
+    let cli_args = cli::CliArgs::parse_args();
+    
+    // Create and run the app with the CLI arguments
+    app::create_app(cli_args).run();
 }

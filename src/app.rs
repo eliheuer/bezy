@@ -4,6 +4,7 @@ use bevy::winit::WinitSettings;
 use bevy_pancam::PanCamPlugin;
 
 use crate::cameras::{toggle_camera_controls, update_coordinate_display};
+use crate::cli::CliArgs;
 use crate::data::AppState;
 use crate::debug_hud::{
     spawn_debug_text, spawn_main_toolbar_debug, update_main_toolbar_debug,
@@ -19,7 +20,7 @@ use crate::world_space::spawn_debug_path;
 use crate::design_space::DesignSpacePlugin;
 
 // Create the app and add the plugins and systems
-pub fn create_app() -> App {
+pub fn create_app(cli_args: CliArgs) -> App {
     let mut app = App::new();
 
     let window_config = Window {
@@ -39,6 +40,7 @@ pub fn create_app() -> App {
         .insert_resource(WinitSettings::desktop_app())
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(CurrentEditMode::default())
+        .insert_resource(cli_args)  // Add CLI args as a resource
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())

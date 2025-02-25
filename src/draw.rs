@@ -116,6 +116,7 @@ pub fn draw_glyph_points_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
     viewports: Query<&ViewPort>,
+    cli_args: Res<crate::cli::CliArgs>,
 ) {
     // Add debug message at the start so we know this system is being called
     info!("DRAW SYSTEM: draw_glyph_points_system is running...");
@@ -126,57 +127,49 @@ pub fn draw_glyph_points_system(
         Err(_) => ViewPort::default(),
     };
     
+    // Get the test glyph name from CLI args
+    let test_glyph = cli_args.get_test_glyph();
+    
     // Print font info for debugging
     println!("Font family: {}", app_state.workspace.info.family_name);
     println!("Font style: {}", app_state.workspace.info.style_name);
+    println!("Test glyph: {}", test_glyph);
     
     // Check if we can get the default layer
     println!("Checking for default layer in the font...");
     match app_state.workspace.font.ufo.get_default_layer() {
         Some(default_layer) => {
-            println!("Found default layer, trying to access glyph 'H'");
+            println!("Found default layer, trying to access glyph '{}'", test_glyph);
             
-            // Try to get the 'H' glyph directly by name
-            let glyph_name = norad::GlyphName::from("H");
+            // Try to get the glyph directly by name
+            let glyph_name = norad::GlyphName::from(test_glyph.clone());
             
             match default_layer.get_glyph(&glyph_name) {
                 Some(glyph) => {
-                    println!("SUCCESS: Found glyph 'H', drawing points...");
+                    println!("SUCCESS: Found glyph '{}', drawing points...", test_glyph);
                     
                     // Draw the points
                     draw_glyph_points(&mut gizmos, viewport, glyph);
                 }
                 None => {
-                    println!("Glyph 'H' not found by name, trying 'h'");
+                    println!("Glyph '{}' not found by name, trying common alternatives...", test_glyph);
                     
-                    // Try with lowercase 'h'
-                    let lowercase_name = norad::GlyphName::from("h");
-                    match default_layer.get_glyph(&lowercase_name) {
-                        Some(glyph) => {
-                            println!("Found glyph 'h' instead, drawing points...");
+                    // Try with some common glyphs
+                    let common_glyphs = ["H", "h", "A", "a", "O", "o", "space", ".notdef"];
+                    let mut found = false;
+                    
+                    for glyph_name_str in common_glyphs.iter() {
+                        let name = norad::GlyphName::from(*glyph_name_str);
+                        if let Some(glyph) = default_layer.get_glyph(&name) {
+                            println!("Found glyph '{}' instead, drawing points...", glyph_name_str);
                             draw_glyph_points(&mut gizmos, viewport, glyph);
+                            found = true;
+                            break;
                         }
-                        None => {
-                            println!("Couldn't find 'h' either, trying common glyph names...");
-                            
-                            // Try with some other common glyphs
-                            let common_glyphs = ["A", "a", "O", "o", "space", ".notdef"];
-                            let mut found = false;
-                            
-                            for glyph_name_str in common_glyphs.iter() {
-                                let name = norad::GlyphName::from(*glyph_name_str);
-                                if let Some(glyph) = default_layer.get_glyph(&name) {
-                                    println!("Found glyph '{}', drawing points...", glyph_name_str);
-                                    draw_glyph_points(&mut gizmos, viewport, glyph);
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            
-                            if !found {
-                                println!("WARNING: Could not find any common test glyphs");
-                            }
-                        }
+                    }
+                    
+                    if !found {
+                        println!("WARNING: Could not find any common test glyphs");
                     }
                 }
             }

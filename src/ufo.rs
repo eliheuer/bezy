@@ -91,12 +91,14 @@ pub fn try_load_ufo_from_args(mut state: ResMut<AppState>) {
 }
 
 // System that initializes the font state
-pub fn initialize_font_state(mut commands: Commands) {
-    if let Some(arg) = env::args().nth(1) {
-        match load_ufo_from_path(&arg) {
+pub fn initialize_font_state(mut commands: Commands, cli_args: Res<crate::cli::CliArgs>) {
+    // Check if a UFO path was provided via CLI
+    if let Some(ufo_path) = &cli_args.ufo_path {
+        // Load UFO file from the path provided via CLI
+        match load_ufo_from_path(ufo_path.to_str().unwrap_or_default()) {
             Ok(ufo) => {
                 let mut state = AppState::default();
-                state.set_font(ufo, Some(PathBuf::from(arg)));
+                state.set_font(ufo, Some(ufo_path.clone()));
                 let display_name = state.get_font_display_name();
                 commands.insert_resource(state);
                 info!("Loaded font: {}", display_name);
@@ -107,6 +109,23 @@ pub fn initialize_font_state(mut commands: Commands) {
             }
         }
     } else {
-        commands.init_resource::<AppState>();
+        // No CLI argument, check environment args for backward compatibility
+        if let Some(arg) = env::args().nth(1) {
+            match load_ufo_from_path(&arg) {
+                Ok(ufo) => {
+                    let mut state = AppState::default();
+                    state.set_font(ufo, Some(PathBuf::from(arg)));
+                    let display_name = state.get_font_display_name();
+                    commands.insert_resource(state);
+                    info!("Loaded font: {}", display_name);
+                }
+                Err(e) => {
+                    error!("Failed to load UFO file: {}", e);
+                    commands.init_resource::<AppState>();
+                }
+            }
+        } else {
+            commands.init_resource::<AppState>();
+        }
     }
 }
