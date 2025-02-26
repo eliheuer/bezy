@@ -1,5 +1,5 @@
 use bevy::prelude::Resource;
-use clap::{Parser, ValueEnum};
+use clap::{Parser};
 use std::path::PathBuf;
 
 /// Bezy font editor command line interface

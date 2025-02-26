@@ -162,7 +162,7 @@ pub fn debug_scene_entities(
 pub struct SelectMode;
 
 impl EditModeSystem for SelectMode {
-    fn update(&self, commands: &mut Commands) {
+    fn update(&self, _commands: &mut Commands) {
         // Implementation for select mode update
         debug!("Select mode update");
         
@@ -360,8 +360,8 @@ pub fn draw_selected_points_system(
     }
 
     // Use a very distinctive color for selected points
-    let selected_color = Color::rgb(1.0, 0.0, 0.0); // Bright red for maximum visibility
-    let outline_color = Color::rgb(1.0, 1.0, 1.0); // White outline for contrast
+    let selected_color = Color::srgb(1.0, 0.0, 0.0); // Bright red for maximum visibility
+    let outline_color = Color::srgb(1.0, 1.0, 1.0); // White outline for contrast
     let selected_count = selected_query.iter().count();
     
     if selected_count > 0 {

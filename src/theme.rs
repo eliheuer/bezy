@@ -27,10 +27,14 @@ pub const OFF_CURVE_POINT_RADIUS: f32 = 6.0;
 pub const ON_CURVE_POINT_COLOR: Color = Color::srgba(1.0, 0.75, 0.0, 1.0);
 pub const OFF_CURVE_POINT_COLOR: Color = Color::srgba(0.0, 1.0, 0.4, 1.0);
 
+#[allow(dead_code)]
 pub const SELECTED_POINT_COLOR: Color = Color::srgba(1.0, 0.8, 0.0, 1.0);
+#[allow(dead_code)]
 pub const HOVER_POINT_COLOR: Color = Color::srgba(0.0, 1.0, 0.8, 1.0);
+#[allow(dead_code)]
 pub const POINT_STROKE_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.8);
 pub const PATH_LINE_COLOR: Color = Color::srgba(1.0, 1.0, 1.0, 1.0);
+#[allow(dead_code)]
 pub const PATH_LINE_WIDTH: f32 = 2.0;
 pub const USE_SQUARE_FOR_ON_CURVE: bool = true;
 

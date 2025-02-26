@@ -16,8 +16,7 @@ pub use pan::PanMode;
 pub use pen::PenMode;
 pub use primitives::PrimitivesMode;
 pub use select::{
-    SelectMode, SelectPlugin, select_point_system, draw_selected_points_system, 
-    Selected, SelectionState, debug_selection_state, debug_camera_info, debug_scene_entities
+    SelectMode, select_point_system, draw_selected_points_system, 
 };
 pub use text::TextMode;
 

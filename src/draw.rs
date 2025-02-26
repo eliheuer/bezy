@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use crate::design_space::{ViewPort, DPoint};
 use crate::data::{FontMetrics, AppState};
 use crate::theme::{ON_CURVE_POINT_RADIUS, OFF_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR, 
-                  OFF_CURVE_POINT_COLOR, PATH_LINE_COLOR, PATH_LINE_WIDTH, USE_SQUARE_FOR_ON_CURVE};
+                  OFF_CURVE_POINT_COLOR, PATH_LINE_COLOR, USE_SQUARE_FOR_ON_CURVE};
 use norad::Glyph;
 
 /// System that draws basic test elements for development
@@ -173,7 +173,7 @@ fn draw_glyph_points(
     // Only proceed if the glyph has an outline
     if let Some(outline) = &glyph.outline {
         // Iterate through all contours
-        for (contour_idx, contour) in outline.contours.iter().enumerate() {
+        for (_contour_idx, contour) in outline.contours.iter().enumerate() {
             // Draw each point in the contour
             for (point_idx, point) in contour.points.iter().enumerate() {
                 let point_pos = (point.x as f32, point.y as f32);
