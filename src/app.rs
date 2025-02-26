@@ -7,7 +7,8 @@ use crate::cameras::{toggle_camera_controls, update_coordinate_display};
 use crate::cli::CliArgs;
 use crate::data::AppState;
 use crate::debug_hud::{
-    spawn_debug_text, spawn_main_toolbar_debug, update_main_toolbar_debug, update_font_info_text,
+    spawn_debug_text, spawn_main_toolbar_debug, update_font_info_text,
+    update_main_toolbar_debug,
 };
 use crate::design_space::DesignSpacePlugin;
 use crate::draw::DrawPlugin;
@@ -19,6 +20,19 @@ use crate::toolbar::{
     handle_toolbar_mode_selection, update_current_edit_mode, CurrentEditMode,
 };
 use crate::ufo::initialize_font_state;
+
+// Create the app and add the plugins and systems
+pub fn create_app(cli_args: CliArgs) -> App {
+    let mut app = App::new();
+
+    // Configure app with default settings
+    configure_app_settings(&mut app, cli_args);
+
+    // Add all plugins
+    add_plugins(&mut app);
+
+    app
+}
 
 // Plugin to organize debug-related systems
 struct DebugPlugin;
@@ -80,19 +94,6 @@ impl Plugin for BezySystems {
     }
 }
 
-// Create the app and add the plugins and systems
-pub fn create_app(cli_args: CliArgs) -> App {
-    let mut app = App::new();
-
-    // Configure app with default settings
-    configure_app_settings(&mut app, cli_args);
-    
-    // Add all plugins
-    add_plugins(&mut app);
-
-    app
-}
-
 // Helper function to create window configuration
 fn create_window_plugin() -> WindowPlugin {
     WindowPlugin {
@@ -104,7 +105,6 @@ fn create_window_plugin() -> WindowPlugin {
         ..default()
     }
 }
-
 
 // Configure basic app settings and resources
 fn configure_app_settings(app: &mut App, cli_args: CliArgs) {
@@ -123,15 +123,15 @@ fn add_plugins(app: &mut App) {
             .set(ImagePlugin::default_nearest())
             .set(create_window_plugin()),
     );
-    
+
     // Add camera plugin
     app.add_plugins(PanCamPlugin::default());
-    
+
     // Add application-specific plugins
     app.add_plugins((
-        TextEditorPlugin, 
+        TextEditorPlugin,
         DesignSpacePlugin,
-        DrawPlugin, 
+        DrawPlugin,
         MainToolbarPlugin,
         BezySystems, // Bundle of our internal system plugins
     ));

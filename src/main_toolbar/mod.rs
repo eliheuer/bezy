@@ -16,7 +16,7 @@ pub use pan::PanMode;
 pub use pen::PenMode;
 pub use primitives::PrimitivesMode;
 pub use select::{
-    SelectMode, select_point_system, draw_selected_points_system, 
+    draw_selected_points_system, select_point_system, SelectMode,
 };
 pub use text::TextMode;
 
@@ -38,15 +38,18 @@ impl Plugin for MainToolbarPlugin {
             // First add the selection plugin which initializes resources
             .add_plugins(select::SelectPlugin)
             // Then add our systems to the update schedule
-            .add_systems(Update, (
-                // Selection systems
-                select_point_system,
-                draw_selected_points_system,
-                select::debug_selection_state,
-                select::debug_camera_info,
-                select::debug_scene_entities,
-            ));
-            
+            .add_systems(
+                Update,
+                (
+                    // Selection systems
+                    select_point_system,
+                    draw_selected_points_system,
+                    select::debug_selection_state,
+                    select::debug_camera_info,
+                    select::debug_scene_entities,
+                ),
+            );
+
         info!("MainToolbarPlugin initialized with selection functionality");
     }
 }

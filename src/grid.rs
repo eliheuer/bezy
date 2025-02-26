@@ -1,9 +1,11 @@
+use crate::theme::{
+    GRID_COLOR_DARK, GRID_COLOR_LIGHT, GRID_SIZE, GRID_UNIT_SIZE,
+};
 use bevy::prelude::*;
-use crate::theme::{GRID_SIZE, GRID_UNIT_SIZE, GRID_COLOR_LIGHT, GRID_COLOR_DARK};
 
 pub fn spawn_grid_of_squares(commands: &mut Commands) {
     let config = GridConfig {
-        grid_size: GRID_SIZE,      // Use constant from theme
+        grid_size: GRID_SIZE,           // Use constant from theme
         grid_unit_size: GRID_UNIT_SIZE, // Use constant from theme
         colors: GridColors {
             light: GRID_COLOR_LIGHT, // Use color from theme
