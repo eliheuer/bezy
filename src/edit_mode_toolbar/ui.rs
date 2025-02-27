@@ -1,6 +1,5 @@
 use crate::edit_mode_toolbar::*;
 use crate::theme::*;
-use bevy::prelude::*;
 
 #[derive(Component)]
 pub struct EditModeToolbarButton;
@@ -42,7 +41,10 @@ impl EditMode {
 #[derive(Resource, Default)]
 pub struct CurrentEditMode(pub EditMode);
 
-pub fn spawn_edit_mode_toolbar(commands: &mut Commands, asset_server: &AssetServer) {
+pub fn spawn_edit_mode_toolbar(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+) {
     // Spawn a container for the edit mode toolbar buttons
     commands
         .spawn(Node {
@@ -220,4 +222,4 @@ pub fn update_current_edit_mode(
 ) {
     let system = current_mode.0.get_system();
     system.update(&mut commands);
-} 
+}

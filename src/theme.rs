@@ -41,11 +41,10 @@ pub const USE_SQUARE_FOR_ON_CURVE: bool = true;
 // Background Color
 pub const BACKGROUND_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
 
-// Checkerboard Grid Configuration
-pub const GRID_SIZE: u32 = 128; // Number of squares in each dimension
-pub const GRID_UNIT_SIZE: f32 = 8.0; // Width and height of each grid unit in pixels
-pub const GRID_COLOR_LIGHT: Color = Color::srgb(0.2, 0.2, 0.2);
-pub const GRID_COLOR_DARK: Color = Color::srgb(0.1, 0.1, 0.1);
+// Checkerboard Configuration
+pub const CHECKERBOARD_SIZE: u32 = 128; // Number of squares in each dimension
+pub const CHECKERBOARD_UNIT_SIZE: f32 = 8.0; // Width and height of each square in pixels
+pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.15, 0.15, 0.15); // Single color for checkerboard squares
 
 // Button Styling
 pub const BUTTON_BORDER_RADIUS: f32 = 8.0;

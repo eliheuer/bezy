@@ -93,8 +93,8 @@ pub fn spawn_debug_text(
         },
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(-190.0),
-            right: Val::Px(24.0),
+            top: Val::Px(-180.0),
+            right: Val::Px(16.0),
             ..default()
         },
         RenderLayers::layer(1), // UI layer

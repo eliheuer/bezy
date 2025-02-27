@@ -7,18 +7,18 @@ use crate::cameras::{toggle_camera_controls, update_coordinate_display};
 use crate::cli::CliArgs;
 use crate::data::AppState;
 use crate::debug_hud::{
-    spawn_debug_text, spawn_edit_mode_toolbar_debug, update_font_info_text,
-    update_edit_mode_toolbar_debug,
+    spawn_debug_text, spawn_edit_mode_toolbar_debug,
+    update_edit_mode_toolbar_debug, update_font_info_text,
 };
 use crate::design_space::DesignSpacePlugin;
 use crate::draw::DrawPlugin;
 use crate::edit_mode_toolbar::EditModeToolbarPlugin;
-use crate::setup::setup;
-use crate::text_editor::TextEditorPlugin;
-use crate::theme::BACKGROUND_COLOR;
 use crate::edit_mode_toolbar::{
     handle_toolbar_mode_selection, update_current_edit_mode, CurrentEditMode,
 };
+use crate::setup::setup;
+use crate::text_editor::TextEditorPlugin;
+use crate::theme::BACKGROUND_COLOR;
 use crate::ufo::initialize_font_state;
 
 // Create the app and add the plugins and systems
@@ -39,11 +39,14 @@ struct DebugPlugin;
 
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (spawn_edit_mode_toolbar_debug, spawn_debug_text))
-            .add_systems(
-                Update,
-                (update_edit_mode_toolbar_debug, update_font_info_text),
-            );
+        app.add_systems(
+            Startup,
+            (spawn_edit_mode_toolbar_debug, spawn_debug_text),
+        )
+        .add_systems(
+            Update,
+            (update_edit_mode_toolbar_debug, update_font_info_text),
+        );
     }
 }
 

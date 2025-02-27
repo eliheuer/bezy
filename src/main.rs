@@ -2,15 +2,15 @@
 
 mod app;
 mod cameras;
+mod checkerboard;
 mod cli;
 mod data;
 mod debug;
 mod debug_hud;
 mod design_space;
 mod draw;
-mod grid;
-mod hud;
 mod edit_mode_toolbar;
+mod hud;
 mod setup;
 mod tests;
 mod text_editor;
