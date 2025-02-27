@@ -42,7 +42,6 @@ pub const USE_SQUARE_FOR_ON_CURVE: bool = true;
 pub const BACKGROUND_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
 
 // Checkerboard Configuration
-pub const CHECKERBOARD_SIZE: u32 = 128; // Number of squares in each dimension
 pub const CHECKERBOARD_UNIT_SIZE: f32 = 8.0; // Width and height of each square in pixels
 pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.15, 0.15, 0.15); // Single color for checkerboard squares
 

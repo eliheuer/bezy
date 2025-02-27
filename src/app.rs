@@ -4,6 +4,7 @@ use bevy::winit::WinitSettings;
 use bevy_pancam::PanCamPlugin;
 
 use crate::cameras::{toggle_camera_controls, update_coordinate_display};
+use crate::checkerboard::CheckerboardPlugin;
 use crate::cli::CliArgs;
 use crate::data::AppState;
 use crate::debug_hud::{
@@ -137,5 +138,6 @@ fn add_plugins(app: &mut App) {
         DrawPlugin,
         EditModeToolbarPlugin,
         BezySystems, // Bundle of our internal system plugins
+        CheckerboardPlugin,
     ));
 }
