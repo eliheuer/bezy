@@ -30,29 +30,51 @@ pub fn draw_metrics_system(
     app_state: Res<AppState>,
     viewports: Query<&ViewPort>,
 ) {
-    // Get the primary viewport
-    if let Ok(viewport) = viewports.get_single() {
-        // We need a glyph to draw metrics for
-        if app_state.workspace.font.ufo.font_info.is_some() {
-            // Use a placeholder glyph with standard advance width
-            let mut placeholder = Glyph::new_named("placeholder");
-            placeholder.advance = Some(norad::Advance {
-                width: 1000.0,
-                height: 0.0,
-            });
+    // Debug metrics info
+    info!("=== Font Metrics Debug ===");
+    info!("Has font_info: {}", app_state.workspace.font.ufo.font_info.is_some());
+    
+    // Get the primary viewport or create a default one if none exists
+    let viewport = match viewports.get_single() {
+        Ok(viewport) => *viewport,
+        Err(_) => {
+            info!("No viewport found, using default viewport");
+            ViewPort::default()
+        },
+    };
+    
+    // We need a glyph to draw metrics for
+    if app_state.workspace.font.ufo.font_info.is_some() {
+        // Debug metrics values
+        let metrics = &app_state.workspace.info.metrics;
+        info!("Units per em: {}", metrics.units_per_em);
+        info!("X-height: {:?}", metrics.x_height);
+        info!("Cap-height: {:?}", metrics.cap_height);
+        info!("Ascender: {:?}", metrics.ascender);
+        info!("Descender: {:?}", metrics.descender);
+        
+        // Use a placeholder glyph with standard advance width
+        let mut placeholder = Glyph::new_named("placeholder");
+        placeholder.advance = Some(norad::Advance {
+            width: 1000.0,
+            height: 0.0,
+        });
 
-            // Draw the metrics directly without using DrawCtx
-            draw_metrics(
-                &mut gizmos,
-                *viewport,
-                &placeholder,
-                &app_state.workspace.info.metrics,
-            );
-        }
+        // Draw the metrics directly without using DrawCtx
+        draw_metrics(
+            &mut gizmos,
+            viewport,
+            &placeholder,
+            &app_state.workspace.info.metrics,
+        );
+        
+        info!("Metrics drawn for viewport at zoom: {}, flipped_y: {}", viewport.zoom, viewport.flipped_y);
+    } else {
+        info!("No font info available, metrics not drawn");
     }
 }
 
-/// Draw font metrics lines (baseline, x-height, cap-height)
+/// Draw font metrics lines (baseline, x-height, cap-height, ascender, descender, and bounding box)
 fn draw_metrics(
     gizmos: &mut Gizmos,
     viewport: ViewPort,
@@ -62,6 +84,8 @@ fn draw_metrics(
     let upm = metrics.units_per_em;
     let x_height = metrics.x_height.unwrap_or_else(|| (upm * 0.5).round());
     let cap_height = metrics.cap_height.unwrap_or_else(|| (upm * 0.7).round());
+    let ascender = metrics.ascender.unwrap_or_else(|| (upm * 0.8).round());
+    let descender = metrics.descender.unwrap_or_else(|| -(upm * 0.2).round());
     let width = glyph
         .advance
         .as_ref()
@@ -70,6 +94,15 @@ fn draw_metrics(
 
     // Metrics color - light gray
     let metrics_color = Color::srgba(0.7, 0.7, 0.7, 0.8);
+
+    // Draw the bounding box that represents the glyph metrics
+    draw_rect(
+        gizmos,
+        viewport,
+        (0.0, descender as f32),
+        (width as f32, ascender as f32),
+        metrics_color,
+    );
 
     // Draw baseline
     draw_line(
@@ -97,6 +130,24 @@ fn draw_metrics(
         (width as f32, cap_height as f32),
         metrics_color,
     );
+
+    // Draw ascender line
+    draw_line(
+        gizmos,
+        viewport,
+        (0.0, ascender as f32),
+        (width as f32, ascender as f32),
+        metrics_color,
+    );
+
+    // Draw descender line
+    draw_line(
+        gizmos,
+        viewport,
+        (0.0, descender as f32),
+        (width as f32, descender as f32),
+        metrics_color,
+    );
 }
 
 /// Draw a line in design space
@@ -110,6 +161,40 @@ fn draw_line(
     let start_screen = viewport.to_screen(DPoint::from(start));
     let end_screen = viewport.to_screen(DPoint::from(end));
     gizmos.line_2d(start_screen, end_screen, color);
+}
+
+/// Draw a rectangle in design space
+fn draw_rect(
+    gizmos: &mut Gizmos,
+    viewport: ViewPort,
+    top_left: (f32, f32),
+    bottom_right: (f32, f32),
+    color: Color,
+) {
+    let tl_screen = viewport.to_screen(DPoint::from(top_left));
+    let br_screen = viewport.to_screen(DPoint::from(bottom_right));
+    
+    // Draw the rectangle outline (four lines)
+    gizmos.line_2d(
+        Vec2::new(tl_screen.x, tl_screen.y),
+        Vec2::new(br_screen.x, tl_screen.y),
+        color,
+    );
+    gizmos.line_2d(
+        Vec2::new(br_screen.x, tl_screen.y),
+        Vec2::new(br_screen.x, br_screen.y),
+        color,
+    );
+    gizmos.line_2d(
+        Vec2::new(br_screen.x, br_screen.y),
+        Vec2::new(tl_screen.x, br_screen.y),
+        color,
+    );
+    gizmos.line_2d(
+        Vec2::new(tl_screen.x, br_screen.y),
+        Vec2::new(tl_screen.x, tl_screen.y),
+        color,
+    );
 }
 
 /// Plugin to add drawing systems
