@@ -84,19 +84,19 @@ pub fn spawn_debug_text(
         },
         RenderLayers::layer(1), // UI layer
     ));
-    commands.spawn((
-        Text::new("\u{E000}"),
-        TextFont {
-            font: asset_server.load(DEFAULT_FONT_PATH),
-            font_size: 512.0,
-            ..default()
-        },
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(-180.0),
-            right: Val::Px(16.0),
-            ..default()
-        },
-        RenderLayers::layer(1), // UI layer
-    ));
+    // commands.spawn((
+    //     Text::new("\u{E000}"),
+    //     TextFont {
+    //         font: asset_server.load(DEFAULT_FONT_PATH),
+    //         font_size: 512.0,
+    //         ..default()
+    //     },
+    //     Node {
+    //         position_type: PositionType::Absolute,
+    //         top: Val::Px(-180.0),
+    //         right: Val::Px(16.0),
+    //         ..default()
+    //     },
+    //     RenderLayers::layer(1), // UI layer
+    // ));
 }

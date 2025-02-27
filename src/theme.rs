@@ -51,7 +51,7 @@ pub const BUTTON_BORDER_RADIUS: f32 = 8.0;
 pub fn get_default_text_style(asset_server: &Res<AssetServer>) -> TextFont {
     TextFont {
         font: asset_server.load(DEFAULT_FONT_PATH),
-        font_size: 32.0,
+        font_size: 40.0,
         ..default()
     }
 }

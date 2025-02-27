@@ -145,8 +145,8 @@ fn draw_metrics(
         .map(|a| a.width as f64)
         .unwrap_or_else(|| (upm * 0.5).round());
 
-    // Metrics color - light gray
-    let metrics_color = Color::srgba(0.7, 0.7, 0.7, 0.8);
+    // Metrics color - bright forest green
+    let metrics_color = Color::srgba(0.0, 0.9, 0.3, 0.9);
 
     // Draw the bounding box that represents the glyph metrics
     draw_rect(
