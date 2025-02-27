@@ -1,4 +1,4 @@
-use crate::main_toolbar::EditModeSystem;
+use crate::edit_mode_toolbar::EditModeSystem;
 use bevy::prelude::*;
 
 pub struct PrimitivesMode;

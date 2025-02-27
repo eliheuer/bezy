@@ -8,6 +8,7 @@ mod pen;
 mod primitives;
 mod select;
 mod text;
+mod ui;
 
 pub use hyper::HyperMode;
 pub use knife::KnifeMode;
@@ -19,6 +20,7 @@ pub use select::{
     draw_selected_points_system, select_point_system, SelectMode,
 };
 pub use text::TextMode;
+pub use ui::*;
 
 // Trait that all edit modes must implement
 pub trait EditModeSystem: Send + Sync + 'static {
@@ -30,9 +32,9 @@ pub trait EditModeSystem: Send + Sync + 'static {
 }
 
 /// Plugin that adds all the toolbar functionality
-pub struct MainToolbarPlugin;
+pub struct EditModeToolbarPlugin;
 
-impl Plugin for MainToolbarPlugin {
+impl Plugin for EditModeToolbarPlugin {
     fn build(&self, app: &mut App) {
         app
             // First add the selection plugin which initializes resources
@@ -47,9 +49,12 @@ impl Plugin for MainToolbarPlugin {
                     select::debug_selection_state,
                     select::debug_camera_info,
                     select::debug_scene_entities,
+                    // UI systems
+                    handle_toolbar_mode_selection,
+                    update_current_edit_mode,
                 ),
             );
 
-        info!("MainToolbarPlugin initialized with selection functionality");
+        info!("EditModeToolbarPlugin initialized with selection functionality");
     }
 }

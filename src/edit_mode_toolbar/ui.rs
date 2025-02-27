@@ -1,9 +1,9 @@
-use crate::main_toolbar::*;
+use crate::edit_mode_toolbar::*;
 use crate::theme::*;
 use bevy::prelude::*;
 
 #[derive(Component)]
-pub struct MainToolbarButton;
+pub struct EditModeToolbarButton;
 
 #[derive(Component)]
 pub struct TextColor(pub Color);
@@ -42,8 +42,8 @@ impl EditMode {
 #[derive(Resource, Default)]
 pub struct CurrentEditMode(pub EditMode);
 
-pub fn spawn_main_toolbar(commands: &mut Commands, asset_server: &AssetServer) {
-    // Spawn a container for the main toolbar buttons
+pub fn spawn_edit_mode_toolbar(commands: &mut Commands, asset_server: &AssetServer) {
+    // Spawn a container for the edit mode toolbar buttons
     commands
         .spawn(Node {
             position_type: PositionType::Absolute,
@@ -75,7 +75,7 @@ pub fn spawn_main_toolbar(commands: &mut Commands, asset_server: &AssetServer) {
                         button_container
                             .spawn((
                                 Button,
-                                MainToolbarButton,
+                                EditModeToolbarButton,
                                 ButtonName(button_name.to_string()),
                                 Node {
                                     width: Val::Px(64.0),
@@ -134,7 +134,7 @@ pub fn handle_toolbar_mode_selection(
             &ButtonName,
             Entity,
         ),
-        With<MainToolbarButton>,
+        With<EditModeToolbarButton>,
     >,
     mut text_query: Query<(&Parent, &mut TextColor)>,
     mut current_mode: ResMut<CurrentEditMode>,
@@ -220,4 +220,4 @@ pub fn update_current_edit_mode(
 ) {
     let system = current_mode.0.get_system();
     system.update(&mut commands);
-}
+} 

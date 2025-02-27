@@ -1,5 +1,5 @@
 use super::EditModeSystem;
-use crate::toolbar::{CurrentEditMode, EditMode};
+use crate::edit_mode_toolbar::{CurrentEditMode, EditMode};
 use bevy::prelude::*;
 use std::time::Duration;
 
