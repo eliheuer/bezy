@@ -122,6 +122,11 @@ pub fn debug_camera_info(
                 "   Is Active: {}, Target: {:?}",
                 camera.is_active, camera.target
             );
+            
+            // Log the projection scale if it's an orthographic projection
+            if let Some(proj) = projection {
+                info!("   Projection Scale: {}", proj.scale);
+            }
         }
 
         if cameras.iter().count() == 0 {
