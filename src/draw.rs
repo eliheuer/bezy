@@ -29,6 +29,7 @@ pub fn draw_metrics_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
     viewports: Query<&ViewPort>,
+    cli_args: Res<crate::cli::CliArgs>,
 ) {
     // Debug metrics info
     info!("=== Font Metrics Debug ===");
@@ -53,20 +54,72 @@ pub fn draw_metrics_system(
         info!("Ascender: {:?}", metrics.ascender);
         info!("Descender: {:?}", metrics.descender);
         
-        // Use a placeholder glyph with standard advance width
-        let mut placeholder = Glyph::new_named("placeholder");
-        placeholder.advance = Some(norad::Advance {
-            width: 1000.0,
-            height: 0.0,
-        });
+        // Get the test glyph name from CLI args
+        let test_glyph = cli_args.get_test_glyph();
+        
+        match app_state.workspace.font.ufo.get_default_layer() {
+            Some(default_layer) => {
+                // Try to get the glyph directly by name
+                let glyph_name = norad::GlyphName::from(test_glyph.clone());
+                
+                match default_layer.get_glyph(&glyph_name) {
+                    Some(glyph) => {
+                        // Draw the metrics using the actual glyph
+                        draw_metrics(
+                            &mut gizmos,
+                            viewport,
+                            glyph,
+                            &app_state.workspace.info.metrics,
+                        );
+                        info!("Metrics drawn for glyph '{}' with advance width: {:?}", 
+                              glyph.name, glyph.advance.as_ref().map(|a| a.width));
+                    }
+                    None => {
+                        // Try with some common glyphs
+                        let common_glyphs =
+                            ["H", "h", "A", "a", "O", "o", "space", ".notdef"];
+                        let mut found = false;
 
-        // Draw the metrics directly without using DrawCtx
-        draw_metrics(
-            &mut gizmos,
-            viewport,
-            &placeholder,
-            &app_state.workspace.info.metrics,
-        );
+                        for glyph_name_str in common_glyphs.iter() {
+                            let name = norad::GlyphName::from(*glyph_name_str);
+                            if let Some(glyph) = default_layer.get_glyph(&name) {
+                                draw_metrics(
+                                    &mut gizmos,
+                                    viewport,
+                                    glyph,
+                                    &app_state.workspace.info.metrics,
+                                );
+                                info!("Metrics drawn for glyph '{}' with advance width: {:?}", 
+                                      glyph.name, glyph.advance.as_ref().map(|a| a.width));
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if !found {
+                            // If no glyph found, use a placeholder with a warning
+                            let mut placeholder = Glyph::new_named("placeholder");
+                            placeholder.advance = Some(norad::Advance {
+                                width: metrics.units_per_em as f32,
+                                height: 0.0,
+                            });
+                            
+                            draw_metrics(
+                                &mut gizmos,
+                                viewport,
+                                &placeholder,
+                                &app_state.workspace.info.metrics,
+                            );
+                            
+                            println!("WARNING: Could not find any glyphs for metrics. Using units_per_em as placeholder width.");
+                        }
+                    }
+                }
+            }
+            None => {
+                println!("WARNING: No default layer found in the font");
+            }
+        }
         
         info!("Metrics drawn for viewport at zoom: {}, flipped_y: {}", viewport.zoom, viewport.flipped_y);
     } else {
