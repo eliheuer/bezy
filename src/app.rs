@@ -6,6 +6,7 @@ use bevy_pancam::PanCamPlugin;
 use crate::cameras::{toggle_camera_controls, update_coordinate_display};
 use crate::checkerboard::CheckerboardPlugin;
 use crate::cli::CliArgs;
+use crate::crypto_toolbar::CryptoToolbarPlugin;
 use crate::data::AppState;
 use crate::debug_hud::{
     spawn_debug_text, spawn_edit_mode_toolbar_debug,
@@ -14,9 +15,7 @@ use crate::debug_hud::{
 use crate::design_space::DesignSpacePlugin;
 use crate::draw::DrawPlugin;
 use crate::edit_mode_toolbar::EditModeToolbarPlugin;
-use crate::edit_mode_toolbar::{
-    handle_toolbar_mode_selection, update_current_edit_mode, CurrentEditMode,
-};
+use crate::edit_mode_toolbar::CurrentEditMode;
 use crate::setup::setup;
 use crate::text_editor::TextEditorPlugin;
 use crate::theme::BACKGROUND_COLOR;
@@ -102,15 +101,13 @@ impl Plugin for CameraPlugin {
     }
 }
 
-// Plugin to organize toolbar-related systems
+// Plugin to organize toolbar-related plugins
 struct ToolbarPlugin;
 
 impl Plugin for ToolbarPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (handle_toolbar_mode_selection, update_current_edit_mode),
-        );
+        app.init_resource::<CurrentEditMode>()
+            .add_plugins(CryptoToolbarPlugin);
     }
 }
 

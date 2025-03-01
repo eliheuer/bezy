@@ -4,6 +4,7 @@ mod app;
 mod cameras;
 mod checkerboard;
 mod cli;
+mod crypto_toolbar;
 mod data;
 mod debug;
 mod debug_hud;
