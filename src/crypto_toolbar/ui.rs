@@ -84,11 +84,9 @@ pub fn handle_connect_button_interaction(
         With<ConnectButton>,
     >,
     mut button_state: ResMut<ConnectButtonState>,
-    mut text_query: Query<(&Parent, &mut Text), With<TextColor>>,
-    children_query: Query<&Children>,
 ) {
     // Handle interaction with Connect button
-    for (entity, interaction, mut bg_color, mut border_color) in &mut interaction_query {
+    for (_, interaction, mut bg_color, mut border_color) in &mut interaction_query {
         if *interaction == Interaction::Pressed {
             // Toggle connection state when pressed
             button_state.is_connected = !button_state.is_connected;
@@ -98,15 +96,6 @@ pub fn handle_connect_button_interaction(
         if button_state.is_connected {
             *bg_color = PRESSED_BUTTON_COLOR.into();
             border_color.0 = PRESSED_BUTTON_OUTLINE_COLOR;
-            
-            // Find and update text in children
-            if let Ok(children) = children_query.get(entity) {
-                for &child in children.iter() {
-                    if let Ok((_, mut text)) = text_query.get_mut(child) {
-                        *text = Text::new("Connected");
-                    }
-                }
-            }
         } else {
             match *interaction {
                 Interaction::Pressed => {
@@ -120,15 +109,6 @@ pub fn handle_connect_button_interaction(
                 Interaction::None => {
                     *bg_color = NORMAL_BUTTON_COLOR.into();
                     border_color.0 = NORMAL_BUTTON_OUTLINE_COLOR;
-                }
-            }
-            
-            // Find and update text in children
-            if let Ok(children) = children_query.get(entity) {
-                for &child in children.iter() {
-                    if let Ok((_, mut text)) = text_query.get_mut(child) {
-                        *text = Text::new("Connect");
-                    }
                 }
             }
         }
