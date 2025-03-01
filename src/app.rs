@@ -24,6 +24,9 @@ use crate::ufo::initialize_font_state;
 
 // Create the app and add the plugins and systems
 pub fn create_app(cli_args: CliArgs) -> App {
+    // Initialize a custom logger that excludes timestamps but keeps colors
+    init_custom_logger();
+
     let mut app = App::new();
 
     // Configure app with default settings
@@ -33,6 +36,42 @@ pub fn create_app(cli_args: CliArgs) -> App {
     add_plugins(&mut app);
 
     app
+}
+
+// Custom logger initialization to exclude timestamps
+fn init_custom_logger() {
+    use tracing_subscriber::fmt::format;
+    use tracing_subscriber::fmt::time::FormatTime;
+    use tracing_subscriber::prelude::*;
+
+    // Empty time formatter that doesn't print anything
+    struct EmptyTime;
+    impl FormatTime for EmptyTime {
+        fn format_time(&self, _: &mut tracing_subscriber::fmt::format::Writer<'_>) -> std::fmt::Result {
+            // Do nothing, effectively removing timestamps
+            Ok(())
+        }
+    }
+
+    // Set up a custom tracing subscriber with our configuration
+    let format = format()
+        .with_timer(EmptyTime)
+        .with_level(true)
+        .with_target(true)
+        .with_ansi(true); // Keep colors
+
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .event_format(format)
+                .with_filter(
+                    tracing_subscriber::filter::EnvFilter::from_default_env()
+                        .add_directive("info".parse().unwrap())
+                        .add_directive("wgpu_core=warn".parse().unwrap())
+                        .add_directive("wgpu_hal=warn".parse().unwrap()),
+                ),
+        )
+        .init();
 }
 
 // Plugin to organize debug-related systems
@@ -122,10 +161,13 @@ fn configure_app_settings(app: &mut App, cli_args: CliArgs) {
 // Add all necessary plugins
 fn add_plugins(app: &mut App) {
     // Add built-in plugins with our window configuration
+    // but disable Bevy's built-in LogPlugin since we're using our own custom logger
     app.add_plugins(
         DefaultPlugins
             .set(ImagePlugin::default_nearest())
-            .set(create_window_plugin()),
+            .set(create_window_plugin())
+            .build()
+            .disable::<bevy::log::LogPlugin>(),
     );
 
     // Add camera plugin

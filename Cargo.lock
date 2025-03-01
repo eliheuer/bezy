@@ -2113,6 +2113,7 @@ dependencies = [
  "serde_json",
  "spline",
  "svg",
+ "tracing-subscriber",
 ]
 
 [[package]]
