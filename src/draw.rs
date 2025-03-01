@@ -331,8 +331,18 @@ fn draw_glyph_points(
     if let Some(outline) = &glyph.outline {
         // Iterate through all contours
         for (_contour_idx, contour) in outline.contours.iter().enumerate() {
-            // Draw each point in the contour
-            for (point_idx, point) in contour.points.iter().enumerate() {
+            if contour.points.is_empty() {
+                continue;
+            }
+
+            // First, draw the actual path with proper cubic curves
+            draw_contour_path(gizmos, viewport, contour);
+            
+            // Then draw the control handles for off-curve points
+            draw_control_handles(gizmos, viewport, contour);
+            
+            // Finally, draw the points themselves
+            for point in contour.points.iter() {
                 let point_pos = (point.x as f32, point.y as f32);
                 let screen_pos = viewport.to_screen(DPoint::from(point_pos));
 
@@ -387,45 +397,232 @@ fn draw_glyph_points(
                     // For off-curve points or if squares are disabled, draw a filled circle
                     gizmos.circle_2d(screen_pos, size, color);
                 }
-
-                // Draw a line connecting on-curve and off-curve points
-                if point_idx > 0 {
-                    let prev_point = &contour.points[point_idx - 1];
-                    let prev_pos = (prev_point.x as f32, prev_point.y as f32);
-                    let prev_screen_pos =
-                        viewport.to_screen(DPoint::from(prev_pos));
-
-                    // Draw line between points
-                    gizmos.line_2d(
-                        prev_screen_pos,
-                        screen_pos,
-                        PATH_LINE_COLOR,
-                    );
-                }
-            }
-
-            // Connect the last point to the first to close the contour
-            if !contour.points.is_empty() {
-                let first_point = &contour.points[0];
-                let last_point = &contour.points[contour.points.len() - 1];
-
-                let first_pos = (first_point.x as f32, first_point.y as f32);
-                let last_pos = (last_point.x as f32, last_point.y as f32);
-
-                let first_screen_pos =
-                    viewport.to_screen(DPoint::from(first_pos));
-                let last_screen_pos =
-                    viewport.to_screen(DPoint::from(last_pos));
-
-                // Draw closing line
-                gizmos.line_2d(
-                    last_screen_pos,
-                    first_screen_pos,
-                    PATH_LINE_COLOR,
-                );
             }
         }
     } else {
         println!("Glyph '{}' has no outline", glyph.name);
     }
+}
+
+/// Draw the contour path with proper cubic curves
+fn draw_contour_path(
+    gizmos: &mut Gizmos,
+    viewport: ViewPort,
+    contour: &norad::Contour,
+) {
+    let points = &contour.points;
+    if points.is_empty() {
+        return;
+    }
+
+    // Find segments between on-curve points
+    let mut segment_start_idx = 0;
+    let mut last_was_on_curve = false;
+    
+    // Handle the special case where the first point might be off-curve
+    if !is_on_curve(&points[0]) {
+        // Find the last on-curve point to start with
+        let mut last_on_curve_idx = points.len() - 1;
+        while last_on_curve_idx > 0 && !is_on_curve(&points[last_on_curve_idx]) {
+            last_on_curve_idx -= 1;
+        }
+        
+        if is_on_curve(&points[last_on_curve_idx]) {
+            segment_start_idx = last_on_curve_idx;
+            last_was_on_curve = true;
+        }
+    } else {
+        last_was_on_curve = true;
+    }
+    
+    let path_color = PATH_LINE_COLOR;
+    
+    // Iterate through all points to identify and draw segments
+    for i in 0..points.len() + 1 {
+        let point_idx = i % points.len();
+        let is_on = is_on_curve(&points[point_idx]);
+        
+        if is_on && last_was_on_curve {
+            // If we have two consecutive on-curve points, draw a straight line
+            let start_point = &points[segment_start_idx];
+            let end_point = &points[point_idx];
+            
+            let start_pos = viewport.to_screen(DPoint::from((start_point.x as f32, start_point.y as f32)));
+            let end_pos = viewport.to_screen(DPoint::from((end_point.x as f32, end_point.y as f32)));
+            
+            gizmos.line_2d(start_pos, end_pos, path_color);
+            
+            segment_start_idx = point_idx;
+        } else if is_on {
+            // Found the end of a curve segment (on-curve point after off-curve points)
+            // Collect all points in this segment to draw a cubic bezier
+            let mut segment_points = Vec::new();
+            let mut idx = segment_start_idx;
+            
+            // Collect all points from segment_start_idx to point_idx
+            loop {
+                segment_points.push(&points[idx]);
+                idx = (idx + 1) % points.len();
+                if idx == (point_idx + 1) % points.len() {
+                    break;
+                }
+            }
+            
+            // Draw the appropriate curve based on number of points
+            draw_curve_segment(gizmos, viewport, &segment_points, path_color);
+            
+            // Update for next segment
+            segment_start_idx = point_idx;
+        }
+        
+        last_was_on_curve = is_on;
+    }
+}
+
+/// Draw control handles for off-curve points
+fn draw_control_handles(
+    gizmos: &mut Gizmos,
+    viewport: ViewPort,
+    contour: &norad::Contour,
+) {
+    let points = &contour.points;
+    if points.is_empty() {
+        return;
+    }
+    
+    let handle_color = Color::rgba(0.7, 0.7, 0.7, 0.6); // Light gray, semi-transparent
+    
+    // Find previous and next on-curve points for each off-curve point
+    for (i, point) in points.iter().enumerate() {
+        if !is_on_curve(point) {
+            // This is an off-curve point, draw handles to adjacent on-curve points
+            let mut prev_idx = i;
+            while prev_idx > 0 && !is_on_curve(&points[prev_idx - 1]) {
+                prev_idx -= 1;
+            }
+            
+            if prev_idx == 0 && !is_on_curve(&points[prev_idx]) {
+                // Wrap around to the end of the contour
+                prev_idx = points.len() - 1;
+                while prev_idx > 0 && !is_on_curve(&points[prev_idx]) {
+                    prev_idx -= 1;
+                }
+            }
+            
+            let off_curve_pos = viewport.to_screen(DPoint::from((point.x as f32, point.y as f32)));
+            
+            // Draw handle to previous on-curve point if it exists
+            if is_on_curve(&points[prev_idx]) {
+                let prev_on_curve = &points[prev_idx];
+                let prev_pos = viewport.to_screen(DPoint::from((prev_on_curve.x as f32, prev_on_curve.y as f32)));
+                gizmos.line_2d(off_curve_pos, prev_pos, handle_color);
+            }
+            
+            // Draw handle to next on-curve point
+            let mut next_idx = i;
+            while next_idx < points.len() - 1 && !is_on_curve(&points[next_idx + 1]) {
+                next_idx += 1;
+            }
+            
+            if next_idx == points.len() - 1 && !is_on_curve(&points[next_idx]) {
+                // Wrap around to the beginning of the contour
+                next_idx = 0;
+                while next_idx < points.len() - 1 && !is_on_curve(&points[next_idx]) {
+                    next_idx += 1;
+                }
+            }
+            
+            if is_on_curve(&points[next_idx]) {
+                let next_on_curve = &points[next_idx];
+                let next_pos = viewport.to_screen(DPoint::from((next_on_curve.x as f32, next_on_curve.y as f32)));
+                gizmos.line_2d(off_curve_pos, next_pos, handle_color);
+            }
+        }
+    }
+}
+
+/// Draw a curve segment based on the number of points
+fn draw_curve_segment(
+    gizmos: &mut Gizmos,
+    viewport: ViewPort,
+    points: &[&norad::ContourPoint],
+    color: Color,
+) {
+    if points.len() < 2 {
+        return;
+    }
+    
+    if points.len() == 2 {
+        // Simple line segment between two on-curve points
+        let start_pos = viewport.to_screen(DPoint::from((points[0].x as f32, points[0].y as f32)));
+        let end_pos = viewport.to_screen(DPoint::from((points[1].x as f32, points[1].y as f32)));
+        gizmos.line_2d(start_pos, end_pos, color);
+        return;
+    }
+    
+    // For cubic curve (4 points: on-curve, off-curve, off-curve, on-curve)
+    if points.len() == 4 &&
+       is_on_curve(points[0]) && !is_on_curve(points[1]) && 
+       !is_on_curve(points[2]) && is_on_curve(points[3]) {
+        draw_cubic_bezier(
+            gizmos,
+            viewport.to_screen(DPoint::from((points[0].x as f32, points[0].y as f32))),
+            viewport.to_screen(DPoint::from((points[1].x as f32, points[1].y as f32))),
+            viewport.to_screen(DPoint::from((points[2].x as f32, points[2].y as f32))),
+            viewport.to_screen(DPoint::from((points[3].x as f32, points[3].y as f32))),
+            color,
+        );
+        return;
+    }
+    
+    // For other cases (e.g. multiple off-curve points), approximate with line segments
+    // This is a fallback and should be improved for proper curve rendering
+    for i in 0..points.len() - 1 {
+        let start_pos = viewport.to_screen(DPoint::from((points[i].x as f32, points[i].y as f32)));
+        let end_pos = viewport.to_screen(DPoint::from((points[i+1].x as f32, points[i+1].y as f32)));
+        gizmos.line_2d(start_pos, end_pos, color);
+    }
+}
+
+/// Draw a cubic Bezier curve using line segments for approximation
+fn draw_cubic_bezier(
+    gizmos: &mut Gizmos,
+    p0: Vec2,
+    p1: Vec2,
+    p2: Vec2,
+    p3: Vec2,
+    color: Color,
+) {
+    // Number of segments to use for approximation
+    let segments = 16;
+    
+    // Calculate points along the curve using the cubic Bezier formula
+    let mut last_point = p0;
+    
+    for i in 1..=segments {
+        let t = i as f32 / segments as f32;
+        let t2 = t * t;
+        let t3 = t2 * t;
+        let mt = 1.0 - t;
+        let mt2 = mt * mt;
+        let mt3 = mt2 * mt;
+        
+        // Cubic Bezier formula: B(t) = (1-t)^3*P0 + 3*(1-t)^2*t*P1 + 3*(1-t)*t^2*P2 + t^3*P3
+        let point = Vec2::new(
+            mt3 * p0.x + 3.0 * mt2 * t * p1.x + 3.0 * mt * t2 * p2.x + t3 * p3.x,
+            mt3 * p0.y + 3.0 * mt2 * t * p1.y + 3.0 * mt * t2 * p2.y + t3 * p3.y,
+        );
+        
+        // Draw line segment from last point to current point
+        gizmos.line_2d(last_point, point, color);
+        last_point = point;
+    }
+}
+
+/// Helper function to check if a point is on-curve
+fn is_on_curve(point: &norad::ContourPoint) -> bool {
+    matches!(
+        point.typ,
+        norad::PointType::Move | norad::PointType::Line | norad::PointType::Curve | norad::PointType::QCurve
+    )
 }
