@@ -490,54 +490,49 @@ fn draw_control_handles(
         return;
     }
     
-    let handle_color = Color::rgba(0.7, 0.7, 0.7, 0.6); // Light gray, semi-transparent
+    let handle_color = Color::srgba(0.7, 0.7, 0.7, 0.6); // Light gray, semi-transparent with srgba instead of rgba to fix deprecation warning
     
-    // Find previous and next on-curve points for each off-curve point
-    for (i, point) in points.iter().enumerate() {
-        if !is_on_curve(point) {
-            // This is an off-curve point, draw handles to adjacent on-curve points
-            let mut prev_idx = i;
-            while prev_idx > 0 && !is_on_curve(&points[prev_idx - 1]) {
-                prev_idx -= 1;
+    // Find on-curve points and their associated control points
+    let mut i = 0;
+    while i < points.len() {
+        if is_on_curve(&points[i]) {
+            // Found an on-curve point
+            let on_curve_pos = viewport.to_screen(DPoint::from((points[i].x as f32, points[i].y as f32)));
+            
+            // Look ahead for off-curve points following this on-curve point
+            let mut j = (i + 1) % points.len();
+            while j != i && !is_on_curve(&points[j]) {
+                // This is an off-curve control point for the current on-curve point
+                let off_curve_pos = viewport.to_screen(DPoint::from((points[j].x as f32, points[j].y as f32)));
+                
+                // Draw handle from on-curve to off-curve
+                gizmos.line_2d(on_curve_pos, off_curve_pos, handle_color);
+                
+                j = (j + 1) % points.len();
             }
             
-            if prev_idx == 0 && !is_on_curve(&points[prev_idx]) {
-                // Wrap around to the end of the contour
-                prev_idx = points.len() - 1;
-                while prev_idx > 0 && !is_on_curve(&points[prev_idx]) {
-                    prev_idx -= 1;
+            // If we've found the next on-curve point, look for any off-curve points preceding it
+            // (these are the control points for the ending on-curve point of this segment)
+            if j != i && is_on_curve(&points[j]) {
+                let next_on_curve_pos = viewport.to_screen(DPoint::from((points[j].x as f32, points[j].y as f32)));
+                
+                // Look backward from the next on-curve point to find trailing control points
+                // Fix the subtraction overflow by using a safer method
+                let mut k = if j > 0 { j - 1 } else { points.len() - 1 };
+                
+                while k != i && !is_on_curve(&points[k]) {
+                    // This is a control point for the ending on-curve point
+                    let trailing_control_pos = viewport.to_screen(DPoint::from((points[k].x as f32, points[k].y as f32)));
+                    
+                    // Draw handle from on-curve to off-curve
+                    gizmos.line_2d(next_on_curve_pos, trailing_control_pos, handle_color);
+                    
+                    // Safely move to the previous index with overflow protection
+                    k = if k > 0 { k - 1 } else { points.len() - 1 };
                 }
-            }
-            
-            let off_curve_pos = viewport.to_screen(DPoint::from((point.x as f32, point.y as f32)));
-            
-            // Draw handle to previous on-curve point if it exists
-            if is_on_curve(&points[prev_idx]) {
-                let prev_on_curve = &points[prev_idx];
-                let prev_pos = viewport.to_screen(DPoint::from((prev_on_curve.x as f32, prev_on_curve.y as f32)));
-                gizmos.line_2d(off_curve_pos, prev_pos, handle_color);
-            }
-            
-            // Draw handle to next on-curve point
-            let mut next_idx = i;
-            while next_idx < points.len() - 1 && !is_on_curve(&points[next_idx + 1]) {
-                next_idx += 1;
-            }
-            
-            if next_idx == points.len() - 1 && !is_on_curve(&points[next_idx]) {
-                // Wrap around to the beginning of the contour
-                next_idx = 0;
-                while next_idx < points.len() - 1 && !is_on_curve(&points[next_idx]) {
-                    next_idx += 1;
-                }
-            }
-            
-            if is_on_curve(&points[next_idx]) {
-                let next_on_curve = &points[next_idx];
-                let next_pos = viewport.to_screen(DPoint::from((next_on_curve.x as f32, next_on_curve.y as f32)));
-                gizmos.line_2d(off_curve_pos, next_pos, handle_color);
             }
         }
+        i += 1;
     }
 }
 
