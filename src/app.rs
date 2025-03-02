@@ -14,8 +14,8 @@ use crate::debug_hud::{
 };
 use crate::design_space::DesignSpacePlugin;
 use crate::draw::DrawPlugin;
-use crate::edit_mode_toolbar::EditModeToolbarPlugin;
 use crate::edit_mode_toolbar::CurrentEditMode;
+use crate::edit_mode_toolbar::EditModeToolbarPlugin;
 use crate::setup::setup;
 use crate::text_editor::TextEditorPlugin;
 use crate::theme::BACKGROUND_COLOR;
@@ -46,7 +46,10 @@ fn init_custom_logger() {
     // Empty time formatter that doesn't print anything
     struct EmptyTime;
     impl FormatTime for EmptyTime {
-        fn format_time(&self, _: &mut tracing_subscriber::fmt::format::Writer<'_>) -> std::fmt::Result {
+        fn format_time(
+            &self,
+            _: &mut tracing_subscriber::fmt::format::Writer<'_>,
+        ) -> std::fmt::Result {
             // Do nothing, effectively removing timestamps
             Ok(())
         }

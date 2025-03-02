@@ -27,15 +27,13 @@ pub fn spawn_crypto_toolbar(
 ) {
     // Spawn a container for the crypto toolbar
     commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(32.0),
-                right: Val::Px(32.0),
-                flex_direction: FlexDirection::Row,
-                ..default()
-            },
-        ))
+        .spawn((Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(32.0),
+            right: Val::Px(32.0),
+            flex_direction: FlexDirection::Row,
+            ..default()
+        },))
         .with_children(|parent| {
             // Add the Connect button
             parent
@@ -66,7 +64,8 @@ pub fn spawn_crypto_toolbar(
                             button.spawn((
                                 Text::new("Connect"),
                                 TextFont {
-                                    font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                                    font: asset_server
+                                        .load("fonts/bezy-grotesk-regular.ttf"),
                                     font_size: 40.0,
                                     ..default()
                                 },
@@ -86,7 +85,9 @@ pub fn handle_connect_button_interaction(
     mut button_state: ResMut<ConnectButtonState>,
 ) {
     // Handle interaction with Connect button
-    for (_, interaction, mut bg_color, mut border_color) in &mut interaction_query {
+    for (_, interaction, mut bg_color, mut border_color) in
+        &mut interaction_query
+    {
         if *interaction == Interaction::Pressed {
             // Toggle connection state when pressed
             button_state.is_connected = !button_state.is_connected;
@@ -113,4 +114,4 @@ pub fn handle_connect_button_interaction(
             }
         }
     }
-} 
+}

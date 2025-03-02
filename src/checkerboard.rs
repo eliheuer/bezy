@@ -1,5 +1,5 @@
-use crate::theme::{CHECKERBOARD_COLOR, CHECKERBOARD_UNIT_SIZE};
 use crate::cameras::DesignCamera;
+use crate::theme::{CHECKERBOARD_COLOR, CHECKERBOARD_UNIT_SIZE};
 use bevy::prelude::*;
 
 // Component to identify checkerboard sprites
@@ -47,17 +47,20 @@ pub fn spawn_checkerboard(commands: &mut Commands) {
 
 // System to toggle checkerboard visibility based on camera zoom level
 pub fn toggle_checkerboard_visibility(
-    camera_query: Query<&bevy::render::camera::OrthographicProjection, With<DesignCamera>>,
+    camera_query: Query<
+        &bevy::render::camera::OrthographicProjection,
+        With<DesignCamera>,
+    >,
     mut checkerboard_query: Query<&mut Visibility, With<CheckerboardSquare>>,
 ) {
     // Default zoom level for Bevy OrthographicProjection is 1.0
     // Higher values mean zoomed out, lower values mean zoomed in
     const DEFAULT_ZOOM: f32 = 1.0;
-    
+
     if let Ok(projection) = camera_query.get_single() {
         // Check if we've zoomed out past the default level
         let visible = projection.scale <= DEFAULT_ZOOM;
-        
+
         // Update visibility for all checkerboard squares
         for mut visibility in checkerboard_query.iter_mut() {
             *visibility = if visible {

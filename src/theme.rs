@@ -24,7 +24,7 @@ pub const PATH_COLOR: Color = Color::srgb(0.8, 0.0, 0.0);
 pub const ON_CURVE_POINT_RADIUS: f32 = 6.0;
 pub const OFF_CURVE_POINT_RADIUS: f32 = 6.0;
 
-pub const ON_CURVE_POINT_COLOR: Color = Color::srgba(1.0, 0.75, 0.0, 1.0);
+pub const ON_CURVE_POINT_COLOR: Color = Color::srgba(0.0, 0.4, 1.0, 1.0);
 pub const OFF_CURVE_POINT_COLOR: Color = Color::srgba(0.0, 1.0, 0.4, 1.0);
 
 #[allow(dead_code)]
