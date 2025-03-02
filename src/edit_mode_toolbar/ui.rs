@@ -83,7 +83,7 @@ pub fn spawn_edit_mode_toolbar(
                                     width: Val::Px(64.0),
                                     height: Val::Px(64.0),
                                     padding: UiRect::all(Val::Px(0.0)),
-                                    border: UiRect::all(Val::Px(1.0)),
+                                    border: UiRect::all(Val::Px(2.0)),
                                     justify_content: JustifyContent::Center,
                                     align_items: AlignItems::Center,
                                     ..default()
