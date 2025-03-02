@@ -1,8 +1,10 @@
 use bevy::prelude::*;
+use crate::theme::*;
 
 #[derive(Component)]
 pub struct ConnectButton;
 
+/// Component for text color in UI elements
 #[derive(Component)]
 pub struct TextColor(pub Color);
 
@@ -10,15 +12,6 @@ pub struct TextColor(pub Color);
 pub struct ConnectButtonState {
     pub is_connected: bool,
 }
-
-// Define button colors locally
-const NORMAL_BUTTON_COLOR: Color = Color::srgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON_COLOR: Color = Color::srgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON_COLOR: Color = Color::srgb(1.0, 0.6, 0.0);
-
-const NORMAL_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.8, 0.8, 0.8);
-const HOVERED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.99, 0.99, 0.99);
-const PRESSED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(1.0, 0.6, 0.0);
 
 /// Spawn the crypto toolbar with a Connect button in the upper right corner
 pub fn spawn_crypto_toolbar(
@@ -56,19 +49,14 @@ pub fn spawn_crypto_toolbar(
                                 ..default()
                             },
                             BorderColor(Color::WHITE),
-                            BorderRadius::all(Val::Px(8.0)),
-                            BackgroundColor(NORMAL_BUTTON_COLOR),
+                            BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
+                            BackgroundColor(NORMAL_BUTTON),
                         ))
                         .with_children(|button| {
                             // Add the text label for the button
                             button.spawn((
                                 Text::new("Connect"),
-                                TextFont {
-                                    font: asset_server
-                                        .load("fonts/bezy-grotesk-regular.ttf"),
-                                    font_size: 40.0,
-                                    ..default()
-                                },
+                                get_default_text_style(&asset_server),
                                 TextColor(Color::WHITE),
                             ));
                         });
@@ -95,20 +83,20 @@ pub fn handle_connect_button_interaction(
 
         // Update button colors based on state
         if button_state.is_connected {
-            *bg_color = PRESSED_BUTTON_COLOR.into();
+            *bg_color = PRESSED_BUTTON.into();
             border_color.0 = PRESSED_BUTTON_OUTLINE_COLOR;
         } else {
             match *interaction {
                 Interaction::Pressed => {
-                    *bg_color = PRESSED_BUTTON_COLOR.into();
+                    *bg_color = PRESSED_BUTTON.into();
                     border_color.0 = PRESSED_BUTTON_OUTLINE_COLOR;
                 }
                 Interaction::Hovered => {
-                    *bg_color = HOVERED_BUTTON_COLOR.into();
+                    *bg_color = HOVERED_BUTTON.into();
                     border_color.0 = HOVERED_BUTTON_OUTLINE_COLOR;
                 }
                 Interaction::None => {
-                    *bg_color = NORMAL_BUTTON_COLOR.into();
+                    *bg_color = NORMAL_BUTTON.into();
                     border_color.0 = NORMAL_BUTTON_OUTLINE_COLOR;
                 }
             }

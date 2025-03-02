@@ -21,6 +21,12 @@ Besy is designed to feel like a video game, it should be fast, fun, and engaging
 
 I am porting code from Runbender to Bezy, that means I am porting from Druid to Bevy. The Runebender and Bevy repos are in the ai_context directory for refrance when porting.
 
-Bezy uses libraries from Runebender not directly related to Druid, like Norad, Kurbo, and Spline. 
+Bezy uses libraries from Runebender not directly related to Druid, like Norad, Kurbo, and Spline.
+
+## Code Style
+
+ I do not want I have any constants related to visual style declared outside of the theme.rs file. I am designing this application so that the theme.rs file can be swapped out and the visual style will be completly changed, there should be no visual constants outside the theme.re file
+
+
 
 
