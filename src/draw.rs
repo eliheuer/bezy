@@ -490,49 +490,93 @@ fn draw_control_handles(
         return;
     }
     
-    let handle_color = Color::srgba(0.7, 0.7, 0.7, 0.6); // Light gray, semi-transparent with srgba instead of rgba to fix deprecation warning
+    let handle_color = Color::srgba(0.7, 0.7, 0.7, 0.6); // Light gray, semi-transparent
     
-    // Find on-curve points and their associated control points
-    let mut i = 0;
-    while i < points.len() {
+    // Process the contour looking at each segment
+    let mut current_on_curve_idx = None;
+    
+    // First, find the first on-curve point
+    for i in 0..points.len() {
         if is_on_curve(&points[i]) {
-            // Found an on-curve point
-            let on_curve_pos = viewport.to_screen(DPoint::from((points[i].x as f32, points[i].y as f32)));
+            current_on_curve_idx = Some(i);
+            break;
+        }
+    }
+    
+    // If we couldn't find an on-curve point, we can't draw handles
+    if current_on_curve_idx.is_none() {
+        return;
+    }
+    
+    let mut current_idx = current_on_curve_idx.unwrap();
+    
+    // Iterate through the contour segments
+    for _ in 0..points.len() {
+        // We're only processing segments that start with an on-curve point
+        if is_on_curve(&points[current_idx]) {
+            let current_on_curve_pos = viewport.to_screen(DPoint::from((points[current_idx].x as f32, points[current_idx].y as f32)));
             
-            // Look ahead for off-curve points following this on-curve point
-            let mut j = (i + 1) % points.len();
-            while j != i && !is_on_curve(&points[j]) {
-                // This is an off-curve control point for the current on-curve point
-                let off_curve_pos = viewport.to_screen(DPoint::from((points[j].x as f32, points[j].y as f32)));
-                
-                // Draw handle from on-curve to off-curve
-                gizmos.line_2d(on_curve_pos, off_curve_pos, handle_color);
-                
-                j = (j + 1) % points.len();
-            }
+            // Look for the next on-curve point and collect off-curve points between them
+            let mut off_curve_points = Vec::new();
+            let mut next_idx = (current_idx + 1) % points.len();
             
-            // If we've found the next on-curve point, look for any off-curve points preceding it
-            // (these are the control points for the ending on-curve point of this segment)
-            if j != i && is_on_curve(&points[j]) {
-                let next_on_curve_pos = viewport.to_screen(DPoint::from((points[j].x as f32, points[j].y as f32)));
+            // Collect off-curve points until we find the next on-curve point
+            while !is_on_curve(&points[next_idx]) {
+                off_curve_points.push(next_idx);
+                next_idx = (next_idx + 1) % points.len();
                 
-                // Look backward from the next on-curve point to find trailing control points
-                // Fix the subtraction overflow by using a safer method
-                let mut k = if j > 0 { j - 1 } else { points.len() - 1 };
-                
-                while k != i && !is_on_curve(&points[k]) {
-                    // This is a control point for the ending on-curve point
-                    let trailing_control_pos = viewport.to_screen(DPoint::from((points[k].x as f32, points[k].y as f32)));
-                    
-                    // Draw handle from on-curve to off-curve
-                    gizmos.line_2d(next_on_curve_pos, trailing_control_pos, handle_color);
-                    
-                    // Safely move to the previous index with overflow protection
-                    k = if k > 0 { k - 1 } else { points.len() - 1 };
+                // Safety check to avoid infinite loop
+                if next_idx == current_idx {
+                    break;
                 }
             }
+            
+            // Only proceed if we found another on-curve point and have off-curve points
+            if next_idx != current_idx && !off_curve_points.is_empty() {
+                let next_on_curve_pos = viewport.to_screen(DPoint::from((points[next_idx].x as f32, points[next_idx].y as f32)));
+                
+                // For cubic Bézier with 2 control points (most common case)
+                if off_curve_points.len() == 2 {
+                    // First control point connects back to the current on-curve point
+                    let p1_idx = off_curve_points[0];
+                    let p1_pos = viewport.to_screen(DPoint::from((points[p1_idx].x as f32, points[p1_idx].y as f32)));
+                    gizmos.line_2d(current_on_curve_pos, p1_pos, handle_color);
+                    
+                    // Second control point connects forward to the next on-curve point
+                    let p2_idx = off_curve_points[1];
+                    let p2_pos = viewport.to_screen(DPoint::from((points[p2_idx].x as f32, points[p2_idx].y as f32)));
+                    gizmos.line_2d(next_on_curve_pos, p2_pos, handle_color);
+                } 
+                // For quadratic Bézier or other cases with just one control point
+                else if off_curve_points.len() == 1 {
+                    // The single control point gets a handle from the current on-curve point
+                    let control_idx = off_curve_points[0];
+                    let control_pos = viewport.to_screen(DPoint::from((points[control_idx].x as f32, points[control_idx].y as f32)));
+                    gizmos.line_2d(current_on_curve_pos, control_pos, handle_color);
+                }
+                // For cases with more than 2 control points (less common)
+                else {
+                    // Connect first control point to the current on-curve point
+                    let first_idx = off_curve_points[0];
+                    let first_pos = viewport.to_screen(DPoint::from((points[first_idx].x as f32, points[first_idx].y as f32)));
+                    gizmos.line_2d(current_on_curve_pos, first_pos, handle_color);
+                    
+                    // Connect last control point to the next on-curve point
+                    let last_idx = off_curve_points[off_curve_points.len() - 1];
+                    let last_pos = viewport.to_screen(DPoint::from((points[last_idx].x as f32, points[last_idx].y as f32)));
+                    gizmos.line_2d(next_on_curve_pos, last_pos, handle_color);
+                }
+                
+                // Move to the next segment
+                current_idx = next_idx;
+            } else {
+                // Just move to the next point if we didn't find a valid segment
+                current_idx = (current_idx + 1) % points.len();
+            }
+        } else {
+            // Skip off-curve points when searching for segment starts
+            current_idx = (current_idx + 1) % points.len();
         }
-        i += 1;
     }
 }
 
