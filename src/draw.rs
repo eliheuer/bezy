@@ -32,8 +32,8 @@ pub fn draw_metrics_system(
     cli_args: Res<crate::cli::CliArgs>,
 ) {
     // Debug metrics info
-    info!("=== Font Metrics Debug ===");
-    info!(
+    debug!("=== Font Metrics Debug ===");
+    debug!(
         "Has font_info: {}",
         app_state.workspace.font.ufo.font_info.is_some()
     );
@@ -42,7 +42,7 @@ pub fn draw_metrics_system(
     let viewport = match viewports.get_single() {
         Ok(viewport) => *viewport,
         Err(_) => {
-            info!("No viewport found, using default viewport");
+            debug!("No viewport found, using default viewport");
             ViewPort::default()
         }
     };
@@ -51,11 +51,11 @@ pub fn draw_metrics_system(
     if app_state.workspace.font.ufo.font_info.is_some() {
         // Debug metrics values
         let metrics = &app_state.workspace.info.metrics;
-        info!("Units per em: {}", metrics.units_per_em);
-        info!("X-height: {:?}", metrics.x_height);
-        info!("Cap-height: {:?}", metrics.cap_height);
-        info!("Ascender: {:?}", metrics.ascender);
-        info!("Descender: {:?}", metrics.descender);
+        debug!("Units per em: {}", metrics.units_per_em);
+        debug!("X-height: {:?}", metrics.x_height);
+        debug!("Cap-height: {:?}", metrics.cap_height);
+        debug!("Ascender: {:?}", metrics.ascender);
+        debug!("Descender: {:?}", metrics.descender);
 
         // Get the test glyph name from CLI args
         let test_glyph = cli_args.get_test_glyph();
@@ -74,7 +74,7 @@ pub fn draw_metrics_system(
                             glyph,
                             &app_state.workspace.info.metrics,
                         );
-                        info!("Metrics drawn for glyph '{}' with advance width: {:?}", 
+                        debug!("Metrics drawn for glyph '{}' with advance width: {:?}", 
                               glyph.name, glyph.advance.as_ref().map(|a| a.width));
                     }
                     None => {
@@ -93,7 +93,7 @@ pub fn draw_metrics_system(
                                     glyph,
                                     &app_state.workspace.info.metrics,
                                 );
-                                info!("Metrics drawn for glyph '{}' with advance width: {:?}", 
+                                debug!("Metrics drawn for glyph '{}' with advance width: {:?}", 
                                       glyph.name, glyph.advance.as_ref().map(|a| a.width));
                                 found = true;
                                 break;
@@ -126,12 +126,12 @@ pub fn draw_metrics_system(
             }
         }
 
-        info!(
+        debug!(
             "Metrics drawn for viewport at zoom: {}, flipped_y: {}",
             viewport.zoom, viewport.flipped_y
         );
     } else {
-        info!("No font info available, metrics not drawn");
+        debug!("No font info available, metrics not drawn");
     }
 }
 

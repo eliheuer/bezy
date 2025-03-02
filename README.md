@@ -92,6 +92,16 @@ Enable additional debug information:
 cargo run -- --debug
 ```
 
+You can also control the logging verbosity using the `--log-level` option:
+
+```bash
+cargo run -- --log-level debug    # Show debug logs
+cargo run -- --log-level info     # Show only info logs (default)
+cargo run -- --log-level warn     # Show only warnings and errors
+```
+
+This is particularly useful when debugging font metrics and other technical details.
+
 ### The Bezy Grotesk Test Font
 
 Bezy comes with a test font called "Bezy Grotesk" located in the `assets/fonts` directory. This is a UFO font format file that you can use to explore the editor's capabilities.
