@@ -4,13 +4,49 @@ use crate::theme::*;
 #[derive(Component)]
 pub struct ConnectButton;
 
-/// Component for text color in UI elements
-#[derive(Component)]
-pub struct TextColor(pub Color);
-
 #[derive(Resource, Default)]
 pub struct ConnectButtonState {
     pub is_connected: bool,
+}
+
+/// Component for text color in UI elements.
+// In Bevy 0.15.2, text styling is split between TextFont (for font and size) and this component for color.
+// While the theme system handles static colors, this component is necessary for dynamic color changes
+// at runtime (e.g., changing text color when a button is selected/deselected).
+#[derive(Component)]
+pub struct TextColor(pub Color);
+
+/// Creates a button with standard styling
+fn spawn_button(
+    commands: &mut ChildBuilder,
+    label: &str,
+    asset_server: &Res<AssetServer>,
+    width: f32,
+) {
+    commands.spawn((
+        Button,
+        ConnectButton,
+        Node {
+            width: Val::Px(width),
+            height: Val::Px(64.0),
+            padding: UiRect::all(Val::Px(0.0)),
+            border: UiRect::all(Val::Px(2.0)),
+            margin: UiRect::all(Val::Px(4.0)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        BorderColor(Color::WHITE),
+        BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
+        BackgroundColor(NORMAL_BUTTON),
+    ))
+    .with_children(|button| {
+        button.spawn((
+            Text::new(label),
+            get_default_text_style(asset_server),
+            TextColor(Color::WHITE),
+        ));
+    });
 }
 
 /// Spawn the crypto toolbar with a Connect button in the upper right corner
@@ -18,49 +54,18 @@ pub fn spawn_crypto_toolbar(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    // Spawn a container for the crypto toolbar
     commands
-        .spawn((Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(32.0),
-            right: Val::Px(32.0),
-            flex_direction: FlexDirection::Row,
-            ..default()
-        },))
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(32.0),
+                right: Val::Px(32.0),
+                flex_direction: FlexDirection::Row,
+                ..default()
+            },
+        ))
         .with_children(|parent| {
-            // Add the Connect button
-            parent
-                .spawn(Node {
-                    margin: UiRect::all(Val::Px(4.0)),
-                    ..default()
-                })
-                .with_children(|button_container| {
-                    button_container
-                        .spawn((
-                            Button,
-                            ConnectButton,
-                            Node {
-                                width: Val::Px(192.0),
-                                height: Val::Px(64.0),
-                                padding: UiRect::all(Val::Px(0.0)),
-                                border: UiRect::all(Val::Px(2.0)),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                ..default()
-                            },
-                            BorderColor(Color::WHITE),
-                            BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
-                            BackgroundColor(NORMAL_BUTTON),
-                        ))
-                        .with_children(|button| {
-                            // Add the text label for the button
-                            button.spawn((
-                                Text::new("Connect"),
-                                get_default_text_style(&asset_server),
-                                TextColor(Color::WHITE),
-                            ));
-                        });
-                });
+            spawn_button(parent, "Connect", &asset_server, 192.0);
         });
 }
 
