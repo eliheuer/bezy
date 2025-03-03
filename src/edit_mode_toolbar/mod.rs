@@ -16,14 +16,11 @@ pub use measure::MeasureMode;
 pub use pan::PanMode;
 pub use pen::PenMode;
 pub use primitives::PrimitivesMode;
-pub use select::{
-    draw_selected_points_system, select_point_system, SelectMode,
-};
+pub use select::SelectMode;
 pub use text::TextMode;
 pub use ui::{
     handle_toolbar_mode_selection, spawn_edit_mode_toolbar,
-    update_current_edit_mode, ButtonName, CurrentEditMode, EditMode,
-    EditModeToolbarButton, TextColor,
+    update_current_edit_mode, CurrentEditMode,
 };
 
 /// Trait that defines the behavior of an edit mode in the application.
@@ -68,21 +65,13 @@ pub struct EditModeToolbarPlugin;
 
 impl Plugin for EditModeToolbarPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_plugins(select::SelectPlugin)
-            .add_systems(
-                Update,
-                (
-                    // Selection systems
-                    select_point_system,
-                    draw_selected_points_system,
-                    select::debug_selection_state,
-                    select::debug_camera_info,
-                    select::debug_scene_entities,
-                    // UI systems
-                    handle_toolbar_mode_selection,
-                    update_current_edit_mode,
-                ),
-            );
+        app.add_systems(
+            Update,
+            (
+                // UI systems
+                handle_toolbar_mode_selection,
+                update_current_edit_mode,
+            ),
+        );
     }
 }

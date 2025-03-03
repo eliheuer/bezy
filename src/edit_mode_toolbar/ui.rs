@@ -37,7 +37,7 @@ impl EditMode {
         }
     }
 
-    /// Returns the Unicode icon character for this edit mode
+    /// Returns the Unicode PUA icon for each edit mode
     pub fn get_icon(&self) -> &'static str {
         match self {
             EditMode::Select => "\u{E010}",
@@ -51,7 +51,7 @@ impl EditMode {
         }
     }
 
-    /// Returns a user-friendly display name for this edit mode
+    /// Returns a user-friendly display name for each edit mode
     pub fn display_name(&self) -> &'static str {
         match self {
             EditMode::Select => "Select",
@@ -87,14 +87,14 @@ pub fn spawn_edit_mode_toolbar(
             let edit_modes = [
                 EditMode::Select,
                 EditMode::Pen,
-                EditMode::Hyper, 
+                EditMode::Hyper,
                 EditMode::Knife,
                 EditMode::Pan,
                 EditMode::Measure,
                 EditMode::Primitives,
                 EditMode::Text,
             ];
-            
+
             for edit_mode in edit_modes.iter() {
                 spawn_mode_button(parent, edit_mode, asset_server);
             }
@@ -102,7 +102,11 @@ pub fn spawn_edit_mode_toolbar(
 }
 
 /// Helper function to spawn a single mode button
-fn spawn_mode_button(parent: &mut ChildBuilder, edit_mode: &EditMode, asset_server: &AssetServer) {
+fn spawn_mode_button(
+    parent: &mut ChildBuilder,
+    edit_mode: &EditMode,
+    asset_server: &AssetServer,
+) {
     parent
         .spawn(Node {
             margin: UiRect::all(Val::Px(4.0)),
@@ -132,7 +136,8 @@ fn spawn_mode_button(parent: &mut ChildBuilder, edit_mode: &EditMode, asset_serv
                     button.spawn((
                         Text::new(edit_mode.get_icon().to_string()),
                         TextFont {
-                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font: asset_server
+                                .load("fonts/bezy-grotesk-regular.ttf"),
                             font_size: 48.0, // Consistent size for all icons
                             ..default()
                         },
@@ -167,14 +172,14 @@ pub fn handle_toolbar_mode_selection(
 
             // Parse the button name to an EditMode
             let new_mode = parse_edit_mode_from_button_name(&button_name.0);
-            
+
             // Call on_enter for the new mode
             let new_system = new_mode.get_system();
             new_system.on_enter();
 
             // Save the new mode
             current_mode.0 = new_mode;
-            
+
             // Debug info
             info!("Switched edit mode to: {:?}", new_mode);
         }
@@ -231,13 +236,16 @@ fn parse_edit_mode_from_button_name(button_name: &str) -> EditMode {
         "Select" => EditMode::Select,
         "Pen" => EditMode::Pen,
         "Hyper" => EditMode::Hyper,
-        "Knife" => EditMode::Knife, 
+        "Knife" => EditMode::Knife,
         "Pan" => EditMode::Pan,
         "Measure" => EditMode::Measure,
         "Primitives" => EditMode::Primitives,
         "Text" => EditMode::Text,
         _ => {
-            warn!("Unknown edit mode button: {}, defaulting to Select", button_name);
+            warn!(
+                "Unknown edit mode button: {}, defaulting to Select",
+                button_name
+            );
             EditMode::Select
         }
     }
