@@ -36,6 +36,34 @@ impl EditMode {
             EditMode::Text => Box::new(TextMode),
         }
     }
+
+    /// Returns the Unicode icon character for this edit mode
+    pub fn get_icon(&self) -> &'static str {
+        match self {
+            EditMode::Select => "\u{E010}",
+            EditMode::Pen => "\u{E011}",
+            EditMode::Hyper => "\u{E012}",
+            EditMode::Knife => "\u{E013}",
+            EditMode::Pan => "\u{E014}",
+            EditMode::Measure => "\u{E015}",
+            EditMode::Primitives => "\u{E016}",
+            EditMode::Text => "\u{E017}",
+        }
+    }
+
+    /// Returns a user-friendly display name for this edit mode
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            EditMode::Select => "Select",
+            EditMode::Pen => "Pen",
+            EditMode::Hyper => "Hyper",
+            EditMode::Knife => "Knife",
+            EditMode::Pan => "Pan",
+            EditMode::Measure => "Measure",
+            EditMode::Primitives => "Primitives",
+            EditMode::Text => "Text",
+        }
+    }
 }
 
 #[derive(Resource, Default)]
@@ -55,75 +83,62 @@ pub fn spawn_edit_mode_toolbar(
             ..default()
         })
         .with_children(|parent| {
-            for (_index, button_name) in [
-                "Select",
-                "Pen",
-                "Hyper",
-                "Knife",
-                "Pan",
-                "Measure",
-                "Primitives",
-                "Text",
-            ]
-            .iter()
-            .enumerate()
-            {
-                parent
-                    .spawn(Node {
-                        margin: UiRect::all(Val::Px(4.0)),
-                        ..default()
-                    })
-                    .with_children(|button_container| {
-                        button_container
-                            .spawn((
-                                Button,
-                                EditModeToolbarButton,
-                                ButtonName(button_name.to_string()),
-                                Node {
-                                    width: Val::Px(64.0),
-                                    height: Val::Px(64.0),
-                                    padding: UiRect::all(Val::Px(0.0)),
-                                    border: UiRect::all(Val::Px(2.0)),
-                                    justify_content: JustifyContent::Center,
-                                    align_items: AlignItems::Center,
-                                    ..default()
-                                },
-                                BorderColor(Color::WHITE),
-                                BorderRadius::all(Val::Px(
-                                    BUTTON_BORDER_RADIUS,
-                                )),
-                                BackgroundColor(NORMAL_BUTTON),
-                            ))
-                            .with_children(|button| {
-                                // Add the icon for the button
-                                let icon =
-                                    match button_name.to_string().as_str() {
-                                        "Select" => "\u{E010}",
-                                        "Pen" => "\u{E011}",
-                                        "Hyper" => "\u{E012}",
-                                        "Knife" => "\u{E013}",
-                                        "Pan" => "\u{E014}",
-                                        "Measure" => "\u{E015}",
-                                        "Primitives" => "\u{E016}",
-                                        "Text" => "\u{E017}",
-                                        _ => "",
-                                    }
-                                    .to_string();
-
-                                button.spawn((
-                                    Text::new(icon),
-                                    TextFont {
-                                        font: asset_server.load(
-                                            "fonts/bezy-grotesk-regular.ttf",
-                                        ),
-                                        font_size: 48.0, // Consistent size for all icons
-                                        ..default()
-                                    },
-                                    TextColor(Color::WHITE),
-                                ));
-                            });
-                    });
+            // Create a button for each edit mode type
+            let edit_modes = [
+                EditMode::Select,
+                EditMode::Pen,
+                EditMode::Hyper, 
+                EditMode::Knife,
+                EditMode::Pan,
+                EditMode::Measure,
+                EditMode::Primitives,
+                EditMode::Text,
+            ];
+            
+            for edit_mode in edit_modes.iter() {
+                spawn_mode_button(parent, edit_mode, asset_server);
             }
+        });
+}
+
+/// Helper function to spawn a single mode button
+fn spawn_mode_button(parent: &mut ChildBuilder, edit_mode: &EditMode, asset_server: &AssetServer) {
+    parent
+        .spawn(Node {
+            margin: UiRect::all(Val::Px(4.0)),
+            ..default()
+        })
+        .with_children(|button_container| {
+            button_container
+                .spawn((
+                    Button,
+                    EditModeToolbarButton,
+                    ButtonName(edit_mode.display_name().to_string()),
+                    Node {
+                        width: Val::Px(64.0),
+                        height: Val::Px(64.0),
+                        padding: UiRect::all(Val::Px(0.0)),
+                        border: UiRect::all(Val::Px(2.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BorderColor(Color::WHITE),
+                    BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
+                    BackgroundColor(NORMAL_BUTTON),
+                ))
+                .with_children(|button| {
+                    // Add the icon using the EditMode method
+                    button.spawn((
+                        Text::new(edit_mode.get_icon().to_string()),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 48.0, // Consistent size for all icons
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                });
         });
 }
 
@@ -150,24 +165,18 @@ pub fn handle_toolbar_mode_selection(
             let old_system = current_mode.0.get_system();
             old_system.on_exit();
 
-            // Update the current edit mode based on the button pressed
-            let new_mode = match button_name.0.as_str() {
-                "Select" => EditMode::Select,
-                "Pen" => EditMode::Pen,
-                "Hyper" => EditMode::Hyper,
-                "Knife" => EditMode::Knife,
-                "Pan" => EditMode::Pan,
-                "Measure" => EditMode::Measure,
-                "Primitives" => EditMode::Primitives,
-                "Text" => EditMode::Text,
-                _ => EditMode::Select,
-            };
-
-            // Get the new mode's system and call on_enter
+            // Parse the button name to an EditMode
+            let new_mode = parse_edit_mode_from_button_name(&button_name.0);
+            
+            // Call on_enter for the new mode
             let new_system = new_mode.get_system();
             new_system.on_enter();
 
+            // Save the new mode
             current_mode.0 = new_mode;
+            
+            // Debug info
+            info!("Switched edit mode to: {:?}", new_mode);
         }
     }
 
@@ -212,6 +221,24 @@ pub fn handle_toolbar_mode_selection(
                     Color::WHITE
                 };
             }
+        }
+    }
+}
+
+/// Helper function to parse a button name into an EditMode
+fn parse_edit_mode_from_button_name(button_name: &str) -> EditMode {
+    match button_name {
+        "Select" => EditMode::Select,
+        "Pen" => EditMode::Pen,
+        "Hyper" => EditMode::Hyper,
+        "Knife" => EditMode::Knife, 
+        "Pan" => EditMode::Pan,
+        "Measure" => EditMode::Measure,
+        "Primitives" => EditMode::Primitives,
+        "Text" => EditMode::Text,
+        _ => {
+            warn!("Unknown edit mode button: {}, defaulting to Select", button_name);
+            EditMode::Select
         }
     }
 }
