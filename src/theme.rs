@@ -24,8 +24,8 @@ pub const PATH_COLOR: Color = Color::srgb(0.8, 0.0, 0.0);
 pub const ON_CURVE_POINT_RADIUS: f32 = 8.0;
 pub const OFF_CURVE_POINT_RADIUS: f32 = 6.0;
 
-pub const ON_CURVE_POINT_COLOR: Color = Color::srgb(1.0, 1.0, 0.0);
-pub const OFF_CURVE_POINT_COLOR: Color = Color::srgb(0.4, 0.0, 1.0);
+pub const ON_CURVE_POINT_COLOR: Color = Color::srgb(0.3, 1.0, 0.5);
+pub const OFF_CURVE_POINT_COLOR: Color = Color::srgb(0.6, 0.4, 1.0);
 
 #[allow(dead_code)]
 pub const SELECTED_POINT_COLOR: Color = Color::srgba(1.0, 0.8, 0.0, 1.0);
@@ -39,7 +39,10 @@ pub const PATH_LINE_WIDTH: f32 = 2.0;
 pub const USE_SQUARE_FOR_ON_CURVE: bool = true;
 
 // Metrics Guide
-pub const METRICS_GUIDE_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
+pub const METRICS_GUIDE_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 0.25);
+
+// Debug Settings
+pub const DEBUG_SHOW_ORIGIN_CROSS: bool = false; // Set to true to show the red cross at origin
 
 // Background Color
 pub const BACKGROUND_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);

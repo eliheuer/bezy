@@ -3,25 +3,29 @@
 use crate::data::{AppState, FontMetrics};
 use crate::design_space::{DPoint, ViewPort};
 use crate::theme::{
-    METRICS_GUIDE_COLOR, OFF_CURVE_POINT_COLOR, OFF_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR,
-    ON_CURVE_POINT_RADIUS, PATH_LINE_COLOR, USE_SQUARE_FOR_ON_CURVE,
+    DEBUG_SHOW_ORIGIN_CROSS, METRICS_GUIDE_COLOR, OFF_CURVE_POINT_COLOR,
+    OFF_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR, ON_CURVE_POINT_RADIUS, PATH_LINE_COLOR,
+    USE_SQUARE_FOR_ON_CURVE,
 };
 use bevy::prelude::*;
 use norad::Glyph;
 
 /// System that draws basic test elements for development
 pub fn draw_test_elements(mut gizmos: Gizmos) {
-    // Draw a simple test cross at the origin
-    gizmos.line_2d(
-        Vec2::new(-64.0, 0.0),
-        Vec2::new(64.0, 0.0),
-        Color::srgb(1.0, 0.0, 0.0),
-    );
-    gizmos.line_2d(
-        Vec2::new(0.0, -64.0),
-        Vec2::new(0.0, 64.0),
-        Color::srgb(1.0, 0.0, 0.0),
-    );
+    // Only draw the debug cross if enabled in theme settings
+    if DEBUG_SHOW_ORIGIN_CROSS {
+        // Draw a simple test cross at the origin
+        gizmos.line_2d(
+            Vec2::new(-64.0, 0.0),
+            Vec2::new(64.0, 0.0),
+            Color::srgb(1.0, 0.0, 0.0),
+        );
+        gizmos.line_2d(
+            Vec2::new(0.0, -64.0),
+            Vec2::new(0.0, 64.0),
+            Color::srgb(1.0, 0.0, 0.0),
+        );
+    }
 }
 
 /// System that draws font metrics
@@ -402,8 +406,13 @@ fn draw_glyph_points(
                     gizmos.line_2d(bottom_right, bottom_left, color);
                     gizmos.line_2d(bottom_left, top_left, color);
                 } else {
-                    // For off-curve points or if squares are disabled, draw a filled circle
+                    // For off-curve points, draw a filled circle with a smaller circle inside
+                    // First draw the outer circle
                     gizmos.circle_2d(screen_pos, size, color);
+                    
+                    // Then draw a smaller inner circle with the same color
+                    // Draw the inner circle at 40% of the original size
+                    gizmos.circle_2d(screen_pos, size * 0.4, color);
                 }
             }
         }
