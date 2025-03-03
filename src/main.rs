@@ -1,5 +1,4 @@
 //! A font editor made with Rust and the Bevy game engine.
-
 mod app;
 mod cameras;
 mod checkerboard;
@@ -23,7 +22,6 @@ mod world_space;
 fn main() {
     // Parse command line arguments
     let cli_args = cli::CliArgs::parse_args();
-
     // Create and run the app with the CLI arguments
     app::create_app(cli_args).run();
 }
