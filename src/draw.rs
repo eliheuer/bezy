@@ -3,7 +3,7 @@
 use crate::data::{AppState, FontMetrics};
 use crate::design_space::{DPoint, ViewPort};
 use crate::theme::{
-    DEBUG_SHOW_ORIGIN_CROSS, METRICS_GUIDE_COLOR, OFF_CURVE_POINT_COLOR,
+    DEBUG_SHOW_ORIGIN_CROSS, HANDLE_LINE_COLOR, METRICS_GUIDE_COLOR, OFF_CURVE_POINT_COLOR,
     OFF_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR, ON_CURVE_POINT_RADIUS, PATH_LINE_COLOR,
     USE_SQUARE_FOR_ON_CURVE,
 };
@@ -514,7 +514,8 @@ fn draw_control_handles(
         return;
     }
 
-    let handle_color = Color::srgba(0.7, 0.7, 0.7, 0.6); // Light gray, semi-transparent
+    // Use the color defined in the theme file
+    let handle_color = HANDLE_LINE_COLOR;
 
     // Process the contour looking at each segment
     let mut current_on_curve_idx = None;

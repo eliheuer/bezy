@@ -27,6 +27,9 @@ pub const OFF_CURVE_POINT_RADIUS: f32 = 6.0;
 pub const ON_CURVE_POINT_COLOR: Color = Color::srgb(0.3, 1.0, 0.5);
 pub const OFF_CURVE_POINT_COLOR: Color = Color::srgb(0.6, 0.4, 1.0);
 
+// Handle lines connecting on-curve and off-curve points
+pub const HANDLE_LINE_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 0.2);
+
 #[allow(dead_code)]
 pub const SELECTED_POINT_COLOR: Color = Color::srgba(1.0, 0.8, 0.0, 1.0);
 #[allow(dead_code)]
