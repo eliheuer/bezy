@@ -14,6 +14,7 @@ pub struct ConnectButtonState {
 // While the theme system handles static colors, this component is necessary for dynamic color changes
 // at runtime (e.g., changing text color when a button is selected/deselected).
 #[derive(Component)]
+#[allow(dead_code)]
 pub struct TextColor(pub Color);
 
 /// Creates a button with standard styling
