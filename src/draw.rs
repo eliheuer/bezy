@@ -3,7 +3,7 @@
 use crate::data::{AppState, FontMetrics};
 use crate::design_space::{DPoint, ViewPort};
 use crate::theme::{
-    OFF_CURVE_POINT_COLOR, OFF_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR,
+    METRICS_GUIDE_COLOR, OFF_CURVE_POINT_COLOR, OFF_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR,
     ON_CURVE_POINT_RADIUS, PATH_LINE_COLOR, USE_SQUARE_FOR_ON_CURVE,
 };
 use bevy::prelude::*;
@@ -153,8 +153,8 @@ fn draw_metrics(
         .map(|a| a.width as f64)
         .unwrap_or_else(|| (upm * 0.5).round());
 
-    // Metrics color - bright forest green
-    let metrics_color = Color::srgba(0.0, 0.9, 0.3, 0.9);
+    // Use the constant from theme.rs instead of hardcoding the color
+    let metrics_color = METRICS_GUIDE_COLOR;
 
     // Draw the bounding box that represents the glyph metrics
     draw_rect(
