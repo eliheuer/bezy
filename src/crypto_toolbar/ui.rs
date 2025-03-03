@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::theme::*;
+use bevy::prelude::*;
 
 #[derive(Component)]
 pub struct ConnectButton;
@@ -24,30 +24,31 @@ fn spawn_button(
     asset_server: &Res<AssetServer>,
     width: f32,
 ) {
-    commands.spawn((
-        Button,
-        ConnectButton,
-        Node {
-            width: Val::Px(width),
-            height: Val::Px(64.0),
-            padding: UiRect::all(Val::Px(0.0)),
-            border: UiRect::all(Val::Px(2.0)),
-            margin: UiRect::all(Val::Px(4.0)),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..default()
-        },
-        BorderColor(Color::WHITE),
-        BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
-        BackgroundColor(NORMAL_BUTTON),
-    ))
-    .with_children(|button| {
-        button.spawn((
-            Text::new(label),
-            get_default_text_style(asset_server),
-            TextColor(Color::WHITE),
-        ));
-    });
+    commands
+        .spawn((
+            Button,
+            ConnectButton,
+            Node {
+                width: Val::Px(width),
+                height: Val::Px(64.0),
+                padding: UiRect::all(Val::Px(0.0)),
+                border: UiRect::all(Val::Px(2.0)),
+                margin: UiRect::all(Val::Px(4.0)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BorderColor(Color::WHITE),
+            BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
+            BackgroundColor(NORMAL_BUTTON),
+        ))
+        .with_children(|button| {
+            button.spawn((
+                Text::new(label),
+                get_default_text_style(asset_server),
+                TextColor(Color::WHITE),
+            ));
+        });
 }
 
 /// Spawn the crypto toolbar with a Connect button in the upper right corner
@@ -56,15 +57,13 @@ pub fn spawn_crypto_toolbar(
     asset_server: Res<AssetServer>,
 ) {
     commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(32.0),
-                right: Val::Px(32.0),
-                flex_direction: FlexDirection::Row,
-                ..default()
-            },
-        ))
+        .spawn((Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(32.0),
+            right: Val::Px(32.0),
+            flex_direction: FlexDirection::Row,
+            ..default()
+        },))
         .with_children(|parent| {
             spawn_button(parent, "Connect", &asset_server, 192.0);
         });
