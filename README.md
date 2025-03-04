@@ -16,11 +16,9 @@ UFO is the current default source format. We belive that human readable source f
 ## Table of Contents
 - [About Bezy](#about-bezy)
 - [Bezy Design Principles](#bezy-design-principles)
-- [Features](#features)
 - [Installation](#installation)
 - [Using Bezy](#using-bezy)
 - [Developing with Bezy](#developing-with-bezy)
-- [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [Community](#community)
 - [License](#license)
