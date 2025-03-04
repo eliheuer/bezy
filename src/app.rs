@@ -8,7 +8,7 @@ use crate::checkerboard::CheckerboardPlugin;
 use crate::cli::CliArgs;
 use crate::crypto_toolbar::CryptoToolbarPlugin;
 use crate::data::AppState;
-use crate::debug_hud::*;
+use crate::debug_hud::{spawn_debug_text, update_font_info_text};
 use crate::design_space::DesignSpacePlugin;
 use crate::draw::DrawPlugin;
 use crate::edit_mode_toolbar::CurrentEditMode;
@@ -37,11 +37,11 @@ impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Startup,
-            (spawn_edit_mode_toolbar_debug, spawn_debug_text),
+            spawn_debug_text,
         )
         .add_systems(
             Update,
-            (update_edit_mode_toolbar_debug, update_font_info_text),
+            update_font_info_text,
         );
     }
 }

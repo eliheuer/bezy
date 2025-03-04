@@ -166,22 +166,25 @@ pub fn handle_toolbar_mode_selection(
         &mut interaction_query
     {
         if *interaction == Interaction::Pressed {
-            // Get the old mode's system and call on_exit
-            let old_system = current_mode.0.get_system();
-            old_system.on_exit();
-
             // Parse the button name to an EditMode
             let new_mode = parse_edit_mode_from_button_name(&button_name.0);
+            
+            // Only process if the mode is actually changing
+            if current_mode.0 != new_mode {
+                // Get the old mode's system and call on_exit
+                let old_system = current_mode.0.get_system();
+                old_system.on_exit();
 
-            // Call on_enter for the new mode
-            let new_system = new_mode.get_system();
-            new_system.on_enter();
+                // Call on_enter for the new mode
+                let new_system = new_mode.get_system();
+                new_system.on_enter();
 
-            // Save the new mode
-            current_mode.0 = new_mode;
+                // Save the new mode
+                current_mode.0 = new_mode;
 
-            // Debug info
-            info!("Switched edit mode to: {:?}", new_mode);
+                // Log only when mode actually changes
+                info!("Switched edit mode to: {:?}", new_mode);
+            }
         }
     }
 
