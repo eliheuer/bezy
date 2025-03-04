@@ -4,6 +4,15 @@
 
 Bezy is an open-source cross-platform font editor built with the [Bevy game engine](https://bevyengine.org/), [Rust](https://www.rust-lang.org/), and various [Linebender Crates](https://linebender.org/). It is designed for simplicity, customizability, user empowerment and learning, and AI-agent assisted vibe-coding.
 
+A core design principle of this editor is user empowerment and customizability. Bezy aims to be the [Emacs](https://www.gnu.org/software/emacs/) of font editors. Users should be able to shape Bezy into a custom editor that perfectly fits their needs and aesthetics, like a calligrapher of the Arabic script making their own pens from simple reeds. Not being (fully) the designer of your own tools puts a designer in a vulnerable position, Bezy wants to challenge the paternalism and lack of customizability prevalent in other font editing applications.
+
+Post v1.0, Bezy will have built-in AI-agent functionality allowing for highly automated AI-assisted workflows without giving up fine-grained control and attention to detail. Users will be able to sign in with Ethereum/Base and pay-as-they-go with stable coins and the $Bezy memecoin for remote model access, or run Ai-agents locally. This avoids subscription models used for AI-agent tools like Cursor and alows us to build payments and monetization on top of free and open-source software.
+
+UFO is the current default source format. We belive that human readable source formats are a non-negotiable requierment for AI-agent assisted type design.
+
+![Bezy Font Editor Screenshot](docs/images/bezy-screenshot-005.png)
+![Bezy Font Editor Screenshot](docs/images/bezy-screenshot-006.png)
+
 ## Table of Contents
 - [About Bezy](#about-bezy)
 - [Bezy Design Principles](#bezy-design-principles)
@@ -16,13 +25,6 @@ Bezy is an open-source cross-platform font editor built with the [Bevy game engi
 - [Community](#community)
 - [License](#license)
 
-A core design principle of this editor is user empowerment and customizability. Bezy aims to be the [Emacs](https://www.gnu.org/software/emacs/) of font editors. Users should be able to shape Bezy into a custom editor that perfectly fits their needs and aesthetics, like a calligrapher of the Arabic script making their own pens from simple reeds. Not being (fully) the designer of your own tools puts a designer in a vulnerable position. Bezy wants to challenge the paternalism and lack of customizability prevalent in other font editing applications.
-
-Post v1.0, Bezy will have built-in AI-agent functionality allowing for highly automated AI-assisted workflows without giving up fine-grained control and attention to detail.
-
-![Bezy Font Editor Screenshot](docs/images/bezy-screenshot-005.png)
-![Bezy Font Editor Screenshot](docs/images/bezy-screenshot-006.png)
-
 ## About Bezy
 
 Bezy is loosely inspired by and ported from [Runebender](https://github.com/linebender/runebender), a previous font editor built with [Druid](https://github.com/linebender/druid), a data-first Rust-native UI design toolkit.
@@ -34,25 +36,6 @@ It is also a spiritual successor to the font editor [RoboFont](https://robofont.
 Bezy, like the Rust programming language, is fundamentally about empowerment. We believe typeface designers and editors should be encouraged to understand and modify their tools.
 
 The idea behind Bezy is to provide a sturdy framework where everyone can add their own functionalities, rather than a program with hundreds of (often little needed) functions. This allows competition between ideas and technologies, as any developer's idea of how something should work can be part of Bezy.
-
-## Features
-
-While Bezy is still in early development, here are some of the features currently implemented or planned:
-
-### Current Features
-- UFO font format loading and editing
-- Basic glyph viewing and navigation
-- Command-line interface for quickly loading and testing fonts
-- Debug visualization options
-
-### Planned Features
-- Comprehensive glyph editing tools
-- Advanced path manipulation
-- Multi-layer support
-- Customizable UI
-- Plugin system for extending functionality
-- AI-assisted drawing and font design (post v1.0)
-- Collaborative editing features
 
 ## Installation
 
@@ -166,31 +149,6 @@ If you're new to Rust and want to contribute to Bezy:
 4. Try making small modifications to understand how things work
 5. PRs are welcome!
 
-## Roadmap
-
-The development of Bezy is guided by the following roadmap:
-
-### Phase 1: Core Functionality (Current)
-- Stable UFO file loading and saving
-- Basic glyph editing capabilities
-- Customizable interface foundations
-
-### Phase 2: Advanced Editing
-- Complete set of path editing tools
-- Multi-layer support
-- Comprehensive view options
-- Performance optimizations
-
-### Phase 3: Extension System
-- Plugin architecture
-- Scripting support
-- Community extensions repository
-
-### Phase 4: AI Integration
-- AI-assisted drawing tools
-- Automation capabilities
-- Intelligent suggestions
-
 ## Contributing
 
 Contributions to Bezy are welcome! Here's how you can help:
@@ -203,18 +161,10 @@ Contributions to Bezy are welcome! Here's how you can help:
 5. Open a Pull Request
 
 ### Contribution Guidelines
-- Follow the existing code style
+- Follow the existing code style (just run cargo fmt mostly)
 - Write clear commit messages
-- Include documentation for new features
-- Add tests for new functionality when possible
+- Add tests is needed
 - Discuss major changes in an issue before implementation
-
-### Areas Where Help is Needed
-- UI/UX design and implementation
-- Font engineering expertise
-- Performance optimizations
-- Documentation
-- Testing on different platforms
 
 ## Community
 
@@ -222,7 +172,6 @@ Join the Bezy community:
 
 - **GitHub Discussions**: For feature requests, questions, and general discussion
 - **Issues Tracker**: For bugs and specific improvement suggestions
-- **Email**: [contact email TBD]
 
 We're in the process of setting up additional community channels - check back soon!
 
