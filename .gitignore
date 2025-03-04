@@ -1,5 +1,6 @@
 /target
 *.ttf
+.DS_Store
 ai_context/
 assets/fonts/.DS_Store
 assets/fonts/build-anim.sh

@@ -2,7 +2,8 @@
 
 Bezy is an open-source cross-platform font editor built with the Bevy game engine and Rust. It is designed for simplicity, customizability, user empowerment and learning, and AI-agent assisted vibe-coding. 
 
-![Bezy Font Editor Screenshot](docs/images/bezy-screenshot-004.png)
+![Bezy Font Editor Screenshot](docs/images/bezy-screenshot-005.png)
+![Bezy Font Editor Screenshot](docs/images/bezy-screenshot-006.png)
 
 ## About Bezy
 
