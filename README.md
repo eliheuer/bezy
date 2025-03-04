@@ -6,9 +6,9 @@ Bezy is an open-source cross-platform font editor built with the [Bevy game engi
 
 A core design principle of this editor is user empowerment and customizability. Bezy aims to be the [Emacs](https://www.gnu.org/software/emacs/) of font editors. Users should be able to shape Bezy into a custom editor that perfectly fits their needs and aesthetics, like a calligrapher of the Arabic script making their own pens from simple reeds. Not being fully in control of your tools and able to understand them puts designers in a vulnerable position, Bezy wants to challenge the paternalism and lack of customizability prevalent in other font editing applications.
 
-Post v1.0, Bezy will have built-in AI-agent functionality using the [Font Garden](https://font.garden/) models allowing for highly automated AI-assisted workflows without giving up fine-grained control and attention to detail. Users will be able to sign in with Ethereum/Base and pay-as-they-go with stable coins and the $Bezy memecoin for remote model access, or run AI-agents locally and compleatly ignore the sign-in-with Ethereum features. This avoids subscription models used for AI-agent tools like Cursor and alows us to build payments and monetization on top of free and open-source software.
+Post v1.0, Bezy will have built-in AI-agent functionality using the [Font Garden](https://font.garden/) models allowing for highly automated AI-assisted workflows without giving up fine-grained control and attention to detail. Users will be able to sign in with [Ethereum](https://ethereum.org/)/[Base](https://www.base.org/) and pay-as-they-go with stable coins and the $Bezy memecoin for remote model access, or run AI-agents locally and compleatly ignore the sign-in-with Ethereum features. This avoids subscription models used for AI-agent tools like [Cursor](https://www.cursor.com/) and alows us to build payments and monetization on top of free and open-source software.
 
-UFO is the current default source format. We belive that human readable source formats are a non-negotiable requierment for AI-agent assisted type design.
+[UFO](https://unifiedfontobject.org/) is the current default source format. We belive that human readable source formats are a non-negotiable requierment for AI-agent assisted type design.
 
 ![Bezy Font Editor Screenshot](docs/images/bezy-screenshot-005.png)
 ![Bezy Font Editor Screenshot](docs/images/bezy-screenshot-006.png)
@@ -27,13 +27,13 @@ UFO is the current default source format. We belive that human readable source f
 
 Bezy is loosely inspired by and ported from [Runebender](https://github.com/linebender/runebender), a previous font editor built with [Druid](https://github.com/linebender/druid), a data-first Rust-native UI design toolkit.
 
-It is also a spiritual successor to the font editor [RoboFont](https://robofont.com/), specifically following the RoboFont [design principles](https://robofont.com/documentation/topics/robofont-design-principles/).
+It is also a spiritual successor to the font editor [RoboFont](https://robofont.com/), specifically the RoboFont [design principles](https://robofont.com/documentation/topics/robofont-design-principles/). Bezy take the RoboFont design principle further, beliving designers in the AI vibe-coding era need to be fully, not partly, in control of their tools.
 
 ## Bezy Design Principles
 
 Bezy, like the Rust programming language, is fundamentally about empowerment. We believe typeface designers and editors should be encouraged to understand and modify their tools.
 
-The idea behind Bezy is to provide a sturdy framework where everyone can add their own functionalities, rather than a program with hundreds of (often little needed) functions. This allows competition between ideas and technologies, as any developer's idea of how something should work can be part of Bezy.
+The idea behind Bezy is to provide a sturdy framework where everyone can add their own functionalities, rather than a program with hundreds of (often little needed) functions. This allows competition between ideas and technologies.
 
 ## Installation
 
