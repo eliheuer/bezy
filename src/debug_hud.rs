@@ -2,6 +2,7 @@
 
 use crate::data::AppState;
 use crate::theme::get_default_text_style;
+use crate::theme::DEFAULT_FONT_PATH;
 use crate::ufo::get_basic_font_info_from_state;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
@@ -52,19 +53,19 @@ pub fn spawn_debug_text(
         },
         RenderLayers::layer(1), // UI layer
     ));
-    // commands.spawn((
-    //     Text::new("\u{E000}"),
-    //     TextFont {
-    //         font: asset_server.load(DEFAULT_FONT_PATH),
-    //         font_size: 512.0,
-    //         ..default()
-    //     },
-    //     Node {
-    //         position_type: PositionType::Absolute,
-    //         top: Val::Px(-180.0),
-    //         right: Val::Px(16.0),
-    //         ..default()
-    //     },
-    //     RenderLayers::layer(1), // UI layer
-    // ));
+    commands.spawn((
+        Text::new("\u{E000}"),
+        TextFont {
+            font: asset_server.load(DEFAULT_FONT_PATH),
+            font_size: 256.0,
+            ..default()
+        },
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(8.0),
+            right: Val::Px(32.0),
+            ..default()
+        },
+        RenderLayers::layer(1), // UI layer
+    ));
 }
