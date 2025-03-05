@@ -6,7 +6,7 @@ mod measure;
 mod pan;
 mod pen;
 mod primitives;
-mod select;
+pub mod select;
 mod text;
 mod ui;
 
@@ -20,7 +20,7 @@ pub use select::SelectMode;
 pub use text::TextMode;
 pub use ui::{
     handle_toolbar_mode_selection, spawn_edit_mode_toolbar,
-    update_current_edit_mode, CurrentEditMode,
+    update_current_edit_mode, CurrentEditMode, EditMode,
 };
 
 /// Trait that defines the behavior of an edit mode in the application.
@@ -71,6 +71,8 @@ impl Plugin for EditModeToolbarPlugin {
                 // UI systems
                 handle_toolbar_mode_selection,
                 update_current_edit_mode,
+                // Camera panning control based on edit mode
+                pan::toggle_pancam_on_mode_change,
             ),
         );
     }

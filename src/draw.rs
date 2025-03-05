@@ -2,10 +2,11 @@
 
 use crate::data::{AppState, FontMetrics};
 use crate::design_space::{DPoint, ViewPort};
+use crate::selection::{PointType, Selectable};
 use crate::theme::{
-    DEBUG_SHOW_ORIGIN_CROSS, HANDLE_LINE_COLOR, METRICS_GUIDE_COLOR, OFF_CURVE_POINT_COLOR,
-    OFF_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR, ON_CURVE_POINT_RADIUS, PATH_LINE_COLOR,
-    USE_SQUARE_FOR_ON_CURVE,
+    DEBUG_SHOW_ORIGIN_CROSS, HANDLE_LINE_COLOR, METRICS_GUIDE_COLOR,
+    OFF_CURVE_POINT_COLOR, OFF_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR,
+    ON_CURVE_POINT_RADIUS, PATH_LINE_COLOR, USE_SQUARE_FOR_ON_CURVE,
 };
 use bevy::prelude::*;
 use norad::Glyph;
@@ -63,6 +64,13 @@ pub fn draw_metrics_system(
 
         // Get the test glyph name from CLI args
         let test_glyph = cli_args.get_test_glyph();
+        let codepoint_string = cli_args.get_codepoint_string();
+
+        // If we're testing a specific codepoint and it wasn't found, don't draw metrics
+        if !codepoint_string.is_empty() && !cli_args.codepoint_found {
+            // Skip drawing metrics for non-existent codepoints
+            return;
+        }
 
         match app_state.workspace.font.ufo.get_default_layer() {
             Some(default_layer) => {
@@ -267,70 +275,158 @@ pub struct DrawPlugin;
 
 impl Plugin for DrawPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                draw_test_elements,
-                draw_metrics_system,
-                draw_glyph_points_system,
-            ),
-        );
+        app.add_event::<AppStateChanged>()
+            .add_systems(Startup, (spawn_glyph_point_entities,))
+            .add_systems(
+                Update,
+                (
+                    draw_test_elements,
+                    draw_glyph_points_system,
+                    draw_metrics_system,
+                    // Detect AppState changes
+                    detect_app_state_changes,
+                    // Re-spawn points when the app state changes (e.g., different glyph loaded)
+                    spawn_glyph_point_entities.run_if(
+                        |reader: EventReader<AppStateChanged>| {
+                            !reader.is_empty()
+                        },
+                    ),
+                ),
+            );
     }
 }
+
+/// Event that will be triggered when the AppState changes
+#[derive(Event)]
+pub struct AppStateChanged;
 
 /// System that draws points for a specific Unicode character
 pub fn draw_glyph_points_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
     viewports: Query<&ViewPort>,
-    cli_args: Res<crate::cli::CliArgs>,
+    mut cli_args: ResMut<crate::cli::CliArgs>,
 ) {
+    // Pre-check if this is a startup call with no test-unicode flag
+    if cli_args.test_unicode.is_none() {
+        // No test unicode was specified, so we don't need to show any warning
+        cli_args.codepoint_found = true;
+        // Rest of the function continues...
+    } else {
+        // Reset the codepoint_found flag only if test_unicode was specified
+        cli_args.codepoint_found = false;
+    }
+
     // Get the primary viewport or create a default one if none exists
     let viewport = match viewports.get_single() {
         Ok(viewport) => *viewport,
         Err(_) => ViewPort::default(),
     };
 
-    // Get the test glyph name from CLI args
-    let test_glyph = cli_args.get_test_glyph();
+    // Get the test glyph name from CLI args and codepoint string
+    let codepoint_string = cli_args.get_codepoint_string();
+
+    // If no font is loaded, return early
+    if app_state.workspace.font.ufo.font_info.is_none() {
+        return;
+    }
 
     match app_state.workspace.font.ufo.get_default_layer() {
         Some(default_layer) => {
-            // Try to get the glyph directly by name
-            let glyph_name = norad::GlyphName::from(test_glyph.clone());
+            // Flag to track if we found the glyph
+            let mut glyph_found = false;
 
-            match default_layer.get_glyph(&glyph_name) {
-                Some(glyph) => {
-                    // Draw the points
+            // If a specific codepoint was requested, try to find by unicode value first
+            if !codepoint_string.is_empty() {
+                // Try to find the glyph by directly searching for Unicode value
+                if let Some(glyph_name) = crate::ufo::find_glyph_by_unicode(
+                    &app_state.workspace.font.ufo,
+                    &codepoint_string,
+                ) {
+                    // We found a glyph with this Unicode value
+                    let name = norad::GlyphName::from(glyph_name);
+                    if let Some(glyph) = default_layer.get_glyph(&name) {
+                        draw_glyph_points(&mut gizmos, viewport, glyph);
+                        cli_args.codepoint_found = true;
+                        glyph_found = true;
+                    }
+                }
+            }
+
+            // If we still haven't found it, try the conventional glyph name approach
+            if !glyph_found {
+                // Get the test glyph name using our convention-based approach
+                let test_glyph = cli_args.get_test_glyph();
+                let glyph_name = norad::GlyphName::from(test_glyph);
+
+                if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
                     draw_glyph_points(&mut gizmos, viewport, glyph);
+                    cli_args.codepoint_found = true;
+                    glyph_found = true;
                 }
-                None => {
-                    // Try with some common glyphs
-                    let common_glyphs =
-                        ["H", "h", "A", "a", "O", "o", "space", ".notdef"];
-                    let mut found = false;
+            }
 
-                    for glyph_name_str in common_glyphs.iter() {
-                        let name = norad::GlyphName::from(*glyph_name_str);
-                        if let Some(glyph) = default_layer.get_glyph(&name) {
-                            draw_glyph_points(&mut gizmos, viewport, glyph);
-                            found = true;
-                            break;
-                        }
-                    }
+            // If not found and no specific codepoint requested, try common glyphs
+            if !glyph_found && codepoint_string.is_empty() {
+                let common_glyphs =
+                    ["H", "h", "A", "a", "O", "o", "space", ".notdef"];
 
-                    if !found {
-                        println!(
-                            "WARNING: Could not find any common test glyphs"
-                        );
+                for glyph_name_str in common_glyphs.iter() {
+                    let name = norad::GlyphName::from(*glyph_name_str);
+                    if let Some(glyph) = default_layer.get_glyph(&name) {
+                        draw_glyph_points(&mut gizmos, viewport, glyph);
+                        cli_args.codepoint_found = true;
+                        glyph_found = true;
+                        break;
                     }
                 }
+            }
+
+            // If we still couldn't find the glyph, show the not found message
+            if !glyph_found && !codepoint_string.is_empty() {
+                // Draw "Codepoint not found" message at (0,0)
+                draw_codepoint_not_found_message(
+                    &mut gizmos,
+                    viewport,
+                    &codepoint_string,
+                );
+            } else if !glyph_found {
+                println!("WARNING: Could not find any common test glyphs");
             }
         }
         None => {
             println!("WARNING: No default layer found in the font");
         }
     }
+}
+
+/// Draw a message indicating that the codepoint was not found in the UFO source
+fn draw_codepoint_not_found_message(
+    gizmos: &mut Gizmos,
+    viewport: ViewPort,
+    codepoint: &str,
+) {
+    // Convert design space coordinates (0,0) to screen space
+    let origin = viewport.to_screen(DPoint::from((0.0, 0.0)));
+
+    // Draw a cross at the origin to mark the position
+    let cross_size = 10.0;
+    gizmos.line_2d(
+        Vec2::new(origin.x - cross_size, origin.y - cross_size),
+        Vec2::new(origin.x + cross_size, origin.y + cross_size),
+        Color::srgb(1.0, 0.0, 0.0),
+    );
+    gizmos.line_2d(
+        Vec2::new(origin.x - cross_size, origin.y + cross_size),
+        Vec2::new(origin.x + cross_size, origin.y - cross_size),
+        Color::srgb(1.0, 0.0, 0.0),
+    );
+
+    // Draw a circle at the origin
+    gizmos.circle_2d(origin, 15.0, Color::srgba(1.0, 0.0, 0.0, 0.3));
+
+    // We can't directly render text with gizmos, but we'll print to the console
+    println!("Codepoint U+{} not found in UFO source", codepoint);
 }
 
 /// Draw points from a glyph
@@ -409,7 +505,7 @@ fn draw_glyph_points(
                     // For off-curve points, draw a filled circle with a smaller circle inside
                     // First draw the outer circle
                     gizmos.circle_2d(screen_pos, size, color);
-                    
+
                     // Then draw a smaller inner circle with the same color
                     // Draw the inner circle at 40% of the original size
                     gizmos.circle_2d(screen_pos, size * 0.4, color);
@@ -748,4 +844,151 @@ fn is_on_curve(point: &norad::ContourPoint) -> bool {
             | norad::PointType::Curve
             | norad::PointType::QCurve
     )
+}
+
+/// System that spawns glyph point entities for selection
+pub fn spawn_glyph_point_entities(
+    mut commands: Commands,
+    app_state: Res<AppState>,
+    point_entities: Query<Entity, With<Selectable>>,
+    cli_args: Res<crate::cli::CliArgs>,
+) {
+    // Get the codepoint string
+    let codepoint_string = cli_args.get_codepoint_string();
+
+    // First, despawn any existing point entities
+    for entity in point_entities.iter() {
+        commands.entity(entity).despawn();
+    }
+
+    // If no font is loaded, return early
+    if app_state.workspace.font.path.is_none() {
+        return;
+    }
+
+    // If a specific codepoint was requested and not found, don't spawn any entities
+    if !codepoint_string.is_empty() && !cli_args.codepoint_found {
+        info!(
+            "Not spawning point entities for missing codepoint: U+{}",
+            codepoint_string
+        );
+        return;
+    }
+
+    // Get the Ufo reference
+    let ufo = &app_state.workspace.font.ufo;
+
+    match ufo.get_default_layer() {
+        Some(default_layer) => {
+            let mut found_glyph = None;
+
+            // If a specific codepoint was requested, try to find by unicode value first
+            if !codepoint_string.is_empty() {
+                // Try to find the glyph by directly searching for Unicode value
+                if let Some(glyph_name) =
+                    crate::ufo::find_glyph_by_unicode(ufo, &codepoint_string)
+                {
+                    // We found a glyph with this Unicode value
+                    let name = norad::GlyphName::from(glyph_name);
+                    if let Some(g) = default_layer.get_glyph(&name) {
+                        found_glyph = Some(g);
+                    }
+                }
+            }
+
+            // If we still haven't found it, try the conventional approach
+            if found_glyph.is_none() {
+                // Get the test glyph name using our convention-based approach
+                let test_glyph = cli_args.get_test_glyph();
+                let glyph_name = norad::GlyphName::from(test_glyph);
+
+                if let Some(g) = default_layer.get_glyph(&glyph_name) {
+                    found_glyph = Some(g);
+                }
+            }
+
+            // If still not found, try common glyphs
+            if found_glyph.is_none() && codepoint_string.is_empty() {
+                // Try with some common glyphs
+                let common_glyphs =
+                    ["H", "h", "A", "a", "O", "o", "space", ".notdef"];
+
+                for glyph_name_str in common_glyphs.iter() {
+                    let name = norad::GlyphName::from(*glyph_name_str);
+                    if let Some(g) = default_layer.get_glyph(&name) {
+                        found_glyph = Some(g);
+                        break;
+                    }
+                }
+            }
+
+            match found_glyph {
+                Some(glyph) => {
+                    // Spawn point entities for the glyph
+                    info!(
+                        "Spawned selectable point entities for glyph {}",
+                        glyph.name
+                    );
+                    spawn_entities_for_glyph(&mut commands, glyph);
+                }
+                None => {
+                    info!("No glyph found for selection system");
+                }
+            }
+        }
+        None => {
+            warn!("No default layer found in the UFO file");
+        }
+    }
+}
+
+/// Spawn selectable entities for a glyph
+fn spawn_entities_for_glyph(commands: &mut Commands, glyph: &norad::Glyph) {
+    // Only proceed if the glyph has an outline
+    if let Some(outline) = &glyph.outline {
+        // Iterate through all contours
+        for contour in outline.contours.iter() {
+            if contour.points.is_empty() {
+                continue;
+            }
+
+            // Spawn entities for each point
+            for point in contour.points.iter() {
+                let point_pos = (point.x as f32, point.y as f32);
+
+                // Determine if point is on-curve or off-curve
+                let is_on_curve = match point.typ {
+                    norad::PointType::Move
+                    | norad::PointType::Line
+                    | norad::PointType::Curve => true,
+                    _ => false,
+                };
+
+                // Spawn the point entity with position and selectable component
+                commands.spawn((
+                    Transform::from_translation(Vec3::new(
+                        point_pos.0,
+                        point_pos.1,
+                        0.0,
+                    )),
+                    Selectable,
+                    if is_on_curve {
+                        PointType::OnCurve
+                    } else {
+                        PointType::OffCurve
+                    },
+                ));
+            }
+        }
+    }
+}
+
+/// System to detect when AppState changes and send an event
+fn detect_app_state_changes(
+    app_state: Res<AppState>,
+    mut event_writer: EventWriter<AppStateChanged>,
+) {
+    if app_state.is_changed() {
+        event_writer.send(AppStateChanged);
+    }
 }

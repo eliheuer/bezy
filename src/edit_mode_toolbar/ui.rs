@@ -168,7 +168,7 @@ pub fn handle_toolbar_mode_selection(
         if *interaction == Interaction::Pressed {
             // Parse the button name to an EditMode
             let new_mode = parse_edit_mode_from_button_name(&button_name.0);
-            
+
             // Only process if the mode is actually changing
             if current_mode.0 != new_mode {
                 // Get the old mode's system and call on_exit

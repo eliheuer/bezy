@@ -6,17 +6,52 @@ use bevy_pancam::PanCamPlugin;
 use crate::cameras::{toggle_camera_controls, update_coordinate_display};
 use crate::checkerboard::CheckerboardPlugin;
 use crate::cli::CliArgs;
+use crate::commands::{CodepointDirection, CycleCodepointEvent};
 use crate::crypto_toolbar::CryptoToolbarPlugin;
 use crate::data::AppState;
-use crate::debug_hud::{spawn_debug_text, update_font_info_text};
+use crate::debug_hud::{
+    spawn_debug_text, update_codepoint_not_found_text, update_font_info_text,
+};
 use crate::design_space::DesignSpacePlugin;
 use crate::draw::DrawPlugin;
+use crate::edit_mode_toolbar::select::SelectModePlugin;
 use crate::edit_mode_toolbar::CurrentEditMode;
 use crate::edit_mode_toolbar::EditModeToolbarPlugin;
+use crate::selection::SelectionPlugin;
 use crate::setup::setup;
 use crate::text_editor::TextEditorPlugin;
 use crate::theme::BACKGROUND_COLOR;
 use crate::ufo::initialize_font_state;
+
+/// System to handle keyboard shortcuts to cycle through codepoints
+fn handle_codepoint_cycling(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut cycle_event: EventWriter<CycleCodepointEvent>,
+) {
+    // Check for Shift+Plus to cycle forward through codepoints
+    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft)
+        || keyboard.pressed(KeyCode::ShiftRight);
+
+    if shift_pressed {
+        // Check for Shift+= (Plus) to move to next codepoint
+        if keyboard.just_pressed(KeyCode::Equal) {
+            info!(
+                "Detected Shift+= key combination, cycling to next codepoint"
+            );
+            cycle_event.send(CycleCodepointEvent {
+                direction: CodepointDirection::Next,
+            });
+        }
+
+        // Check for Shift+- (Minus) to move to previous codepoint
+        if keyboard.just_pressed(KeyCode::Minus) {
+            info!("Detected Shift+- key combination, cycling to previous codepoint");
+            cycle_event.send(CycleCodepointEvent {
+                direction: CodepointDirection::Previous,
+            });
+        }
+    }
+}
 
 // Create the app and add the plugins and systems
 pub fn create_app(cli_args: CliArgs) -> App {
@@ -35,14 +70,16 @@ struct DebugPlugin;
 
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Startup,
-            spawn_debug_text,
-        )
-        .add_systems(
-            Update,
-            update_font_info_text,
-        );
+        app.init_resource::<crate::debug_hud::WarningTextState>()
+            .add_systems(Startup, spawn_debug_text)
+            .add_systems(
+                Update,
+                (
+                    update_font_info_text,
+                    update_codepoint_not_found_text
+                        .after(crate::draw::draw_glyph_points_system),
+                ),
+            );
     }
 }
 
@@ -51,10 +88,15 @@ struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (update_coordinate_display, toggle_camera_controls),
-        );
+        app.add_event::<crate::commands::CycleCodepointEvent>()
+            .add_systems(
+                Update,
+                (
+                    update_coordinate_display,
+                    toggle_camera_controls,
+                    handle_codepoint_cycling,
+                ),
+            );
     }
 }
 
@@ -91,51 +133,40 @@ impl Plugin for BezySystems {
     }
 }
 
-// Helper function to create window configuration
-fn create_window_plugin() -> WindowPlugin {
-    WindowPlugin {
-        primary_window: Some(Window {
-            title: "Bezy".into(),
-            resolution: (256. * 5., 256. * 3.).into(),
-            ..default()
-        }),
-        ..default()
-    }
-}
-
-// Configure basic app settings and resources
+// Helper function to configure app settings
 fn configure_app_settings(app: &mut App, cli_args: CliArgs) {
+    // Set resource for CLI arguments
     app.init_resource::<AppState>()
+        .insert_resource(cli_args)
         .insert_resource(WinitSettings::desktop_app())
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .insert_resource(CurrentEditMode::default())
-        .insert_resource(cli_args); // Add CLI args as a resource
+        .insert_resource(CurrentEditMode::default());
 }
 
 // Add all necessary plugins
 fn add_plugins(app: &mut App) {
-    // Add built-in plugins with our window configuration
-    // but disable Bevy's built-in LogPlugin since we're using our own custom logger
-    app.add_plugins(
-        DefaultPlugins
-            .set(ImagePlugin::default_nearest())
-            .set(create_window_plugin())
-            .build()
-            .disable::<bevy::log::LogPlugin>(),
-    );
-
-    // Add camera plugin
-    app.add_plugins(PanCamPlugin::default());
-
-    // Add application-specific plugins
-    app.add_plugins((
-        TextEditorPlugin,
-        DesignSpacePlugin,
-        DrawPlugin,
-        EditModeToolbarPlugin,
-        BezySystems, // Bundle of our internal system plugins
-        CheckerboardPlugin,
-    ));
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            title: "Bezy".into(),
+            resolution: (1280., 720.).into(),
+            // Tell wasm to resize the window according to the available canvas
+            fit_canvas_to_parent: true,
+            // Tells wasm not to override default event handling, like F5, Ctrl+R etc.
+            prevent_default_event_handling: false,
+            ..default()
+        }),
+        ..default()
+    }))
+    .add_plugins(PanCamPlugin)
+    .add_plugins(CheckerboardPlugin)
+    .add_plugins(DrawPlugin)
+    .add_plugins(DesignSpacePlugin)
+    .add_plugins(EditModeToolbarPlugin)
+    .add_plugins(SelectModePlugin)
+    .add_plugins(SelectionPlugin)
+    .add_plugins(TextEditorPlugin)
+    .add_plugins(BezySystems)
+    .add_plugins(crate::commands::CommandsPlugin);
 }
 
 // Custom logger initialization to exclude timestamps.

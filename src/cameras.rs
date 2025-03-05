@@ -21,7 +21,10 @@ pub fn spawn_design_camera(commands: &mut Commands) {
         },
         DesignCamera,
         RenderLayers::layer(0), // Main design layer
-        PanCam::default(),
+        PanCam {
+            enabled: false, // Disabled by default, will be controlled by the edit mode
+            ..default()
+        },
     ));
 }
 
@@ -58,9 +61,12 @@ pub fn update_coordinate_display(
 pub fn toggle_camera_controls(
     mut query: Query<&mut PanCam>,
     keys: Res<ButtonInput<KeyCode>>,
+    current_mode: Res<crate::edit_mode_toolbar::CurrentEditMode>,
 ) {
-    // Space = Toggle Panning
-    if keys.just_pressed(KeyCode::Space) {
+    // Space = Toggle Panning, but only if we're in Pan mode
+    if keys.just_pressed(KeyCode::Space)
+        && matches!(current_mode.0, crate::edit_mode_toolbar::EditMode::Pan)
+    {
         for mut pancam in &mut query {
             pancam.enabled = !pancam.enabled;
         }

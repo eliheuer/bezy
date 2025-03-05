@@ -338,7 +338,7 @@ impl Default for ViewPort {
 /// System that draws debug coordinate lines in the design space
 pub fn debug_coordinates(mut gizmos: Gizmos) {
     use crate::theme::DEBUG_SHOW_ORIGIN_CROSS;
-    
+
     // Only draw the debug cross if enabled in theme settings
     if DEBUG_SHOW_ORIGIN_CROSS {
         // Draw a cross at (0,0)
