@@ -100,7 +100,7 @@ fn handle_save_file(
 
 fn handle_save_file_as(
     mut events: EventReader<SaveFileAsEvent>,
-    mut app_state: ResMut<AppState>,
+    app_state: ResMut<AppState>,
 ) {
     for event in events.read() {
         if let Err(e) = app_state.workspace.font.ufo.save(&event.path) {
@@ -111,7 +111,7 @@ fn handle_save_file_as(
 
 fn handle_new_glyph(
     mut events: EventReader<NewGlyphEvent>,
-    mut app_state: ResMut<AppState>,
+    _app_state: ResMut<AppState>,
 ) {
     for _ in events.read() {
         // TODO: Implement new glyph creation logic
@@ -121,7 +121,7 @@ fn handle_new_glyph(
 
 fn handle_delete_glyph(
     mut events: EventReader<DeleteGlyphEvent>,
-    mut app_state: ResMut<AppState>,
+    _app_state: ResMut<AppState>,
 ) {
     for event in events.read() {
         // TODO: Implement glyph deletion logic
@@ -131,7 +131,7 @@ fn handle_delete_glyph(
 
 fn handle_rename_glyph(
     mut events: EventReader<RenameGlyphEvent>,
-    mut app_state: ResMut<AppState>,
+    _app_state: ResMut<AppState>,
 ) {
     for event in events.read() {
         // TODO: Implement glyph renaming logic
@@ -144,7 +144,7 @@ fn handle_rename_glyph(
 
 fn handle_open_glyph_editor(
     mut events: EventReader<OpenGlyphEditorEvent>,
-    mut app_state: ResMut<AppState>,
+    _app_state: ResMut<AppState>,
 ) {
     for event in events.read() {
         // TODO: Implement glyph editor opening logic
