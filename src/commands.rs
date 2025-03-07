@@ -156,6 +156,11 @@ fn handle_cycle_codepoint(
     mut events: EventReader<CycleCodepointEvent>,
     app_state: Res<AppState>,
     mut cli_args: ResMut<crate::cli::CliArgs>,
+    mut camera_query: Query<
+        (&mut Transform, &mut OrthographicProjection),
+        With<crate::cameras::DesignCamera>,
+    >,
+    window_query: Query<&Window>,
 ) {
     for event in events.read() {
         // Get the current codepoint
@@ -193,6 +198,44 @@ fn handle_cycle_codepoint(
         if let Some(cp) = new_codepoint {
             cli_args.set_codepoint(cp);
             info!("Switched to codepoint: {}", cli_args.get_codepoint_string());
+
+            // Get the glyph for the new codepoint
+            if let Some(default_layer) =
+                app_state.workspace.font.ufo.get_default_layer()
+            {
+                let codepoint_string = cli_args.get_codepoint_string();
+
+                // Try first to find by Unicode
+                if let Some(glyph_name) = crate::ufo::find_glyph_by_unicode(
+                    &app_state.workspace.font.ufo,
+                    &codepoint_string,
+                ) {
+                    let name = norad::GlyphName::from(glyph_name);
+                    if let Some(glyph) = default_layer.get_glyph(&name) {
+                        // Center the camera on the glyph
+                        crate::cameras::center_camera_on_glyph(
+                            glyph,
+                            &app_state.workspace.info.metrics,
+                            &mut camera_query,
+                            &window_query,
+                        );
+                    }
+                } else {
+                    // Try by conventional name
+                    let test_glyph = cli_args.get_test_glyph();
+                    let glyph_name = norad::GlyphName::from(test_glyph);
+
+                    if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
+                        // Center the camera on the glyph
+                        crate::cameras::center_camera_on_glyph(
+                            glyph,
+                            &app_state.workspace.info.metrics,
+                            &mut camera_query,
+                            &window_query,
+                        );
+                    }
+                }
+            }
         } else {
             warn!("No codepoints found in the font");
         }

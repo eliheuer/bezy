@@ -306,6 +306,11 @@ pub fn draw_glyph_points_system(
     app_state: Res<AppState>,
     viewports: Query<&ViewPort>,
     mut cli_args: ResMut<crate::cli::CliArgs>,
+    mut camera_query: Query<
+        (&mut Transform, &mut OrthographicProjection),
+        With<crate::cameras::DesignCamera>,
+    >,
+    window_query: Query<&Window>,
 ) {
     // Pre-check if this is a startup call with no test-unicode flag
     if cli_args.test_unicode.is_none() {
@@ -335,6 +340,7 @@ pub fn draw_glyph_points_system(
         Some(default_layer) => {
             // Flag to track if we found the glyph
             let mut glyph_found = false;
+            let mut found_glyph = None;
 
             // If a specific codepoint was requested, try to find by unicode value first
             if !codepoint_string.is_empty() {
@@ -349,6 +355,7 @@ pub fn draw_glyph_points_system(
                         draw_glyph_points(&mut gizmos, viewport, glyph);
                         cli_args.codepoint_found = true;
                         glyph_found = true;
+                        found_glyph = Some(glyph);
                     }
                 }
             }
@@ -363,6 +370,7 @@ pub fn draw_glyph_points_system(
                     draw_glyph_points(&mut gizmos, viewport, glyph);
                     cli_args.codepoint_found = true;
                     glyph_found = true;
+                    found_glyph = Some(glyph);
                 }
             }
 
@@ -377,7 +385,25 @@ pub fn draw_glyph_points_system(
                         draw_glyph_points(&mut gizmos, viewport, glyph);
                         cli_args.codepoint_found = true;
                         glyph_found = true;
+                        found_glyph = Some(glyph);
                         break;
+                    }
+                }
+            }
+
+            // Center the camera on the glyph if one was found
+            // Only do this once when the application starts
+            static mut CAMERA_CENTERED: bool = false;
+            if let Some(glyph) = found_glyph {
+                unsafe {
+                    if !CAMERA_CENTERED {
+                        crate::cameras::center_camera_on_glyph(
+                            glyph,
+                            &app_state.workspace.info.metrics,
+                            &mut camera_query,
+                            &window_query,
+                        );
+                        CAMERA_CENTERED = true;
                     }
                 }
             }
@@ -395,7 +421,7 @@ pub fn draw_glyph_points_system(
             }
         }
         None => {
-            println!("WARNING: No default layer found in the font");
+            warn!("No default layer found in the UFO font");
         }
     }
 }
