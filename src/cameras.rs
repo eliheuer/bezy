@@ -83,10 +83,7 @@ pub fn toggle_camera_controls(
 pub fn center_camera_on_glyph(
     glyph: &norad::Glyph,
     metrics: &crate::data::FontMetrics,
-    camera_query: &mut Query<
-        (&mut Transform, &mut OrthographicProjection),
-        With<DesignCamera>,
-    >,
+    camera_query: &mut Query<(&mut Transform, &mut OrthographicProjection), With<DesignCamera>>,
     window_query: &Query<&Window>,
 ) {
     // Only proceed if the glyph has an outline
@@ -95,79 +92,76 @@ pub fn center_camera_on_glyph(
     }
 
     let outline = glyph.outline.as_ref().unwrap();
-
+    
     // Calculate the bounding box of the glyph
     let mut min_x = f32::MAX;
     let mut min_y = f32::MAX;
     let mut max_x = f32::MIN;
     let mut max_y = f32::MIN;
-
+    
     // Include advance width in bounding box calculation
-    let width = glyph
-        .advance
-        .as_ref()
+    let width = glyph.advance.as_ref()
         .map(|a| a.width as f32)
         .unwrap_or_else(|| (metrics.units_per_em as f32 * 0.5));
-
-    // Include font metrics in bounding box calculation
-    min_x = min_x.min(0.0);
-    max_x = max_x.max(width);
-    min_y = min_y.min(
-        metrics
-            .descender
-            .unwrap_or_else(|| -(metrics.units_per_em * 0.2)) as f32,
-    );
-    max_y = max_y.max(
-        metrics
-            .ascender
-            .unwrap_or_else(|| metrics.units_per_em * 0.8) as f32,
-    );
-
-    // Iterate through all points in all contours to find the bounding box
+    
+    // Get font metrics values with defaults if they're None
+    let descender = metrics.descender.unwrap_or_else(|| -(metrics.units_per_em * 0.2)) as f32;
+    let ascender = metrics.ascender.unwrap_or_else(|| metrics.units_per_em * 0.8) as f32;
+    
+    // Include font metrics in bounding box calculation - this ensures the full metrics rectangle is included
+    min_x = min_x.min(0.0);  // Left edge of metrics rectangle
+    max_x = max_x.max(width); // Right edge of metrics rectangle
+    min_y = min_y.min(descender); // Bottom of metrics rectangle (descender)
+    max_y = max_y.max(ascender);  // Top of metrics rectangle (ascender)
+    
+    // Iterate through all points in all contours to find the bounding box of the glyph outline
     for contour in &outline.contours {
         for point in &contour.points {
             let x = point.x as f32;
             let y = point.y as f32;
-
+            
             min_x = min_x.min(x);
             min_y = min_y.min(y);
             max_x = max_x.max(x);
             max_y = max_y.max(y);
         }
     }
-
-    // Add some padding to the bounding box
-    let padding = 50.0;
-    min_x -= padding;
-    min_y -= padding;
-    max_x += padding;
-    max_y += padding;
-
+    
+    // Add padding to the bounding box
+    // Use more generous padding for the top and bottom to ensure metrics rectangle is fully visible
+    let horizontal_padding = 50.0;
+    let vertical_padding = 100.0;  // More padding on top and bottom
+    
+    min_x -= horizontal_padding;
+    max_x += horizontal_padding;
+    min_y -= vertical_padding;
+    max_y += vertical_padding;
+    
     // Calculate the center of the bounding box
     let center_x = (min_x + max_x) / 2.0;
     let center_y = (min_y + max_y) / 2.0;
-
+    
     // Get the window dimensions for zoom calculation
     let window = if let Ok(window) = window_query.get_single() {
         window
     } else {
         return;
     };
-
-    // Calculate the required zoom level to fit the glyph
+    
+    // Calculate the required zoom level to fit the glyph and metrics rectangle
     let glyph_width = max_x - min_x;
     let glyph_height = max_y - min_y;
-
+    
     // Check if we need to adjust zoom
     if let Ok((mut transform, mut projection)) = camera_query.get_single_mut() {
         // Set the camera position to center on the glyph
         transform.translation.x = center_x;
         transform.translation.y = center_y;
-
-        // Calculate zoom level to fit the glyph in the view
+        
+        // Calculate zoom level to fit the glyph and metrics rectangle in the view
         let window_aspect = window.width() / window.height();
         let glyph_aspect = glyph_width / glyph_height;
-
+        
         // Adjust the scale/zoom based on whether width or height is the limiting factor
         let scale = if glyph_aspect > window_aspect {
             // Width limited
@@ -176,15 +170,13 @@ pub fn center_camera_on_glyph(
             // Height limited
             (window.height() / glyph_height) * 0.9
         };
-
-        // Only zoom out if needed, don't zoom in too much for small glyphs
-        if projection.scale > 1.0 / scale {
-            projection.scale = 1.0 / scale;
-        }
-
-        info!(
-            "Centered camera on glyph at ({}, {}) with zoom {}",
-            center_x, center_y, projection.scale
-        );
+        
+        // Apply zoom - make sure it's not too zoomed in for small glyphs
+        // For a consistent view, use a minimum zoom level to prevent excessive zooming
+        let min_scale = 0.8; // Slightly zoomed out view
+        projection.scale = (1.0 / scale).max(min_scale);
+        
+        info!("Centered camera on glyph at ({}, {}) with zoom {}",
+              center_x, center_y, projection.scale);
     }
 }
