@@ -9,7 +9,6 @@ use crate::cli::CliArgs;
 use crate::commands::{CodepointDirection, CycleCodepointEvent};
 use crate::crypto_toolbar::CryptoToolbarPlugin;
 use crate::data::AppState;
-use crate::debug_hud::{spawn_debug_text, update_codepoint_not_found_text};
 use crate::design_space::DesignSpacePlugin;
 use crate::draw::DrawPlugin;
 use crate::edit_mode_toolbar::select::SelectModePlugin;
@@ -70,16 +69,12 @@ struct DebugPlugin;
 
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<crate::debug_hud::WarningTextState>()
-            .init_resource::<crate::ufo::LastCodepointPrinted>()
-            .add_systems(Startup, spawn_debug_text)
+        app.init_resource::<crate::ufo::LastCodepointPrinted>()
             .add_systems(
                 Update,
                 (
                     // Print UFO and codepoint info to terminal
                     print_font_info_to_terminal,
-                    update_codepoint_not_found_text
-                        .after(crate::draw::draw_glyph_points_system),
                 ),
             );
     }
@@ -150,7 +145,7 @@ fn add_plugins(app: &mut App) {
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
             title: "Bezy".into(),
-            resolution: (900., 900.).into(),
+            resolution: (900., 768.).into(),
             // Tell wasm to resize the window according to the available canvas
             fit_canvas_to_parent: true,
             // Tells wasm not to override default event handling, like F5, Ctrl+R etc.

@@ -7,7 +7,6 @@ mod commands;
 mod crypto_toolbar;
 mod data;
 mod debug;
-mod debug_hud;
 mod design_space;
 mod draw;
 mod edit_mode_toolbar;
@@ -19,7 +18,6 @@ mod text_editor;
 mod theme;
 mod ufo;
 mod virtual_font;
-mod world_space;
 
 fn main() {
     // Parse command line arguments

@@ -48,20 +48,25 @@ pub fn print_font_info_to_terminal(
                 let char_display = match char::from_u32(cp_value) {
                     Some(c) if c.is_control() => format!("<control>"),
                     Some(c) => format!("'{}'", c),
-                    None => format!("<none>"),
+                    None => format!("<invalid>"),
                 };
 
-                display_text.push_str(&format!(
-                    " | Codepoint: U+{} {}",
-                    codepoint, char_display
-                ));
+                display_text = format!(
+                    "{}\nCodepoint: {} {}",
+                    display_text, codepoint, char_display
+                );
+
+                // Print a warning if codepoint not found
+                if !cli_args.codepoint_found {
+                    error!("Codepoint {} not found in UFO source", codepoint);
+                }
             }
         }
 
-        // Print the info to the terminal
+        // Print to terminal
         info!("{}", display_text);
 
-        // Update the last printed codepoint
+        // Update last printed state
         last_printed.codepoint = current_codepoint;
     }
 }
