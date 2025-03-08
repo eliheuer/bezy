@@ -21,6 +21,7 @@ The $BEZY memecoin is an experiment in diffuse value capture and incentive desig
 - [Installation](#installation)
 - [Using Bezy](#using-bezy)
 - [Developing with Bezy](#developing-with-bezy)
+- [Documentation](#documentation)
 - [Contributing](#contributing)
 - [Community](#community)
 - [License](#license)
@@ -148,6 +149,12 @@ If you're new to Rust and want to contribute to Bezy:
 3. Read through the codebase, starting with `src/lib.rs` and `src/app.rs`
 4. Try making small modifications to understand how things work
 5. PRs are welcome!
+
+## Documentation
+
+Bezy has developer documentation available in the `docs/` directory:
+
+- [Logger System](docs/logger.md) - Information about Bezy's custom logging system
 
 ## Contributing
 

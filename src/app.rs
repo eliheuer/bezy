@@ -22,7 +22,7 @@ use crate::ufo::{initialize_font_state, print_font_info_to_terminal};
 // Create the app and add the plugins and systems
 pub fn create_app(cli_args: CliArgs) -> App {
     // Initialize a custom logger that excludes timestamps but keeps colors
-    init_custom_logger();
+    crate::logger::init_custom_logger();
     let mut app = App::new();
     // Configure app with default settings
     configure_app_settings(&mut app, cli_args);
@@ -136,41 +136,3 @@ fn add_plugins(app: &mut App) {
 
 // Custom logger initialization to exclude timestamps.
 // This is AI generated code used to make the logs cleaner,
-// don't worry if you dont understand it, I don't either. --Eli H
-fn init_custom_logger() {
-    use tracing_subscriber::fmt::format;
-    use tracing_subscriber::fmt::time::FormatTime;
-    use tracing_subscriber::prelude::*;
-
-    // Empty time formatter that doesn't print anything
-    struct EmptyTime;
-    impl FormatTime for EmptyTime {
-        fn format_time(
-            &self,
-            _: &mut tracing_subscriber::fmt::format::Writer<'_>,
-        ) -> std::fmt::Result {
-            // Do nothing, effectively removing timestamps
-            Ok(())
-        }
-    }
-
-    // Set up a custom tracing subscriber with our configuration
-    let format = format()
-        .with_timer(EmptyTime)
-        .with_level(true)
-        .with_target(true)
-        .with_ansi(true); // Keep colors
-
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::fmt::layer()
-                .event_format(format)
-                .with_filter(
-                    tracing_subscriber::filter::EnvFilter::from_default_env()
-                        .add_directive("info".parse().unwrap())
-                        .add_directive("wgpu_core=warn".parse().unwrap())
-                        .add_directive("wgpu_hal=warn".parse().unwrap()),
-                ),
-        )
-        .init();
-}
