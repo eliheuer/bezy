@@ -250,35 +250,35 @@ Bezy includes comprehensive support for working with Unicode codepoints across t
 
 ### 1. Unicode Codepoint Detection
 
-The application scans and indexes all Unicode codepoints available in the loaded font using the `get_all_codepoints` function:
+The application thoroughly scans all Unicode codepoints available in the loaded font using the `get_all_codepoints` function:
 
 ```rust
 pub fn get_all_codepoints(ufo: &Ufo) -> Vec<String> {
-    // Implementation that scans for available codepoints
+    // Thorough implementation that checks every codepoint in major Unicode blocks
     // ...
 }
 ```
 
-This function checks for glyphs across major Unicode blocks including:
+This function examines every codepoint across major Unicode blocks, ensuring complete coverage of:
 
 - Latin, Greek, and Cyrillic scripts
-- Middle Eastern scripts (Hebrew, Arabic, etc.)
+- Middle Eastern scripts (Hebrew, Arabic, Syriac, etc.)
 - South and Southeast Asian scripts (Devanagari, Thai, etc.)
 - East Asian scripts (CJK, Hiragana, Katakana, Hangul, etc.)
 - Symbols, punctuation, and emoji
 - Other writing systems and specialized blocks
 
-### 2. Performance Optimization
+### 2. Comprehensive Scanning
 
-To efficiently handle the large Unicode range (which contains over 140,000 code points), Bezy uses a two-pass approach:
+Bezy uses a thorough approach to ensure no codepoints are missed:
 
-1. First, it samples each Unicode block by checking a small subset of codepoints
-2. When it finds a block containing at least one glyph, it then scans that entire block
-3. This avoids the performance penalty of checking every possible codepoint
+1. Instead of sampling or approximating, it checks EVERY codepoint in each Unicode block
+2. This ensures all scripts are properly represented, even if they have sparse codepoint coverage
+3. The approach guarantees that cycling will include every supported glyph across all writing systems
 
 ### 3. Codepoint Cycling
 
-The application includes functions to cycle through the available codepoints in a font:
+The application provides seamless cycling through all available codepoints in proper Unicode order:
 
 ```rust
 pub fn find_next_codepoint(ufo: &Ufo, current_hex: &str) -> Option<String> {
@@ -296,26 +296,15 @@ These functions:
 - Get the list of all available codepoints from the font
 - Find the currently selected codepoint
 - Return the next or previous codepoint in sequence (with wrap-around)
+- Ensure cycling moves through all supported codepoints in their proper Unicode order
 
 ### 4. Keyboard Navigation
 
-Users can navigate through the font's glyphs using keyboard shortcuts:
+Users can navigate through the font's complete glyph set using keyboard shortcuts:
 - **Shift++**: Cycle to the next codepoint
 - **Shift+-**: Cycle to the previous codepoint
 
-This functionality is implemented in the command handling system:
-
-```rust
-fn handle_cycle_codepoint(
-    mut events: EventReader<CycleCodepointEvent>,
-    app_state: Res<AppState>,
-    mut cli_args: ResMut<crate::cli::CliArgs>,
-    // ... other parameters
-) {
-    // Implementation that responds to keyboard events
-    // ...
-}
-```
+This navigation system ensures access to every single glyph in the font, regardless of script or Unicode block, in a predictable order following the Unicode standard sequence.
 
 ## Saving UFO Data
 

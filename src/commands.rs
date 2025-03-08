@@ -163,6 +163,37 @@ fn handle_cycle_codepoint(
     window_query: Query<&Window>,
 ) {
     for event in events.read() {
+        // Log cycling event info
+        info!("Received codepoint cycling event: {:?}", event.direction);
+
+        // Check for a debug environment variable to minimize log output in normal use
+        if std::env::var("BEZY_DEBUG").ok().is_some() {
+            // Dump all glyph names in the font to help identify naming conventions
+            let _glyph_names =
+                crate::ufo::dump_all_glyph_names(&app_state.workspace.font.ufo);
+
+            // Dump all available codepoints in the font (only for debugging)
+            let all_codepoints =
+                crate::ufo::get_all_codepoints(&app_state.workspace.font.ufo);
+            info!("Found {} codepoints in the font", all_codepoints.len());
+
+            if !all_codepoints.is_empty() {
+                // Show a sample of codepoints for debugging
+                let sample_size = std::cmp::min(all_codepoints.len(), 20);
+                let mut sample = String::new();
+                for i in 0..sample_size {
+                    sample.push_str(&format!("U+{} ", all_codepoints[i]));
+                    if i % 5 == 4 {
+                        sample.push('\n');
+                    }
+                }
+                if all_codepoints.len() > sample_size {
+                    sample.push_str("\n...");
+                }
+                info!("Codepoint sample:\n{}", sample);
+            }
+        }
+
         // Get the current codepoint
         let current_codepoint = cli_args.get_codepoint_string();
         info!(

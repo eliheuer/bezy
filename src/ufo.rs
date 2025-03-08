@@ -99,35 +99,81 @@ pub fn find_glyph_by_unicode(ufo: &Ufo, codepoint_hex: &str) -> Option<String> {
         None => return None,
     };
 
+    // STRATEGY 1: Try common naming conventions for glyphs
+
     // Get the default layer
     if let Some(default_layer) = ufo.get_default_layer() {
-        // For Latin lowercase a-z (0061-007A), uppercase A-Z (0041-005A),
-        // and common punctuation, try using the character itself as name
-        if (0x0061..=0x007A).contains(&codepoint) || // a-z
-           (0x0041..=0x005A).contains(&codepoint)
-        {
-            // A-Z
-            // Try the character name
-            let glyph_name = norad::GlyphName::from(target_char.to_string());
-            if let Some(_glyph) = default_layer.get_glyph(&glyph_name) {
-                // Found a match!
-                return Some(glyph_name.to_string());
-            }
+        // 1. Try direct character name (works for Latin and some other scripts)
+        let char_name = target_char.to_string();
+        let glyph_name = norad::GlyphName::from(char_name.clone());
+        if let Some(_glyph) = default_layer.get_glyph(&glyph_name) {
+            return Some(glyph_name.to_string());
         }
 
-        // Try conventional format "uni<CODE>"
+        // 2. Try standard "uni<CODE>" format (used by many fonts)
         let uni_name = format!("uni{:04X}", codepoint);
-        let glyph_name = norad::GlyphName::from(uni_name);
+        let glyph_name = norad::GlyphName::from(uni_name.clone());
         if let Some(_) = default_layer.get_glyph(&glyph_name) {
             return Some(glyph_name.to_string());
         }
 
-        // Special cases for common characters
+        // 3. Try "u<CODE>" format (alternative naming used in some fonts)
+        let u_name = format!("u{:04X}", codepoint);
+        let glyph_name = norad::GlyphName::from(u_name.clone());
+        if let Some(_) = default_layer.get_glyph(&glyph_name) {
+            return Some(glyph_name.to_string());
+        }
+
+        // 4. Try Arabic-specific patterns for common characters
+        if (0x0600..=0x06FF).contains(&codepoint) {
+            // Arabic basic glyph names (without diacritics)
+            let arabic_common_names = match codepoint {
+                0x0627 => vec!["alef", "arabic.alef"],
+                0x0628 => vec!["beh", "arabic.beh"],
+                0x062A => vec!["teh", "arabic.teh"],
+                0x062B => vec!["theh", "arabic.theh"],
+                0x062C => vec!["jeem", "arabic.jeem"],
+                0x062D => vec!["hah", "arabic.hah"],
+                0x062E => vec!["khah", "arabic.khah"],
+                0x062F => vec!["dal", "arabic.dal"],
+                0x0630 => vec!["thal", "arabic.thal"],
+                0x0631 => vec!["reh", "arabic.reh"],
+                0x0632 => vec!["zain", "arabic.zain"],
+                0x0633 => vec!["seen", "arabic.seen"],
+                0x0634 => vec!["sheen", "arabic.sheen"],
+                0x0635 => vec!["sad", "arabic.sad"],
+                0x0636 => vec!["dad", "arabic.dad"],
+                0x0637 => vec!["tah", "arabic.tah"],
+                0x0638 => vec!["zah", "arabic.zah"],
+                0x0639 => vec!["ain", "arabic.ain"],
+                0x063A => vec!["ghain", "arabic.ghain"],
+                0x0641 => vec!["feh", "arabic.feh"],
+                0x0642 => vec!["qaf", "arabic.qaf"],
+                0x0643 => vec!["kaf", "arabic.kaf"],
+                0x0644 => vec!["lam", "arabic.lam"],
+                0x0645 => vec!["meem", "arabic.meem"],
+                0x0646 => vec!["noon", "arabic.noon"],
+                0x0647 => vec!["heh", "arabic.heh"],
+                0x0648 => vec!["waw", "arabic.waw"],
+                0x0649 => vec!["alefMaksura", "arabic.alefMaksura"],
+                0x064A => vec!["yeh", "arabic.yeh"],
+                _ => vec![],
+            };
+
+            for name in arabic_common_names {
+                let glyph_name = norad::GlyphName::from(name);
+                if let Some(_) = default_layer.get_glyph(&glyph_name) {
+                    return Some(glyph_name.to_string());
+                }
+            }
+        }
+
+        // 5. Special cases for common characters
         let special_cases = [
-            (0x0020, "space"),       // Space
-            (0x002E, "period"),      // Period
-            (0x002C, "comma"),       // Comma
-            (0x0027, "quotesingle"), // Single quote
+            (0x0020, "space"),
+            (0x002E, "period"),
+            (0x002C, "comma"),
+            (0x0027, "quotesingle"),
         ];
 
         for (cp, name) in special_cases.iter() {
@@ -144,19 +190,21 @@ pub fn find_glyph_by_unicode(ufo: &Ufo, codepoint_hex: &str) -> Option<String> {
     None
 }
 
-/// Get all Unicode codepoints in the font, sorted in ascending order
+/// Get ALL Unicode codepoints in the font, sorted in numeric order
 pub fn get_all_codepoints(ufo: &Ufo) -> Vec<String> {
     let mut codepoints = Vec::new();
-    
+
     // Get the default layer
     if let Some(_default_layer) = ufo.get_default_layer() {
-        // We don't have direct access to a list of all glyphs in norad 0.3.1
-        // Instead, we'll try comprehensive Unicode ranges and check for their existence
-        
-        // Comprehensive list of Unicode ranges covering major scripts
+        info!("Extracting all codepoints from font...");
+
+        // APPROACH 1: First check glyphs using direct character names
+        // This works for most Latin and other scripts where glyph names match characters
+
+        // Check common Unicode ranges
         let ranges = [
             // Basic Latin (ASCII)
-            (0x0020, 0x007F),
+            (0x0020, 0x007E),
             // Latin-1 Supplement
             (0x00A0, 0x00FF),
             // Latin Extended-A
@@ -165,228 +213,221 @@ pub fn get_all_codepoints(ufo: &Ufo) -> Vec<String> {
             (0x0180, 0x024F),
             // IPA Extensions
             (0x0250, 0x02AF),
-            // Spacing Modifier Letters
-            (0x02B0, 0x02FF),
-            // Combining Diacritical Marks
-            (0x0300, 0x036F),
             // Greek and Coptic
             (0x0370, 0x03FF),
             // Cyrillic
             (0x0400, 0x04FF),
-            // Cyrillic Supplement
-            (0x0500, 0x052F),
-            // Armenian
-            (0x0530, 0x058F),
-            // Hebrew
-            (0x0590, 0x05FF),
-            // Arabic
-            (0x0600, 0x06FF),
-            // Arabic Supplement
-            (0x0750, 0x077F),
-            // Syriac
-            (0x0700, 0x074F),
-            // Thaana
-            (0x0780, 0x07BF),
-            // NKo
-            (0x07C0, 0x07FF),
-            // Samaritan
-            (0x0800, 0x083F),
-            // Mandaic
-            (0x0840, 0x085F),
-            // Devanagari
-            (0x0900, 0x097F),
-            // Bengali
-            (0x0980, 0x09FF),
-            // Gurmukhi
-            (0x0A00, 0x0A7F),
-            // Gujarati
-            (0x0A80, 0x0AFF),
-            // Oriya
-            (0x0B00, 0x0B7F),
-            // Tamil
-            (0x0B80, 0x0BFF),
-            // Telugu
-            (0x0C00, 0x0C7F),
-            // Kannada
-            (0x0C80, 0x0CFF),
-            // Malayalam
-            (0x0D00, 0x0D7F),
-            // Sinhala
-            (0x0D80, 0x0DFF),
-            // Thai
-            (0x0E00, 0x0E7F),
-            // Lao
-            (0x0E80, 0x0EFF),
-            // Tibetan
-            (0x0F00, 0x0FFF),
-            // Myanmar
-            (0x1000, 0x109F),
-            // Georgian
-            (0x10A0, 0x10FF),
-            // Hangul Jamo
-            (0x1100, 0x11FF),
-            // Ethiopic
-            (0x1200, 0x137F),
-            // Cherokee
-            (0x13A0, 0x13FF),
-            // Unified Canadian Aboriginal Syllabics
-            (0x1400, 0x167F),
-            // Ogham
-            (0x1680, 0x169F),
-            // Runic
-            (0x16A0, 0x16FF),
-            // General Punctuation
-            (0x2000, 0x206F),
-            // Superscripts and Subscripts
-            (0x2070, 0x209F),
-            // Currency Symbols
-            (0x20A0, 0x20CF),
-            // Letterlike Symbols
-            (0x2100, 0x214F),
-            // Number Forms
-            (0x2150, 0x218F),
-            // Arrows
-            (0x2190, 0x21FF),
-            // Mathematical Operators
-            (0x2200, 0x22FF),
-            // Miscellaneous Technical
-            (0x2300, 0x23FF),
-            // Box Drawing
-            (0x2500, 0x257F),
-            // Block Elements
-            (0x2580, 0x259F),
-            // Geometric Shapes
-            (0x25A0, 0x25FF),
-            // Miscellaneous Symbols
-            (0x2600, 0x26FF),
-            // Dingbats
-            (0x2700, 0x27BF),
-            // CJK Symbols and Punctuation
-            (0x3000, 0x303F),
-            // Hiragana
-            (0x3040, 0x309F),
-            // Katakana
-            (0x30A0, 0x30FF),
-            // Bopomofo
-            (0x3100, 0x312F),
-            // Hangul Compatibility Jamo
-            (0x3130, 0x318F),
-            // CJK Unified Ideographs (Basic sample range)
-            (0x4E00, 0x4FFF),
-            // Geometric Shapes Extended
-            (0x1F780, 0x1F7FF),
-            // Emoji-related ranges
-            (0x1F300, 0x1F5FF), // Miscellaneous Symbols and Pictographs
-            (0x1F600, 0x1F64F), // Emoticons
-            (0x1F680, 0x1F6FF), // Transport and Map Symbols
-            // Private Use Area (sample range for custom icons)
-            (0xE000, 0xE0FF),
+            // Arabic - explicitly check a wider range
+            (0x0600, 0x077F),
+            // Common symbols and punctuation
+            (0x2000, 0x206F), // General Punctuation
+            (0x2070, 0x209F), // Superscripts and Subscripts
+            (0x20A0, 0x20CF), // Currency Symbols
+            (0x2100, 0x214F), // Letterlike Symbols
+            (0x2150, 0x218F), // Number Forms
+            (0x2190, 0x21FF), // Arrows
+            (0x2200, 0x22FF), // Mathematical Operators
         ];
-        
-        // Check each range efficiently
+
+        // Search for codepoints in each range
         for (start, end) in ranges.iter() {
-            // To keep compilation fast, only check a sample of each range first
-            let step = (*end - *start) / 10 + 1; // Sample ~10 codepoints from each range
-            for codepoint in (*start..=*end).step_by(step as usize) {
-                let cp_hex = format!("{:04X}", codepoint);
-                if find_glyph_by_unicode(ufo, &cp_hex).is_some() {
-                    // If we find a match in the range, check every codepoint in that range
-                    // This optimizes for fonts that include only certain script ranges
-                    for detailed_cp in *start..=*end {
-                        let detailed_hex = format!("{:04X}", detailed_cp);
-                        if find_glyph_by_unicode(ufo, &detailed_hex).is_some() {
-                            codepoints.push(detailed_hex);
-                        }
+            info!("Checking range U+{:04X} to U+{:04X}", start, end);
+            for code in *start..=*end {
+                check_and_add_codepoint(ufo, code, &mut codepoints);
+            }
+        }
+
+        // APPROACH 2: Check for 'uni' prefixed glyph names
+        // Many fonts use naming pattern like uni0041 for Unicode code points
+        if let Some(default_layer) = ufo.get_default_layer() {
+            // Try the most common uni-prefixed scheme
+            for code in 0x0000..=0xFFFF {
+                let uni_name = format!("uni{:04X}", code);
+                let glyph_name = norad::GlyphName::from(uni_name);
+                if default_layer.get_glyph(&glyph_name).is_some() {
+                    let cp_hex = format!("{:04X}", code);
+                    if !codepoints.contains(&cp_hex) {
+                        codepoints.push(cp_hex);
                     }
-                    break; // Once we've checked all codepoints in this range, move to next range
+                }
+            }
+
+            // Try the 'u' prefix scheme (also common)
+            for code in 0x0000..=0xFFFF {
+                let u_name = format!("u{:04X}", code);
+                let glyph_name = norad::GlyphName::from(u_name);
+                if default_layer.get_glyph(&glyph_name).is_some() {
+                    let cp_hex = format!("{:04X}", code);
+                    if !codepoints.contains(&cp_hex) {
+                        codepoints.push(cp_hex);
+                    }
                 }
             }
         }
-        
-        // Add some specific common characters that might be outside the ranges
-        let specific_chars = [
-            0x2122, // ™
-            0x2713, // ✓
-            0x2022, // •
-            0x20AC, // €
-            0x20BF, // ₿
-            0x261D, // ☝
-            0x270C, // ✌
-            0x1F44D, // 👍
-        ];
-        
-        for &codepoint in specific_chars.iter() {
-            let cp_hex = format!("{:04X}", codepoint);
-            if find_glyph_by_unicode(ufo, &cp_hex).is_some() {
-                codepoints.push(cp_hex);
-            }
-        }
     }
-    
-    // If there are no codepoints found, fall back to a minimal set
-    if codepoints.is_empty() {
-        let fallback_codepoints = [
-            "0020", // space
-            "0041", // A
-            "0061", // a
-        ];
-        
-        for cp in fallback_codepoints.iter() {
-            // Only add if the glyph exists
-            if find_glyph_by_unicode(ufo, cp).is_some() {
-                codepoints.push(cp.to_string());
-            }
+
+    // Sort codepoints numerically
+    codepoints.sort_by(|a, b| {
+        let a_val = u32::from_str_radix(a, 16).unwrap_or(0);
+        let b_val = u32::from_str_radix(b, 16).unwrap_or(0);
+        a_val.cmp(&b_val)
+    });
+
+    // Remove duplicates (just in case)
+    codepoints.dedup();
+
+    // Log what we found
+    info!("Found {} codepoints in font", codepoints.len());
+
+    if !codepoints.is_empty() {
+        // Show a sample of what we found
+        let sample_size = std::cmp::min(10, codepoints.len());
+        let mut sample = String::new();
+
+        // First few
+        for i in 0..sample_size / 2 {
+            sample.push_str(&format!("U+{} ", codepoints[i]));
         }
+
+        // Middle
+        if codepoints.len() > sample_size {
+            sample.push_str("... ");
+        }
+
+        // Last few
+        for i in
+            codepoints.len().saturating_sub(sample_size / 2)..codepoints.len()
+        {
+            sample.push_str(&format!("U+{} ", codepoints[i]));
+        }
+
+        info!("Codepoint sample: {}", sample);
     }
-    
-    // Sort codepoints
-    codepoints.sort();
+
     codepoints
+}
+
+/// Helper function to check for a codepoint and add it if found
+fn check_and_add_codepoint(ufo: &Ufo, code: u32, codepoints: &mut Vec<String>) {
+    let cp_hex = format!("{:04X}", code);
+    if find_glyph_by_unicode(ufo, &cp_hex).is_some() {
+        codepoints.push(cp_hex);
+    }
 }
 
 /// Find the next codepoint in the font (in ascending order)
 pub fn find_next_codepoint(ufo: &Ufo, current_hex: &str) -> Option<String> {
+    // Get all available codepoints
     let codepoints = get_all_codepoints(ufo);
+
+    // Early exit if no codepoints
     if codepoints.is_empty() {
+        info!("No codepoints found in font");
         return None;
     }
 
-    // If current_hex is empty or not found, return the first codepoint
+    // If current codepoint is empty, start with the first one
     if current_hex.is_empty() {
+        info!(
+            "Starting with first codepoint: U+{} (decimal: {})",
+            codepoints[0],
+            u32::from_str_radix(&codepoints[0], 16).unwrap_or(0)
+        );
         return Some(codepoints[0].clone());
     }
 
-    // Find the position of the current codepoint
+    // Find current codepoint position
     let current_idx = codepoints.iter().position(|cp| cp == current_hex);
 
     match current_idx {
+        // Found current codepoint - return next one (or first if at end)
         Some(idx) if idx < codepoints.len() - 1 => {
-            Some(codepoints[idx + 1].clone())
+            let next = &codepoints[idx + 1];
+            info!(
+                "Moving from codepoint U+{} to U+{} (decimal: {})",
+                current_hex,
+                next,
+                u32::from_str_radix(next, 16).unwrap_or(0)
+            );
+            Some(next.clone())
         }
-        Some(_) => Some(codepoints[0].clone()), // Wrap around to the first codepoint
-        None => Some(codepoints[0].clone()), // Current not found, start from the beginning
+        // At the end - wrap around to first
+        Some(_) => {
+            info!(
+                "Wrapping around from codepoint U+{} to U+{} (decimal: {})",
+                current_hex,
+                codepoints[0],
+                u32::from_str_radix(&codepoints[0], 16).unwrap_or(0)
+            );
+            Some(codepoints[0].clone())
+        }
+        // Current codepoint not found - start from first
+        None => {
+            info!("Current codepoint U+{} not found, starting from U+{} (decimal: {})", 
+                  current_hex, codepoints[0],
+                  u32::from_str_radix(&codepoints[0], 16).unwrap_or(0));
+            Some(codepoints[0].clone())
+        }
     }
 }
 
 /// Find the previous codepoint in the font (in descending order)
 pub fn find_previous_codepoint(ufo: &Ufo, current_hex: &str) -> Option<String> {
+    // Get all available codepoints
     let codepoints = get_all_codepoints(ufo);
+
+    // Early exit if no codepoints
     if codepoints.is_empty() {
+        info!("No codepoints found in font");
         return None;
     }
 
-    // If current_hex is empty or not found, return the last codepoint
+    // If current codepoint is empty, start with the last one
     if current_hex.is_empty() {
-        return Some(codepoints[codepoints.len() - 1].clone());
+        let last_idx = codepoints.len() - 1;
+        info!(
+            "Starting with last codepoint: U+{} (decimal: {})",
+            codepoints[last_idx],
+            u32::from_str_radix(&codepoints[last_idx], 16).unwrap_or(0)
+        );
+        return Some(codepoints[last_idx].clone());
     }
 
-    // Find the position of the current codepoint
+    // Find current codepoint position
     let current_idx = codepoints.iter().position(|cp| cp == current_hex);
 
     match current_idx {
-        Some(0) => Some(codepoints[codepoints.len() - 1].clone()), // Wrap around to the last codepoint
-        Some(idx) => Some(codepoints[idx - 1].clone()),
-        None => Some(codepoints[codepoints.len() - 1].clone()), // Current not found, start from the end
+        // Found current codepoint - return previous one (or last if at beginning)
+        Some(0) => {
+            // At the beginning - wrap around to last
+            let last_idx = codepoints.len() - 1;
+            info!(
+                "Wrapping around from codepoint U+{} to U+{} (decimal: {})",
+                current_hex,
+                codepoints[last_idx],
+                u32::from_str_radix(&codepoints[last_idx], 16).unwrap_or(0)
+            );
+            Some(codepoints[last_idx].clone())
+        }
+        Some(idx) => {
+            // Move to previous
+            let prev = &codepoints[idx - 1];
+            info!(
+                "Moving from codepoint U+{} to U+{} (decimal: {})",
+                current_hex,
+                prev,
+                u32::from_str_radix(prev, 16).unwrap_or(0)
+            );
+            Some(prev.clone())
+        }
+        // Current codepoint not found - start from last
+        None => {
+            let last_idx = codepoints.len() - 1;
+            info!("Current codepoint U+{} not found, starting from U+{} (decimal: {})", 
+                  current_hex, codepoints[last_idx],
+                  u32::from_str_radix(&codepoints[last_idx], 16).unwrap_or(0));
+            Some(codepoints[last_idx].clone())
+        }
     }
 }
 
@@ -426,4 +467,75 @@ pub fn initialize_font_state(
         // No CLI argument provided, just initialize an empty state
         commands.init_resource::<AppState>();
     }
+}
+
+/// Directly scan the font for all available glyph names
+/// This is useful for debugging to understand the naming conventions used in the font
+pub fn dump_all_glyph_names(ufo: &Ufo) -> Vec<String> {
+    let mut glyph_names = Vec::new();
+
+    if let Some(default_layer) = ufo.get_default_layer() {
+        // Since we don't have Layer::iter(), use the knowledge of the UFO format
+        // UFO glyphs are stored in a map/dictionary, but we can't directly iterate it
+        // Try common glyphs to see what naming pattern the font uses
+
+        // Try basic Latin ranges - these are almost always present
+        for cp in 0x0041..=0x005A {
+            // A-Z
+            let char_name = char::from_u32(cp).unwrap().to_string();
+            let glyph_name = norad::GlyphName::from(char_name);
+            if default_layer.get_glyph(&glyph_name).is_some() {
+                glyph_names.push(glyph_name.to_string());
+            }
+        }
+
+        for cp in 0x0061..=0x007A {
+            // a-z
+            let char_name = char::from_u32(cp).unwrap().to_string();
+            let glyph_name = norad::GlyphName::from(char_name);
+            if default_layer.get_glyph(&glyph_name).is_some() {
+                glyph_names.push(glyph_name.to_string());
+            }
+        }
+
+        // Try Arabic range
+        for cp in 0x0600..=0x0650 {
+            // Sample of Arabic
+            // Try uni format
+            let uni_name = format!("uni{:04X}", cp);
+            let glyph_name = norad::GlyphName::from(uni_name);
+            if default_layer.get_glyph(&glyph_name).is_some() {
+                glyph_names.push(glyph_name.to_string());
+            }
+        }
+
+        // Sort names for easier reading
+        glyph_names.sort();
+
+        // Log the names
+        info!("Found {} glyph names in font", glyph_names.len());
+
+        // Look for Arabic-related names
+        let mut arabic_names = Vec::new();
+        for name in &glyph_names {
+            if name.contains("arab")
+                || name.contains("alef")
+                || name.contains("beh")
+                || name.starts_with("uni06")
+            {
+                arabic_names.push(name.clone());
+            }
+        }
+
+        if !arabic_names.is_empty() {
+            info!("Found {} Arabic-related glyph names:", arabic_names.len());
+            for name in &arabic_names {
+                info!("  - {}", name);
+            }
+        } else {
+            info!("No Arabic-related glyph names found in font");
+        }
+    }
+
+    glyph_names
 }

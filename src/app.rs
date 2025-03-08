@@ -18,9 +18,7 @@ use crate::selection::SelectionPlugin;
 use crate::setup::setup;
 use crate::text_editor::TextEditorPlugin;
 use crate::theme::BACKGROUND_COLOR;
-use crate::ufo::{
-    initialize_font_state, print_font_info_to_terminal, LastCodepointPrinted,
-};
+use crate::ufo::{initialize_font_state, print_font_info_to_terminal};
 
 /// System to handle keyboard shortcuts to cycle through codepoints
 fn handle_codepoint_cycling(
