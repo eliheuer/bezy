@@ -9,10 +9,7 @@ use crate::cli::CliArgs;
 use crate::commands::{CodepointDirection, CycleCodepointEvent};
 use crate::crypto_toolbar::CryptoToolbarPlugin;
 use crate::data::AppState;
-use crate::debug_hud::{
-    print_font_info_to_terminal, spawn_debug_text,
-    update_codepoint_not_found_text,
-};
+use crate::debug_hud::{spawn_debug_text, update_codepoint_not_found_text};
 use crate::design_space::DesignSpacePlugin;
 use crate::draw::DrawPlugin;
 use crate::edit_mode_toolbar::select::SelectModePlugin;
@@ -22,7 +19,9 @@ use crate::selection::SelectionPlugin;
 use crate::setup::setup;
 use crate::text_editor::TextEditorPlugin;
 use crate::theme::BACKGROUND_COLOR;
-use crate::ufo::initialize_font_state;
+use crate::ufo::{
+    initialize_font_state, print_font_info_to_terminal, LastCodepointPrinted,
+};
 
 /// System to handle keyboard shortcuts to cycle through codepoints
 fn handle_codepoint_cycling(
@@ -72,7 +71,7 @@ struct DebugPlugin;
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<crate::debug_hud::WarningTextState>()
-            .init_resource::<crate::debug_hud::LastCodepointPrinted>()
+            .init_resource::<crate::ufo::LastCodepointPrinted>()
             .add_systems(Startup, spawn_debug_text)
             .add_systems(
                 Update,

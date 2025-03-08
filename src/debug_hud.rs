@@ -1,9 +1,7 @@
 // A debug display for the edit mode toolbar state
 
 use crate::data::AppState;
-use crate::theme::get_default_text_style;
 use crate::theme::DEFAULT_FONT_PATH;
-use crate::ufo::get_basic_font_info_from_state;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 
@@ -17,12 +15,6 @@ pub struct CodepointNotFoundText;
 #[derive(Resource, Default)]
 pub struct WarningTextState {
     pub created: bool,
-}
-
-// Resource to track the last printed codepoint information
-#[derive(Resource, Default, Debug, PartialEq, Eq)]
-pub struct LastCodepointPrinted {
-    pub codepoint: Option<String>,
 }
 
 pub fn update_font_info_text(
@@ -60,53 +52,6 @@ pub fn update_font_info_text(
         }
 
         text.0 = display_text;
-    }
-}
-
-// New system to print font info and codepoint to terminal
-pub fn print_font_info_to_terminal(
-    app_state: Res<AppState>,
-    cli_args: Res<crate::cli::CliArgs>,
-    mut last_printed: ResMut<LastCodepointPrinted>,
-) {
-    let font_info = crate::ufo::get_basic_font_info_from_state(&app_state);
-    let mut display_text = font_info;
-    let current_codepoint = cli_args.test_unicode.clone();
-
-    // Check if we need to print (startup or codepoint changed)
-    let should_print = last_printed.codepoint != current_codepoint;
-
-    if should_print {
-        // Add codepoint info if present
-        if let Some(codepoint) = &cli_args.test_unicode {
-            if !codepoint.is_empty() {
-                // Try to get a readable character representation
-                let cp_value = match u32::from_str_radix(
-                    codepoint.trim_start_matches("0x"),
-                    16,
-                ) {
-                    Ok(value) => value,
-                    Err(_) => 0,
-                };
-
-                let char_display = match char::from_u32(cp_value) {
-                    Some(c) if c.is_control() => format!("<control>"),
-                    Some(c) => format!("'{}'", c),
-                    None => format!("<none>"),
-                };
-
-                display_text.push_str(&format!(
-                    " | Codepoint: U+{} {}",
-                    codepoint, char_display
-                ));
-            }
-        }
-
-        // Print the info to the terminal
-        info!("{}", display_text);
-
-        // Update the last printed codepoint
-        last_printed.codepoint = current_codepoint;
     }
 }
 
@@ -171,13 +116,10 @@ pub fn update_codepoint_not_found_text(
 pub fn spawn_debug_text(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    app_state: Res<AppState>,
+    _app_state: Res<AppState>,
 ) {
     // Initialize the warning text state
     commands.init_resource::<WarningTextState>();
-
-    // Initialize the last printed codepoint tracking resource
-    commands.init_resource::<LastCodepointPrinted>();
 
     // The FontInfoText component has been removed to eliminate the UFO and codepoint display
     // in the lower left hand side of the application

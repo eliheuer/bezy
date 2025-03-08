@@ -5,11 +5,64 @@ use std::path::PathBuf;
 
 use crate::data::AppState;
 
+// Resource to track the last printed codepoint information
+#[derive(Resource, Default, Debug, PartialEq, Eq)]
+pub struct LastCodepointPrinted {
+    pub codepoint: Option<String>,
+}
+
 pub fn get_basic_font_info_from_state(app_state: &AppState) -> String {
     if app_state.workspace.font.ufo.font_info.is_some() {
         format!("UFO: {}", app_state.get_font_display_name())
     } else {
         "UFO: No font loaded".to_string()
+    }
+}
+
+// System to print font info and codepoint to terminal
+pub fn print_font_info_to_terminal(
+    app_state: Res<AppState>,
+    cli_args: Res<crate::cli::CliArgs>,
+    mut last_printed: ResMut<LastCodepointPrinted>,
+) {
+    let font_info = get_basic_font_info_from_state(&app_state);
+    let mut display_text = font_info;
+    let current_codepoint = cli_args.test_unicode.clone();
+
+    // Check if we need to print (startup or codepoint changed)
+    let should_print = last_printed.codepoint != current_codepoint;
+
+    if should_print {
+        // Add codepoint info if present
+        if let Some(codepoint) = &cli_args.test_unicode {
+            if !codepoint.is_empty() {
+                // Try to get a readable character representation
+                let cp_value = match u32::from_str_radix(
+                    codepoint.trim_start_matches("0x"),
+                    16,
+                ) {
+                    Ok(value) => value,
+                    Err(_) => 0,
+                };
+
+                let char_display = match char::from_u32(cp_value) {
+                    Some(c) if c.is_control() => format!("<control>"),
+                    Some(c) => format!("'{}'", c),
+                    None => format!("<none>"),
+                };
+
+                display_text.push_str(&format!(
+                    " | Codepoint: U+{} {}",
+                    codepoint, char_display
+                ));
+            }
+        }
+
+        // Print the info to the terminal
+        info!("{}", display_text);
+
+        // Update the last printed codepoint
+        last_printed.codepoint = current_codepoint;
     }
 }
 
