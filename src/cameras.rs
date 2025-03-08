@@ -152,6 +152,14 @@ pub fn center_camera_on_glyph(
     let center_x = (min_x + max_x) / 2.0;
     let center_y = (min_y + max_y) / 2.0;
 
+    // Apply an optical adjustment to move the camera up, which will make the glyph and
+    // metrics rectangle appear lower in the viewport. This ensures the glyph isn't
+    // positioned too close to the toolbar and improves the visual balance of the UI.
+    // The value is a percentage of the glyph height to shift upward.
+    let optical_adjustment_factor = 0.06; // 6% of the glyph height (reduced from 12%)
+    let optical_adjustment = (max_y - min_y) * optical_adjustment_factor;
+    let adjusted_center_y = center_y + optical_adjustment;
+
     // Get the window dimensions for zoom calculation
     let window = if let Ok(window) = window_query.get_single() {
         window
@@ -167,7 +175,7 @@ pub fn center_camera_on_glyph(
     if let Ok((mut transform, mut projection)) = camera_query.get_single_mut() {
         // Set the camera position to center on the glyph
         transform.translation.x = center_x;
-        transform.translation.y = center_y;
+        transform.translation.y = adjusted_center_y;
 
         // Calculate zoom level to fit the glyph and metrics rectangle in the view
         let window_aspect = window.width() / window.height();
@@ -189,7 +197,7 @@ pub fn center_camera_on_glyph(
 
         info!(
             "Centered camera on glyph at ({}, {}) with zoom {}",
-            center_x, center_y, projection.scale
+            center_x, adjusted_center_y, projection.scale
         );
     }
 }
