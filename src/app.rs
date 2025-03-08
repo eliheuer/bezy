@@ -10,7 +10,8 @@ use crate::commands::{CodepointDirection, CycleCodepointEvent};
 use crate::crypto_toolbar::CryptoToolbarPlugin;
 use crate::data::AppState;
 use crate::debug_hud::{
-    spawn_debug_text, update_codepoint_not_found_text, update_font_info_text,
+    print_font_info_to_terminal, spawn_debug_text,
+    update_codepoint_not_found_text,
 };
 use crate::design_space::DesignSpacePlugin;
 use crate::draw::DrawPlugin;
@@ -71,11 +72,13 @@ struct DebugPlugin;
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<crate::debug_hud::WarningTextState>()
+            .init_resource::<crate::debug_hud::LastCodepointPrinted>()
             .add_systems(Startup, spawn_debug_text)
             .add_systems(
                 Update,
                 (
-                    update_font_info_text,
+                    // Print UFO and codepoint info to terminal
+                    print_font_info_to_terminal,
                     update_codepoint_not_found_text
                         .after(crate::draw::draw_glyph_points_system),
                 ),
