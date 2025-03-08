@@ -4,7 +4,28 @@ use crate::cameras::{toggle_camera_controls, update_coordinate_display};
 use crate::crypto_toolbar::CryptoToolbarPlugin;
 use crate::edit_mode_toolbar::CurrentEditMode;
 use crate::setup::setup;
+use crate::theme::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::ufo::{initialize_font_state, print_font_info_to_terminal};
+
+/// Configure the default Bevy plugins with custom settings
+pub fn configure_default_plugins() -> bevy::app::PluginGroupBuilder {
+    DefaultPlugins
+        .set(WindowPlugin {
+            primary_window: Some(Window {
+                title: WINDOW_TITLE.into(),
+                resolution: (WINDOW_WIDTH, WINDOW_HEIGHT).into(),
+                // Tell wasm to resize the window according to the available canvas
+                fit_canvas_to_parent: true,
+                // Tells wasm not to override default event handling, like F5, Ctrl+R etc.
+                prevent_default_event_handling: false,
+                ..default()
+            }),
+            ..default()
+        })
+        // Disable Bevy's default LogPlugin since we're using our own custom logger
+        .build()
+        .disable::<bevy::log::LogPlugin>()
+}
 
 /// Plugin to organize debug-related systems
 pub struct DebugPlugin;

@@ -4,6 +4,11 @@ use bevy::prelude::*;
 // Font Path
 pub const DEFAULT_FONT_PATH: &str = "fonts/bezy-grotesk-regular.ttf";
 
+// Window Configuration
+pub const WINDOW_TITLE: &str = "Bezy";
+pub const WINDOW_WIDTH: f32 = 900.0;
+pub const WINDOW_HEIGHT: f32 = 768.0;
+
 // Button Colors
 pub const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 pub const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);

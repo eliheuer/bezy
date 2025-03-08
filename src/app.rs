@@ -40,32 +40,15 @@ fn configure_app_settings(app: &mut App, cli_args: CliArgs) {
 
 // Add all necessary plugins
 fn add_plugins(app: &mut App) {
-    app.add_plugins(
-        DefaultPlugins
-            .set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Bezy".into(),
-                    resolution: (900., 768.).into(),
-                    // Tell wasm to resize the window according to the available canvas
-                    fit_canvas_to_parent: true,
-                    // Tells wasm not to override default event handling, like F5, Ctrl+R etc.
-                    prevent_default_event_handling: false,
-                    ..default()
-                }),
-                ..default()
-            })
-            // Disable Bevy's default LogPlugin since we're using our own custom logger
-            .build()
-            .disable::<bevy::log::LogPlugin>(),
-    )
-    .add_plugins(PanCamPlugin)
-    .add_plugins(CheckerboardPlugin)
-    .add_plugins(DrawPlugin)
-    .add_plugins(DesignSpacePlugin)
-    .add_plugins(EditModeToolbarPlugin)
-    .add_plugins(SelectModePlugin)
-    .add_plugins(SelectionPlugin)
-    .add_plugins(TextEditorPlugin)
-    .add_plugins(BezySystems)
-    .add_plugins(crate::commands::CommandsPlugin);
+    app.add_plugins(crate::plugins::configure_default_plugins())
+        .add_plugins(PanCamPlugin)
+        .add_plugins(CheckerboardPlugin)
+        .add_plugins(DrawPlugin)
+        .add_plugins(DesignSpacePlugin)
+        .add_plugins(EditModeToolbarPlugin)
+        .add_plugins(SelectModePlugin)
+        .add_plugins(SelectionPlugin)
+        .add_plugins(TextEditorPlugin)
+        .add_plugins(BezySystems)
+        .add_plugins(crate::commands::CommandsPlugin);
 }
