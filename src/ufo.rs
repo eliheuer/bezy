@@ -26,13 +26,15 @@ pub fn print_font_info_to_terminal(
     mut last_printed: ResMut<LastCodepointPrinted>,
 ) {
     let font_info = get_basic_font_info_from_state(&app_state);
-    let mut display_text = font_info;
     let current_codepoint = cli_args.test_unicode.clone();
 
     // Check if we need to print (startup or codepoint changed)
     let should_print = last_printed.codepoint != current_codepoint;
 
     if should_print {
+        // Log the basic font info
+        info!("{}", font_info);
+
         // Add codepoint info if present
         if let Some(codepoint) = &cli_args.test_unicode {
             if !codepoint.is_empty() {
@@ -51,10 +53,8 @@ pub fn print_font_info_to_terminal(
                     None => format!("<invalid>"),
                 };
 
-                display_text = format!(
-                    "{}\nCodepoint: {} {}",
-                    display_text, codepoint, char_display
-                );
+                // Log the codepoint info separately
+                info!("Codepoint: {} {}", codepoint, char_display);
 
                 // Verify codepoint exists in the font directly
                 let codepoint_exists =
@@ -76,10 +76,7 @@ pub fn print_font_info_to_terminal(
             }
         }
 
-        // Print to terminal
-        info!("{}", display_text);
-
-        // Update last printed state
+        // Update last printed codepoint
         last_printed.codepoint = current_codepoint;
     }
 }
