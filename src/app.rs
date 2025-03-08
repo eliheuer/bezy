@@ -150,7 +150,7 @@ fn add_plugins(app: &mut App) {
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
             title: "Bezy".into(),
-            resolution: (1280., 720.).into(),
+            resolution: (900., 900.).into(),
             // Tell wasm to resize the window according to the available canvas
             fit_canvas_to_parent: true,
             // Tells wasm not to override default event handling, like F5, Ctrl+R etc.
