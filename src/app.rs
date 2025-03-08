@@ -3,21 +3,18 @@ use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use bevy_pancam::PanCamPlugin;
 
-use crate::cameras::{toggle_camera_controls, update_coordinate_display};
 use crate::checkerboard::CheckerboardPlugin;
 use crate::cli::CliArgs;
-use crate::crypto_toolbar::CryptoToolbarPlugin;
 use crate::data::AppState;
 use crate::design_space::DesignSpacePlugin;
 use crate::draw::DrawPlugin;
 use crate::edit_mode_toolbar::select::SelectModePlugin;
 use crate::edit_mode_toolbar::CurrentEditMode;
 use crate::edit_mode_toolbar::EditModeToolbarPlugin;
+use crate::plugins::BezySystems; // Import BezySystems from the plugins module
 use crate::selection::SelectionPlugin;
-use crate::setup::setup;
 use crate::text_editor::TextEditorPlugin;
 use crate::theme::BACKGROUND_COLOR;
-use crate::ufo::{initialize_font_state, print_font_info_to_terminal};
 
 // Create the app and add the plugins and systems
 pub fn create_app(cli_args: CliArgs) -> App {
@@ -29,67 +26,6 @@ pub fn create_app(cli_args: CliArgs) -> App {
     // Add all plugins
     add_plugins(&mut app);
     app
-}
-
-// Plugin to organize debug-related systems
-struct DebugPlugin;
-
-impl Plugin for DebugPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<crate::ufo::LastCodepointPrinted>()
-            .add_systems(
-                Update,
-                (
-                    // Print UFO and codepoint info to terminal
-                    print_font_info_to_terminal,
-                ),
-            );
-    }
-}
-
-// Plugin to organize camera-related systems
-struct CameraPlugin;
-
-impl Plugin for CameraPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (update_coordinate_display, toggle_camera_controls),
-        );
-    }
-}
-
-// Plugin to organize toolbar-related plugins
-struct ToolbarPlugin;
-
-impl Plugin for ToolbarPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<CurrentEditMode>()
-            .add_plugins(CryptoToolbarPlugin);
-    }
-}
-
-// Plugin to organize setup systems
-struct SetupPlugin;
-
-impl Plugin for SetupPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (initialize_font_state, setup));
-    }
-}
-
-// Main application plugin that bundles all internal plugins
-struct BezySystems;
-
-impl Plugin for BezySystems {
-    fn build(&self, app: &mut App) {
-        app.add_plugins((
-            SetupPlugin,
-            DebugPlugin,
-            CameraPlugin,
-            ToolbarPlugin,
-        ));
-    }
 }
 
 // Helper function to configure app settings
@@ -133,6 +69,3 @@ fn add_plugins(app: &mut App) {
     .add_plugins(BezySystems)
     .add_plugins(crate::commands::CommandsPlugin);
 }
-
-// Custom logger initialization to exclude timestamps.
-// This is AI generated code used to make the logs cleaner,

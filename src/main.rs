@@ -12,6 +12,7 @@ mod draw;
 mod edit_mode_toolbar;
 mod hud;
 mod logger;
+mod plugins;
 mod selection;
 mod setup;
 mod tests;
