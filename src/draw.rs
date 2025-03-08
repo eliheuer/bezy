@@ -312,16 +312,6 @@ pub fn draw_glyph_points_system(
     >,
     window_query: Query<&Window>,
 ) {
-    // Pre-check if this is a startup call with no test-unicode flag
-    if cli_args.test_unicode.is_none() {
-        // No test unicode was specified, so we don't need to show any warning
-        cli_args.codepoint_found = true;
-        // Rest of the function continues...
-    } else {
-        // Reset the codepoint_found flag only if test_unicode was specified
-        cli_args.codepoint_found = false;
-    }
-
     // Get the primary viewport or create a default one if none exists
     let viewport = match viewports.get_single() {
         Ok(viewport) => *viewport,

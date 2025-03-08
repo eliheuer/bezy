@@ -56,9 +56,22 @@ pub fn print_font_info_to_terminal(
                     display_text, codepoint, char_display
                 );
 
-                // Print a warning if codepoint not found
-                if !cli_args.codepoint_found {
+                // Verify codepoint exists in the font directly
+                let codepoint_exists =
+                    if app_state.workspace.font.ufo.font_info.is_some() {
+                        find_glyph_by_unicode(
+                            &app_state.workspace.font.ufo,
+                            codepoint,
+                        )
+                        .is_some()
+                    } else {
+                        false
+                    };
+
+                if !codepoint_exists {
                     error!("Codepoint {} not found in UFO source", codepoint);
+                } else {
+                    info!("Codepoint {} found in font", codepoint);
                 }
             }
         }
@@ -80,47 +93,54 @@ pub fn find_glyph_by_unicode(ufo: &Ufo, codepoint_hex: &str) -> Option<String> {
             Err(_) => return None,
         };
 
-    // Try direct character name first (for basic Latin characters)
-    if let Some(c) = char::from_u32(codepoint) {
-        let char_name = c.to_string();
-        let glyph_name = norad::GlyphName::from(char_name);
+    // Convert the U32 codepoint to a Rust char
+    let target_char = match char::from_u32(codepoint) {
+        Some(c) => c,
+        None => return None,
+    };
 
-        if let Some(default_layer) = ufo.get_default_layer() {
-            if default_layer.get_glyph(&glyph_name).is_some() {
+    // Get the default layer
+    if let Some(default_layer) = ufo.get_default_layer() {
+        // For Latin lowercase a-z (0061-007A), uppercase A-Z (0041-005A),
+        // and common punctuation, try using the character itself as name
+        if (0x0061..=0x007A).contains(&codepoint) || // a-z
+           (0x0041..=0x005A).contains(&codepoint)
+        {
+            // A-Z
+            // Try the character name
+            let glyph_name = norad::GlyphName::from(target_char.to_string());
+            if let Some(_glyph) = default_layer.get_glyph(&glyph_name) {
+                // Found a match!
                 return Some(glyph_name.to_string());
             }
         }
-    }
 
-    // Try with "uni" prefix
-    let uni_name = format!("uni{:04X}", codepoint);
-    let glyph_name = norad::GlyphName::from(uni_name);
-
-    if let Some(default_layer) = ufo.get_default_layer() {
-        if default_layer.get_glyph(&glyph_name).is_some() {
+        // Try conventional format "uni<CODE>"
+        let uni_name = format!("uni{:04X}", codepoint);
+        let glyph_name = norad::GlyphName::from(uni_name);
+        if let Some(_) = default_layer.get_glyph(&glyph_name) {
             return Some(glyph_name.to_string());
         }
-    }
 
-    // Special cases for common characters
-    let special_cases = [
-        (0x0020, "space"),       // Space
-        (0x002E, "period"),      // Period
-        (0x002C, "comma"),       // Comma
-        (0x0027, "quotesingle"), // Single quote
-    ];
+        // Special cases for common characters
+        let special_cases = [
+            (0x0020, "space"),       // Space
+            (0x002E, "period"),      // Period
+            (0x002C, "comma"),       // Comma
+            (0x0027, "quotesingle"), // Single quote
+        ];
 
-    for (cp, name) in special_cases.iter() {
-        if *cp == codepoint {
-            let glyph_name = norad::GlyphName::from(*name);
-            if let Some(default_layer) = ufo.get_default_layer() {
-                if default_layer.get_glyph(&glyph_name).is_some() {
+        for (cp, name) in special_cases.iter() {
+            if *cp == codepoint {
+                let glyph_name = norad::GlyphName::from(*name);
+                if let Some(_) = default_layer.get_glyph(&glyph_name) {
                     return Some(glyph_name.to_string());
                 }
             }
         }
     }
 
+    // If we got here, we didn't find a matching glyph
     None
 }
 
