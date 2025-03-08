@@ -6,7 +6,6 @@ use bevy_pancam::PanCamPlugin;
 use crate::cameras::{toggle_camera_controls, update_coordinate_display};
 use crate::checkerboard::CheckerboardPlugin;
 use crate::cli::CliArgs;
-use crate::commands::{CodepointDirection, CycleCodepointEvent};
 use crate::crypto_toolbar::CryptoToolbarPlugin;
 use crate::data::AppState;
 use crate::design_space::DesignSpacePlugin;
@@ -19,36 +18,6 @@ use crate::setup::setup;
 use crate::text_editor::TextEditorPlugin;
 use crate::theme::BACKGROUND_COLOR;
 use crate::ufo::{initialize_font_state, print_font_info_to_terminal};
-
-/// System to handle keyboard shortcuts to cycle through codepoints
-fn handle_codepoint_cycling(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut cycle_event: EventWriter<CycleCodepointEvent>,
-) {
-    // Check for Shift+Plus to cycle forward through codepoints
-    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft)
-        || keyboard.pressed(KeyCode::ShiftRight);
-
-    if shift_pressed {
-        // Check for Shift+= (Plus) to move to next codepoint
-        if keyboard.just_pressed(KeyCode::Equal) {
-            info!(
-                "Detected Shift+= key combination, cycling to next codepoint"
-            );
-            cycle_event.send(CycleCodepointEvent {
-                direction: CodepointDirection::Next,
-            });
-        }
-
-        // Check for Shift+- (Minus) to move to previous codepoint
-        if keyboard.just_pressed(KeyCode::Minus) {
-            info!("Detected Shift+- key combination, cycling to previous codepoint");
-            cycle_event.send(CycleCodepointEvent {
-                direction: CodepointDirection::Previous,
-            });
-        }
-    }
-}
 
 // Create the app and add the plugins and systems
 pub fn create_app(cli_args: CliArgs) -> App {
@@ -83,15 +52,10 @@ struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<crate::commands::CycleCodepointEvent>()
-            .add_systems(
-                Update,
-                (
-                    update_coordinate_display,
-                    toggle_camera_controls,
-                    handle_codepoint_cycling,
-                ),
-            );
+        app.add_systems(
+            Update,
+            (update_coordinate_display, toggle_camera_controls),
+        );
     }
 }
 

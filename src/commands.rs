@@ -70,6 +70,7 @@ impl Plugin for CommandsPlugin {
                     handle_rename_glyph,
                     handle_open_glyph_editor,
                     handle_cycle_codepoint,
+                    handle_codepoint_cycling,
                 ),
             );
     }
@@ -269,6 +270,36 @@ fn handle_cycle_codepoint(
             }
         } else {
             warn!("No codepoints found in the font");
+        }
+    }
+}
+
+/// System to handle keyboard shortcuts to cycle through codepoints
+pub fn handle_codepoint_cycling(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut cycle_event: EventWriter<CycleCodepointEvent>,
+) {
+    // Check for Shift+Plus to cycle forward through codepoints
+    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft)
+        || keyboard.pressed(KeyCode::ShiftRight);
+
+    if shift_pressed {
+        // Check for Shift+= (Plus) to move to next codepoint
+        if keyboard.just_pressed(KeyCode::Equal) {
+            info!(
+                "Detected Shift+= key combination, cycling to next codepoint"
+            );
+            cycle_event.send(CycleCodepointEvent {
+                direction: CodepointDirection::Next,
+            });
+        }
+
+        // Check for Shift+- (Minus) to move to previous codepoint
+        if keyboard.just_pressed(KeyCode::Minus) {
+            info!("Detected Shift+- key combination, cycling to previous codepoint");
+            cycle_event.send(CycleCodepointEvent {
+                direction: CodepointDirection::Previous,
+            });
         }
     }
 }
