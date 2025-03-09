@@ -27,19 +27,10 @@ pub struct DesignCamera;
 #[derive(Component)]
 pub struct UiCamera;
 
-/// Component for displaying the current camera coordinates
-///
-/// Used with Text components to show the camera's position in the UI.
-#[derive(Component)]
-pub struct CoordinateDisplay;
-
 /// Spawns the main camera for the design space
 ///
 /// This camera is used to view and interact with bezier curves, points, and other design elements.
 /// It is configured with PanCam for panning and zooming functionality.
-///
-/// # Arguments
-/// * `commands` - Command buffer for entity creation
 pub fn spawn_design_camera(commands: &mut Commands) {
     commands.spawn((
         Camera2d,
@@ -60,9 +51,6 @@ pub fn spawn_design_camera(commands: &mut Commands) {
 ///
 /// This camera is used for UI elements that should always be visible
 /// regardless of panning/zooming of the design view.
-///
-/// # Arguments
-/// * `commands` - Command buffer for entity creation
 pub fn spawn_ui_camera(commands: &mut Commands) {
     commands.spawn((
         Camera2d,
@@ -75,58 +63,38 @@ pub fn spawn_ui_camera(commands: &mut Commands) {
     ));
 }
 
-/// Updates the coordinate display with the current camera position
-///
-/// This system runs every frame to show the user where the camera is positioned.
-///
-/// # Arguments
-/// * `camera_query` - Query to get the design camera's position
-/// * `query` - Query to get the text component that displays coordinates
-pub fn update_coordinate_display(
-    camera_query: Query<&GlobalTransform, With<DesignCamera>>,
-    mut query: Query<&mut Text, With<CoordinateDisplay>>,
-) {
-    if let Ok(camera_transform) = camera_query.get_single() {
-        let camera_pos = camera_transform.translation().truncate();
-        for mut text in &mut query {
-            text.0 = format!(
-                "Camera Location: {} {}",
-                camera_pos.x.round(),
-                camera_pos.y.round()
-            );
-        }
-    }
-}
-
-/// Toggles camera controls based on keyboard input and current edit mode
+/// Handles camera controls based on keyboard input
 ///
 /// Keyboard shortcuts:
-/// - Space: Toggle camera panning (only works in Pan mode)
+/// - Space: Hold to temporarily enable camera panning (works in any edit mode)
 /// - T: Toggle zoom-to-cursor behavior
-///
-/// # Arguments
-/// * `query` - Query to access PanCam components
-/// * `keys` - Resource for keyboard input
-/// * `current_mode` - Current editing mode
 pub fn toggle_camera_controls(
     mut query: Query<&mut PanCam>,
     keys: Res<ButtonInput<KeyCode>>,
     current_mode: Res<crate::edit_mode_toolbar::CurrentEditMode>,
 ) {
-    // Space = Toggle Panning, but only if we're in Pan mode
-    if keys.just_pressed(KeyCode::Space)
-        && matches!(current_mode.0, crate::edit_mode_toolbar::EditMode::Pan)
-    {
+    // Spacebar handling for temporary panning in any edit mode
+    // When pressed, enable panning
+    if keys.just_pressed(KeyCode::Space) {
         for mut pancam in &mut query {
-            pancam.enabled = !pancam.enabled;
-            info!(
-                "Camera panning {}",
-                if pancam.enabled {
-                    "enabled"
-                } else {
-                    "disabled"
-                }
-            );
+            pancam.enabled = true;
+            info!("Camera panning enabled (spacebar held)");
+            
+            // Future implementation:
+            // This would be where we'd add code to:
+            // 1. Draw outline with solid fill
+            // 2. Hide emsquare, points, and handles
+        }
+    }
+    
+    // When released, disable panning
+    if keys.just_released(KeyCode::Space) {
+        for mut pancam in &mut query {
+            pancam.enabled = false;
+            info!("Camera panning disabled (spacebar released)");
+            
+            // Future implementation:
+            // This would be where we'd restore the normal view
         }
     }
 
@@ -146,19 +114,11 @@ pub fn toggle_camera_controls(
     }
 }
 
-/// Centers the camera on a glyph, ensuring all glyph points are visible
+/// Centers the camera on a given glyph
 ///
-/// This function:
-/// 1. Calculates the bounding box of the glyph including all points and metrics
-/// 2. Centers the camera on this bounding box
-/// 3. Adjusts the zoom level to fit the glyph in view
-/// 4. Applies an optical adjustment to improve visual balance
-///
-/// # Arguments
-/// * `glyph` - The glyph to center on
-/// * `metrics` - Font metrics for sizing
-/// * `camera_query` - Query to access the design camera
-/// * `window_query` - Query to get window dimensions for zoom calculation
+/// This function calculates the appropriate position and zoom level
+/// to center the camera on a glyph. It takes into account the glyph's
+/// bounding box and the window size.
 pub fn center_camera_on_glyph(
     glyph: &norad::Glyph,
     metrics: &crate::data::FontMetrics,
@@ -193,7 +153,7 @@ pub fn center_camera_on_glyph(
         .unwrap_or_else(|| (metrics.units_per_em as f32 * 0.5));
 
     // Get font metrics values with defaults if they're None
-    // These are important for showing the proper metrics rectangle
+    // These are important for showing the proper em square gizmo
     let descender = metrics
         .descender
         .unwrap_or_else(|| -(metrics.units_per_em * 0.2))
@@ -204,7 +164,7 @@ pub fn center_camera_on_glyph(
         as f32;
 
     // Include font metrics in bounding box calculation
-    // This ensures the full metrics rectangle is included in view
+    // This ensures the full em square is included in view
     min_x = min_x.min(0.0); // Left edge of metrics rectangle
     max_x = max_x.max(width); // Right edge (advance width)
     min_y = min_y.min(descender); // Bottom of metrics rectangle (descender)

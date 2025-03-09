@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::cameras::{toggle_camera_controls, update_coordinate_display};
+use crate::cameras::toggle_camera_controls;
 use crate::crypto_toolbar::CryptoToolbarPlugin;
 use crate::edit_mode_toolbar::CurrentEditMode;
 use crate::setup::setup;
@@ -50,7 +50,7 @@ impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (update_coordinate_display, toggle_camera_controls),
+            toggle_camera_controls,
         );
     }
 }
