@@ -13,7 +13,7 @@ kurbo = "0.11.1"
 clap = { version = "4.5.1", features = ["derive"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-harfbuzz_rs = "1.2"
+harfbuzz_rs = "2.0.1"
 log = "0.4.8"
 plist = "1.0"
 serde = "1.0"
