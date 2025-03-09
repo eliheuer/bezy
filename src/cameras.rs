@@ -79,20 +79,20 @@ pub fn toggle_camera_controls(
         for mut pancam in &mut query {
             pancam.enabled = true;
             info!("Camera panning enabled (spacebar held)");
-            
+
             // Future implementation:
             // This would be where we'd add code to:
             // 1. Draw outline with solid fill
             // 2. Hide emsquare, points, and handles
         }
     }
-    
+
     // When released, disable panning
     if keys.just_released(KeyCode::Space) {
         for mut pancam in &mut query {
             pancam.enabled = false;
             info!("Camera panning disabled (spacebar released)");
-            
+
             // Future implementation:
             // This would be where we'd restore the normal view
         }
@@ -165,10 +165,10 @@ pub fn center_camera_on_glyph(
 
     // Include font metrics in bounding box calculation
     // This ensures the full em square is included in view
-    min_x = min_x.min(0.0); // Left edge of metrics rectangle
+    min_x = min_x.min(0.0); // Left edge of em square
     max_x = max_x.max(width); // Right edge (advance width)
-    min_y = min_y.min(descender); // Bottom of metrics rectangle (descender)
-    max_y = max_y.max(ascender); // Top of metrics rectangle (ascender)
+    min_y = min_y.min(descender); // Bottom of em square (descender)
+    max_y = max_y.max(ascender); // Top of em square (ascender)
 
     // Iterate through all points in all contours to find the total bounding box
     for contour in &outline.contours {
@@ -200,7 +200,7 @@ pub fn center_camera_on_glyph(
     let center_y = (min_y + max_y) / 2.0;
 
     // Apply an optical adjustment to move the camera up, which makes the glyph and
-    // metrics rectangle appear lower in the viewport. This provides better visual balance
+    // em square appear lower in the viewport. This provides better visual balance
     // by ensuring the glyph isn't positioned too close to the toolbar.
     let optical_adjustment_factor = 0.06; // 6% of the glyph height
     let optical_adjustment = (max_y - min_y) * optical_adjustment_factor;

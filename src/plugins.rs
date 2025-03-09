@@ -48,10 +48,7 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            toggle_camera_controls,
-        );
+        app.add_systems(Update, toggle_camera_controls);
     }
 }
 
