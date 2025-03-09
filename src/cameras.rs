@@ -71,7 +71,6 @@ pub fn spawn_ui_camera(commands: &mut Commands) {
 pub fn toggle_camera_controls(
     mut query: Query<&mut PanCam>,
     keys: Res<ButtonInput<KeyCode>>,
-    current_mode: Res<crate::edit_mode_toolbar::CurrentEditMode>,
 ) {
     // Spacebar handling for temporary panning in any edit mode
     // When pressed, enable panning

@@ -74,11 +74,11 @@ pub fn draw_metrics_system(
 
         match app_state.workspace.font.ufo.get_default_layer() {
             Some(default_layer) => {
-                // Try to get the glyph directly by name
-                let glyph_name = norad::GlyphName::from(test_glyph.clone());
-
-                match default_layer.get_glyph(&glyph_name) {
-                    Some(glyph) => {
+                // Try to get the glyph using the new helper method
+                if let Some(glyph_name) =
+                    cli_args.find_glyph(&app_state.workspace.font.ufo)
+                {
+                    if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
                         // Draw the metrics using the actual glyph
                         draw_metrics(
                             &mut gizmos,
@@ -89,47 +89,44 @@ pub fn draw_metrics_system(
                         debug!("Metrics drawn for glyph '{}' with advance width: {:?}", 
                               glyph.name, glyph.advance.as_ref().map(|a| a.width));
                     }
-                    None => {
-                        // Try with some common glyphs
-                        let common_glyphs =
-                            ["H", "h", "A", "a", "O", "o", "space", ".notdef"];
-                        let mut found = false;
+                } else {
+                    // Try with some common glyphs
+                    let common_glyphs =
+                        ["H", "h", "A", "a", "O", "o", "space", ".notdef"];
+                    let mut found = false;
 
-                        for glyph_name_str in common_glyphs.iter() {
-                            let name = norad::GlyphName::from(*glyph_name_str);
-                            if let Some(glyph) = default_layer.get_glyph(&name)
-                            {
-                                draw_metrics(
-                                    &mut gizmos,
-                                    viewport,
-                                    glyph,
-                                    &app_state.workspace.info.metrics,
-                                );
-                                debug!("Metrics drawn for glyph '{}' with advance width: {:?}", 
-                                      glyph.name, glyph.advance.as_ref().map(|a| a.width));
-                                found = true;
-                                break;
-                            }
-                        }
-
-                        if !found {
-                            // If no glyph found, use a placeholder with a warning
-                            let mut placeholder =
-                                Glyph::new_named("placeholder");
-                            placeholder.advance = Some(norad::Advance {
-                                width: metrics.units_per_em as f32,
-                                height: 0.0,
-                            });
-
+                    for glyph_name_str in common_glyphs.iter() {
+                        let name = norad::GlyphName::from(*glyph_name_str);
+                        if let Some(glyph) = default_layer.get_glyph(&name) {
                             draw_metrics(
                                 &mut gizmos,
                                 viewport,
-                                &placeholder,
+                                glyph,
                                 &app_state.workspace.info.metrics,
                             );
-
-                            println!("WARNING: Could not find any glyphs for metrics. Using units_per_em as placeholder width.");
+                            debug!("Metrics drawn for glyph '{}' with advance width: {:?}", 
+                                  glyph.name, glyph.advance.as_ref().map(|a| a.width));
+                            found = true;
+                            break;
                         }
+                    }
+
+                    if !found {
+                        // If no glyph found, use a placeholder with a warning
+                        let mut placeholder = Glyph::new_named("placeholder");
+                        placeholder.advance = Some(norad::Advance {
+                            width: metrics.units_per_em as f32,
+                            height: 0.0,
+                        });
+
+                        draw_metrics(
+                            &mut gizmos,
+                            viewport,
+                            &placeholder,
+                            &app_state.workspace.info.metrics,
+                        );
+
+                        println!("WARNING: Could not find any glyphs for metrics. Using units_per_em as placeholder width.");
                     }
                 }
             }
@@ -332,30 +329,10 @@ pub fn draw_glyph_points_system(
             let mut glyph_found = false;
             let mut found_glyph = None;
 
-            // If a specific codepoint was requested, try to find by unicode value first
-            if !codepoint_string.is_empty() {
-                // Try to find the glyph by directly searching for Unicode value
-                if let Some(glyph_name) = crate::ufo::find_glyph_by_unicode(
-                    &app_state.workspace.font.ufo,
-                    &codepoint_string,
-                ) {
-                    // We found a glyph with this Unicode value
-                    let name = norad::GlyphName::from(glyph_name);
-                    if let Some(glyph) = default_layer.get_glyph(&name) {
-                        draw_glyph_points(&mut gizmos, viewport, glyph);
-                        cli_args.codepoint_found = true;
-                        glyph_found = true;
-                        found_glyph = Some(glyph);
-                    }
-                }
-            }
-
-            // If we still haven't found it, try the conventional glyph name approach
-            if !glyph_found {
-                // Get the test glyph name using our convention-based approach
-                let test_glyph = cli_args.get_test_glyph();
-                let glyph_name = norad::GlyphName::from(test_glyph);
-
+            // Try to find the glyph using the new helper method
+            if let Some(glyph_name) =
+                cli_args.find_glyph(&app_state.workspace.font.ufo)
+            {
                 if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
                     draw_glyph_points(&mut gizmos, viewport, glyph);
                     cli_args.codepoint_found = true;
@@ -898,26 +875,8 @@ pub fn spawn_glyph_point_entities(
         Some(default_layer) => {
             let mut found_glyph = None;
 
-            // If a specific codepoint was requested, try to find by unicode value first
-            if !codepoint_string.is_empty() {
-                // Try to find the glyph by directly searching for Unicode value
-                if let Some(glyph_name) =
-                    crate::ufo::find_glyph_by_unicode(ufo, &codepoint_string)
-                {
-                    // We found a glyph with this Unicode value
-                    let name = norad::GlyphName::from(glyph_name);
-                    if let Some(g) = default_layer.get_glyph(&name) {
-                        found_glyph = Some(g);
-                    }
-                }
-            }
-
-            // If we still haven't found it, try the conventional approach
-            if found_glyph.is_none() {
-                // Get the test glyph name using our convention-based approach
-                let test_glyph = cli_args.get_test_glyph();
-                let glyph_name = norad::GlyphName::from(test_glyph);
-
+            // Try to find the glyph using the new helper method
+            if let Some(glyph_name) = cli_args.find_glyph(ufo) {
                 if let Some(g) = default_layer.get_glyph(&glyph_name) {
                     found_glyph = Some(g);
                 }

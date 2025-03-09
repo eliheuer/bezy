@@ -237,28 +237,10 @@ fn handle_cycle_codepoint(
             if let Some(default_layer) =
                 app_state.workspace.font.ufo.get_default_layer()
             {
-                let codepoint_string = cli_args.get_codepoint_string();
-
-                // Try first to find by Unicode
-                if let Some(glyph_name) = crate::ufo::find_glyph_by_unicode(
-                    &app_state.workspace.font.ufo,
-                    &codepoint_string,
-                ) {
-                    let name = norad::GlyphName::from(glyph_name);
-                    if let Some(glyph) = default_layer.get_glyph(&name) {
-                        // Center the camera on the glyph
-                        crate::cameras::center_camera_on_glyph(
-                            glyph,
-                            &app_state.workspace.info.metrics,
-                            &mut camera_query,
-                            &window_query,
-                        );
-                    }
-                } else {
-                    // Try by conventional name
-                    let test_glyph = cli_args.get_test_glyph();
-                    let glyph_name = norad::GlyphName::from(test_glyph);
-
+                // Use the new helper method that combines both approaches
+                if let Some(glyph_name) =
+                    cli_args.find_glyph(&app_state.workspace.font.ufo)
+                {
                     if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
                         // Center the camera on the glyph
                         crate::cameras::center_camera_on_glyph(
@@ -267,6 +249,7 @@ fn handle_cycle_codepoint(
                             &mut camera_query,
                             &window_query,
                         );
+                        cli_args.codepoint_found = true;
                     }
                 }
             }

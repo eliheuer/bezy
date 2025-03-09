@@ -1,5 +1,6 @@
 use bevy::prelude::Resource;
 use clap::Parser;
+use norad::GlyphName;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -31,53 +32,81 @@ impl CliArgs {
     }
 
     /// Get the glyph name for the specified Unicode codepoint or a default
+    ///
+    /// This returns a string following standard glyph naming conventions.
+    /// The actual lookup in the font is done by the ufo::find_glyph_by_unicode function.
     pub fn get_test_glyph(&self) -> String {
         match &self.test_unicode {
             Some(unicode_str) => {
-                // Try to parse the hex string
                 match u32::from_str_radix(
                     unicode_str.trim_start_matches("0x"),
                     16,
                 ) {
                     Ok(codepoint) => {
-                        // Use a lookup table for common special characters
-                        let mut special_chars = HashMap::new();
-                        special_chars.insert(0x0020, "space"); // Space
-                        special_chars.insert(0x002E, "period"); // Period
-                        special_chars.insert(0x002C, "comma"); // Comma
-                        special_chars.insert(0x0027, "quotesingle"); // Single quote
-
-                        // Check special characters first
-                        if let Some(glyph_name) = special_chars.get(&codepoint)
-                        {
-                            return glyph_name.to_string();
-                        }
-
-                        // For basic Latin characters (a-z, A-Z, 0-9), use the character directly
-                        if (0x0061..=0x007A).contains(&codepoint) ||  // a-z (lowercase)
-                           (0x0041..=0x005A).contains(&codepoint) ||  // A-Z (uppercase)
+                        // Basic Latin characters use their direct character name
+                        if (0x0061..=0x007A).contains(&codepoint) ||  // a-z
+                           (0x0041..=0x005A).contains(&codepoint) ||  // A-Z
                            (0x0030..=0x0039).contains(&codepoint)
+                        // 0-9
                         {
-                            // 0-9 (digits)
-                            let c = char::from_u32(codepoint).unwrap_or('H');
-                            return c.to_string();
-                        }
-
-                        // Try both naming conventions
-                        // First, the literal name if it's a printable character
-                        if let Some(c) = char::from_u32(codepoint) {
-                            if c.is_ascii_graphic() {
-                                return format!("{}|uni{:04X}", c, codepoint);
+                            if let Some(c) = char::from_u32(codepoint) {
+                                return c.to_string();
                             }
                         }
 
-                        // For other Unicode codepoints, use the "uni" + codepoint naming convention
+                        // Common special characters
+                        match codepoint {
+                            0x0020 => return "space".to_string(), // Space
+                            0x002E => return "period".to_string(), // Period
+                            0x002C => return "comma".to_string(), // Comma
+                            0x0027 => return "quotesingle".to_string(), // Single quote
+                            _ => {}
+                        }
+
+                        // Standard "uni" + hex code format for other Unicode points
                         format!("uni{:04X}", codepoint)
                     }
                     Err(_) => "H".to_string(), // Default to 'H' if parsing fails
                 }
             }
             None => "H".to_string(), // Default to 'H' if not specified
+        }
+    }
+
+    /// Find a glyph in the UFO by the current codepoint
+    ///
+    /// This is a helper that tries two approaches:
+    /// 1. First, use the more sophisticated ufo::find_glyph_by_unicode
+    /// 2. If that fails, fall back to the basic get_test_glyph
+    ///
+    /// Returns the glyph name if found
+    pub fn find_glyph<'a>(
+        &self,
+        ufo: &'a norad::Ufo,
+    ) -> Option<norad::GlyphName> {
+        // Get the default layer
+        let default_layer = ufo.get_default_layer()?;
+
+        // Try to find the glyph by directly searching for Unicode value
+        if let Some(codepoint) = &self.test_unicode {
+            if let Some(glyph_name) =
+                crate::ufo::find_glyph_by_unicode(ufo, codepoint)
+            {
+                let name = norad::GlyphName::from(glyph_name);
+                if default_layer.get_glyph(&name).is_some() {
+                    return Some(name);
+                }
+            }
+        }
+
+        // Fall back to get_test_glyph if needed
+        let test_glyph = self.get_test_glyph();
+        let glyph_name = norad::GlyphName::from(test_glyph);
+
+        if default_layer.get_glyph(&glyph_name).is_some() {
+            Some(glyph_name)
+        } else {
+            None
         }
     }
 
