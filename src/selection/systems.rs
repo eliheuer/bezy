@@ -1,4 +1,5 @@
 use super::components::*;
+use crate::draw::AppStateChanged;
 use bevy::prelude::*;
 
 /// A basic system that logs the number of selected and hovered entities
@@ -660,5 +661,17 @@ pub fn render_hovered_entities(
                 gizmos.line_2d(bottom_left, top_left, hover_color);
             }
         }
+    }
+}
+
+/// System to reset selection when app state changes
+pub fn clear_selection_on_app_change(
+    mut selection_state: ResMut<SelectionState>,
+    mut events: EventReader<AppStateChanged>,
+) {
+    for _ in events.read() {
+        // Clear the selection when app state changes (e.g., when codepoint changes)
+        selection_state.clear();
+        info!("Selection cleared due to app state change");
     }
 }

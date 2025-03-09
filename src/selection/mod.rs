@@ -59,7 +59,9 @@ impl Plugin for SelectionPlugin {
                 Update,
                 handle_selection_shortcuts
                     .run_if(resource_exists_and_equals(SelectModeActive(true))),
-            );
+            )
+            // Clear selection when app state changes (e.g., when codepoint changes)
+            .add_systems(Update, clear_selection_on_app_change);
     }
 }
 

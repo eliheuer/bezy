@@ -1,4 +1,5 @@
 use crate::data::AppState;
+use crate::draw::AppStateChanged;
 use bevy::prelude::*;
 use norad::GlyphName;
 use std::path::PathBuf;
@@ -35,12 +36,12 @@ pub struct OpenGlyphEditorEvent {
     pub glyph_name: GlyphName,
 }
 
-#[derive(Event)]
+#[derive(Event, Debug)]
 pub struct CycleCodepointEvent {
     pub direction: CodepointDirection,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub enum CodepointDirection {
     Next,
     Previous,
@@ -162,6 +163,7 @@ fn handle_cycle_codepoint(
         With<crate::cameras::DesignCamera>,
     >,
     window_query: Query<&Window>,
+    mut app_state_changed: EventWriter<AppStateChanged>,
 ) {
     for event in events.read() {
         // Log cycling event info
@@ -268,6 +270,9 @@ fn handle_cycle_codepoint(
                     }
                 }
             }
+
+            // Send an event to trigger point entity respawning
+            app_state_changed.send(AppStateChanged);
         } else {
             warn!("No codepoints found in the font");
         }
