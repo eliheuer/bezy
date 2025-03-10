@@ -76,7 +76,7 @@ impl Plugin for GlyphPanePlugin {
 fn update_glyph_pane(world: &mut World) {
     // Get the current metrics resource
     let metrics = world.resource::<CurrentGlyphMetrics>();
-    
+
     // Log the current metrics for debugging
     bevy::log::info!("GlyphPane: Current metrics - Name: '{}', Unicode: '{}', Advance: '{}', LSB: '{}', RSB: '{}'", 
         metrics.glyph_name, metrics.unicode, metrics.advance, metrics.left_bearing, metrics.right_bearing);
@@ -326,7 +326,7 @@ fn update_glyph_outline_preview(
 
                     // Calculate the visible glyph width (without advance width)
                     let visible_glyph_width = max_x - min_x;
-                    
+
                     // For scaling purposes, consider a smaller portion of the advance width
                     // This avoids excess white space while still showing the advance width context
                     let effective_max_x = if advance_width > max_x {
@@ -339,9 +339,9 @@ fn update_glyph_outline_preview(
 
                     // Calculate scaling to fit the preview area
                     // With centering, we can use equal padding on both sides
-                    let horizontal_padding = 8.0;  // Reduced from 10.0
-                    // Vertical padding for visual balance
-                    let vertical_padding = 16.0;  // Reduced from 20.0
+                    let horizontal_padding = 8.0; // Reduced from 10.0
+                                                  // Vertical padding for visual balance
+                    let vertical_padding = 16.0; // Reduced from 20.0
 
                     // Get the dimensions of the preview area
                     let preview_width = 160.0 - (horizontal_padding * 2.0);
@@ -362,10 +362,11 @@ fn update_glyph_outline_preview(
                     let scale = scale_x.min(scale_y) * 1.15;
 
                     // Center the glyph horizontally in the preview
-                    let offset_x = horizontal_padding + (preview_width - glyph_width * scale) / 2.0;
+                    let offset_x = horizontal_padding
+                        + (preview_width - glyph_width * scale) / 2.0;
                     // Center vertically within the available space
-                    let offset_y =
-                        vertical_padding + (preview_height - glyph_height * scale) / 2.0;
+                    let offset_y = vertical_padding
+                        + (preview_height - glyph_height * scale) / 2.0;
 
                     // Spawn a child entity to represent the glyph outlines
                     commands.entity(preview_entity).with_children(|parent| {
@@ -373,12 +374,13 @@ fn update_glyph_outline_preview(
                         if advance_width > max_x {
                             // Calculate positions adjusted for the centered glyph
                             let glyph_right_edge = (max_x - min_x) * scale;
-                            let adv_width_edge = (advance_width - min_x) * scale;
-                            
+                            let adv_width_edge =
+                                (advance_width - min_x) * scale;
+
                             let adv_x1 = offset_x + glyph_right_edge;
                             let adv_x2 = offset_x + adv_width_edge;
-                            let y_pos = 144.0;  // Near bottom of preview
-                            
+                            let y_pos = 144.0; // Near bottom of preview
+
                             // Draw a thin, subtle line to show advance width
                             parent.spawn((
                                 Node {
@@ -389,11 +391,13 @@ fn update_glyph_outline_preview(
                                     height: Val::Px(1.0),
                                     ..default()
                                 },
-                                BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.25)),
+                                BackgroundColor(Color::srgba(
+                                    1.0, 1.0, 1.0, 0.25,
+                                )),
                                 GlyphOutlineLine,
                             ));
                         }
-                        
+
                         // Draw each contour
                         for contour in &outline.contours {
                             draw_contour_lines(
@@ -426,7 +430,7 @@ fn draw_contour_lines(
     // Line color - match the glyph pane border style
     // Note: We don't need to set thickness here as it's used in draw_line
     // The actual thickness is set in the draw_line function
-    
+
     // Find segments between on-curve points, similar to draw_contour_path in src/draw.rs
     let mut segment_start_idx = 0;
     let mut last_was_on_curve = false;
