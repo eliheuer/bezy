@@ -77,25 +77,25 @@ fn update_glyph_pane(world: &mut World) {
     let unicode = if metrics.unicode.is_empty() {
         "Unicode: None".to_string()
     } else {
-        format!("Unicode: U+{}", metrics.unicode.to_uppercase())
+        format!("Unicode: {}", metrics.unicode.to_uppercase())
     };
 
     let advance = if metrics.advance.is_empty() {
         "Advance: --".to_string()
     } else {
-        format!("Advance: {} units", metrics.advance)
+        format!("Advance: {}", metrics.advance)
     };
 
     let lsb = if metrics.left_bearing.is_empty() {
         "LSB: --".to_string()
     } else {
-        format!("LSB: {} units", metrics.left_bearing)
+        format!("LSB: {}", metrics.left_bearing)
     };
 
     let rsb = if metrics.right_bearing.is_empty() {
         "RSB: --".to_string()
     } else {
-        format!("RSB: {} units", metrics.right_bearing)
+        format!("RSB: {}", metrics.right_bearing)
     };
 
     // Log the formatted strings for debugging
@@ -166,30 +166,12 @@ pub fn spawn_glyph_pane(
             GlyphPane,
         ))
         .with_children(|parent| {
-            // Title
-            parent.spawn((
-                Text::new("Glyph Metrics"),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 16.0,
-                    ..default()
-                },
-                TextColor(Color::srgba(1.0, 1.0, 1.0, 0.7)),
-                Node {
-                    margin: UiRect {
-                        bottom: Val::Px(8.0),
-                        ..default()
-                    },
-                    ..default()
-                },
-            ));
-
             // Glyph name
             parent.spawn((
                 Text::new("Glyph: Loading..."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 14.0,
+                    font_size: 24.0,
                     ..default()
                 },
                 TextColor(TEXT_COLOR),
@@ -201,7 +183,7 @@ pub fn spawn_glyph_pane(
                 Text::new("Unicode: Loading..."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 14.0,
+                    font_size: 24.0,
                     ..default()
                 },
                 TextColor(TEXT_COLOR),
@@ -213,7 +195,7 @@ pub fn spawn_glyph_pane(
                 Text::new("Advance: Loading..."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 14.0,
+                    font_size: 24.0,
                     ..default()
                 },
                 TextColor(TEXT_COLOR),
@@ -225,7 +207,7 @@ pub fn spawn_glyph_pane(
                 Text::new("LSB: Loading..."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 14.0,
+                    font_size: 24.0,
                     ..default()
                 },
                 TextColor(TEXT_COLOR),
@@ -237,7 +219,7 @@ pub fn spawn_glyph_pane(
                 Text::new("RSB: Loading..."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 14.0,
+                    font_size: 24.0,
                     ..default()
                 },
                 TextColor(TEXT_COLOR),
@@ -301,7 +283,7 @@ pub fn update_glyph_metrics(
 
                             if let Ok(width) = clean_width.parse::<f32>() {
                                 advance_width = width;
-                                metrics.advance = format!("{}", clean_width);
+                                metrics.advance = format!("{}", width as i32);
                                 bevy::log::info!(
                                     "Parsed advance width: {}",
                                     metrics.advance
@@ -368,8 +350,8 @@ pub fn update_glyph_metrics(
                     // Right side bearing is the distance from the rightmost point to the advance width
                     let rsb = advance_width - max_x;
 
-                    metrics.left_bearing = format!("{:.1}", lsb);
-                    metrics.right_bearing = format!("{:.1}", rsb);
+                    metrics.left_bearing = format!("{}", lsb as i32);
+                    metrics.right_bearing = format!("{}", rsb as i32);
 
                     bevy::log::info!(
                         "Calculated sidebearings - LSB: {}, RSB: {}",
