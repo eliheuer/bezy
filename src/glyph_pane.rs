@@ -189,11 +189,12 @@ pub fn spawn_glyph_pane(
                         bottom: Val::Px(16.0),
                         ..default()
                     },
-                    border: UiRect::all(Val::Px(1.0)),
+                    border: UiRect::all(Val::Px(2.0)),
                     ..default()
                 },
                 BorderColor(Color::srgba(1.0, 1.0, 1.0, 0.3)),
                 BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.5)),
+                BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
                 GlyphOutlinePreview,
             ));
 
@@ -381,10 +382,10 @@ fn draw_contour_lines(
         return;
     }
 
-    // Line color
-    let line_color = Color::WHITE;
-    let thickness = 1.5;
-
+    // Line color - match the glyph pane border style
+    // Note: We don't need to set thickness here as it's used in draw_line
+    // The actual thickness is set in the draw_line function
+    
     // Find segments between on-curve points, similar to draw_contour_path in src/draw.rs
     let mut segment_start_idx = 0;
     let mut last_was_on_curve = false;
@@ -530,8 +531,7 @@ fn draw_cubic_bezier(
 ) {
     // Number of segments to use for approximation
     let segments = 16;
-    let line_color = Color::WHITE;
-    let thickness = 1.5;
+    // Line color and thickness are now set in draw_line to match the glyph pane style
 
     // Calculate points along the curve using the cubic Bezier formula
     let mut last_x = p0_x;
@@ -565,9 +565,9 @@ fn draw_cubic_bezier(
 
 /// Helper function to draw a straight line between two points using multiple small segments
 fn draw_line(parent: &mut ChildBuilder, x1: f32, y1: f32, x2: f32, y2: f32) {
-    // Line color and thickness
-    let line_color = Color::WHITE;
-    let thickness = 1.5;
+    // Line color and thickness - match the glyph pane border style
+    let line_color = Color::srgba(1.0, 1.0, 1.0, 0.3); // Match the border color of the glyph pane
+    let thickness = 2.0; // Match the border thickness of the glyph pane
 
     // Calculate line length
     let dx = x2 - x1;
@@ -586,6 +586,7 @@ fn draw_line(parent: &mut ChildBuilder, x1: f32, y1: f32, x2: f32, y2: f32) {
                 ..default()
             },
             BackgroundColor(line_color),
+            BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)), // Add rounded corners
             GlyphOutlineLine,
         ));
         return;
@@ -604,7 +605,7 @@ fn draw_line(parent: &mut ChildBuilder, x1: f32, y1: f32, x2: f32, y2: f32) {
         let next_x = x1 + dx * next_t;
         let next_y = y1 + dy * next_t;
 
-        // For each segment, we'll place a small rectangular node
+        // For each segment, we'll place a small rectangular node with rounded corners
         parent.spawn((
             Node {
                 position_type: PositionType::Absolute,
@@ -615,6 +616,7 @@ fn draw_line(parent: &mut ChildBuilder, x1: f32, y1: f32, x2: f32, y2: f32) {
                 ..default()
             },
             BackgroundColor(line_color),
+            BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)), // Add rounded corners
             GlyphOutlineLine,
         ));
     }
