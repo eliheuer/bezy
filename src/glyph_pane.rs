@@ -76,7 +76,7 @@ impl Plugin for GlyphPanePlugin {
 fn update_glyph_pane(world: &mut World) {
     // Get the current metrics resource
     let metrics = world.resource::<CurrentGlyphMetrics>();
-
+    
     // Log the current metrics for debugging
     bevy::log::info!("GlyphPane: Current metrics - Name: '{}', Unicode: '{}', Advance: '{}', LSB: '{}', RSB: '{}'", 
         metrics.glyph_name, metrics.unicode, metrics.advance, metrics.left_bearing, metrics.right_bearing);
@@ -165,12 +165,12 @@ pub fn spawn_glyph_pane(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                bottom: Val::Px(32.0),
-                left: Val::Px(32.0),
-                padding: UiRect::all(Val::Px(16.0)),
+                bottom: Val::Px(24.0),
+                left: Val::Px(24.0),
+                padding: UiRect::all(Val::Px(12.0)),
                 margin: UiRect::all(Val::Px(0.0)),
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(8.0),
+                row_gap: Val::Px(6.0),
                 border: UiRect::all(Val::Px(2.0)),
                 ..default()
             },
@@ -183,17 +183,19 @@ pub fn spawn_glyph_pane(
             // Glyph outline preview
             parent.spawn((
                 Node {
-                    width: Val::Px(200.0),
-                    height: Val::Px(200.0),
+                    width: Val::Px(160.0),
+                    height: Val::Px(160.0),
                     margin: UiRect {
-                        bottom: Val::Px(16.0),
-                        ..default()
+                        bottom: Val::Px(12.0),
+                        left: Val::Px(0.0),
+                        right: Val::Px(0.0),
+                        top: Val::Px(0.0),
                     },
-                    border: UiRect::all(Val::Px(2.0)),
+                    padding: UiRect::all(Val::Px(0.0)),
+                    border: UiRect::all(Val::Px(0.0)),
                     ..default()
                 },
-                BorderColor(Color::srgba(1.0, 1.0, 1.0, 0.3)),
-                BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.5)),
+                BackgroundColor(PANEL_BACKGROUND_COLOR),
                 BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
                 GlyphOutlinePreview,
             ));
@@ -203,7 +205,7 @@ pub fn spawn_glyph_pane(
                 Text::new("Glyph: Loading..."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 24.0,
+                    font_size: 18.0,
                     ..default()
                 },
                 TextColor(TEXT_COLOR),
@@ -215,7 +217,7 @@ pub fn spawn_glyph_pane(
                 Text::new("Unicode: Loading..."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 24.0,
+                    font_size: 18.0,
                     ..default()
                 },
                 TextColor(TEXT_COLOR),
@@ -227,7 +229,7 @@ pub fn spawn_glyph_pane(
                 Text::new("Advance: Loading..."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 24.0,
+                    font_size: 18.0,
                     ..default()
                 },
                 TextColor(TEXT_COLOR),
@@ -239,7 +241,7 @@ pub fn spawn_glyph_pane(
                 Text::new("LSB: Loading..."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 24.0,
+                    font_size: 18.0,
                     ..default()
                 },
                 TextColor(TEXT_COLOR),
@@ -251,7 +253,7 @@ pub fn spawn_glyph_pane(
                 Text::new("RSB: Loading..."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 24.0,
+                    font_size: 18.0,
                     ..default()
                 },
                 TextColor(TEXT_COLOR),
@@ -322,18 +324,31 @@ fn update_glyph_outline_preview(
                         .map(|a| a.width as f32)
                         .unwrap_or(0.0);
 
-                    // Extend bounds to include advance width
-                    max_x = max_x.max(advance_width);
+                    // Calculate the visible glyph width (without advance width)
+                    let visible_glyph_width = max_x - min_x;
+                    
+                    // For scaling purposes, consider a smaller portion of the advance width
+                    // This avoids excess white space while still showing the advance width context
+                    let effective_max_x = if advance_width > max_x {
+                        // If advance width extends beyond the glyph outline,
+                        // use a portion of that extension for scaling
+                        max_x + (advance_width - max_x) * 0.5
+                    } else {
+                        max_x
+                    };
 
-                    // Calculate scaling to fit the preview area with padding
-                    let padding = 20.0; // Padding in pixels
+                    // Calculate scaling to fit the preview area
+                    // With centering, we can use equal padding on both sides
+                    let horizontal_padding = 8.0;  // Reduced from 10.0
+                    // Vertical padding for visual balance
+                    let vertical_padding = 16.0;  // Reduced from 20.0
 
                     // Get the dimensions of the preview area
-                    // For simplicity, use fixed sizes since we know the container is 200x200
-                    let preview_width = 200.0 - padding * 2.0;
-                    let preview_height = 200.0 - padding * 2.0;
+                    let preview_width = 160.0 - (horizontal_padding * 2.0);
+                    let preview_height = 160.0 - (vertical_padding * 2.0);
 
-                    let glyph_width = max_x - min_x;
+                    // Use the effective glyph width for scaling purposes
+                    let glyph_width = effective_max_x - min_x;
                     let glyph_height = max_y - min_y;
 
                     // Avoid division by zero
@@ -343,16 +358,42 @@ fn update_glyph_outline_preview(
 
                     let scale_x = preview_width / glyph_width;
                     let scale_y = preview_height / glyph_height;
-                    let scale = scale_x.min(scale_y);
+                    // Slightly increase the scale to utilize more space
+                    let scale = scale_x.min(scale_y) * 1.15;
 
-                    // Offset to center the glyph in the preview
-                    let offset_x =
-                        padding + (preview_width - glyph_width * scale) / 2.0;
+                    // Center the glyph horizontally in the preview
+                    let offset_x = horizontal_padding + (preview_width - glyph_width * scale) / 2.0;
+                    // Center vertically within the available space
                     let offset_y =
-                        padding + (preview_height - glyph_height * scale) / 2.0;
+                        vertical_padding + (preview_height - glyph_height * scale) / 2.0;
 
                     // Spawn a child entity to represent the glyph outlines
                     commands.entity(preview_entity).with_children(|parent| {
+                        // Optional: Draw a subtle indicator for advance width if it extends beyond the glyph
+                        if advance_width > max_x {
+                            // Calculate positions adjusted for the centered glyph
+                            let glyph_right_edge = (max_x - min_x) * scale;
+                            let adv_width_edge = (advance_width - min_x) * scale;
+                            
+                            let adv_x1 = offset_x + glyph_right_edge;
+                            let adv_x2 = offset_x + adv_width_edge;
+                            let y_pos = 144.0;  // Near bottom of preview
+                            
+                            // Draw a thin, subtle line to show advance width
+                            parent.spawn((
+                                Node {
+                                    position_type: PositionType::Absolute,
+                                    left: Val::Px(adv_x1),
+                                    top: Val::Px(y_pos),
+                                    width: Val::Px(adv_x2 - adv_x1),
+                                    height: Val::Px(1.0),
+                                    ..default()
+                                },
+                                BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.25)),
+                                GlyphOutlineLine,
+                            ));
+                        }
+                        
                         // Draw each contour
                         for contour in &outline.contours {
                             draw_contour_lines(
@@ -419,9 +460,9 @@ fn draw_contour_lines(
 
             // Transform points to preview space and flip Y-axis
             let start_x = (start_point.x - min_x) * scale + offset_x;
-            let start_y = 200.0 - ((start_point.y - min_y) * scale + offset_y); // Flip Y-axis
+            let start_y = 160.0 - ((start_point.y - min_y) * scale + offset_y); // Flip Y-axis
             let end_x = (end_point.x - min_x) * scale + offset_x;
-            let end_y = 200.0 - ((end_point.y - min_y) * scale + offset_y); // Flip Y-axis
+            let end_y = 160.0 - ((end_point.y - min_y) * scale + offset_y); // Flip Y-axis
 
             // Draw a straight line
             draw_line(parent, start_x, start_y, end_x, end_y);
@@ -478,7 +519,7 @@ fn draw_curve_segment(
     // Transform points to screen space
     let transform_point = |p: &norad::ContourPoint| -> (f32, f32) {
         let x = (p.x - min_x) * scale + offset_x;
-        let y = 200.0 - ((p.y - min_y) * scale + offset_y); // Flip Y-axis
+        let y = 160.0 - ((p.y - min_y) * scale + offset_y); // Flip Y-axis
         (x, y)
     };
 
@@ -565,9 +606,9 @@ fn draw_cubic_bezier(
 
 /// Helper function to draw a straight line between two points using multiple small segments
 fn draw_line(parent: &mut ChildBuilder, x1: f32, y1: f32, x2: f32, y2: f32) {
-    // Line color and thickness - match the glyph pane border style
-    let line_color = Color::srgba(1.0, 1.0, 1.0, 0.3); // Match the border color of the glyph pane
-    let thickness = 2.0; // Match the border thickness of the glyph pane
+    // Line color and thickness - use a higher contrast color for visibility
+    let line_color = Color::srgba(1.0, 1.0, 1.0, 0.8); // Increased opacity for better visibility
+    let thickness = 1.6; // Reduced from 2.0 to match the smaller size
 
     // Calculate line length
     let dx = x2 - x1;
@@ -586,7 +627,7 @@ fn draw_line(parent: &mut ChildBuilder, x1: f32, y1: f32, x2: f32, y2: f32) {
                 ..default()
             },
             BackgroundColor(line_color),
-            BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)), // Add rounded corners
+            BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)), // Keep rounded corners
             GlyphOutlineLine,
         ));
         return;
