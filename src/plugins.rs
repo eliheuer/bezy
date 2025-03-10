@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::cameras::toggle_camera_controls;
 use crate::crypto_toolbar::CryptoToolbarPlugin;
 use crate::edit_mode_toolbar::CurrentEditMode;
+use crate::glyph_pane::GlyphPanePlugin;
 use crate::setup::setup;
 use crate::theme::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::ufo::{initialize_font_state, print_font_info_to_terminal};
@@ -81,6 +82,7 @@ impl Plugin for BezySystems {
             DebugPlugin,
             CameraPlugin,
             ToolbarPlugin,
+            GlyphPanePlugin,
         ));
     }
 }
