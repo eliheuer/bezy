@@ -42,13 +42,27 @@ pub struct GlyphLeftBearingText;
 #[derive(Component)]
 pub struct GlyphRightBearingText;
 
+/// Component marker for the glyph outline preview
+#[derive(Component)]
+pub struct GlyphOutlinePreview;
+
+/// Component marker for glyph outline lines in the preview
+#[derive(Component)]
+struct GlyphOutlineLine;
+
 /// Plugin that adds the glyph pane functionality
 pub struct GlyphPanePlugin;
 
 impl Plugin for GlyphPanePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<CurrentGlyphMetrics>()
-            .add_systems(Update, (update_glyph_pane, update_glyph_metrics));
+        app.init_resource::<CurrentGlyphMetrics>().add_systems(
+            Update,
+            (
+                update_glyph_pane,
+                update_glyph_metrics,
+                update_glyph_outline_preview,
+            ),
+        );
     }
 }
 
@@ -166,6 +180,23 @@ pub fn spawn_glyph_pane(
             GlyphPane,
         ))
         .with_children(|parent| {
+            // Glyph outline preview
+            parent.spawn((
+                Node {
+                    width: Val::Px(200.0),
+                    height: Val::Px(200.0),
+                    margin: UiRect {
+                        bottom: Val::Px(16.0),
+                        ..default()
+                    },
+                    border: UiRect::all(Val::Px(1.0)),
+                    ..default()
+                },
+                BorderColor(Color::srgba(1.0, 1.0, 1.0, 0.3)),
+                BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.5)),
+                GlyphOutlinePreview,
+            ));
+
             // Glyph name
             parent.spawn((
                 Text::new("Glyph: Loading..."),
@@ -226,6 +257,228 @@ pub fn spawn_glyph_pane(
                 GlyphRightBearingText,
             ));
         });
+}
+
+/// Draws the current glyph outline in the glyph pane preview
+fn update_glyph_outline_preview(
+    app_state: Res<data::AppState>,
+    cli_args: Res<cli::CliArgs>,
+    mut commands: Commands,
+    preview_query: Query<(Entity, &Node), With<GlyphOutlinePreview>>,
+    outline_lines_query: Query<Entity, With<GlyphOutlineLine>>,
+) {
+    // Skip if no outline preview entity found
+    if preview_query.is_empty() {
+        return;
+    }
+
+    // Clean up existing outline lines
+    for entity in outline_lines_query.iter() {
+        commands.entity(entity).despawn();
+    }
+
+    // Get the glyph information
+    if app_state.workspace.font.ufo.font_info.is_none() {
+        return;
+    }
+
+    if let Some(glyph_name) = cli_args.find_glyph(&app_state.workspace.font.ufo)
+    {
+        if let Some(default_layer) =
+            app_state.workspace.font.ufo.get_default_layer()
+        {
+            if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
+                if let Some(outline) = &glyph.outline {
+                    // Get the preview container for sizing
+                    let (preview_entity, node) = preview_query.single();
+
+                    // Calculate the bounding box of the glyph
+                    let mut min_x = f32::MAX;
+                    let mut min_y = f32::MAX;
+                    let mut max_x = f32::MIN;
+                    let mut max_y = f32::MIN;
+                    let mut has_points = false;
+
+                    // Find glyph bounds
+                    for contour in &outline.contours {
+                        for point in &contour.points {
+                            has_points = true;
+                            min_x = min_x.min(point.x);
+                            max_x = max_x.max(point.x);
+                            min_y = min_y.min(point.y);
+                            max_y = max_y.max(point.y);
+                        }
+                    }
+
+                    if !has_points {
+                        return;
+                    }
+
+                    // Get advance width if available
+                    let advance_width = glyph
+                        .advance
+                        .as_ref()
+                        .map(|a| a.width as f32)
+                        .unwrap_or(0.0);
+
+                    // Extend bounds to include advance width
+                    max_x = max_x.max(advance_width);
+
+                    // Calculate scaling to fit the preview area with padding
+                    let padding = 20.0; // Padding in pixels
+
+                    // Get the dimensions of the preview area
+                    // For simplicity, use fixed sizes since we know the container is 200x200
+                    let preview_width = 200.0 - padding * 2.0;
+                    let preview_height = 200.0 - padding * 2.0;
+
+                    let glyph_width = max_x - min_x;
+                    let glyph_height = max_y - min_y;
+
+                    // Avoid division by zero
+                    if glyph_width <= 0.0 || glyph_height <= 0.0 {
+                        return;
+                    }
+
+                    let scale_x = preview_width / glyph_width;
+                    let scale_y = preview_height / glyph_height;
+                    let scale = scale_x.min(scale_y);
+
+                    // Offset to center the glyph in the preview
+                    let offset_x =
+                        padding + (preview_width - glyph_width * scale) / 2.0;
+                    let offset_y =
+                        padding + (preview_height - glyph_height * scale) / 2.0;
+
+                    // Spawn a child entity to represent the glyph outlines
+                    commands.entity(preview_entity).with_children(|parent| {
+                        // Draw each contour
+                        for contour in &outline.contours {
+                            draw_contour_lines(
+                                parent, contour, min_x, min_y, scale, offset_x,
+                                offset_y,
+                            );
+                        }
+                    });
+                }
+            }
+        }
+    }
+}
+
+/// Helper function to draw a contour as lines in the preview
+fn draw_contour_lines(
+    parent: &mut ChildBuilder,
+    contour: &norad::Contour,
+    min_x: f32,
+    min_y: f32,
+    scale: f32,
+    offset_x: f32,
+    offset_y: f32,
+) {
+    let points = &contour.points;
+    if points.is_empty() {
+        return;
+    }
+
+    // We'll need to draw lines between on-curve points
+    let mut on_curve_points = Vec::new();
+
+    // Collect all on-curve points
+    for (i, point) in points.iter().enumerate() {
+        if is_on_curve(point) {
+            on_curve_points.push((i, point));
+        }
+    }
+
+    // If we have fewer than 2 on-curve points, we can't draw any lines
+    if on_curve_points.len() < 2 {
+        return;
+    }
+
+    // Draw lines between on-curve points using multiple small line segments
+    // This is a workaround since Bevy UI doesn't support rotations directly
+    for i in 0..on_curve_points.len() {
+        let (_, start_point) = on_curve_points[i];
+        let (_, end_point) = on_curve_points[(i + 1) % on_curve_points.len()];
+
+        // Transform points to preview space
+        let start_x = (start_point.x - min_x) * scale + offset_x;
+        let start_y = (start_point.y - min_y) * scale + offset_y;
+        let end_x = (end_point.x - min_x) * scale + offset_x;
+        let end_y = (end_point.y - min_y) * scale + offset_y;
+
+        // Use Bresenham's line algorithm to draw line segments
+        draw_line(parent, start_x, start_y, end_x, end_y);
+    }
+}
+
+/// Helper function to draw a straight line between two points using multiple small segments
+fn draw_line(parent: &mut ChildBuilder, x1: f32, y1: f32, x2: f32, y2: f32) {
+    // Line color and thickness
+    let line_color = Color::WHITE;
+    let thickness = 1.5;
+
+    // Calculate line length
+    let dx = x2 - x1;
+    let dy = y2 - y1;
+    let length = (dx * dx + dy * dy).sqrt();
+
+    // If very short, just draw a single segment
+    if length < 2.0 {
+        parent.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(x1),
+                top: Val::Px(y1),
+                width: Val::Px(thickness),
+                height: Val::Px(thickness),
+                ..default()
+            },
+            BackgroundColor(line_color),
+            GlyphOutlineLine,
+        ));
+        return;
+    }
+
+    // We'll use a simple line drawing algorithm with segments
+    // Number of segments based on length
+    let num_segments = (length / 2.0).ceil().max(1.0) as usize;
+
+    for i in 0..num_segments {
+        let t = i as f32 / num_segments as f32;
+        let next_t = (i + 1) as f32 / num_segments as f32;
+
+        let x = x1 + dx * t;
+        let y = y1 + dy * t;
+        let next_x = x1 + dx * next_t;
+        let next_y = y1 + dy * next_t;
+
+        // For each segment, we'll place a small rectangular node
+        parent.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(x),
+                top: Val::Px(y),
+                width: Val::Px(thickness),
+                height: Val::Px(thickness),
+                ..default()
+            },
+            BackgroundColor(line_color),
+            GlyphOutlineLine,
+        ));
+    }
+}
+
+/// Helper function to check if a point is on-curve
+fn is_on_curve(point: &norad::ContourPoint) -> bool {
+    matches!(
+        point.typ,
+        norad::PointType::Move
+            | norad::PointType::Line
+            | norad::PointType::Curve
+            | norad::PointType::QCurve
+    )
 }
 
 /// Updates the glyph metrics for the current glyph
