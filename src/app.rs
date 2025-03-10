@@ -32,6 +32,7 @@ use crate::draw::DrawPlugin;
 use crate::edit_mode_toolbar::{
     select::SelectModePlugin, CurrentEditMode, EditModeToolbarPlugin,
 };
+use crate::glyph_pane::GlyphPanePlugin;
 use crate::plugins::BezySystems;
 use crate::selection::SelectionPlugin;
 use crate::text_editor::TextEditorPlugin;
@@ -122,6 +123,8 @@ fn add_plugins(app: &mut App) {
             SelectionPlugin,
             // Text input and editing functionality
             TextEditorPlugin,
+            // Glyph metrics display
+            GlyphPanePlugin,
         ))
         // ---- Core Application Logic ----
         // These plugins handle the application's main systems and behavior
@@ -130,5 +133,7 @@ fn add_plugins(app: &mut App) {
             BezySystems,
             // Command handling for user actions
             crate::commands::CommandsPlugin,
-        ));
+        ))
+        // Add the glyph metrics update system
+        .add_systems(Update, crate::update_glyph_metrics);
 }

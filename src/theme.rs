@@ -55,6 +55,10 @@ pub const DEBUG_SHOW_ORIGIN_CROSS: bool = false; // Set to true to show the red 
 // Background Color
 pub const BACKGROUND_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
 
+// UI Panel Colors
+pub const PANEL_BACKGROUND_COLOR: Color = Color::srgb(0.15, 0.15, 0.15);
+pub const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
+
 // Checkerboard Configuration
 pub const CHECKERBOARD_UNIT_SIZE: f32 = 8.0; // Width and height of each square in pixels
 pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.15, 0.15, 0.15); // Single color for checkerboard squares
