@@ -1,3 +1,13 @@
+//! commands.rs - Event-based command system for the font editor
+//!
+//! This file defines the application's command system using Bevy's event system:
+//! 1. Event structs define different actions (file operations, glyph management)
+//! 2. Handler functions process these events and update application state
+//! 3. CommandsPlugin registers all events and connects handlers to the application
+//!
+//! To add new functionality, define a new event struct and corresponding handler,
+//! then register both in the CommandsPlugin::build method.
+
 use crate::data::AppState;
 use crate::draw::AppStateChanged;
 use bevy::prelude::*;
