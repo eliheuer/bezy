@@ -22,7 +22,7 @@ use norad::glyph::{ContourPoint, Glyph, GlyphName, PointType};
 use norad::{FontInfo, Ufo};
 
 /// Default units per em value used when creating new fonts or when this value is missing
-const DEFAULT_UNITS_PER_EM: f64 = 1000.;
+const DEFAULT_UNITS_PER_EM: f64 = 1024.;
 
 /// The top level application state.
 /// 
@@ -55,7 +55,7 @@ impl AppState {
 /// 
 /// This structure maintains the state of the current editing session,
 /// including the font data, selected glyphs, and open editor instances.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 #[allow(dead_code)]
 pub struct Workspace {
     /// The font being edited, wrapped in an Arc for efficient sharing
@@ -66,6 +66,17 @@ pub struct Workspace {
     pub open_glyphs: Arc<HashMap<GlyphName, Entity>>,
     /// Simplified font information for quick access to common properties
     pub info: SimpleFontInfo,
+}
+
+impl Default for Workspace {
+    fn default() -> Self {
+        Workspace {
+            font: Arc::new(FontObject::default()),
+            selected: None,
+            open_glyphs: Arc::new(HashMap::new()),
+            info: SimpleFontInfo::default(),
+        }
+    }
 }
 
 /// Represents a UFO font and its file path
@@ -132,6 +143,37 @@ pub struct FontMetrics {
     pub italic_angle: Option<f64>,
 }
 
+/// Represents the spacing on either side of a glyph
+/// 
+/// Sidebearings control the horizontal spacing of glyphs:
+/// - Left sidebearing: Space before the glyph
+/// - Right sidebearing: Space after the glyph
+///
+/// # Usage in Bevy
+/// This struct can be used in a glyph editor system to adjust spacing:
+/// 1. Create a Bevy system that controls sidebearing adjustments
+/// 2. Use it with UI sliders or input fields for direct editing
+/// 3. Connect to a GlyphComponent to apply spacing changes
+#[derive(Clone, Debug, PartialEq)]
+pub struct Sidebearings {
+    pub left: f64,
+    pub right: f64,
+}
+
+impl Sidebearings {
+    /// Creates a new Sidebearings instance
+    #[allow(dead_code)]
+    pub fn new(left: f64, right: f64) -> Self {
+        Sidebearings { left, right }
+    }
+    
+    /// Creates default sidebearings with zero spacing
+    #[allow(dead_code)]
+    pub fn zero() -> Self {
+        Sidebearings { left: 0.0, right: 0.0 }
+    }
+}
+
 impl Workspace {
     /// Sets a new font file in the workspace
     /// 
@@ -196,6 +238,58 @@ impl Workspace {
     pub fn font_mut(&mut self) -> &mut FontObject {
         Arc::make_mut(&mut self.font)
     }
+
+    /* COMMENTED OUT DUE TO NORAD API INCOMPATIBILITY
+    /// Find a glyph by Unicode codepoint
+    ///
+    /// # Usage in Bevy
+    /// Implement a character search function in the UI:
+    /// ```
+    /// fn search_character_system(
+    ///     mut app_state: ResMut<AppState>,
+    ///     mut char_input: ResMut<CharSearchState>,
+    /// ) {
+    ///     if let Some(search_char) = char_input.get_char() {
+    ///         if let Some(glyph_name) = app_state.workspace.find_glyph_by_codepoint(search_char) {
+    ///             // Select the found glyph
+    ///             app_state.workspace.selected = Some(glyph_name);
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn find_glyph_by_codepoint(&self, codepoint: char) -> Option<GlyphName> {
+        // Implementation needs to be updated for norad's API
+    }
+    */
+
+    /* COMMENTED OUT DUE TO INCOMPATIBILITY
+    /// Create a new preview session
+    ///
+    /// # Usage in Bevy
+    /// Create a preview panel in the UI:
+    /// ```
+    /// fn spawn_preview_panel(
+    ///     mut commands: Commands,
+    ///     mut app_state: ResMut<AppState>,
+    /// ) {
+    ///     let entity = commands.spawn(NodeBundle {
+    ///         // UI configuration
+    ///     }).id();
+    ///     
+    ///     let preview_session = app_state.workspace.create_preview_session(entity);
+    ///     
+    ///     commands.entity(entity).insert(PreviewSessionComponent(preview_session));
+    /// }
+    /// ```
+    pub fn create_preview_session(&mut self, entity: Entity) -> PreviewSession {
+        PreviewSession::new(entity)
+    }
+    
+    /// Build a simple representation of this font for previews
+    pub fn build_preview_data(&self) -> FontPreviewData {
+        // Implementation needs to be updated to use the correct norad API
+    }
+    */
 }
 
 impl FontObject {
@@ -607,5 +701,343 @@ impl BezPath {
     /// Adds a ClosePath command to the path
     pub fn close_path(&mut self) {
         self.path.push(PathCommand::ClosePath);
+    }
+
+    /// Calculate the bounds of this path
+    #[allow(dead_code)]
+    pub fn bounds(&self) -> Rect {
+        // Start with an empty rectangle
+        let mut min_x = f32::MAX;
+        let mut min_y = f32::MAX;
+        let mut max_x = f32::MIN;
+        let mut max_y = f32::MIN;
+        
+        // Current point state - prefix with underscore to indicate it's intentionally unused
+        let mut _current = Vec2::ZERO;
+        
+        // Helper to update bounds with a point
+        let mut update_bounds = |point: Vec2| {
+            min_x = min_x.min(point.x);
+            min_y = min_y.min(point.y);
+            max_x = max_x.max(point.x);
+            max_y = max_y.max(point.y);
+        };
+        
+        // Process each command to find bounds
+        for cmd in &self.path {
+            match cmd {
+                PathCommand::MoveTo(point) => {
+                    _current = *point;
+                    update_bounds(_current);
+                },
+                PathCommand::LineTo(point) => {
+                    _current = *point;
+                    update_bounds(_current);
+                },
+                PathCommand::QuadTo(control, point) => {
+                    // For quadratic curves, we check the control point and end point
+                    update_bounds(*control);
+                    _current = *point;
+                    update_bounds(_current);
+                    
+                    // In a perfect implementation, we would also check points along the curve
+                    // where the derivative is zero, but this is a reasonable approximation
+                },
+                PathCommand::CurveTo(control1, control2, point) => {
+                    // For cubic curves, we check both control points and end point
+                    update_bounds(*control1);
+                    update_bounds(*control2);
+                    _current = *point;
+                    update_bounds(_current);
+                    
+                    // In a perfect implementation, we would also check points along the curve
+                    // where the derivative is zero, but this is a reasonable approximation
+                },
+                PathCommand::ClosePath => {
+                    // ClosePath doesn't change bounds
+                }
+            }
+        }
+        
+        // If we didn't find any points, return a zero rect
+        if min_x == f32::MAX {
+            return Rect::from_corners(Vec2::ZERO, Vec2::ZERO);
+        }
+        
+        // Create rectangle from min/max values
+        Rect::from_corners(
+            Vec2::new(min_x, min_y),
+            Vec2::new(max_x, max_y)
+        )
+    }
+}
+
+impl GlyphDetail {
+    /// Calculate the sidebearings for this glyph
+    #[allow(dead_code)]
+    pub fn compute_sidebearings(&self) -> Sidebearings {
+        // If the glyph has an outline
+        if let Some(_outline) = &self.glyph.outline {
+            // Use advance instead of width since that's what norad provides
+            let advance_width = self.glyph.advance.as_ref().map(|v| v.width as f64).unwrap_or(0.0);
+
+            // Calculate bounds of the glyph's outline
+            let bounds = self.compute_bounds();
+            
+            // Left sidebearing is the left edge of the glyph outline
+            let left = bounds.min.x as f64;
+            
+            // Right sidebearing is the distance from the right edge 
+            // of the outline to the advance width
+            let right = advance_width - bounds.max.x as f64;
+            
+            Sidebearings::new(left, right)
+        } else {
+            // Default sidebearings for glyphs without outlines
+            Sidebearings::zero()
+        }
+    }
+    
+    /// Calculate the bounds of the glyph's outline
+    #[allow(dead_code)]
+    pub fn compute_bounds(&self) -> Rect {
+        // Use the BezPath's bounds method
+        self.outline.bounds()
+    }
+    
+    /// Calculate the layout bounds of the glyph
+    /// 
+    /// This includes both the outline and the advance width
+    #[allow(dead_code)]
+    pub fn layout_bounds(&self) -> Rect {
+        // Get the outline bounds
+        let mut bounds = self.compute_bounds();
+        
+        // If the glyph has an advance, extend the bounds to include it
+        if let Some(advance) = &self.glyph.advance {
+            let w = advance.width as f32;
+            if bounds.max.x < w {
+                bounds.max.x = w;
+            }
+        }
+        
+        bounds
+    }
+    
+    /// Get the advance width of the glyph
+    #[allow(dead_code)]
+    pub fn advance(&self) -> f64 {
+        self.glyph.advance.as_ref().map(|v| v.width as f64).unwrap_or(0.0)
+    }
+    
+    /// Set the advance width of the glyph
+    #[allow(dead_code)]
+    pub fn set_advance(&mut self, width: f64) {
+        let glyph = Arc::make_mut(&mut self.glyph);
+        // Use the correct way to set advance in norad
+        glyph.advance = Some(norad::Advance { 
+            width: width as f32,
+            height: 0.0,  // Height is a required field, not optional
+        });
+    }
+}
+
+/// A preview session for testing fonts with custom text
+///
+/// # Usage in Bevy
+/// Create a preview system that renders text using the current font:
+/// ```
+/// fn update_preview_system(
+///     app_state: Res<AppState>,
+///     mut preview_query: Query<(&PreviewTag, &mut Text)>,
+///     preview_sessions: Query<(&Entity, &PreviewSessionComponent)>,
+/// ) {
+///     // For each preview session
+///     // Get the preview data from app_state
+///     // Update the Text component with the rendered glyphs
+/// }
+/// ```
+#[derive(Clone)]
+#[allow(dead_code)]
+pub struct PreviewSession {
+    /// The font size to render at (in pixels)
+    pub font_size: f64,
+    /// The text to display
+    pub text: Arc<String>,
+    /// Entity associated with this preview in the UI
+    pub entity: Entity,
+}
+
+impl PreviewSession {
+    /// Create a new preview session with default values
+    #[allow(dead_code)]
+    pub fn new(entity: Entity) -> Self {
+        PreviewSession {
+            font_size: 72.0,
+            text: Arc::new("The quick brown fox jumps over the lazy dog".to_string()),
+            entity,
+        }
+    }
+    
+    /// Set the text to display
+    #[allow(dead_code)]
+    pub fn set_text(&mut self, text: String) {
+        self.text = Arc::new(text);
+    }
+    
+    /// Set the font size
+    #[allow(dead_code)]
+    pub fn set_font_size(&mut self, size: f64) {
+        self.font_size = size.max(1.0); // Ensure size is at least 1
+    }
+}
+
+/// A simplified glyph representation for preview rendering
+///
+/// # Usage in Bevy
+/// This can be used in a text preview rendering system:
+/// ```
+/// fn render_preview_text(
+///     preview_data: &FontPreviewData,
+///     text: &str,
+///     font_size: f64,
+/// ) -> Vec<Entity> {
+///     // For each character in text
+///     // Get the corresponding glyph from preview_data
+///     // Create entity with the glyph path scaled to font_size
+///     // Position correctly based on advance width
+/// }
+/// ```
+#[derive(Clone)]
+#[allow(dead_code)]
+pub struct PreviewGlyph {
+    /// The glyph name
+    pub name: GlyphName,
+    /// Unicode codepoints associated with this glyph
+    pub codepoints: Vec<char>,
+    /// The bezier path representing the glyph
+    pub path: Arc<BezPath>,
+    /// The advance width of the glyph
+    pub advance: f64,
+}
+
+/// Simplified font data for preview rendering
+///
+/// # Usage in Bevy
+/// Create a resource that caches this data and updates when the font changes:
+/// ```
+/// fn update_preview_data_system(
+///     app_state: Res<AppState>,
+///     mut preview_data: ResMut<FontPreviewResource>,
+/// ) {
+///     // Check if font has changed since last update
+///     // If so, update the preview_data with app_state.workspace.build_preview_data()
+/// }
+/// ```
+#[derive(Clone)]
+#[allow(dead_code)]
+pub struct FontPreviewData {
+    /// Map of glyph name to preview glyph data
+    pub glyphs: HashMap<GlyphName, PreviewGlyph>,
+    /// Font metrics for proper rendering
+    pub metrics: FontMetrics,
+    /// Font family name
+    pub family_name: String,
+    /// Font style name
+    pub style_name: String,
+}
+
+/// Represents a 2D transformation matrix
+///
+/// # Usage in Bevy
+/// Create transformation tools in the glyph editor:
+/// ```
+/// fn glyph_transform_system(
+///     mut app_state: ResMut<AppState>,
+///     input: Res<Input<KeyCode>>,
+///     mouse: Res<MouseInput>,
+/// ) {
+///     // Create appropriate Transform based on input
+///     // Apply to selected glyph using GlyphDetail::transform_outline
+/// }
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+pub struct Transform {
+    /// Scale X component
+    pub xx: f64,
+    /// Shear Y component
+    pub xy: f64,
+    /// Shear X component
+    pub yx: f64,
+    /// Scale Y component
+    pub yy: f64,
+    /// Translation X component
+    pub tx: f64,
+    /// Translation Y component
+    pub ty: f64,
+}
+
+impl Transform {
+    /// Create a new identity transform
+    #[allow(dead_code)]
+    pub fn identity() -> Self {
+        Transform {
+            xx: 1.0, xy: 0.0,
+            yx: 0.0, yy: 1.0,
+            tx: 0.0, ty: 0.0,
+        }
+    }
+    
+    /// Create a translation transform
+    #[allow(dead_code)]
+    pub fn translate(tx: f64, ty: f64) -> Self {
+        Transform {
+            xx: 1.0, xy: 0.0,
+            yx: 0.0, yy: 1.0,
+            tx, ty,
+        }
+    }
+    
+    /// Create a scaling transform
+    #[allow(dead_code)]
+    pub fn scale(sx: f64, sy: f64) -> Self {
+        Transform {
+            xx: sx, xy: 0.0,
+            yx: 0.0, yy: sy,
+            tx: 0.0, ty: 0.0,
+        }
+    }
+    
+    /// Create a rotation transform (angle in radians)
+    #[allow(dead_code)]
+    pub fn rotate(angle: f64) -> Self {
+        let cos_angle = angle.cos();
+        let sin_angle = angle.sin();
+        Transform {
+            xx: cos_angle, xy: -sin_angle,
+            yx: sin_angle, yy: cos_angle,
+            tx: 0.0, ty: 0.0,
+        }
+    }
+    
+    /// Transform a point using this transform
+    #[allow(dead_code)]
+    pub fn transform_point(&self, x: f64, y: f64) -> (f64, f64) {
+        let new_x = x * self.xx + y * self.xy + self.tx;
+        let new_y = x * self.yx + y * self.yy + self.ty;
+        (new_x, new_y)
+    }
+    
+    /// Concatenate this transform with another
+    #[allow(dead_code)]
+    pub fn concat(&self, other: &Transform) -> Transform {
+        Transform {
+            xx: self.xx * other.xx + self.xy * other.yx,
+            xy: self.xx * other.xy + self.xy * other.yy,
+            yx: self.yx * other.xx + self.yy * other.yx,
+            yy: self.yx * other.xy + self.yy * other.yy,
+            tx: self.tx * other.xx + self.ty * other.yx + other.tx,
+            ty: self.tx * other.xy + self.ty * other.yy + other.ty,
+        }
     }
 }

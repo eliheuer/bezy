@@ -58,11 +58,15 @@ pub const BACKGROUND_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
 // UI Panel Colors
 pub const PANEL_BACKGROUND_COLOR: Color = Color::srgb(0.15, 0.15, 0.15);
 pub const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
+#[allow(dead_code)]
 pub const SECONDARY_TEXT_COLOR: Color = Color::srgb(0.6, 0.6, 0.6);
 
 // Coordinate Pane
+#[allow(dead_code)]
 pub const FOCUS_BACKGROUND_COLOR: Color = Color::srgb(1.0, 0.5, 0.0);
+#[allow(dead_code)]
 pub const OFF_CURVE_POINT_OUTER_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
+#[allow(dead_code)]
 pub const PATH_FILL_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
 
 // Checkerboard Configuration

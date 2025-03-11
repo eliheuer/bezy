@@ -63,7 +63,7 @@ pub fn draw_metrics_system(
         debug!("Descender: {:?}", metrics.descender);
 
         // Get the test glyph name from CLI args
-        let test_glyph = cli_args.get_test_glyph();
+        let _test_glyph = cli_args.get_test_glyph();
         let codepoint_string = cli_args.get_codepoint_string();
 
         // If we're testing a specific codepoint and it wasn't found, don't draw metrics

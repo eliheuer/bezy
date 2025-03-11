@@ -1,7 +1,5 @@
-use bevy::prelude::Resource;
+use bevy::prelude::*;
 use clap::Parser;
-use norad::GlyphName;
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Bezy font editor command line interface

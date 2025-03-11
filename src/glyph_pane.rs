@@ -293,7 +293,7 @@ fn update_glyph_outline_preview(
             if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
                 if let Some(outline) = &glyph.outline {
                     // Get the preview container for sizing
-                    let (preview_entity, node) = preview_query.single();
+                    let (preview_entity, _node) = preview_query.single();
 
                     // Calculate the bounding box of the glyph
                     let mut min_x = f32::MAX;
@@ -325,7 +325,7 @@ fn update_glyph_outline_preview(
                         .unwrap_or(0.0);
 
                     // Calculate the visible glyph width (without advance width)
-                    let visible_glyph_width = max_x - min_x;
+                    let _visible_glyph_width = max_x - min_x;
 
                     // For scaling purposes, consider a smaller portion of the advance width
                     // This avoids excess white space while still showing the advance width context
@@ -647,8 +647,8 @@ fn draw_line(parent: &mut ChildBuilder, x1: f32, y1: f32, x2: f32, y2: f32) {
 
         let x = x1 + dx * t;
         let y = y1 + dy * t;
-        let next_x = x1 + dx * next_t;
-        let next_y = y1 + dy * next_t;
+        let _next_x = x1 + dx * next_t;
+        let _next_y = y1 + dy * next_t;
 
         // For each segment, we'll place a small rectangular node with rounded corners
         parent.spawn((
