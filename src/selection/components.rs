@@ -26,7 +26,7 @@ use bevy::prelude::*;
 // - Click on empty space -> Clear selection
 
 /// Component that marks an entity as selectable
-/// 
+///
 /// Attach this component to any entity that should be interactable
 /// via mouse clicks or rectangular selection.
 ///
@@ -39,7 +39,7 @@ use bevy::prelude::*;
 pub struct Selectable;
 
 /// Component that marks an entity as currently selected
-/// 
+///
 /// This component is dynamically added to entities when they are selected
 /// by the user and removed when deselected. It can be used by rendering
 /// systems to change the visual appearance of selected elements.
@@ -52,7 +52,7 @@ pub struct Selectable;
 pub struct Selected;
 
 /// Component that marks an entity as being hovered
-/// 
+///
 /// This component is dynamically added to entities when the mouse cursor
 /// is positioned over them. It enables visual feedback (like highlighting)
 /// before the user actually clicks to select.
@@ -65,14 +65,14 @@ pub struct Selected;
 pub struct Hovered;
 
 /// Component that marks a glyph point's type (on-curve or off-curve)
-/// 
+///
 /// In font editing, points can be either on the actual curve path or
 /// control points that influence the curve's shape but aren't on the path.
 /// This distinction affects both behavior and visual representation.
 ///
 /// This component works together with the selection system to determine:
 /// - How points are rendered (different visual styles)
-/// - How they behave when manipulated (e.g., on-curve points move segments, 
+/// - How they behave when manipulated (e.g., on-curve points move segments,
 ///   off-curve points affect curvature)
 /// - Selection grouping behavior (selecting a curve might select its points)
 #[derive(Component, Debug, Clone, Reflect)]
@@ -91,7 +91,7 @@ impl Default for PointType {
 }
 
 /// Component for rectangle selection in progress
-/// 
+///
 /// This component represents the current selection rectangle drawn by the user
 /// when performing a drag selection. It stores both the starting point (where
 /// the mouse was first pressed) and the current end point (current mouse position).
@@ -122,7 +122,7 @@ impl Default for SelectionRect {
 }
 
 /// Resource to track selection state
-/// 
+///
 /// This resource maintains the global state of the selection system, including
 /// which entities are currently selected, whether multi-select mode is active,
 /// and the status of drag selection operations. It's updated by selection-related
@@ -149,7 +149,7 @@ pub struct SelectionState {
 
 impl SelectionState {
     /// Add an entity to the selected list
-    /// 
+    ///
     /// If the entity is not already selected, adds it to the selection and
     /// updates the last_selected reference. This method doesn't handle
     /// deselection logic or multi-select behavior - that's handled by the
@@ -165,7 +165,7 @@ impl SelectionState {
     }
 
     /// Clear the selection state
-    /// 
+    ///
     /// Removes all entities from the selection and resets the last_selected
     /// reference. This is typically called when clicking on empty space or
     /// when explicitly clearing the selection.
@@ -179,7 +179,7 @@ impl SelectionState {
     }
 
     /// Check if the selection is empty
-    /// 
+    ///
     /// Returns true if no entities are currently selected.
     /// This is useful for systems that need to know if there's an active selection
     /// before performing operations.
@@ -188,7 +188,7 @@ impl SelectionState {
     }
 
     /// Get the number of selected entities
-    /// 
+    ///
     /// Returns the count of currently selected entities.
     /// This can be used by UI systems to display selection info or by
     /// operation systems to optimize for single vs. multi-selection cases.

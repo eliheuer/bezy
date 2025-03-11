@@ -77,10 +77,6 @@ fn update_glyph_pane(world: &mut World) {
     // Get the current metrics resource
     let metrics = world.resource::<CurrentGlyphMetrics>();
 
-    // Log the current metrics for debugging
-    bevy::log::info!("GlyphPane: Current metrics - Name: '{}', Unicode: '{}', Advance: '{}', LSB: '{}', RSB: '{}'", 
-        metrics.glyph_name, metrics.unicode, metrics.advance, metrics.left_bearing, metrics.right_bearing);
-
     // Format the values for display
     let glyph_name = if metrics.glyph_name.is_empty() {
         "Glyph: (No glyph selected)".to_string()
@@ -111,16 +107,6 @@ fn update_glyph_pane(world: &mut World) {
     } else {
         format!("RSB: {}", metrics.right_bearing)
     };
-
-    // Log the formatted strings for debugging
-    bevy::log::info!(
-        "GlyphPane: Formatted display - {}, {}, {}, {}, {}",
-        glyph_name,
-        unicode,
-        advance,
-        lsb,
-        rsb
-    );
 
     // Update the texts in the UI
     let mut name_query =
@@ -697,13 +683,10 @@ pub fn update_glyph_metrics(
     {
         // Found a glyph, get its details
         let glyph_name_str = glyph_name.to_string();
-        bevy::log::info!("Updating metrics for glyph: {}", glyph_name_str);
-
         metrics.glyph_name = glyph_name_str.clone();
 
         // Set the Unicode information
         if let Some(codepoint) = &cli_args.test_unicode {
-            bevy::log::info!("Glyph Unicode: {}", codepoint);
             metrics.unicode = codepoint.clone();
         } else {
             metrics.unicode = String::new();
@@ -715,8 +698,6 @@ pub fn update_glyph_metrics(
         {
             if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
                 // Get advance width
-                bevy::log::info!("Glyph advance: {:?}", glyph.advance);
-
                 // Extract the advance width value
                 let mut advance_width: f32 = 0.0;
                 if let Some(advance) = &glyph.advance {
@@ -734,10 +715,6 @@ pub fn update_glyph_metrics(
                             if let Ok(width) = clean_width.parse::<f32>() {
                                 advance_width = width;
                                 metrics.advance = format!("{}", width as i32);
-                                bevy::log::info!(
-                                    "Parsed advance width: {}",
-                                    metrics.advance
-                                );
                             } else {
                                 metrics.advance = "?".to_string();
                                 bevy::log::warn!(
@@ -777,11 +754,6 @@ pub fn update_glyph_metrics(
 
                     // If we found valid bounds
                     if has_points && min_x != f32::MAX && max_x != f32::MIN {
-                        bevy::log::info!(
-                            "Glyph outline bounds: min_x={}, max_x={}",
-                            min_x,
-                            max_x
-                        );
                         Some((min_x, max_x))
                     } else {
                         bevy::log::warn!("Glyph has empty or invalid outline");
@@ -802,12 +774,6 @@ pub fn update_glyph_metrics(
 
                     metrics.left_bearing = format!("{}", lsb as i32);
                     metrics.right_bearing = format!("{}", rsb as i32);
-
-                    bevy::log::info!(
-                        "Calculated sidebearings - LSB: {}, RSB: {}",
-                        metrics.left_bearing,
-                        metrics.right_bearing
-                    );
                 } else {
                     // If we couldn't calculate bounds, use placeholder values
                     metrics.left_bearing = "0".to_string();
@@ -817,8 +783,6 @@ pub fn update_glyph_metrics(
                         "Using placeholder values for sidebearings"
                     );
                 }
-
-                bevy::log::info!("Updated glyph metrics successfully");
             } else {
                 bevy::log::warn!("Failed to get glyph from default layer");
             }

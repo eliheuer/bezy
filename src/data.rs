@@ -1,15 +1,15 @@
 //! # Bezy Font Editor - Data Model
-//! 
-//! This file defines the core data structures that represent the state of the Bezy font editor 
+//!
+//! This file defines the core data structures that represent the state of the Bezy font editor
 //! application. The data model follows a hierarchical structure:
-//! 
+//!
 //! - `AppState`: The top-level application state containing the current workspace
 //! - `Workspace`: Represents an editing session for a single font (UFO file)
 //! - `FontObject`: Wraps a UFO font and its file path
 //! - `SimpleFontInfo` and `FontMetrics`: Store font metadata and metrics
 //! - `GlyphDetail`: Contains information about a specific glyph
 //! - `BezPath` and `PathCommand`: Represent Bezier paths for glyph outlines
-//! 
+//!
 //! The module also provides utility functions for font file operations (saving, backup)
 //! and conversion between UFO's representation of paths and Bezy's internal BezPath format.
 
@@ -25,7 +25,7 @@ use norad::{FontInfo, Ufo};
 const DEFAULT_UNITS_PER_EM: f64 = 1024.;
 
 /// The top level application state.
-/// 
+///
 /// This is the main state container for the application, stored as a Bevy Resource.
 /// It holds the current workspace and provides methods to interact with it.
 #[derive(Resource, Default, Clone)]
@@ -35,7 +35,7 @@ pub struct AppState {
 
 impl AppState {
     /// Sets a new font in the workspace
-    /// 
+    ///
     /// # Parameters
     /// - `ufo`: The UFO font to set
     /// - `path`: Optional file path for the font on disk
@@ -44,7 +44,7 @@ impl AppState {
     }
 
     /// Returns a display name for the current font
-    /// 
+    ///
     /// The display name is generated from family and style names
     pub fn get_font_display_name(&self) -> String {
         self.workspace.info.get_display_name()
@@ -52,7 +52,7 @@ impl AppState {
 }
 
 /// A workspace is a single font, corresponding to a UFO file on disk.
-/// 
+///
 /// This structure maintains the state of the current editing session,
 /// including the font data, selected glyphs, and open editor instances.
 #[derive(Clone)]
@@ -80,7 +80,7 @@ impl Default for Workspace {
 }
 
 /// Represents a UFO font and its file path
-/// 
+///
 /// This structure wraps the norad::Ufo type and associates it with
 /// an optional file path on disk.
 #[derive(Clone)]
@@ -93,7 +93,7 @@ pub struct FontObject {
 }
 
 /// Detailed information about a specific glyph.
-/// 
+///
 /// This structure contains all the information needed to display
 /// and edit a glyph, including its outline and font metrics.
 #[derive(Clone)]
@@ -110,7 +110,7 @@ pub struct GlyphDetail {
 }
 
 /// Simplified font information for UI and quick access
-/// 
+///
 /// Contains the most commonly accessed properties of a font
 /// without needing to access the full UFO structure.
 #[derive(Clone)]
@@ -124,7 +124,7 @@ pub struct SimpleFontInfo {
 }
 
 /// Font metrics relevant during editing or drawing.
-/// 
+///
 /// Contains the key measurements that define a font's proportions
 /// and are needed when editing or rendering glyphs.
 #[derive(Clone)]
@@ -144,7 +144,7 @@ pub struct FontMetrics {
 }
 
 /// Represents the spacing on either side of a glyph
-/// 
+///
 /// Sidebearings control the horizontal spacing of glyphs:
 /// - Left sidebearing: Space before the glyph
 /// - Right sidebearing: Space after the glyph
@@ -166,17 +166,20 @@ impl Sidebearings {
     pub fn new(left: f64, right: f64) -> Self {
         Sidebearings { left, right }
     }
-    
+
     /// Creates default sidebearings with zero spacing
     #[allow(dead_code)]
     pub fn zero() -> Self {
-        Sidebearings { left: 0.0, right: 0.0 }
+        Sidebearings {
+            left: 0.0,
+            right: 0.0,
+        }
     }
 }
 
 impl Workspace {
     /// Sets a new font file in the workspace
-    /// 
+    ///
     /// Creates a new FontObject from the provided UFO and path,
     /// then updates the workspace's font and info.
     pub fn set_file(&mut self, ufo: Ufo, path: impl Into<Option<PathBuf>>) {
@@ -189,7 +192,7 @@ impl Workspace {
     }
 
     /// Saves the current font to disk
-    /// 
+    ///
     /// This method:
     /// 1. Updates the font object with current info
     /// 2. Writes to a temporary file first
@@ -219,7 +222,7 @@ impl Workspace {
     }
 
     /// Gets the units per em value for the current font
-    /// 
+    ///
     /// Returns the default value if not specified in the font
     #[allow(dead_code)]
     pub fn units_per_em(&self) -> f64 {
@@ -232,7 +235,7 @@ impl Workspace {
     }
 
     /// Get a mutable reference to the font object
-    /// 
+    ///
     /// Uses Arc::make_mut to ensure unique ownership when mutating
     #[allow(dead_code)]
     pub fn font_mut(&mut self) -> &mut FontObject {
@@ -275,16 +278,16 @@ impl Workspace {
     ///     let entity = commands.spawn(NodeBundle {
     ///         // UI configuration
     ///     }).id();
-    ///     
+    ///
     ///     let preview_session = app_state.workspace.create_preview_session(entity);
-    ///     
+    ///
     ///     commands.entity(entity).insert(PreviewSessionComponent(preview_session));
     /// }
     /// ```
     pub fn create_preview_session(&mut self, entity: Entity) -> PreviewSession {
         PreviewSession::new(entity)
     }
-    
+
     /// Build a simple representation of this font for previews
     pub fn build_preview_data(&self) -> FontPreviewData {
         // Implementation needs to be updated to use the correct norad API
@@ -294,7 +297,7 @@ impl Workspace {
 
 impl FontObject {
     /// Updates the UFO font info with values from SimpleFontInfo
-    /// 
+    ///
     /// This method is used before saving to ensure the UFO data
     /// reflects any changes made through the editor UI.
     #[allow(dead_code)]
@@ -355,7 +358,7 @@ impl FontObject {
 
 impl Default for FontObject {
     /// Creates a default font object with minimal settings
-    /// 
+    ///
     /// Sets up a new UFO with a default family name of "Untitled"
     fn default() -> FontObject {
         let font_info = FontInfo {
@@ -372,7 +375,7 @@ impl Default for FontObject {
 
 impl SimpleFontInfo {
     /// Creates a SimpleFontInfo from a FontObject
-    /// 
+    ///
     /// Extracts relevant information from the UFO's font_info,
     /// providing defaults for missing values.
     fn from_font(font: &FontObject) -> Self {
@@ -399,7 +402,7 @@ impl SimpleFontInfo {
     }
 
     /// Gets a display name combining family and style names
-    /// 
+    ///
     /// Returns "Untitled Font" if both family and style names are empty
     pub fn get_display_name(&self) -> String {
         if self.family_name.is_empty() && self.style_name.is_empty() {
@@ -423,7 +426,7 @@ impl Default for SimpleFontInfo {
 
 impl PartialEq for SimpleFontInfo {
     /// Compares two SimpleFontInfo instances for equality
-    /// 
+    ///
     /// Used to detect if font info has changed and needs updating
     fn eq(&self, other: &Self) -> bool {
         self.family_name == other.family_name
@@ -434,7 +437,7 @@ impl PartialEq for SimpleFontInfo {
 
 impl From<&FontInfo> for FontMetrics {
     /// Converts from norad's FontInfo to our simplified FontMetrics
-    /// 
+    ///
     /// Extracts the relevant metrics and provides default values when needed
     fn from(src: &FontInfo) -> FontMetrics {
         FontMetrics {
@@ -453,7 +456,7 @@ impl From<&FontInfo> for FontMetrics {
 
 impl Default for FontMetrics {
     /// Creates default FontMetrics with standard values
-    /// 
+    ///
     /// Sets units_per_em to the default value and leaves other metrics as None
     fn default() -> Self {
         FontMetrics {
@@ -469,7 +472,7 @@ impl Default for FontMetrics {
 
 impl PartialEq for FontMetrics {
     /// Compares two FontMetrics instances for equality
-    /// 
+    ///
     /// Used to detect if metrics have changed and need updating
     fn eq(&self, other: &Self) -> bool {
         self.units_per_em == other.units_per_em
@@ -482,7 +485,7 @@ impl PartialEq for FontMetrics {
 }
 
 /// Convert a glyph's path from the UFO representation into a `BezPath`
-/// 
+///
 /// This function translates the contour-based representation used by UFO
 /// into our own BezPath format for rendering and editing.
 #[allow(dead_code)]
@@ -569,12 +572,12 @@ pub(crate) fn path_for_glyph(glyph: &Glyph) -> Option<BezPath> {
 }
 
 /// Creates a backup of a UFO file before saving
-/// 
+///
 /// This function:
 /// 1. Creates a backup directory if it doesn't exist
 /// 2. Generates a timestamped backup filename
 /// 3. Moves the original file to the backup location
-/// 
+///
 /// Returns the path to the backup file if created
 #[allow(dead_code)]
 fn backup_ufo_at_path(path: &Path) -> Result<Option<PathBuf>, std::io::Error> {
@@ -603,7 +606,7 @@ fn backup_ufo_at_path(path: &Path) -> Result<Option<PathBuf>, std::io::Error> {
 }
 
 /// Generates a temporary path for saving a UFO file
-/// 
+///
 /// Creates a unique timestamped filename in the same directory
 /// as the original file for atomic save operations.
 #[allow(dead_code)]
@@ -626,7 +629,7 @@ fn temp_write_path(path: &Path) -> PathBuf {
 }
 
 /// Represents a Bezier path for glyph outlines
-/// 
+///
 /// This custom path representation is used for rendering glyphs
 /// in the editor and is compatible with Bevy's Entity Component System.
 #[derive(Component)]
@@ -636,7 +639,7 @@ pub struct BezPath {
 }
 
 /// Commands that make up a Bezier path
-/// 
+///
 /// These correspond to the standard SVG path commands
 /// and represent the different segments in a Bezier path.
 #[derive(Clone, Component)]
@@ -711,10 +714,10 @@ impl BezPath {
         let mut min_y = f32::MAX;
         let mut max_x = f32::MIN;
         let mut max_y = f32::MIN;
-        
+
         // Current point state - prefix with underscore to indicate it's intentionally unused
         let mut _current = Vec2::ZERO;
-        
+
         // Helper to update bounds with a point
         let mut update_bounds = |point: Vec2| {
             min_x = min_x.min(point.x);
@@ -722,53 +725,50 @@ impl BezPath {
             max_x = max_x.max(point.x);
             max_y = max_y.max(point.y);
         };
-        
+
         // Process each command to find bounds
         for cmd in &self.path {
             match cmd {
                 PathCommand::MoveTo(point) => {
                     _current = *point;
                     update_bounds(_current);
-                },
+                }
                 PathCommand::LineTo(point) => {
                     _current = *point;
                     update_bounds(_current);
-                },
+                }
                 PathCommand::QuadTo(control, point) => {
                     // For quadratic curves, we check the control point and end point
                     update_bounds(*control);
                     _current = *point;
                     update_bounds(_current);
-                    
+
                     // In a perfect implementation, we would also check points along the curve
                     // where the derivative is zero, but this is a reasonable approximation
-                },
+                }
                 PathCommand::CurveTo(control1, control2, point) => {
                     // For cubic curves, we check both control points and end point
                     update_bounds(*control1);
                     update_bounds(*control2);
                     _current = *point;
                     update_bounds(_current);
-                    
+
                     // In a perfect implementation, we would also check points along the curve
                     // where the derivative is zero, but this is a reasonable approximation
-                },
+                }
                 PathCommand::ClosePath => {
                     // ClosePath doesn't change bounds
                 }
             }
         }
-        
+
         // If we didn't find any points, return a zero rect
         if min_x == f32::MAX {
             return Rect::from_corners(Vec2::ZERO, Vec2::ZERO);
         }
-        
+
         // Create rectangle from min/max values
-        Rect::from_corners(
-            Vec2::new(min_x, min_y),
-            Vec2::new(max_x, max_y)
-        )
+        Rect::from_corners(Vec2::new(min_x, min_y), Vec2::new(max_x, max_y))
     }
 }
 
@@ -779,40 +779,45 @@ impl GlyphDetail {
         // If the glyph has an outline
         if let Some(_outline) = &self.glyph.outline {
             // Use advance instead of width since that's what norad provides
-            let advance_width = self.glyph.advance.as_ref().map(|v| v.width as f64).unwrap_or(0.0);
+            let advance_width = self
+                .glyph
+                .advance
+                .as_ref()
+                .map(|v| v.width as f64)
+                .unwrap_or(0.0);
 
             // Calculate bounds of the glyph's outline
             let bounds = self.compute_bounds();
-            
+
             // Left sidebearing is the left edge of the glyph outline
             let left = bounds.min.x as f64;
-            
-            // Right sidebearing is the distance from the right edge 
+
+            // Right sidebearing is the distance from the right edge
             // of the outline to the advance width
             let right = advance_width - bounds.max.x as f64;
-            
+
             Sidebearings::new(left, right)
         } else {
             // Default sidebearings for glyphs without outlines
             Sidebearings::zero()
         }
     }
-    
+
     /// Calculate the bounds of the glyph's outline
     #[allow(dead_code)]
     pub fn compute_bounds(&self) -> Rect {
         // Use the BezPath's bounds method
         self.outline.bounds()
     }
-    
+
     /// Calculate the layout bounds of the glyph
-    /// 
+    ///
     /// This includes both the outline and the advance width
     #[allow(dead_code)]
     pub fn layout_bounds(&self) -> Rect {
         // Get the outline bounds
         let mut bounds = self.compute_bounds();
-        
+
         // If the glyph has an advance, extend the bounds to include it
         if let Some(advance) = &self.glyph.advance {
             let w = advance.width as f32;
@@ -820,24 +825,28 @@ impl GlyphDetail {
                 bounds.max.x = w;
             }
         }
-        
+
         bounds
     }
-    
+
     /// Get the advance width of the glyph
     #[allow(dead_code)]
     pub fn advance(&self) -> f64 {
-        self.glyph.advance.as_ref().map(|v| v.width as f64).unwrap_or(0.0)
+        self.glyph
+            .advance
+            .as_ref()
+            .map(|v| v.width as f64)
+            .unwrap_or(0.0)
     }
-    
+
     /// Set the advance width of the glyph
     #[allow(dead_code)]
     pub fn set_advance(&mut self, width: f64) {
         let glyph = Arc::make_mut(&mut self.glyph);
         // Use the correct way to set advance in norad
-        glyph.advance = Some(norad::Advance { 
+        glyph.advance = Some(norad::Advance {
             width: width as f32,
-            height: 0.0,  // Height is a required field, not optional
+            height: 0.0, // Height is a required field, not optional
         });
     }
 }
@@ -874,17 +883,19 @@ impl PreviewSession {
     pub fn new(entity: Entity) -> Self {
         PreviewSession {
             font_size: 72.0,
-            text: Arc::new("The quick brown fox jumps over the lazy dog".to_string()),
+            text: Arc::new(
+                "The quick brown fox jumps over the lazy dog".to_string(),
+            ),
             entity,
         }
     }
-    
+
     /// Set the text to display
     #[allow(dead_code)]
     pub fn set_text(&mut self, text: String) {
         self.text = Arc::new(text);
     }
-    
+
     /// Set the font size
     #[allow(dead_code)]
     pub fn set_font_size(&mut self, size: f64) {
@@ -982,44 +993,56 @@ impl Transform {
     #[allow(dead_code)]
     pub fn identity() -> Self {
         Transform {
-            xx: 1.0, xy: 0.0,
-            yx: 0.0, yy: 1.0,
-            tx: 0.0, ty: 0.0,
+            xx: 1.0,
+            xy: 0.0,
+            yx: 0.0,
+            yy: 1.0,
+            tx: 0.0,
+            ty: 0.0,
         }
     }
-    
+
     /// Create a translation transform
     #[allow(dead_code)]
     pub fn translate(tx: f64, ty: f64) -> Self {
         Transform {
-            xx: 1.0, xy: 0.0,
-            yx: 0.0, yy: 1.0,
-            tx, ty,
+            xx: 1.0,
+            xy: 0.0,
+            yx: 0.0,
+            yy: 1.0,
+            tx,
+            ty,
         }
     }
-    
+
     /// Create a scaling transform
     #[allow(dead_code)]
     pub fn scale(sx: f64, sy: f64) -> Self {
         Transform {
-            xx: sx, xy: 0.0,
-            yx: 0.0, yy: sy,
-            tx: 0.0, ty: 0.0,
+            xx: sx,
+            xy: 0.0,
+            yx: 0.0,
+            yy: sy,
+            tx: 0.0,
+            ty: 0.0,
         }
     }
-    
+
     /// Create a rotation transform (angle in radians)
     #[allow(dead_code)]
     pub fn rotate(angle: f64) -> Self {
         let cos_angle = angle.cos();
         let sin_angle = angle.sin();
         Transform {
-            xx: cos_angle, xy: -sin_angle,
-            yx: sin_angle, yy: cos_angle,
-            tx: 0.0, ty: 0.0,
+            xx: cos_angle,
+            xy: -sin_angle,
+            yx: sin_angle,
+            yy: cos_angle,
+            tx: 0.0,
+            ty: 0.0,
         }
     }
-    
+
     /// Transform a point using this transform
     #[allow(dead_code)]
     pub fn transform_point(&self, x: f64, y: f64) -> (f64, f64) {
@@ -1027,7 +1050,7 @@ impl Transform {
         let new_y = x * self.yx + y * self.yy + self.ty;
         (new_x, new_y)
     }
-    
+
     /// Concatenate this transform with another
     #[allow(dead_code)]
     pub fn concat(&self, other: &Transform) -> Transform {

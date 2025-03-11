@@ -6,6 +6,7 @@ mod measure;
 mod pan;
 mod pen;
 mod primitives;
+mod primitives_mode;
 pub mod select;
 mod text;
 mod ui;
@@ -15,12 +16,20 @@ pub use knife::KnifeMode;
 pub use measure::MeasureMode;
 pub use pan::PanMode;
 pub use pen::PenMode;
-pub use primitives::PrimitivesMode;
+pub use primitives::base::{
+    handle_primitive_mouse_events, ActivePrimitiveDrawing,
+};
+pub use primitives_mode::PrimitivesMode;
+pub use primitives_mode::{
+    handle_active_primitive_tool, handle_primitive_selection,
+    spawn_primitives_submenu, toggle_primitive_submenu_visibility,
+};
+pub use primitives_mode::{CurrentPrimitiveType, PrimitiveType};
 pub use select::SelectMode;
 pub use text::TextMode;
 pub use ui::{
     handle_toolbar_mode_selection, spawn_edit_mode_toolbar,
-    update_current_edit_mode, CurrentEditMode,
+    update_current_edit_mode, CurrentEditMode, EditMode,
 };
 
 /// Trait that defines the behavior of an edit mode in the application.
@@ -65,15 +74,22 @@ pub struct EditModeToolbarPlugin;
 
 impl Plugin for EditModeToolbarPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                // UI systems
-                handle_toolbar_mode_selection,
-                update_current_edit_mode,
-                // Camera panning control based on edit mode
-                pan::toggle_pancam_on_mode_change,
-            ),
-        );
+        app.init_resource::<CurrentPrimitiveType>()
+            .init_resource::<ActivePrimitiveDrawing>()
+            .add_systems(
+                Update,
+                (
+                    // UI systems
+                    handle_toolbar_mode_selection,
+                    update_current_edit_mode,
+                    // Primitives sub-menu systems
+                    handle_primitive_selection,
+                    toggle_primitive_submenu_visibility,
+                    handle_active_primitive_tool,
+                    handle_primitive_mouse_events,
+                    // Camera panning control based on edit mode
+                    pan::toggle_pancam_on_mode_change,
+                ),
+            );
     }
 }

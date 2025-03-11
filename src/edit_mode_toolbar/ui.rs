@@ -99,6 +99,9 @@ pub fn spawn_edit_mode_toolbar(
                 spawn_mode_button(parent, edit_mode, asset_server);
             }
         });
+
+    // Also spawn the primitives sub-menu (it will start hidden)
+    crate::edit_mode_toolbar::spawn_primitives_submenu(commands, asset_server);
 }
 
 /// Helper function to spawn a single mode button
