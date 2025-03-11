@@ -97,11 +97,10 @@ impl PrimitiveShapeTool for RectanglePrimitive {
 
     fn end_draw(&mut self, _position: Vec2) {
         if let Some(rect) = self.current_rect() {
-            // Create the actual rectangle shape entity
-            // This will be implemented when the drawing system is ready
-            info!("Created rectangle: {:?}", rect);
+            // Log the rectangle creation
+            info!("Rectangle drawing completed: {:?}", rect);
         }
-
+        
         self.gesture_state = GestureState::Finished;
     }
 

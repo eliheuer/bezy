@@ -57,6 +57,11 @@ pub enum CodepointDirection {
     Previous,
 }
 
+#[derive(Event)]
+pub struct CreateContourEvent {
+    pub contour: norad::Contour,
+}
+
 pub struct CommandsPlugin;
 
 impl Plugin for CommandsPlugin {
@@ -70,6 +75,7 @@ impl Plugin for CommandsPlugin {
             .add_event::<RenameGlyphEvent>()
             .add_event::<OpenGlyphEditorEvent>()
             .add_event::<CycleCodepointEvent>()
+            .add_event::<CreateContourEvent>()
             .add_systems(
                 Update,
                 (
@@ -81,6 +87,7 @@ impl Plugin for CommandsPlugin {
                     handle_rename_glyph,
                     handle_open_glyph_editor,
                     handle_cycle_codepoint,
+                    handle_create_contour,
                     handle_codepoint_cycling,
                 ),
             );
@@ -298,6 +305,50 @@ pub fn handle_codepoint_cycling(
             cycle_event.send(CycleCodepointEvent {
                 direction: CodepointDirection::Previous,
             });
+        }
+    }
+}
+
+/// Handler for adding a new contour to the current glyph
+fn handle_create_contour(
+    mut events: EventReader<CreateContourEvent>,
+    mut app_state: ResMut<AppState>,
+    cli_args: Res<crate::cli::CliArgs>,
+    mut app_state_changed: EventWriter<crate::draw::AppStateChanged>,
+) {
+    for event in events.read() {
+        info!("Handling CreateContourEvent");
+        
+        // Get the glyph name first
+        if let Some(glyph_name) = cli_args.find_glyph(&app_state.workspace.font.ufo) {
+            let glyph_name = glyph_name.clone(); // Clone the glyph name
+            
+            // Get mutable access to the font
+            let font_obj = app_state.workspace.font_mut();
+            
+            // Get the current glyph
+            if let Some(default_layer) = font_obj.ufo.get_default_layer_mut() {
+                if let Some(glyph) = default_layer.get_glyph_mut(&glyph_name) {
+                    // Get or create the outline
+                    let outline = glyph.outline.get_or_insert_with(|| norad::glyph::Outline {
+                        contours: Vec::new(),
+                        components: Vec::new(),
+                    });
+                    
+                    // Add the new contour
+                    outline.contours.push(event.contour.clone());
+                    info!("Added new contour to glyph {}", glyph_name);
+                    
+                    // Notify that the app state has changed
+                    app_state_changed.send(crate::draw::AppStateChanged);
+                } else {
+                    warn!("Could not find glyph for contour creation");
+                }
+            } else {
+                warn!("No default layer found for contour creation");
+            }
+        } else {
+            warn!("No current glyph selected for contour creation");
         }
     }
 }

@@ -13,6 +13,7 @@ pub mod quadrant;
 pub mod selection;
 pub mod theme;
 pub mod ufo;
+pub mod path;
 
 pub use point::EditPoint;
 pub use point_list::PointList;
