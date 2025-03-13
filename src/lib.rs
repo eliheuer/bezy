@@ -7,13 +7,13 @@ pub mod design_space;
 pub mod draw;
 pub mod edit_mode_toolbar;
 pub mod glyph_pane;
+pub mod path;
 mod point;
 mod point_list;
 pub mod quadrant;
 pub mod selection;
 pub mod theme;
 pub mod ufo;
-pub mod path;
 
 pub use point::EditPoint;
 pub use point_list::PointList;

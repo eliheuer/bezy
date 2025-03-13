@@ -318,27 +318,31 @@ fn handle_create_contour(
 ) {
     for event in events.read() {
         info!("Handling CreateContourEvent");
-        
+
         // Get the glyph name first
-        if let Some(glyph_name) = cli_args.find_glyph(&app_state.workspace.font.ufo) {
+        if let Some(glyph_name) =
+            cli_args.find_glyph(&app_state.workspace.font.ufo)
+        {
             let glyph_name = glyph_name.clone(); // Clone the glyph name
-            
+
             // Get mutable access to the font
             let font_obj = app_state.workspace.font_mut();
-            
+
             // Get the current glyph
             if let Some(default_layer) = font_obj.ufo.get_default_layer_mut() {
                 if let Some(glyph) = default_layer.get_glyph_mut(&glyph_name) {
                     // Get or create the outline
-                    let outline = glyph.outline.get_or_insert_with(|| norad::glyph::Outline {
-                        contours: Vec::new(),
-                        components: Vec::new(),
+                    let outline = glyph.outline.get_or_insert_with(|| {
+                        norad::glyph::Outline {
+                            contours: Vec::new(),
+                            components: Vec::new(),
+                        }
                     });
-                    
+
                     // Add the new contour
                     outline.contours.push(event.contour.clone());
                     info!("Added new contour to glyph {}", glyph_name);
-                    
+
                     // Notify that the app state has changed
                     app_state_changed.send(crate::draw::AppStateChanged);
                 } else {

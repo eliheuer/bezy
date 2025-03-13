@@ -100,7 +100,7 @@ impl PrimitiveShapeTool for EllipsePrimitive {
             // Log the ellipse creation
             info!("Ellipse drawing completed: {:?}", rect);
         }
-        
+
         self.gesture_state = GestureState::Finished;
     }
 

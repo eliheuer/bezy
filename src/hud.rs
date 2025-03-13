@@ -2,6 +2,7 @@
 // and the rest of the non-debug UI that is not part of the zoomable design space
 
 use crate::edit_mode_toolbar::spawn_edit_mode_toolbar;
+use crate::edit_mode_toolbar::spawn_primitive_controls;
 use crate::glyph_pane::spawn_glyph_pane;
 use bevy::prelude::*;
 
@@ -9,4 +10,5 @@ use bevy::prelude::*;
 pub fn spawn_hud(commands: &mut Commands, asset_server: &Res<AssetServer>) {
     spawn_edit_mode_toolbar(commands, asset_server);
     spawn_glyph_pane(commands, asset_server);
+    spawn_primitive_controls(commands, asset_server);
 }

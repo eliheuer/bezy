@@ -11,6 +11,7 @@ pub enum PrimitiveType {
     #[default]
     Rectangle,
     Ellipse,
+    RoundedRectangle,
     // Future primitive types can be added here (stars, hexagons, etc.)
 }
 
@@ -21,6 +22,7 @@ impl PrimitiveType {
             // Temporarily reusing the primitives icon for all types
             PrimitiveType::Rectangle => "\u{E016}",
             PrimitiveType::Ellipse => "\u{E016}",
+            PrimitiveType::RoundedRectangle => "\u{E016}",
         }
     }
 
@@ -29,6 +31,7 @@ impl PrimitiveType {
         match self {
             PrimitiveType::Rectangle => "Rectangle",
             PrimitiveType::Ellipse => "Ellipse",
+            PrimitiveType::RoundedRectangle => "Rounded Rectangle",
         }
     }
 }
@@ -99,8 +102,11 @@ pub fn spawn_primitives_submenu(
             Visibility::Hidden,
         ))
         .with_children(|parent| {
-            let primitive_types =
-                [PrimitiveType::Rectangle, PrimitiveType::Ellipse];
+            let primitive_types = [
+                PrimitiveType::Rectangle,
+                PrimitiveType::Ellipse,
+                PrimitiveType::RoundedRectangle,
+            ];
 
             for primitive_type in primitive_types.iter() {
                 spawn_primitive_button(parent, primitive_type, asset_server);

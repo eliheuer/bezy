@@ -19,6 +19,10 @@ pub use pen::PenMode;
 pub use primitives::base::{
     handle_primitive_mouse_events, ActivePrimitiveDrawing,
 };
+pub use primitives::ui::{
+    handle_radius_slider, spawn_primitive_controls,
+    update_primitive_ui_visibility, CurrentCornerRadius, UiInteractionState,
+};
 pub use primitives_mode::PrimitivesMode;
 pub use primitives_mode::{
     handle_active_primitive_tool, handle_primitive_selection,
@@ -76,6 +80,8 @@ impl Plugin for EditModeToolbarPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CurrentPrimitiveType>()
             .init_resource::<ActivePrimitiveDrawing>()
+            .init_resource::<CurrentCornerRadius>()
+            .init_resource::<UiInteractionState>()
             .add_systems(
                 Update,
                 (
@@ -86,6 +92,10 @@ impl Plugin for EditModeToolbarPlugin {
                     handle_primitive_selection,
                     toggle_primitive_submenu_visibility,
                     handle_active_primitive_tool,
+                    // Rounded rectangle radius control - runs BEFORE mouse event handling
+                    update_primitive_ui_visibility,
+                    handle_radius_slider,
+                    // Mouse event handling for drawing shapes - runs AFTER UI systems
                     handle_primitive_mouse_events,
                     // Camera panning control based on edit mode
                     pan::toggle_pancam_on_mode_change,

@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod ufo_tests {
     use crate::ufo;
-    
 
     #[test]
     fn test_load_ufo_from_path() {

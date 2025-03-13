@@ -1,14 +1,15 @@
 use crate::edit_mode_toolbar::primitives::base::PrimitiveShapeTool;
 use bevy::prelude::*;
 
-/// State for the rectangle drawing tool
-#[derive(Default, Debug)]
-pub struct RectanglePrimitive {
+/// State for the rounded rectangle drawing tool
+#[derive(Debug)]
+pub struct RoundedRectanglePrimitive {
     gesture_state: GestureState,
     pub shift_locked: bool,
+    pub corner_radius: f32,
 }
 
-/// The state of the rectangle drawing gesture
+/// The state of the rounded rectangle drawing gesture
 #[derive(Default, Debug)]
 enum GestureState {
     #[default]
@@ -21,7 +22,7 @@ enum GestureState {
     Finished,
 }
 
-impl RectanglePrimitive {
+impl RoundedRectanglePrimitive {
     /// Get the starting and current points for the rectangle
     fn rect_points(&self) -> Option<(Vec2, Vec2)> {
         match self.gesture_state {
@@ -58,11 +59,20 @@ impl RectanglePrimitive {
             }
         })
     }
+
+    /// Get the corner radius in a reasonable range
+    fn get_adjusted_radius(&self, rect: &Rect) -> f32 {
+        // Get the minimum dimension of the rectangle
+        let min_dimension = rect.width().min(rect.height());
+
+        // Ensure the radius doesn't exceed half of the smallest dimension
+        (self.corner_radius).min(min_dimension / 2.0)
+    }
 }
 
-impl PrimitiveShapeTool for RectanglePrimitive {
+impl PrimitiveShapeTool for RoundedRectanglePrimitive {
     fn name(&self) -> &'static str {
-        "Rectangle"
+        "RoundedRectangle"
     }
 
     fn update(&self, _commands: &mut Commands) {
@@ -70,11 +80,11 @@ impl PrimitiveShapeTool for RectanglePrimitive {
     }
 
     fn on_enter(&self) {
-        info!("Rectangle tool activated");
+        info!("Rounded Rectangle tool activated");
     }
 
     fn on_exit(&self) {
-        info!("Rectangle tool deactivated");
+        info!("Rounded Rectangle tool deactivated");
     }
 
     fn begin_draw(&mut self, position: Vec2) {
@@ -97,8 +107,11 @@ impl PrimitiveShapeTool for RectanglePrimitive {
 
     fn end_draw(&mut self, _position: Vec2) {
         if let Some(rect) = self.current_rect() {
-            // Log the rectangle creation
-            info!("Rectangle drawing completed: {:?}", rect);
+            // Log the rounded rectangle creation
+            info!(
+                "Rounded Rectangle drawing completed: {:?}, radius: {}",
+                rect, self.corner_radius
+            );
         }
 
         self.gesture_state = GestureState::Finished;
@@ -110,5 +123,15 @@ impl PrimitiveShapeTool for RectanglePrimitive {
 
     fn set_shift_locked(&mut self, locked: bool) {
         self.shift_locked = locked;
+    }
+}
+
+impl Default for RoundedRectanglePrimitive {
+    fn default() -> Self {
+        Self {
+            gesture_state: GestureState::Ready,
+            shift_locked: false,
+            corner_radius: 10.0, // Default corner radius
+        }
     }
 }
