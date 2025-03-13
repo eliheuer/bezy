@@ -52,18 +52,20 @@ fn spawn_rounded_rect_controls(
             Name::new("RoundedRectSettingsPanel"),
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(180.0), // Position below the primitives submenu
-                left: Val::Px(32.0),
+                top: Val::Px(188.0), // Moved down a bit more from the submenu
+                left: Val::Px(34.0),
                 padding: UiRect::all(Val::Px(10.0)),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                min_width: Val::Px(200.0),
+                min_width: Val::Px(190.0),
+                border: UiRect::all(Val::Px(2.0)),
                 ..default()
             },
             BackgroundColor(NORMAL_BUTTON),
             Visibility::Hidden, // Start hidden
             BorderColor(NORMAL_BUTTON_OUTLINE_COLOR),
+            BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
         ))
         .with_children(|parent| {
             // Label for the input field
@@ -87,15 +89,16 @@ fn spawn_rounded_rect_controls(
                     Node {
                         width: Val::Px(180.0),
                         height: Val::Px(30.0),
-                        border: UiRect::all(Val::Px(1.0)),
+                        border: UiRect::all(Val::Px(2.0)),
                         padding: UiRect::all(Val::Px(5.0)),
                         margin: UiRect::all(Val::Px(5.0)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
-                    BorderColor(Color::srgb(0.4, 0.4, 0.4)),
+                    BackgroundColor(NORMAL_BUTTON),
+                    BorderColor(NORMAL_BUTTON_OUTLINE_COLOR),
+                    BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
                     Interaction::None,
                     CornerRadiusInput,
                 ))
@@ -170,7 +173,7 @@ pub fn update_primitive_ui_visibility(
 /// System to handle the corner radius text input
 pub fn handle_radius_input(
     mut input_query: Query<
-        (&Interaction, &mut BackgroundColor),
+        (&Interaction, &mut BackgroundColor, &mut BorderColor),
         (Changed<Interaction>, With<CornerRadiusInput>),
     >,
     panel_query: Query<&Node, With<RoundedRectSettingsPanel>>,
@@ -183,19 +186,23 @@ pub fn handle_radius_input(
     mut ui_state: ResMut<UiInteractionState>,
 ) {
     // Handle input field focus/click
-    for (interaction, mut bg_color) in input_query.iter_mut() {
+    for (interaction, mut bg_color, mut border_color) in input_query.iter_mut()
+    {
         match *interaction {
             Interaction::Hovered => {
-                bg_color.0 = Color::srgb(0.15, 0.15, 0.15);
+                bg_color.0 = HOVERED_BUTTON;
+                border_color.0 = HOVERED_BUTTON_OUTLINE_COLOR;
             }
             Interaction::Pressed => {
                 // When clicked, focus the input and set background
                 input_state.focused = true;
-                bg_color.0 = Color::srgb(0.2, 0.2, 0.2);
+                bg_color.0 = PRESSED_BUTTON;
+                border_color.0 = PRESSED_BUTTON_OUTLINE_COLOR;
             }
             Interaction::None => {
                 if !input_state.focused {
-                    bg_color.0 = Color::srgb(0.1, 0.1, 0.1);
+                    bg_color.0 = NORMAL_BUTTON;
+                    border_color.0 = NORMAL_BUTTON_OUTLINE_COLOR;
                 }
             }
         }
@@ -210,7 +217,7 @@ pub fn handle_radius_input(
             (window.cursor_position(), panel_query.get_single())
         {
             let panel_left = 32.0;
-            let panel_top = 180.0;
+            let panel_top = 200.0;
             let panel_width = match panel_node.min_width {
                 Val::Px(width) => width,
                 _ => 200.0,

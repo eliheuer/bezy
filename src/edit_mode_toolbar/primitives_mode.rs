@@ -234,11 +234,8 @@ pub fn handle_primitive_selection(
             // Update text color for this button
             for (parent, mut text_color) in &mut text_query {
                 if parent.get() == entity {
-                    text_color.0 = if is_current_type {
-                        Color::BLACK
-                    } else {
-                        Color::WHITE
-                    };
+                    // Always keep text white for consistency with main menu
+                    text_color.0 = Color::WHITE;
                 }
             }
         }
