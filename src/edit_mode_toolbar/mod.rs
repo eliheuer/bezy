@@ -20,7 +20,7 @@ pub use primitives::base::{
     handle_primitive_mouse_events, ActivePrimitiveDrawing,
 };
 pub use primitives::ui::{
-    handle_radius_slider, spawn_primitive_controls,
+    handle_radius_input, spawn_primitive_controls,
     update_primitive_ui_visibility, CurrentCornerRadius, UiInteractionState,
 };
 pub use primitives_mode::PrimitivesMode;
@@ -94,7 +94,7 @@ impl Plugin for EditModeToolbarPlugin {
                     handle_active_primitive_tool,
                     // Rounded rectangle radius control - runs BEFORE mouse event handling
                     update_primitive_ui_visibility,
-                    handle_radius_slider,
+                    handle_radius_input,
                     // Mouse event handling for drawing shapes - runs AFTER UI systems
                     handle_primitive_mouse_events,
                     // Camera panning control based on edit mode

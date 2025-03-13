@@ -95,6 +95,7 @@ pub fn handle_primitive_mouse_events(
 
     // Don't process drawing events when interacting with UI
     if ui_state.is_interacting_with_ui {
+        debug!("Skipping primitive drawing - UI is being interacted with");
         return;
     }
 

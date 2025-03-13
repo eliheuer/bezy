@@ -61,6 +61,7 @@ impl RoundedRectanglePrimitive {
     }
 
     /// Get the corner radius in a reasonable range
+    #[allow(dead_code)]
     fn get_adjusted_radius(&self, rect: &Rect) -> f32 {
         // Get the minimum dimension of the rectangle
         let min_dimension = rect.width().min(rect.height());
