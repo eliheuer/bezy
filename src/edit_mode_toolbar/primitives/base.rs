@@ -7,9 +7,11 @@ use kurbo::Shape;
 
 // Common components and systems for primitives
 #[derive(Component)]
+#[allow(dead_code)]
 pub struct PrimitiveShape;
 
 // Common trait for all primitive shapes
+#[allow(dead_code)]
 pub trait PrimitiveShapeTool: Send + Sync + 'static {
     fn name(&self) -> &'static str;
     fn update(&self, commands: &mut Commands);
@@ -387,12 +389,7 @@ pub fn handle_primitive_mouse_events(
     }
 }
 
-// Trait object utilities for downcasting
-pub trait AnyDowncast {
-    fn downcast_ref<T: 'static>(&self) -> Option<&T>;
-    fn downcast_mut<T: 'static>(&mut self) -> Option<&mut T>;
-}
-
+#[allow(dead_code)]
 impl<'a> dyn PrimitiveShapeTool + 'a {
     pub fn downcast_ref<T: 'static>(&self) -> Option<&T> {
         // This is unsafe because we're bypassing the compiler's type checking
