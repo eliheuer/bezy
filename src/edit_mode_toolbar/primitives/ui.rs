@@ -12,7 +12,7 @@ pub struct CornerRadiusInput;
 
 /// Resource to store the current corner radius
 #[derive(Resource)]
-pub struct CurrentCornerRadius(pub f32);
+pub struct CurrentCornerRadius(pub i32);
 
 /// Resource to track when UI elements are being interacted with
 #[derive(Resource, Default)]
@@ -29,7 +29,7 @@ pub struct CornerRadiusInputState {
 
 impl Default for CurrentCornerRadius {
     fn default() -> Self {
-        Self(10.0) // Default corner radius
+        Self(10) // Default corner radius
     }
 }
 
@@ -105,10 +105,9 @@ fn spawn_rounded_rect_controls(
                 .with_children(|input_parent| {
                     // Text value display (also serves as input field value)
                     input_parent.spawn((
-                        Text::new("10.0"),
+                        Text::new("10"), // Initial value as integer
                         TextFont {
-                            font: asset_server
-                                .load("fonts/bezy-grotesk-regular.ttf"),
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
                             font_size: 16.0,
                             ..default()
                         },
@@ -285,7 +284,7 @@ pub fn handle_radius_input(
                     input_state.focused = false;
                 }
 
-                // Handle numeric input and decimal point
+                // Handle numeric input
                 KeyCode::Digit0 | KeyCode::Numpad0 => add_char_to_input(
                     '0',
                     &mut input_state.text,
@@ -336,11 +335,6 @@ pub fn handle_radius_input(
                     &mut input_state.text,
                     &mut radius_text,
                 ),
-                KeyCode::Period | KeyCode::NumpadDecimal => add_char_to_input(
-                    '.',
-                    &mut input_state.text,
-                    &mut radius_text,
-                ),
 
                 _ => {} // Ignore other keys
             }
@@ -354,14 +348,11 @@ fn add_char_to_input(
     text: &mut String,
     text_query: &mut Query<&mut Text, With<RadiusValueText>>,
 ) {
-    // For decimal point, only add if there isn't one already
-    if c == '.' && text.contains('.') {
-        return;
+    // Only allow digits (no decimal point)
+    if c.is_ascii_digit() {
+        text.push(c);
+        update_text_display(text, text_query);
     }
-
-    // Otherwise add the character
-    text.push(c);
-    update_text_display(text, text_query);
 }
 
 // Helper to update the text display
@@ -386,24 +377,24 @@ fn apply_input_value(
     text_query: &mut Query<&mut Text, With<RadiusValueText>>,
     input_state: &mut CornerRadiusInputState,
 ) {
-    // Parse the input text as a float
-    if let Ok(value) = text.parse::<f32>() {
+    // Parse the input text as an integer
+    if let Ok(value) = text.parse::<i32>() {
         // Clamp the value to reasonable limits (0-2048)
-        let clamped_value = value.clamp(0.0, 2048.0);
+        let clamped_value = value.clamp(0, 2048);
         current_radius.0 = clamped_value;
-        input_state.text = format!("{:.1}", clamped_value);
+        input_state.text = clamped_value.to_string();
 
         // Update the display
         if let Ok(mut text_comp) = text_query.get_single_mut() {
-            *text_comp = Text::new(format!("{:.1}", clamped_value));
+            *text_comp = Text::new(clamped_value.to_string());
         }
 
-        info!("Corner radius set to: {:.1}", clamped_value);
+        info!("Corner radius set to: {}", clamped_value);
     } else {
         // Invalid input, reset to current value
-        input_state.text = format!("{:.1}", current_radius.0);
+        input_state.text = current_radius.0.to_string();
         if let Ok(mut text_comp) = text_query.get_single_mut() {
-            *text_comp = Text::new(format!("{:.1}", current_radius.0));
+            *text_comp = Text::new(current_radius.0.to_string());
         }
     }
 }

@@ -2,21 +2,21 @@
 <glyph name="noon-ar.init" format="2">
   <advance width="268"/>
   <outline>
-    <component base="behDotless-ar.init" identifier="3C801A15"/>
-    <component base="dotabove-ar" yOffset="-176" identifier="9E0BCAAF"/>
+    <component base="behDotless-ar.init" identifier="385F10DD"/>
+    <component base="dotabove-ar" yOffset="-176" identifier="F91B94B0"/>
   </outline>
   <lib>
     <dict>
       <key>com.schriftgestaltung.Glyphs.lastChange</key>
-      <string>2025-02-22 07:31:26 +0000</string>
+      <string>2025-03-13 05:19:31 +0000</string>
       <key>public.objectLibs</key>
       <dict>
-        <key>3C801A15</key>
+        <key>385F10DD</key>
         <dict>
           <key>com.schriftgestaltung.alignment</key>
           <integer>-1</integer>
         </dict>
-        <key>9E0BCAAF</key>
+        <key>F91B94B0</key>
         <dict>
           <key>com.schriftgestaltung.alignment</key>
           <integer>-1</integer>

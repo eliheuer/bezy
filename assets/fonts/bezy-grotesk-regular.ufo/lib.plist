@@ -10,9 +10,15 @@
 Font.Garden
 
 </string>
+      <string>/noon-ar.init</string>
+      <string>/E018</string>
+      <string>/E017</string>
+      <string>/E016</string>
+      <string>/E019</string>
+      <string>/E020</string>
     </array>
     <key>com.schriftgestaltung.appVersion</key>
-    <string>3337</string>
+    <string>3343</string>
     <key>com.schriftgestaltung.disablesAutomaticAlignment</key>
     <false/>
     <key>com.schriftgestaltung.font.userData</key>
@@ -311,10 +317,6 @@ Font.Garden
     </array>
     <key>com.schriftgestaltung.gridSize</key>
     <integer>2</integer>
-    <key>com.schriftgestaltung.keyboardIncrementBig</key>
-    <integer>4</integer>
-    <key>com.schriftgestaltung.keyboardIncrementHuge</key>
-    <integer>8</integer>
     <key>com.schriftgestaltung.useNiceNames</key>
     <false/>
     <key>public.glyphOrder</key>
@@ -613,6 +615,7 @@ Font.Garden
       <string>underscore</string>
       <string>minus</string>
       <string>E000</string>
+      <string>E004</string>
       <string>E005</string>
       <string>E006</string>
       <string>E007</string>
@@ -633,7 +636,6 @@ Font.Garden
       <string>F001</string>
       <string>F002</string>
       <string>F003</string>
-      <string>E004</string>
     </array>
     <key>public.postscriptNames</key>
     <dict>

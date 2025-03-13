@@ -6,7 +6,7 @@ use bevy::prelude::*;
 pub struct RoundedRectanglePrimitive {
     gesture_state: GestureState,
     pub shift_locked: bool,
-    pub corner_radius: f32,
+    pub corner_radius: i32,
 }
 
 /// The state of the rounded rectangle drawing gesture
@@ -67,7 +67,7 @@ impl RoundedRectanglePrimitive {
         let min_dimension = rect.width().min(rect.height());
 
         // Ensure the radius doesn't exceed half of the smallest dimension
-        (self.corner_radius).min(min_dimension / 2.0)
+        (self.corner_radius as f32).min(min_dimension / 2.0)
     }
 }
 
@@ -132,7 +132,7 @@ impl Default for RoundedRectanglePrimitive {
         Self {
             gesture_state: GestureState::Ready,
             shift_locked: false,
-            corner_radius: 32.0, // Default corner radius
+            corner_radius: 32, // Default corner radius
         }
     }
 }
