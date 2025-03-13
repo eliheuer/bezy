@@ -198,7 +198,6 @@ impl Workspace {
     /// 2. Writes to a temporary file first
     /// 3. Backs up existing data if present
     /// 4. Renames the temporary file to the final path
-    #[allow(dead_code)]
     pub fn save(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let font_obj = Arc::make_mut(&mut self.font);
         font_obj.update_info(&self.info);
@@ -207,6 +206,8 @@ impl Workspace {
             // Write to a temporary location first
             let temp_path = temp_write_path(path);
             info!("saving to {:?}", temp_path);
+            
+            // Save the UFO to the temporary path
             font_obj.ufo.save(&temp_path)?;
 
             // Backup existing data if needed
@@ -214,6 +215,7 @@ impl Workspace {
                 info!("backing up existing data to {:?}", backup_path);
             }
 
+            // Move the temporary file to the target path
             std::fs::rename(&temp_path, path)?;
             Ok(())
         } else {
