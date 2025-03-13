@@ -56,6 +56,8 @@ fn debug_selection_changes(
     mut coord_pane_query: Query<&mut Text, With<CoordText>>,
     mut visibility_query: Query<&mut Visibility, With<CoordPane>>,
 ) {
+    // Comment out the visibility setting to keep it hidden
+    /* 
     // Make sure the coordinate pane is visible
     for mut visibility in visibility_query.iter_mut() {
         if *visibility != Visibility::Visible {
@@ -63,6 +65,7 @@ fn debug_selection_changes(
             info!("Set coordinate pane to visible");
         }
     }
+    */
 
     // Update coordinate pane text when selection changes
     if coord_selection.is_changed() {
@@ -187,8 +190,8 @@ fn spawn_coord_pane(mut commands: Commands) {
             BorderColor(border_color),
             BorderRadius::all(Val::Px(border_radius)),
             CoordPane,
-            // Make the pane initially visible
-            Visibility::Visible,
+            // Make the pane initially hidden and set display to None to ensure it stays hidden
+            Visibility::Hidden,
             Name::new("CoordinatePane"),
         ))
         .with_children(|parent| {
@@ -423,9 +426,9 @@ fn create_test_selection(
     // Create test selection data with a more realistic bounding box
     info!("Creating test selection for coordinate pane");
 
-    // Make sure the pane is visible
+    // Keep the pane hidden
     for mut visibility in vis_query.iter_mut() {
-        *visibility = Visibility::Visible;
+        *visibility = Visibility::Hidden;
     }
 
     // Spawn test point entities with the Selected component

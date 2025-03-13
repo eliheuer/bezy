@@ -84,8 +84,8 @@ impl Plugin for BezySystems {
             DebugPlugin,
             CameraPlugin,
             ToolbarPlugin,
-            //GlyphPanePlugin,
-            //CoordPanePlugin,
+            CoordPanePlugin,
+            GlyphPanePlugin,
         ));
     }
 }

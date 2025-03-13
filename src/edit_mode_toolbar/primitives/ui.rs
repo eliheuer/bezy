@@ -52,9 +52,9 @@ fn spawn_rounded_rect_controls(
             Name::new("RoundedRectSettingsPanel"),
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(188.0), // Moved down a bit more from the submenu
+                top: Val::Px(184.0), // Moved down a bit more from the submenu
                 left: Val::Px(34.0),
-                padding: UiRect::all(Val::Px(10.0)),
+                padding: UiRect::all(Val::Px(8.0)),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
