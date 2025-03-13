@@ -7,11 +7,14 @@ use std::path::PathBuf;
 #[command(author, version, about, long_about = None)]
 pub struct CliArgs {
     /// Path to a UFO font file to load
-    #[arg(long = "load-ufo")]
+    #[arg(
+        long = "load-ufo",
+        default_value = "assets/fonts/bezy-grotesk-regular.ufo"
+    )]
     pub ufo_path: Option<PathBuf>,
 
     /// Unicode codepoint to display for testing (in hexadecimal, e.g., 0048 for 'H')
-    #[arg(long = "test-unicode")]
+    #[arg(long = "test-unicode", default_value = "0061")]
     pub test_unicode: Option<String>,
 
     /// Display debug information

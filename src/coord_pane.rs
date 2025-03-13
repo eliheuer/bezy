@@ -57,7 +57,7 @@ fn debug_selection_changes(
     mut visibility_query: Query<&mut Visibility, With<CoordPane>>,
 ) {
     // Comment out the visibility setting to keep it hidden
-    /* 
+    /*
     // Make sure the coordinate pane is visible
     for mut visibility in visibility_query.iter_mut() {
         if *visibility != Visibility::Visible {

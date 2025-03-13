@@ -107,7 +107,8 @@ fn spawn_rounded_rect_controls(
                     input_parent.spawn((
                         Text::new("10"), // Initial value as integer
                         TextFont {
-                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font: asset_server
+                                .load("fonts/bezy-grotesk-regular.ttf"),
                             font_size: 16.0,
                             ..default()
                         },

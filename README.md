@@ -1,19 +1,17 @@
 # Bezy Font Editor
 
-⚠️ This software is very raw, and is not yet suitable for use unless you want to learn the codebase.
+⚠️ This software is very raw, and is not yet suitable for use unless you want to learn the codebase. But it is getting close and PRs are welcome!
 
-Bezy is an open-source cross-platform font editor built with the [Bevy game engine](https://bevyengine.org/), the [Rust](https://www.rust-lang.org/) programming language, and various [Linebender Crates](https://linebender.org/). It is designed for simplicity, customization, user empowerment, education, and [AI-agent](.cursor/rules/bezy-app.mdc) assisted programming and type design.
+Bezy is an open-source cross-platform font editor built with the [Bevy game engine](https://bevyengine.org/), the [Rust](https://www.rust-lang.org/) programming language, and various [Linebender Crates](https://linebender.org/) like [Norad](https://github.com/linebender/norad), and [Kurbo](https://github.com/linebender/kurbo). It is designed for simplicity, customization, user empowerment, education, and [AI-agent](.cursor/rules/bezy-app.mdc) assisted programming and type design.
 
 ![Bezy Font Editor Screenshot](docs/images/bezy-screenshot-005.png)
 ![Bezy Font Editor Screenshot](docs/images/bezy-screenshot-006.png)
 
-A core design principle of this editor is user empowerment. Bezy aims to be the [Emacs](https://www.gnu.org/software/emacs/) of font editors. Users should be able to shape Bezy into a custom editor that perfectly fits their needs and aesthetics, like a calligrapher of the Arabic script making their own pens from simple reeds. Designers not being fully in control of their tools is a vulnerable position. Bezy wants to challenge the paternalism and lack of customizability prevalent in other font editing applications.
+A core design principle of this editor is user empowerment. Bezy aims to be the [Emacs](https://www.gnu.org/software/emacs/) of font editors. Users should be able to shape Bezy into a custom editor that perfectly fits their needs and aesthetics, like a calligrapher of the Arabic script making their own pens from simple reeds.
 
-Post v1.0, Bezy will have built-in AI-agent functionality using the Font Garden and other models allowing for highly automated AI-assisted workflows without giving up fine-grained control and attention to detail. Users will be able to sign in with [Ethereum](https://ethereum.org/)/[Base](https://www.base.org/) and pay-as-they-go with stable coins and the $BEZY memecoin for remote model access, or run AI-agents locally and completely ignore the sign-in-with Ethereum features. This avoids subscription models used for AI-agent tools like [Cursor](https://www.cursor.com/) and allows us to build payments and monetization on top of free and open-source software.
+Post v1.0, Bezy will have built-in AI-agent functionality using Font Garden and other models allowing for highly automated AI-assisted workflows without giving up fine-grained control and attention to detail.
 
-The $BEZY memecoin is an experiment in diffuse value capture and incentive design for free and open-source software. We believe that top-down corporate funding in FOSS tends to create coordination failures and can work against incentives that encourage collaboration towards [commons based peer production](https://en.wikipedia.org/wiki/Commons-based_peer_production). A project memecoin allows users and contributors to diffusely capture value from an open source project with no bureaucracy and funding drama.
-
-[UFO](https://unifiedfontobject.org/) is the current default source format. We believe that human readable source formats are a non-negotiable requirement for AI-agent assisted type design.
+[UFO](https://unifiedfontobject.org/) is the current default source format.
 
 ## Table of Contents
 - [About Bezy](#about-bezy)
@@ -28,15 +26,13 @@ The $BEZY memecoin is an experiment in diffuse value capture and incentive desig
 
 ## About Bezy
 
-Bezy is loosely inspired by and ported from [Runebender](https://github.com/linebender/runebender), a previous font editor built with [Druid](https://github.com/linebender/druid), a data-first Rust-native UI design toolkit.
+Bezy is loosely inspired by and ported from [Runebender](https://github.com/linebender/runebender), a previous font editor built with [Druid](https://github.com/linebender/druid), a data-first Rust-native UI design toolkit. It uses many of the same crates like [Norad](https://github.com/linebender/norad), and [Kurbo](https://github.com/linebender/kurbo). 
 
-It is also a spiritual successor to the font editor [RoboFont](https://robofont.com/), specifically the RoboFont [design principles](https://robofont.com/documentation/topics/robofont-design-principles/). Bezy takes the RoboFont design principles further, believing designers in the AI vibe-coding era need to be fully, not partly, in control of their tools. Programming and the Unix CLI are basic literacy in the 21st century. The difference between a proprietary font editor and an editor like Bezy is like the difference between learning to play a real stringed guitar and playing the game Guitar Hero.
+It is also a spiritual successor to the font editor [RoboFont](https://robofont.com/), specifically the RoboFont [design principles](https://robofont.com/documentation/topics/robofont-design-principles/).
 
 ## Bezy Design Principles
 
-Bezy, like the Rust programming language, is fundamentally about empowerment. We believe typeface designers and editors should be encouraged to understand and modify their tools.
-
-The idea behind Bezy is to provide a sturdy framework where everyone can add their own functionalities, rather than a program with hundreds of (often little needed) functions. This allows competition between ideas and technologies.
+Bezy, like the Rust programming language, is fundamentally about empowerment. We believe typeface designers and editors should be encouraged to understand and modify their tools. The idea behind Bezy is to provide a sturdy framework where everyone can add their own functionalities.
 
 ## Installation
 
