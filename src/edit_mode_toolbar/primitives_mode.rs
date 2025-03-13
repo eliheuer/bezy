@@ -1,5 +1,6 @@
 use crate::edit_mode_toolbar::EditModeSystem;
 use crate::theme::*;
+use bevy::ecs::system::ParamSet;
 use bevy::prelude::*;
 
 // Import primitive shapes modules directly
@@ -19,10 +20,10 @@ impl PrimitiveType {
     // Get the icon for each primitive type
     pub fn get_icon(&self) -> &'static str {
         match self {
-            // Temporarily reusing the primitives icon for all types
-            PrimitiveType::Rectangle => "\u{E016}",
-            PrimitiveType::Ellipse => "\u{E016}",
-            PrimitiveType::RoundedRectangle => "\u{E016}",
+            // Using different icons for each primitive type
+            PrimitiveType::Rectangle => "\u{E018}",
+            PrimitiveType::Ellipse => "\u{E019}",
+            PrimitiveType::RoundedRectangle => "\u{E020}",
         }
     }
 
@@ -92,7 +93,7 @@ pub fn spawn_primitives_submenu(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(108.0), // Position below the main toolbar (32px + 64px + spacing)
+                top: Val::Px(106.0), // Position below the main toolbar (32px + 64px + spacing)
                 left: Val::Px(32.0),
                 flex_direction: FlexDirection::Row,
                 ..default()
@@ -160,78 +161,103 @@ fn spawn_primitive_button(
                         },
                         TextColor(Color::WHITE),
                     ));
-
-                    // Add a text label below the icon
-                    button.spawn((
-                        Text::new(primitive_type.display_name().to_string()),
-                        TextFont {
-                            font: asset_server
-                                .load("fonts/bezy-grotesk-regular.ttf"),
-                            font_size: 12.0,
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                        Node {
-                            position_type: PositionType::Absolute,
-                            bottom: Val::Px(4.0),
-                            ..default()
-                        },
-                    ));
                 });
         });
 }
 
 // System to handle primitive type selection
 pub fn handle_primitive_selection(
-    mut interaction_query: Query<
-        (
-            &Interaction,
-            &mut BackgroundColor,
-            &mut BorderColor,
-            &PrimitiveTypeButton,
-            Entity,
-        ),
-        (Changed<Interaction>, With<PrimitiveSubMenuButton>),
-    >,
+    mut button_queries: ParamSet<(
+        // Query for buttons with changed interaction
+        Query<
+            (&Interaction, &PrimitiveTypeButton),
+            (Changed<Interaction>, With<PrimitiveSubMenuButton>),
+        >,
+        // Query for all buttons to update their appearance
+        Query<
+            (
+                &Interaction,
+                &mut BackgroundColor,
+                &mut BorderColor,
+                &PrimitiveTypeButton,
+                Entity,
+            ),
+            With<PrimitiveSubMenuButton>,
+        >,
+    )>,
     mut text_query: Query<(&Parent, &mut TextColor)>,
     mut current_type: ResMut<CurrentPrimitiveType>,
 ) {
-    for (interaction, mut color, mut border_color, primitive_button, entity) in
-        &mut interaction_query
+    // First, check if any button was clicked
+    let mut selection_changed = false;
+
     {
-        if *interaction == Interaction::Pressed {
-            // Update the current primitive type
-            current_type.0 = primitive_button.0;
-            info!("Selected primitive type: {:?}", current_type.0);
+        let interaction_query = button_queries.p0();
+        for (interaction, primitive_button) in interaction_query.iter() {
+            if *interaction == Interaction::Pressed {
+                // Update the current primitive type
+                current_type.0 = primitive_button.0;
+                info!("Selected primitive type: {:?}", current_type.0);
+                selection_changed = true;
+            }
         }
+    }
 
-        // Update button appearance based on current selection
-        let is_current_type = current_type.0 == primitive_button.0;
+    // If a button was clicked or during startup, update all buttons
+    if selection_changed {
+        // Update the appearance of all buttons to reflect the current selection
+        let mut all_buttons_query = button_queries.p1();
 
-        // Update button colors
-        match (*interaction, is_current_type) {
-            (Interaction::Pressed, _) | (_, true) => {
+        for (
+            interaction,
+            mut color,
+            mut border_color,
+            primitive_button,
+            entity,
+        ) in all_buttons_query.iter_mut()
+        {
+            // Update button appearance based on current selection
+            let is_current_type = current_type.0 == primitive_button.0;
+
+            // Update button colors
+            if is_current_type {
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = PRESSED_BUTTON_OUTLINE_COLOR;
-            }
-            (Interaction::Hovered, false) => {
+            } else if *interaction == Interaction::Hovered {
                 *color = HOVERED_BUTTON.into();
                 border_color.0 = HOVERED_BUTTON_OUTLINE_COLOR;
-            }
-            (Interaction::None, false) => {
+            } else {
                 *color = NORMAL_BUTTON.into();
                 border_color.0 = NORMAL_BUTTON_OUTLINE_COLOR;
             }
-        }
 
-        // Update text color for this button
-        for (parent, mut text_color) in &mut text_query {
-            if parent.get() == entity {
-                text_color.0 = if is_current_type {
-                    Color::BLACK
-                } else {
-                    Color::WHITE
-                };
+            // Update text color for this button
+            for (parent, mut text_color) in &mut text_query {
+                if parent.get() == entity {
+                    text_color.0 = if is_current_type {
+                        Color::BLACK
+                    } else {
+                        Color::WHITE
+                    };
+                }
+            }
+        }
+    } else {
+        // Just update hovered effects for buttons where interaction changed
+        let mut all_buttons_query = button_queries.p1();
+
+        for (interaction, mut color, mut border_color, primitive_button, _) in
+            all_buttons_query.iter_mut()
+        {
+            let is_current_type = current_type.0 == primitive_button.0;
+
+            // Only update hover effects, don't change selection state
+            if !is_current_type && *interaction == Interaction::Hovered {
+                *color = HOVERED_BUTTON.into();
+                border_color.0 = HOVERED_BUTTON_OUTLINE_COLOR;
+            } else if !is_current_type && *interaction == Interaction::None {
+                *color = NORMAL_BUTTON.into();
+                border_color.0 = NORMAL_BUTTON_OUTLINE_COLOR;
             }
         }
     }

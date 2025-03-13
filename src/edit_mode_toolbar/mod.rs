@@ -82,6 +82,7 @@ impl Plugin for EditModeToolbarPlugin {
             .init_resource::<ActivePrimitiveDrawing>()
             .init_resource::<CurrentCornerRadius>()
             .init_resource::<UiInteractionState>()
+            .add_systems(Startup, handle_primitive_selection)
             .add_systems(
                 Update,
                 (

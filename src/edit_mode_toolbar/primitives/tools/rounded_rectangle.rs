@@ -132,7 +132,7 @@ impl Default for RoundedRectanglePrimitive {
         Self {
             gesture_state: GestureState::Ready,
             shift_locked: false,
-            corner_radius: 10.0, // Default corner radius
+            corner_radius: 32.0, // Default corner radius
         }
     }
 }
