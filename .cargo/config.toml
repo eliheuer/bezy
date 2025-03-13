@@ -1,0 +1,3 @@
+# This suppresses warnings about future incompatibilities
+[future-incompat-report]
+frequency = "never" 
