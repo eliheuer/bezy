@@ -19,6 +19,7 @@ impl Plugin for SelectionPlugin {
             .register_type::<Hovered>()
             .register_type::<SelectionRect>()
             .register_type::<PointType>()
+            .register_type::<GlyphPointReference>()
             .register_type::<LastEditType>()
             // Register resources
             .init_resource::<SelectionState>()
@@ -34,6 +35,8 @@ impl Plugin for SelectionPlugin {
                     systems::render_selection_rect,
                     systems::render_selected_entities,
                     systems::render_hovered_entities,
+                    // Add the new system to update glyph data
+                    systems::update_glyph_data_from_selection,
                 ),
             )
             // Add the nudge plugin

@@ -40,10 +40,17 @@ pub enum EditType {
     NudgeDown,
 }
 
+/// Component to track point coordinates in font space
+#[derive(Component, Debug, Default, Clone, Reflect)]
+#[reflect(Component)]
+pub struct PointCoordinates {
+    pub position: Vec2,
+}
+
 /// System to handle keyboard input for nudging selected points
 pub fn handle_nudge_shortcuts(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut Transform, With<Selected>>,
+    mut query: Query<(Entity, &mut Transform, &mut PointCoordinates), With<Selected>>,
     mut event_writer: EventWriter<EditEvent>,
 ) {
     // Early return if no arrow key is pressed
@@ -91,8 +98,15 @@ pub fn handle_nudge_shortcuts(
     }
 
     // Apply nudge to all selected entities
-    for mut transform in &mut query {
+    for (entity, mut transform, mut coordinates) in &mut query {
+        // Update the transform to move the entity
         transform.translation += direction;
+        
+        // Also update the point coordinates to keep in sync
+        coordinates.position.x = transform.translation.x;
+        coordinates.position.y = transform.translation.y;
+        
+        debug!("Nudged entity {:?} to position {:?}", entity, transform.translation);
     }
 
     // Log the nudge operation
@@ -100,6 +114,21 @@ pub fn handle_nudge_shortcuts(
 
     // Send edit event for undo system
     event_writer.send(EditEvent { edit_type });
+}
+
+/// System to ensure transform and point coordinates stay in sync
+pub fn sync_transforms_and_coordinates(
+    mut query: Query<(&Transform, &mut PointCoordinates), Changed<Transform>>,
+) {
+    for (transform, mut coords) in &mut query {
+        // Only update if there's a significant difference to avoid unnecessary updates
+        if (coords.position.x - transform.translation.x).abs() > 0.001 
+            || (coords.position.y - transform.translation.y).abs() > 0.001 {
+            coords.position.x = transform.translation.x;
+            coords.position.y = transform.translation.y;
+            debug!("Synced point coordinates to transform: {:?}", coords.position);
+        }
+    }
 }
 
 /// Plugin to set up nudging functionality
@@ -110,6 +139,10 @@ impl Plugin for NudgePlugin {
         app.add_event::<EditEvent>()
             .register_type::<EditType>()
             .register_type::<LastEditType>()
-            .add_systems(Update, handle_nudge_shortcuts);
+            .register_type::<PointCoordinates>()
+            .add_systems(Update, (
+                handle_nudge_shortcuts,
+                sync_transforms_and_coordinates,
+            ));
     }
 }

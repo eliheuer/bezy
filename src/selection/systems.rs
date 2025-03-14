@@ -1,7 +1,8 @@
 use super::components::*;
 use crate::cameras::DesignCamera;
+use crate::data::AppState;
 use crate::draw::AppStateChanged;
-use crate::selection::nudge::EditEvent;
+use crate::selection::nudge::{EditEvent, PointCoordinates};
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -355,6 +356,19 @@ pub fn render_selected_entities(
             SELECT_POINT_RADIUS * 1.5,
             Color::srgb(1.0, 1.0, 0.0), // Yellow
         );
+        
+        // Also add a small visual cross to make selection more visible
+        let line_size = SELECT_POINT_RADIUS * 1.2;
+        gizmos.line_2d(
+            Vec2::new(position.x - line_size, position.y),
+            Vec2::new(position.x + line_size, position.y),
+            Color::srgb(1.0, 1.0, 0.0),
+        );
+        gizmos.line_2d(
+            Vec2::new(position.x, position.y - line_size),
+            Vec2::new(position.x, position.y + line_size),
+            Color::srgb(1.0, 1.0, 0.0),
+        );
     }
 }
 
@@ -392,5 +406,53 @@ pub fn clear_selection_on_app_change(
         }
 
         info!("Selection cleared due to app state change");
+    }
+}
+
+/// System to update the actual glyph data when a point is nudged
+pub fn update_glyph_data_from_selection(
+    query: Query<(&Transform, &GlyphPointReference), (With<Selected>, Changed<Transform>)>,
+    mut app_state: ResMut<AppState>,
+) {
+    // Early return if no points were nudged
+    if query.is_empty() {
+        return;
+    }
+
+    // Use the font_mut method to get a mutable reference to the FontObject
+    let font_obj = app_state.workspace.font_mut();
+    let ufo = &mut font_obj.ufo;
+
+    // Process each nudged point
+    for (transform, point_ref) in query.iter() {
+        // Convert the glyph name from String to GlyphName
+        let glyph_name = norad::GlyphName::from(&*point_ref.glyph_name);
+
+        // Try to get the glyph
+        if let Some(default_layer) = ufo.get_default_layer_mut() {
+            if let Some(glyph) = default_layer.get_glyph_mut(&glyph_name) {
+                // Get the outline
+                if let Some(outline) = glyph.outline.as_mut() {
+                    // Make sure the contour index is valid
+                    if point_ref.contour_index < outline.contours.len() {
+                        let contour = &mut outline.contours[point_ref.contour_index];
+                        
+                        // Make sure the point index is valid
+                        if point_ref.point_index < contour.points.len() {
+                            // Update the point position
+                            let point = &mut contour.points[point_ref.point_index];
+                            // Use direct assignment since both are f32
+                            point.x = transform.translation.x;
+                            point.y = transform.translation.y;
+                            
+                            info!(
+                                "Updated glyph data for point {} in contour {} of glyph {}",
+                                point_ref.point_index, point_ref.contour_index, point_ref.glyph_name
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 }

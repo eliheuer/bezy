@@ -848,15 +848,26 @@ pub fn spawn_glyph_point_entities(
 ) {
     // Get the codepoint string
     let codepoint_string = cli_args.get_codepoint_string();
-
-    // First, despawn any existing point entities
-    for entity in point_entities.iter() {
-        commands.entity(entity).despawn();
-    }
+    let glyph_name = norad::GlyphName::from(&*codepoint_string);
 
     // If no font is loaded, return early
     if app_state.workspace.font.path.is_none() {
         return;
+    }
+
+    // Check if we need to respawn entities
+    let needs_respawn = point_entities.is_empty() || 
+        app_state.workspace.font.ufo.get_default_layer()
+            .and_then(|layer| layer.get_glyph(&glyph_name))
+            .is_none();
+
+    if !needs_respawn {
+        return;
+    }
+
+    // First, despawn any existing point entities
+    for entity in point_entities.iter() {
+        commands.entity(entity).despawn();
     }
 
     // If a specific codepoint was requested and not found, don't spawn any entities
@@ -922,13 +933,13 @@ fn spawn_entities_for_glyph(commands: &mut Commands, glyph: &norad::Glyph) {
     // Only proceed if the glyph has an outline
     if let Some(outline) = &glyph.outline {
         // Iterate through all contours
-        for contour in outline.contours.iter() {
+        for (contour_idx, contour) in outline.contours.iter().enumerate() {
             if contour.points.is_empty() {
                 continue;
             }
 
             // Spawn entities for each point
-            for point in contour.points.iter() {
+            for (point_idx, point) in contour.points.iter().enumerate() {
                 let point_pos = (point.x as f32, point.y as f32);
 
                 // Determine if point is on-curve or off-curve
@@ -939,20 +950,35 @@ fn spawn_entities_for_glyph(commands: &mut Commands, glyph: &norad::Glyph) {
                     _ => false,
                 };
 
+                // Use a unique name for the point entity based on its position
+                let entity_name = format!("Point_{}_{}", point_pos.0, point_pos.1);
+
                 // Spawn the point entity with position and selectable component
                 commands
-                    .spawn(SpatialBundle {
-                        transform: Transform::from_translation(Vec3::new(
-                            point_pos.0,
-                            point_pos.1,
-                            0.0,
-                        )),
-                        ..Default::default()
-                    })
-                    .insert(Selectable)
-                    .insert(PointType {
-                        is_on_curve: is_on_curve,
-                    });
+                    .spawn((
+                        TransformBundle {
+                            local: Transform::from_translation(Vec3::new(
+                                point_pos.0,
+                                point_pos.1,
+                                0.0,
+                            )),
+                            ..Default::default()
+                        },
+                        VisibilityBundle::default(),
+                        Selectable,
+                        crate::selection::components::PointType {
+                            is_on_curve,
+                        },
+                        crate::selection::nudge::PointCoordinates {
+                            position: Vec2::new(point_pos.0, point_pos.1),
+                        },
+                        crate::selection::components::GlyphPointReference {
+                            glyph_name: glyph.name.to_string(),
+                            contour_index: contour_idx,
+                            point_index: point_idx,
+                        },
+                        Name::new(entity_name),
+                    ));
             }
         }
     }

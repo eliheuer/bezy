@@ -59,6 +59,18 @@ pub struct PointType {
     pub is_on_curve: bool,
 }
 
+/// Component that links an entity to a specific point in a glyph outline
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component)]
+pub struct GlyphPointReference {
+    /// Name of the glyph this point belongs to
+    pub glyph_name: String, 
+    /// Index of the contour within the glyph outline
+    pub contour_index: usize,
+    /// Index of the point within the contour
+    pub point_index: usize,
+}
+
 impl Default for PointType {
     fn default() -> Self {
         Self { is_on_curve: true }
