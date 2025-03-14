@@ -3,6 +3,7 @@ pub mod cli;
 pub mod coord_pane;
 pub mod crypto_toolbar;
 pub mod data;
+pub mod debug;
 pub mod design_space;
 pub mod draw;
 pub mod edit_mode_toolbar;

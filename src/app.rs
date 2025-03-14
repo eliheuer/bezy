@@ -29,6 +29,7 @@ use bezy::undo_plugin::UndoPlugin;
 
 // Plugins
 use crate::checkerboard::CheckerboardPlugin;
+use crate::debug::ArabicDebugPlugin;
 use crate::design_space::DesignSpacePlugin;
 use crate::draw::DrawPlugin;
 use crate::edit_mode_toolbar::{
@@ -126,6 +127,8 @@ fn add_plugins(app: &mut App) {
             TextEditorPlugin,
             // Edit session management
             EditSessionPlugin,
+            // Arabic debug text display
+            ArabicDebugPlugin,
         ))
         // ---- Core Application Logic ----
         // These plugins handle the application's main systems and behavior
