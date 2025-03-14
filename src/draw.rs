@@ -283,11 +283,14 @@ impl Plugin for DrawPlugin {
                     // Detect AppState changes
                     detect_app_state_changes,
                     // Re-spawn points when the app state changes (e.g., different glyph loaded)
-                    spawn_glyph_point_entities.run_if(
-                        |reader: EventReader<AppStateChanged>| {
+                    spawn_glyph_point_entities
+                        .run_if(|reader: EventReader<AppStateChanged>| {
                             !reader.is_empty()
-                        },
-                    ),
+                        })
+                        // Make sure this system runs before nudge systems
+                        .before(
+                            crate::selection::nudge::handle_nudge_shortcuts,
+                        ),
                 ),
             );
     }
@@ -839,12 +842,30 @@ fn is_on_curve(point: &norad::ContourPoint) -> bool {
     )
 }
 
+/// Information about a selected point, used for restoring selection
+#[derive(Debug, Clone)]
+struct SelectedPointInfo {
+    position: (f32, f32),
+    glyph_name: Option<String>,
+    contour_index: Option<usize>,
+    point_index: Option<usize>,
+}
+
 /// System that spawns glyph point entities for selection
 pub fn spawn_glyph_point_entities(
     mut commands: Commands,
     app_state: Res<AppState>,
-    point_entities: Query<Entity, With<Selectable>>,
+    point_entities: Query<
+        (
+            Entity,
+            Option<&crate::selection::components::Selected>,
+            &Transform,
+            Option<&crate::selection::components::GlyphPointReference>,
+        ),
+        With<Selectable>,
+    >,
     cli_args: Res<crate::cli::CliArgs>,
+    mut selection_state: ResMut<crate::selection::components::SelectionState>,
 ) {
     // Get the codepoint string
     let codepoint_string = cli_args.get_codepoint_string();
@@ -856,8 +877,12 @@ pub fn spawn_glyph_point_entities(
     }
 
     // Check if we need to respawn entities
-    let needs_respawn = point_entities.is_empty() || 
-        app_state.workspace.font.ufo.get_default_layer()
+    let needs_respawn = point_entities.is_empty()
+        || app_state
+            .workspace
+            .font
+            .ufo
+            .get_default_layer()
             .and_then(|layer| layer.get_glyph(&glyph_name))
             .is_none();
 
@@ -865,8 +890,39 @@ pub fn spawn_glyph_point_entities(
         return;
     }
 
-    // First, despawn any existing point entities
-    for entity in point_entities.iter() {
+    // Store selection state before despawning
+    let mut selected_points = Vec::new();
+    for (entity, selected, transform, point_ref) in point_entities.iter() {
+        if selected.is_some() {
+            // Remember position and detailed reference information
+            let position = (transform.translation.x, transform.translation.y);
+            let (glyph_name, contour_index, point_index) =
+                if let Some(ref_info) = point_ref {
+                    (
+                        Some(ref_info.glyph_name.clone()),
+                        Some(ref_info.contour_index),
+                        Some(ref_info.point_index),
+                    )
+                } else {
+                    (None, None, None)
+                };
+
+            selected_points.push(SelectedPointInfo {
+                position,
+                glyph_name,
+                contour_index,
+                point_index,
+            });
+
+            info!(
+                "Stored selection state for point at {:?} with ref {:?}",
+                position,
+                point_ref.map(|r| format!(
+                    "{}/{}/{}",
+                    r.glyph_name, r.contour_index, r.point_index
+                ))
+            );
+        }
         commands.entity(entity).despawn();
     }
 
@@ -915,7 +971,12 @@ pub fn spawn_glyph_point_entities(
                         "Spawned selectable point entities for glyph {}",
                         glyph.name
                     );
-                    spawn_entities_for_glyph(&mut commands, glyph);
+                    spawn_entities_for_glyph(
+                        &mut commands,
+                        glyph,
+                        &selected_points,
+                        &mut selection_state,
+                    );
                 }
                 None => {
                     info!("No glyph found for selection system");
@@ -929,7 +990,12 @@ pub fn spawn_glyph_point_entities(
 }
 
 /// Spawn selectable entities for a glyph
-fn spawn_entities_for_glyph(commands: &mut Commands, glyph: &norad::Glyph) {
+fn spawn_entities_for_glyph(
+    commands: &mut Commands,
+    glyph: &norad::Glyph,
+    selected_points: &[SelectedPointInfo],
+    selection_state: &mut crate::selection::components::SelectionState,
+) {
     // Only proceed if the glyph has an outline
     if let Some(outline) = &glyph.outline {
         // Iterate through all contours
@@ -951,34 +1017,55 @@ fn spawn_entities_for_glyph(commands: &mut Commands, glyph: &norad::Glyph) {
                 };
 
                 // Use a unique name for the point entity based on its position
-                let entity_name = format!("Point_{}_{}", point_pos.0, point_pos.1);
+                let entity_name =
+                    format!("Point_{}_{}", point_pos.0, point_pos.1);
 
-                // Spawn the point entity with position and selectable component
-                commands
-                    .spawn((
-                        TransformBundle {
-                            local: Transform::from_translation(Vec3::new(
-                                point_pos.0,
-                                point_pos.1,
-                                0.0,
-                            )),
-                            ..Default::default()
-                        },
-                        VisibilityBundle::default(),
-                        Selectable,
-                        crate::selection::components::PointType {
-                            is_on_curve,
-                        },
-                        crate::selection::nudge::PointCoordinates {
-                            position: Vec2::new(point_pos.0, point_pos.1),
-                        },
-                        crate::selection::components::GlyphPointReference {
-                            glyph_name: glyph.name.to_string(),
-                            contour_index: contour_idx,
-                            point_index: point_idx,
-                        },
-                        Name::new(entity_name),
-                    ));
+                // Check if this point was previously selected
+                let was_selected = selected_points.iter().any(|info| {
+                    // First try to match by exact reference
+                    (info.glyph_name.as_ref().map(|name| name == &glyph.name.to_string()).unwrap_or(false) &&
+                     info.contour_index.map(|idx| idx == contour_idx).unwrap_or(false) &&
+                     info.point_index.map(|idx| idx == point_idx).unwrap_or(false))
+                    ||
+                    // Fallback to position matching with tolerance
+                    ((info.position.0 - point_pos.0).abs() < 0.001 && 
+                     (info.position.1 - point_pos.1).abs() < 0.001)
+                });
+
+                // Determine if we should add the Selected component
+                let mut entity_cmds = commands.spawn((
+                    TransformBundle {
+                        local: Transform::from_translation(Vec3::new(
+                            point_pos.0,
+                            point_pos.1,
+                            0.0,
+                        )),
+                        ..Default::default()
+                    },
+                    VisibilityBundle::default(),
+                    Selectable,
+                    crate::selection::components::PointType { is_on_curve },
+                    crate::selection::nudge::PointCoordinates {
+                        position: Vec2::new(point_pos.0, point_pos.1),
+                    },
+                    crate::selection::components::GlyphPointReference {
+                        glyph_name: glyph.name.to_string(),
+                        contour_index: contour_idx,
+                        point_index: point_idx,
+                    },
+                    Name::new(entity_name),
+                ));
+
+                // If the point was selected before, restore selection state
+                if was_selected {
+                    let entity = entity_cmds.id();
+                    entity_cmds.insert(crate::selection::components::Selected);
+                    selection_state.selected.insert(entity);
+                    info!(
+                        "Restored selection for point at ({}, {})",
+                        point_pos.0, point_pos.1
+                    );
+                }
             }
         }
     }

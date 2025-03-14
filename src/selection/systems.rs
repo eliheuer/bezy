@@ -2,7 +2,7 @@ use super::components::*;
 use crate::cameras::DesignCamera;
 use crate::data::AppState;
 use crate::draw::AppStateChanged;
-use crate::selection::nudge::{EditEvent, PointCoordinates};
+use crate::selection::nudge::{EditEvent, NudgeState, PointCoordinates};
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -39,6 +39,7 @@ pub fn handle_mouse_input(
     selected_query: Query<Entity, With<Selected>>,
     selection_rect_query: Query<Entity, With<SelectionRect>>,
     mut selection_state: ResMut<SelectionState>,
+    nudge_state: Res<NudgeState>,
 ) {
     // Early return if no window
     let Ok(window) = windows.get_single() else {
@@ -49,6 +50,12 @@ pub fn handle_mouse_input(
     let Ok((camera, camera_transform)) = camera_query.get_single() else {
         return;
     };
+
+    // If we're in the middle of a nudging operation, don't process mouse input
+    // This prevents selection from being cleared during nudging
+    if nudge_state.is_nudging {
+        return;
+    }
 
     // Update multi-select state based on shift key
     let shift_pressed = keyboard_input.pressed(KeyCode::ShiftLeft)
@@ -356,7 +363,7 @@ pub fn render_selected_entities(
             SELECT_POINT_RADIUS * 1.5,
             Color::srgb(1.0, 1.0, 0.0), // Yellow
         );
-        
+
         // Also add a small visual cross to make selection more visible
         let line_size = SELECT_POINT_RADIUS * 1.2;
         gizmos.line_2d(
@@ -411,17 +418,21 @@ pub fn clear_selection_on_app_change(
 
 /// System to update the actual glyph data when a point is nudged
 pub fn update_glyph_data_from_selection(
-    query: Query<(&Transform, &GlyphPointReference), (With<Selected>, Changed<Transform>)>,
+    query: Query<
+        (&Transform, &GlyphPointReference),
+        (With<Selected>, Changed<Transform>),
+    >,
     mut app_state: ResMut<AppState>,
+    // Track if we're in a nudging operation
+    nudge_state: Res<crate::selection::nudge::NudgeState>,
 ) {
     // Early return if no points were nudged
     if query.is_empty() {
         return;
     }
 
-    // Use the font_mut method to get a mutable reference to the FontObject
-    let font_obj = app_state.workspace.font_mut();
-    let ufo = &mut font_obj.ufo;
+    // Only modify app_state after detaching its change detection
+    let mut app_state = app_state.bypass_change_detection();
 
     // Process each nudged point
     for (transform, point_ref) in query.iter() {
@@ -429,22 +440,26 @@ pub fn update_glyph_data_from_selection(
         let glyph_name = norad::GlyphName::from(&*point_ref.glyph_name);
 
         // Try to get the glyph
-        if let Some(default_layer) = ufo.get_default_layer_mut() {
+        if let Some(default_layer) =
+            app_state.workspace.font_mut().ufo.get_default_layer_mut()
+        {
             if let Some(glyph) = default_layer.get_glyph_mut(&glyph_name) {
                 // Get the outline
                 if let Some(outline) = glyph.outline.as_mut() {
                     // Make sure the contour index is valid
                     if point_ref.contour_index < outline.contours.len() {
-                        let contour = &mut outline.contours[point_ref.contour_index];
-                        
+                        let contour =
+                            &mut outline.contours[point_ref.contour_index];
+
                         // Make sure the point index is valid
                         if point_ref.point_index < contour.points.len() {
                             // Update the point position
-                            let point = &mut contour.points[point_ref.point_index];
+                            let point =
+                                &mut contour.points[point_ref.point_index];
                             // Use direct assignment since both are f32
                             point.x = transform.translation.x;
                             point.y = transform.translation.y;
-                            
+
                             info!(
                                 "Updated glyph data for point {} in contour {} of glyph {}",
                                 point_ref.point_index, point_ref.contour_index, point_ref.glyph_name
@@ -453,6 +468,24 @@ pub fn update_glyph_data_from_selection(
                     }
                 }
             }
+        }
+    }
+}
+
+/// System to handle key releases for arrow keys to maintain selection
+pub fn handle_key_releases(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut nudge_state: ResMut<NudgeState>,
+) {
+    // Check if any previously pressed arrow key was released
+    if let Some(last_key) = nudge_state.last_key_pressed {
+        if keyboard_input.just_released(last_key) {
+            // Clear the last pressed key but maintain nudging state
+            // This ensures selection isn't lost when arrow keys are released
+            nudge_state.last_key_pressed = None;
+
+            // Note: We deliberately don't reset the nudging state here
+            // to ensure selection is maintained through multiple nudges
         }
     }
 }
