@@ -206,7 +206,7 @@ impl Workspace {
             // Write to a temporary location first
             let temp_path = temp_write_path(path);
             info!("saving to {:?}", temp_path);
-            
+
             // Save the UFO to the temporary path
             font_obj.ufo.save(&temp_path)?;
 

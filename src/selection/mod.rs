@@ -1,9 +1,10 @@
-mod components;
-mod systems;
+pub mod components;
+pub mod nudge;
+pub mod systems;
 
-use crate::edit_mode_toolbar::select::SelectModeActive;
 use bevy::prelude::*;
 pub use components::*;
+pub use nudge::*;
 pub use systems::*;
 
 /// Plugin to register all selection-related components and systems
@@ -18,62 +19,24 @@ impl Plugin for SelectionPlugin {
             .register_type::<Hovered>()
             .register_type::<SelectionRect>()
             .register_type::<PointType>()
+            .register_type::<LastEditType>()
             // Register resources
             .init_resource::<SelectionState>()
-            // Register systems
-            .add_systems(Update, selection_visualization)
-            // Debug selection state
+            .init_resource::<systems::DragSelectionState>()
+            // Add systems for selection
             .add_systems(
                 Update,
-                debug_selection_state
-                    .run_if(resource_exists::<SelectModeActive>),
-            )
-            // Visual rendering systems for selection
-            .add_systems(
-                PostUpdate,
                 (
-                    render_selected_entities,
-                    render_hovered_entities,
-                    render_selection_rect,
+                    systems::handle_mouse_input,
+                    systems::handle_selection_shortcuts,
+                    // Temporarily disable update_hover_state system to focus on nudging
+                    // systems::update_hover_state,
+                    systems::render_selection_rect,
+                    systems::render_selected_entities,
+                    systems::render_hovered_entities,
                 ),
             )
-            // Run hover update system when select mode is active
-            .add_systems(
-                Update,
-                update_hover_state
-                    .run_if(resource_exists_and_equals(SelectModeActive(true))),
-            )
-            // Selection systems - only run when select mode is active
-            .add_systems(
-                Update,
-                (
-                    mark_selected_entities,
-                    start_drag_selection,
-                    update_drag_selection,
-                    finish_drag_selection,
-                )
-                    .run_if(resource_exists_and_equals(SelectModeActive(true))),
-            )
-            // Keyboard shortcuts for selection (always active when selection mode is active)
-            .add_systems(
-                Update,
-                handle_selection_shortcuts
-                    .run_if(resource_exists_and_equals(SelectModeActive(true))),
-            )
-            // Clear selection when app state changes (e.g., when codepoint changes)
-            .add_systems(Update, clear_selection_on_app_change);
-    }
-}
-
-/// Helper condition to check if a resource exists and equals a specific value
-fn resource_exists_and_equals<T: Resource + PartialEq>(
-    value: T,
-) -> impl FnMut(Option<Res<T>>) -> bool {
-    move |res: Option<Res<T>>| {
-        if let Some(res) = res {
-            *res == value
-        } else {
-            false
-        }
+            // Add the nudge plugin
+            .add_plugins(NudgePlugin);
     }
 }

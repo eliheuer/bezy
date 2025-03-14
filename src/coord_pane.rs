@@ -54,7 +54,8 @@ impl Plugin for CoordPanePlugin {
 fn debug_selection_changes(
     coord_selection: Res<CoordinateSelection>,
     mut coord_pane_query: Query<&mut Text, With<CoordText>>,
-    mut visibility_query: Query<&mut Visibility, With<CoordPane>>,
+    // mut visibility_query: Query<&mut Visibility, With<CoordPane>>,
+    _visibility_query: Query<&mut Visibility, With<CoordPane>>,
 ) {
     // Comment out the visibility setting to keep it hidden
     /*
@@ -439,14 +440,14 @@ fn create_test_selection(
     ];
 
     for (i, position) in test_points.iter().enumerate() {
-        commands.spawn((
-            Transform::from_translation(*position),
-            GlobalTransform::default(),
-            Selectable,
-            Selected,
-            PointType::OnCurve,
-            Name::new(format!("TestPoint{}", i + 1)),
-        ));
+        commands
+            .spawn(SpatialBundle {
+                transform: Transform::from_translation(*position),
+                ..Default::default()
+            })
+            .insert(Selectable)
+            .insert(PointType { is_on_curve: true })
+            .insert(Name::new(format!("TestPoint{}", i + 1)));
     }
 
     // Create a bounding box that matches the test points

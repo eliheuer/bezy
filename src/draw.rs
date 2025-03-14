@@ -940,19 +940,19 @@ fn spawn_entities_for_glyph(commands: &mut Commands, glyph: &norad::Glyph) {
                 };
 
                 // Spawn the point entity with position and selectable component
-                commands.spawn((
-                    Transform::from_translation(Vec3::new(
-                        point_pos.0,
-                        point_pos.1,
-                        0.0,
-                    )),
-                    Selectable,
-                    if is_on_curve {
-                        PointType::OnCurve
-                    } else {
-                        PointType::OffCurve
-                    },
-                ));
+                commands
+                    .spawn(SpatialBundle {
+                        transform: Transform::from_translation(Vec3::new(
+                            point_pos.0,
+                            point_pos.1,
+                            0.0,
+                        )),
+                        ..Default::default()
+                    })
+                    .insert(Selectable)
+                    .insert(PointType {
+                        is_on_curve: is_on_curve,
+                    });
             }
         }
     }

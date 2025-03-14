@@ -1,677 +1,396 @@
 use super::components::*;
+use crate::cameras::DesignCamera;
 use crate::draw::AppStateChanged;
+use crate::selection::nudge::EditEvent;
+use bevy::input::ButtonInput;
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 
-/// A basic system that logs the number of selected and hovered entities
-/// This is just a placeholder until we implement the full selection functionality
-pub fn selection_visualization(
-    selected_entities: Query<Entity, With<Selected>>,
-    hovered_entities: Query<Entity, With<Hovered>>,
-) {
-    // Count the number of selected and hovered entities
-    let selected_count = selected_entities.iter().count();
-    let hovered_count = hovered_entities.iter().count();
+// Constants for selection
+const SELECTION_MARGIN: f32 = 10.0; // Distance in pixels for selection hit testing
+const SELECT_POINT_RADIUS: f32 = 5.0; // Radius for drawing selection circle
 
-    // Log the counts (just for debugging)
-    if selected_count > 0 || hovered_count > 0 {
-        debug!(
-            "Selected entities: {}, Hovered entities: {}",
-            selected_count, hovered_count
-        );
-    }
+// Resource to track the drag selection state
+#[derive(Resource, Default)]
+pub struct DragSelectionState {
+    /// Whether a drag selection is in progress
+    pub is_dragging: bool,
+    /// The start position of the drag selection
+    pub start_position: Option<Vec2>,
+    /// The current position of the drag selection
+    pub current_position: Option<Vec2>,
+    /// Whether this is a multi-select operation (shift is held)
+    pub is_multi_select: bool,
+    /// The previous selection before the drag started
+    pub previous_selection: Vec<Entity>,
 }
 
-/// System to update hover state based on cursor position
-pub fn update_hover_state(
-    windows: Query<&Window>,
-    camera_q: Query<(&Camera, &GlobalTransform)>,
+/// System to handle mouse input for selection and hovering
+pub fn handle_mouse_input(
     mut commands: Commands,
-    selectables: Query<(Entity, &GlobalTransform), With<Selectable>>,
-    selection_state: Res<SelectionState>,
-) {
-    // Skip hover checks if we're doing a drag selection
-    if selection_state.drag_selecting {
-        return;
-    }
-
-    // Get the primary window
-    let window = match windows.get_single() {
-        Ok(window) => window,
-        Err(_) => return,
-    };
-
-    // Get cursor position if available
-    let cursor_position = match window.cursor_position() {
-        Some(pos) => pos,
-        None => return,
-    };
-
-    // Find cursor world position
-    let mut cursor_world_pos = None;
-    for (camera, camera_transform) in camera_q.iter() {
-        if let Ok(pos) =
-            camera.viewport_to_world(camera_transform, cursor_position)
-        {
-            cursor_world_pos = Some(pos);
-            break;
-        }
-    }
-
-    let cursor_world_pos = match cursor_world_pos {
-        Some(pos) => pos,
-        None => return,
-    };
-
-    // Ray position in world space
-    let ray_pos_world = cursor_world_pos.origin.truncate();
-
-    // Remove hover from all entities first
-    for (entity, _) in selectables.iter() {
-        commands.entity(entity).remove::<Hovered>();
-    }
-
-    // Check each selectable entity for hovering
-    for (entity, transform) in selectables.iter() {
-        let entity_pos = transform.translation().truncate();
-        let distance = ray_pos_world.distance(entity_pos);
-
-        // If close enough to the entity, mark as hovered
-        if distance < 15.0 {
-            // slightly larger threshold for hovering
-            commands.entity(entity).insert(Hovered);
-            break; // For now, we'll only hover one entity at a time
-        }
-    }
-}
-
-/// Marks entities as selected based on mouse input and selection state
-pub fn mark_selected_entities(
-    mouse_button: Res<ButtonInput<MouseButton>>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    windows: Query<&Window>,
-    camera_q: Query<(&Camera, &GlobalTransform)>,
-    mut commands: Commands,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
+    mut drag_state: ResMut<DragSelectionState>,
+    mut event_writer: EventWriter<EditEvent>,
+    selectable_query: Query<(Entity, &GlobalTransform), With<Selectable>>,
+    selected_query: Query<Entity, With<Selected>>,
+    selection_rect_query: Query<Entity, With<SelectionRect>>,
     mut selection_state: ResMut<SelectionState>,
-    selectables: Query<(Entity, &GlobalTransform), With<Selectable>>,
-    hovered: Query<Entity, With<Hovered>>,
 ) {
-    // Only process if left mouse button was just pressed
-    if !mouse_button.just_pressed(MouseButton::Left) {
-        return;
-    }
-
-    // Check if shift is held for multi-select
-    let multi_select = keyboard.pressed(KeyCode::ShiftLeft)
-        || keyboard.pressed(KeyCode::ShiftRight);
-    selection_state.multi_select = multi_select;
-
-    // Get the primary window
-    let window = match windows.get_single() {
-        Ok(window) => window,
-        Err(_) => {
-            warn!("No window found for selection");
-            return;
-        }
-    };
-
-    // Get cursor position if available
-    let cursor_position = if let Some(cursor_pos) = window.cursor_position() {
-        cursor_pos
-    } else {
+    // Early return if no window
+    let Ok(window) = windows.get_single() else {
         return;
     };
 
-    // Find a camera that can be used for selection
-    let mut cursor_world_pos = None;
-
-    for (camera, camera_transform) in camera_q.iter() {
-        if let Ok(pos) =
-            camera.viewport_to_world(camera_transform, cursor_position)
-        {
-            cursor_world_pos = Some(pos);
-            break;
-        }
-    }
-
-    // If no camera could convert the cursor position, return
-    let cursor_world_pos = match cursor_world_pos {
-        Some(pos) => pos,
-        None => {
-            warn!("No camera found that can convert cursor position");
-            return;
-        }
+    // Early return if no camera
+    let Ok((camera, camera_transform)) = camera_query.get_single() else {
+        return;
     };
 
-    // Ray position in world space
-    let ray_pos_world = cursor_world_pos.origin.truncate();
+    // Update multi-select state based on shift key
+    let shift_pressed = keyboard_input.pressed(KeyCode::ShiftLeft)
+        || keyboard_input.pressed(KeyCode::ShiftRight);
+    selection_state.multi_select = shift_pressed;
 
-    // If not in multi-select mode, clear previous selection
-    if !multi_select {
-        // Clear Selected component from all entities
-        for entity in selectables.iter().map(|(e, _)| e) {
-            commands.entity(entity).remove::<Selected>();
-        }
-        selection_state.clear();
-    }
+    // Check for mouse click to start selection
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        // Get cursor position in world coordinates
+        if let Some(cursor_pos) = window.cursor_position().and_then(|pos| {
+            camera.viewport_to_world_2d(camera_transform, pos).ok()
+        }) {
+            // Check if we clicked on a selectable entity
+            let mut clicked_entity = None;
+            let mut closest_distance = SELECTION_MARGIN;
 
-    // First try to select a hovered entity if any
-    let mut selected_entity = false;
+            for (entity, transform) in selectable_query.iter() {
+                let entity_pos = transform.translation().truncate();
+                let distance = cursor_pos.distance(entity_pos);
 
-    if let Ok(entity) = hovered.get_single() {
-        // Toggle selection if already selected in multi-select mode
-        if multi_select && selection_state.selected_entities.contains(&entity) {
-            commands.entity(entity).remove::<Selected>();
-            // Remove from selection state
-            selection_state.selected_entities.retain(|&e| e != entity);
-        } else {
-            commands.entity(entity).insert(Selected);
-            selection_state.add_selected(entity);
-        }
-        selected_entity = true;
-    }
+                if distance < closest_distance {
+                    closest_distance = distance;
+                    clicked_entity = Some(entity);
+                }
+            }
 
-    // If no hovered entity was selected, do a distance-based selection
-    if !selected_entity {
-        // Check each selectable entity
-        for (entity, transform) in selectables.iter() {
-            // Simple distance-based selection
-            let entity_pos = transform.translation().truncate();
-            let distance = ray_pos_world.distance(entity_pos);
-
-            // If close enough to the entity, select it
-            if distance < 10.0 {
-                // 10 units threshold, adjust as needed
-                // Toggle selection if already selected in multi-select mode
-                if multi_select
-                    && selection_state.selected_entities.contains(&entity)
-                {
-                    commands.entity(entity).remove::<Selected>();
-                    // Remove from selection state
-                    selection_state.selected_entities.retain(|&e| e != entity);
+            if let Some(entity) = clicked_entity {
+                // Handle entity selection
+                if selection_state.multi_select {
+                    // Toggle selection with shift key
+                    if selection_state.selected.contains(&entity) {
+                        selection_state.selected.remove(&entity);
+                        commands.entity(entity).remove::<Selected>();
+                    } else {
+                        selection_state.selected.insert(entity);
+                        commands.entity(entity).insert(Selected);
+                    }
                 } else {
+                    // Clear previous selection
+                    for entity in &selected_query {
+                        commands.entity(entity).remove::<Selected>();
+                    }
+                    selection_state.selected.clear();
+
+                    // Select the clicked entity
+                    selection_state.selected.insert(entity);
                     commands.entity(entity).insert(Selected);
-                    selection_state.add_selected(entity);
                 }
-                break; // For now, we'll select only one entity at a time
+
+                // Notify about the edit
+                event_writer.send(EditEvent {
+                    edit_type: crate::selection::nudge::EditType::AddPoint,
+                });
+            } else {
+                // No entity clicked, start drag selection
+                drag_state.is_dragging = true;
+                drag_state.start_position = Some(cursor_pos);
+                drag_state.current_position = Some(cursor_pos);
+                drag_state.is_multi_select = selection_state.multi_select;
+
+                // Save previous selection for potential multi-select operations
+                drag_state.previous_selection = selected_query.iter().collect();
+
+                // If not multi-selecting, clear previous selection
+                if !selection_state.multi_select {
+                    for entity in &selected_query {
+                        commands.entity(entity).remove::<Selected>();
+                    }
+                    selection_state.selected.clear();
+                }
+
+                // Create selection rectangle entity
+                for entity in &selection_rect_query {
+                    commands.entity(entity).despawn();
+                }
+
+                commands.spawn((
+                    Transform::default(),
+                    GlobalTransform::default(),
+                    Visibility::default(),
+                    InheritedVisibility::default(),
+                    ViewVisibility::default(),
+                    SelectionRect {
+                        start: cursor_pos,
+                        end: cursor_pos,
+                    },
+                    Name::new("Selection Rectangle"),
+                ));
             }
         }
     }
-}
 
-/// System to handle the start of a drag selection
-pub fn start_drag_selection(
-    mouse_button: Res<ButtonInput<MouseButton>>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    windows: Query<&Window>,
-    camera_q: Query<(&Camera, &GlobalTransform)>,
-    mut commands: Commands,
-    mut selection_state: ResMut<SelectionState>,
-    select_rect_query: Query<Entity, With<SelectionRect>>,
-    hovered_query: Query<Entity, With<Hovered>>,
-    entities_with_selected: Query<Entity, With<Selected>>,
-) {
-    // Only process if left mouse button was just pressed
-    if !mouse_button.just_pressed(MouseButton::Left) {
-        return;
-    }
+    // Update drag selection
+    if drag_state.is_dragging {
+        if let Some(cursor_pos) = window.cursor_position().and_then(|pos| {
+            camera.viewport_to_world_2d(camera_transform, pos).ok()
+        }) {
+            drag_state.current_position = Some(cursor_pos);
 
-    // Skip if we clicked on a hovered entity
-    if !hovered_query.is_empty() {
-        return;
-    }
+            // Update selection rectangle
+            for rect_entity in &selection_rect_query {
+                if let Some(start_pos) = drag_state.start_position {
+                    commands.entity(rect_entity).insert(SelectionRect {
+                        start: start_pos,
+                        end: cursor_pos,
+                    });
+                }
+            }
 
-    // Get the primary window
-    let window = match windows.get_single() {
-        Ok(window) => window,
-        Err(_) => return,
-    };
-
-    // Get cursor position if available
-    let cursor_position = match window.cursor_position() {
-        Some(pos) => pos,
-        None => return,
-    };
-
-    // Find cursor world position
-    let mut cursor_world_pos = None;
-    for (camera, camera_transform) in camera_q.iter() {
-        if let Ok(pos) =
-            camera.viewport_to_world(camera_transform, cursor_position)
-        {
-            cursor_world_pos = Some(pos);
-            break;
-        }
-    }
-
-    let cursor_world_pos = match cursor_world_pos {
-        Some(pos) => pos,
-        None => return,
-    };
-
-    // Ray position in world space
-    let ray_pos_world = cursor_world_pos.origin.truncate();
-
-    // Remove any existing selection rectangle
-    for entity in select_rect_query.iter() {
-        commands.entity(entity).despawn();
-    }
-
-    // Create a new selection rectangle
-    commands.spawn((SelectionRect {
-        start: ray_pos_world,
-        end: ray_pos_world,
-    },));
-
-    // Set drag selecting flag
-    selection_state.drag_selecting = true;
-
-    // Check if shift is held for multi-select
-    let multi_select = keyboard.pressed(KeyCode::ShiftLeft)
-        || keyboard.pressed(KeyCode::ShiftRight);
-    selection_state.multi_select = multi_select;
-
-    // If not in multi-select mode, clear previous selection
-    if !multi_select {
-        // Clear selected component from all entities
-        for entity in entities_with_selected.iter() {
-            commands.entity(entity).remove::<Selected>();
-        }
-
-        selection_state.clear();
-    }
-}
-
-/// System to update a drag selection in progress
-pub fn update_drag_selection(
-    mouse_button: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
-    camera_q: Query<(&Camera, &GlobalTransform)>,
-    selection_state: ResMut<SelectionState>,
-    mut select_rect_query: Query<&mut SelectionRect>,
-) {
-    // Only update if left mouse button is pressed and we're drag selecting
-    if !mouse_button.pressed(MouseButton::Left)
-        || !selection_state.drag_selecting
-    {
-        return;
-    }
-
-    // Get the primary window
-    let window = match windows.get_single() {
-        Ok(window) => window,
-        Err(_) => return,
-    };
-
-    // Get cursor position if available
-    let cursor_position = match window.cursor_position() {
-        Some(pos) => pos,
-        None => return,
-    };
-
-    // Find cursor world position
-    let mut cursor_world_pos = None;
-    for (camera, camera_transform) in camera_q.iter() {
-        if let Ok(pos) =
-            camera.viewport_to_world(camera_transform, cursor_position)
-        {
-            cursor_world_pos = Some(pos);
-            break;
-        }
-    }
-
-    let cursor_world_pos = match cursor_world_pos {
-        Some(pos) => pos,
-        None => return,
-    };
-
-    // Ray position in world space
-    let ray_pos_world = cursor_world_pos.origin.truncate();
-
-    // Update the selection rectangle end position
-    if let Ok(mut select_rect) = select_rect_query.get_single_mut() {
-        select_rect.end = ray_pos_world;
-    }
-}
-
-/// System to debug selection status
-pub fn debug_selection_state(
-    selectables: Query<(Entity, &GlobalTransform), With<Selectable>>,
-    selected: Query<Entity, With<Selected>>,
-    selection_state: Res<SelectionState>,
-) {
-    if selection_state.is_changed() {
-        let selectable_count = selectables.iter().count();
-        let selected_count = selected.iter().count();
-
-        info!(
-            "Selection state changed: {} selectables, {} selected entities",
-            selectable_count, selected_count
-        );
-
-        if selection_state.is_empty() {
-            info!("Selection is empty");
-        } else {
-            info!(
-                "Selection state selected_entities: {:?}",
-                selection_state.selected_entities
-            );
-        }
-    }
-}
-
-/// System to finish a drag selection
-pub fn finish_drag_selection(
-    mouse_button: Res<ButtonInput<MouseButton>>,
-    mut commands: Commands,
-    mut selection_state: ResMut<SelectionState>,
-    select_rect_query: Query<(Entity, &SelectionRect)>,
-    selectables: Query<(Entity, &GlobalTransform), With<Selectable>>,
-) {
-    // Only process if left mouse button was just released and we're drag selecting
-    if !mouse_button.just_released(MouseButton::Left)
-        || !selection_state.drag_selecting
-    {
-        return;
-    }
-
-    // Get the selection rectangle
-    let select_rect =
-        if let Ok((entity, select_rect)) = select_rect_query.get_single() {
-            // Cleanup the selection rectangle entity
-            commands.entity(entity).despawn();
-            select_rect
-        } else {
-            // Reset drag selecting flag
-            selection_state.drag_selecting = false;
-            return;
-        };
-
-    // Calculate the rectangle bounds
-    let min_x = select_rect.start.x.min(select_rect.end.x);
-    let max_x = select_rect.start.x.max(select_rect.end.x);
-    let min_y = select_rect.start.y.min(select_rect.end.y);
-    let max_y = select_rect.start.y.max(select_rect.end.y);
-
-    // Minimum size to consider it a real selection (prevent accidental clicks)
-    let min_size = 2.0; // Reduced from 5.0 to make selection easier
-
-    // Only process if the rectangle is big enough
-    if max_x - min_x > min_size || max_y - min_y > min_size {
-        info!(
-            "Selection rectangle: ({}, {}) to ({}, {})",
-            min_x, min_y, max_x, max_y
-        );
-        let mut selected_count = 0;
-
-        // Select all entities within the rectangle
-        for (entity, transform) in selectables.iter() {
-            let pos = transform.translation().truncate();
-
-            // Check if the entity is within the selection rectangle
-            if pos.x >= min_x
-                && pos.x <= max_x
-                && pos.y >= min_y
-                && pos.y <= max_y
+            // Update selection based on what's inside the rectangle
+            if let (Some(start_pos), Some(current_pos)) =
+                (drag_state.start_position, drag_state.current_position)
             {
-                commands.entity(entity).insert(Selected);
-                selection_state.add_selected(entity);
-                selected_count += 1;
-                info!(
-                    "Selected entity {:?} at position ({}, {})",
-                    entity, pos.x, pos.y
-                );
-            }
-        }
+                let rect = Rect::from_corners(start_pos, current_pos);
 
-        info!("Selected {} entities from drag selection", selected_count);
-    } else {
-        info!(
-            "Selection rectangle too small: ({}, {}) to ({}, {})",
-            min_x, min_y, max_x, max_y
-        );
-    }
+                // In multi-select mode, start with previous selection
+                if drag_state.is_multi_select {
+                    // Reset to previous selection
+                    for entity in &selected_query {
+                        if !drag_state.previous_selection.contains(&entity) {
+                            commands.entity(entity).remove::<Selected>();
+                            selection_state.selected.remove(&entity);
+                        }
+                    }
 
-    // Reset drag selecting flag
-    selection_state.drag_selecting = false;
-}
+                    for entity in &drag_state.previous_selection {
+                        if !selection_state.selected.contains(entity) {
+                            commands.entity(*entity).insert(Selected);
+                            selection_state.selected.insert(*entity);
+                        }
+                    }
+                } else {
+                    // Clear selection for non-multi-select
+                    for entity in &selected_query {
+                        commands.entity(entity).remove::<Selected>();
+                    }
+                    selection_state.selected.clear();
+                }
 
-/// System to render the selection rectangle
-pub fn render_selection_rect(
-    mut gizmos: Gizmos,
-    select_rect_query: Query<&SelectionRect>,
-) {
-    if let Ok(select_rect) = select_rect_query.get_single() {
-        // Calculate the rectangle bounds
-        let min_x = select_rect.start.x.min(select_rect.end.x);
-        let max_x = select_rect.start.x.max(select_rect.end.x);
-        let min_y = select_rect.start.y.min(select_rect.end.y);
-        let max_y = select_rect.start.y.max(select_rect.end.y);
-
-        // Calculate center and size
-        let center = Vec2::new((min_x + max_x) / 2.0, (min_y + max_y) / 2.0);
-        let size = Vec2::new(max_x - min_x, max_y - min_y);
-
-        // Define bright orange/yellow color with full opacity for border
-        let border_color = Color::srgba(1.0, 0.7, 0.0, 0.8);
-
-        // Calculate corner positions
-        let half_width = size.x / 2.0;
-        let half_height = size.y / 2.0;
-
-        let top_left = Vec2::new(center.x - half_width, center.y - half_height);
-        let top_right =
-            Vec2::new(center.x + half_width, center.y - half_height);
-        let bottom_right =
-            Vec2::new(center.x + half_width, center.y + half_height);
-        let bottom_left =
-            Vec2::new(center.x - half_width, center.y + half_height);
-
-        // Draw dashed border lines
-        let dash_length = 4.0;
-        let gap_length = 4.0;
-
-        // Helper function to draw dashed lines
-        let mut draw_dashed_line = |start: Vec2, end: Vec2, color: Color| {
-            let direction = (end - start).normalize();
-            let distance = (end - start).length();
-            let num_segments =
-                (distance / (dash_length + gap_length)).ceil() as i32;
-
-            for i in 0..num_segments {
-                let segment_start =
-                    start + direction * (i as f32 * (dash_length + gap_length));
-                let segment_end = segment_start
-                    + direction
-                        * dash_length.min(
-                            distance - (i as f32 * (dash_length + gap_length)),
-                        );
-
-                // Make sure we don't exceed the end point
-                if segment_start.distance(start) <= distance {
-                    gizmos.line_2d(segment_start, segment_end, color);
+                // Add entities in the rectangle to selection
+                for (entity, transform) in selectable_query.iter() {
+                    let entity_pos = transform.translation().truncate();
+                    if rect.contains(entity_pos) {
+                        if drag_state.is_multi_select
+                            && drag_state.previous_selection.contains(&entity)
+                        {
+                            // Toggle off if previously selected
+                            selection_state.selected.remove(&entity);
+                            commands.entity(entity).remove::<Selected>();
+                        } else {
+                            selection_state.selected.insert(entity);
+                            commands.entity(entity).insert(Selected);
+                        }
+                    }
                 }
             }
-        };
+        }
+    }
 
-        // Draw dashed borders
-        draw_dashed_line(top_left, top_right, border_color);
-        draw_dashed_line(top_right, bottom_right, border_color);
-        draw_dashed_line(bottom_right, bottom_left, border_color);
-        draw_dashed_line(bottom_left, top_left, border_color);
+    // End drag selection
+    if mouse_button_input.just_released(MouseButton::Left)
+        && drag_state.is_dragging
+    {
+        drag_state.is_dragging = false;
+        drag_state.start_position = None;
+        drag_state.current_position = None;
+
+        // Remove selection rectangle
+        for entity in &selection_rect_query {
+            commands.entity(entity).despawn();
+        }
+
+        // Notify about the edit
+        event_writer.send(EditEvent {
+            edit_type: crate::selection::nudge::EditType::AddPoint,
+        });
     }
 }
 
 /// System to handle keyboard shortcuts for selection
 pub fn handle_selection_shortcuts(
-    keyboard: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    selected_query: Query<Entity, With<Selected>>,
+    selectable_query: Query<Entity, With<Selectable>>,
     mut selection_state: ResMut<SelectionState>,
-    selectables: Query<Entity, With<Selectable>>,
+    mut event_writer: EventWriter<EditEvent>,
 ) {
-    // Select all (Ctrl+A)
-    let ctrl_pressed = keyboard.pressed(KeyCode::ControlLeft)
-        || keyboard.pressed(KeyCode::ControlRight);
-
-    if ctrl_pressed && keyboard.just_pressed(KeyCode::KeyA) {
-        // Clear previous selection
-        selection_state.clear();
-
-        // Select all selectable entities
-        for entity in selectables.iter() {
-            commands.entity(entity).insert(Selected);
-            selection_state.add_selected(entity);
-        }
-
-        info!("Selected all entities: {}", selection_state.count());
-    }
-
-    // Deselect all (Escape)
-    if keyboard.just_pressed(KeyCode::Escape) {
-        // Clear selection state
-        selection_state.clear();
-
-        // Remove Selected component from all entities
-        for entity in selectables.iter() {
+    // Handle Escape key to clear selection
+    if keyboard_input.just_pressed(KeyCode::Escape) {
+        for entity in &selected_query {
             commands.entity(entity).remove::<Selected>();
         }
-
-        info!("Deselected all entities");
+        selection_state.selected.clear();
     }
 
-    // Delete selected entities (Delete key)
-    if keyboard.just_pressed(KeyCode::Delete)
-        || keyboard.just_pressed(KeyCode::Backspace)
+    // Handle Ctrl+A to select all
+    let ctrl_pressed = keyboard_input.pressed(KeyCode::ControlLeft)
+        || keyboard_input.pressed(KeyCode::ControlRight)
+        || keyboard_input.pressed(KeyCode::SuperLeft)
+        || keyboard_input.pressed(KeyCode::SuperRight);
+
+    if ctrl_pressed && keyboard_input.just_pressed(KeyCode::KeyA) {
+        // Clear current selection
+        for entity in &selected_query {
+            commands.entity(entity).remove::<Selected>();
+        }
+        selection_state.selected.clear();
+
+        // Select all selectable entities
+        for entity in &selectable_query {
+            commands.entity(entity).insert(Selected);
+            selection_state.selected.insert(entity);
+        }
+
+        event_writer.send(EditEvent {
+            edit_type: crate::selection::nudge::EditType::AddPoint,
+        });
+    }
+}
+
+/// System to update hover state based on mouse position
+pub fn update_hover_state(
+    mut commands: Commands,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
+    selectable_query: Query<(Entity, &GlobalTransform), With<Selectable>>,
+    hovered_query: Query<Entity, With<Hovered>>,
+) {
+    // First, clear all hovered states to avoid inconsistencies
+    for entity in &hovered_query {
+        commands.entity(entity).remove::<Hovered>();
+    }
+
+    // Early return if no window
+    let Ok(window) = windows.get_single() else {
+        return;
+    };
+
+    // Early return if no camera
+    let Ok((camera, camera_transform)) = camera_query.get_single() else {
+        return;
+    };
+
+    // Get cursor position in world coordinates
+    if let Some(cursor_pos) = window
+        .cursor_position()
+        .and_then(|pos| camera.viewport_to_world_2d(camera_transform, pos).ok())
     {
-        // Get all selected entities
-        let selected = selection_state.selected_entities.clone();
+        // Find closest entity to the cursor
+        let mut closest_entity = None;
+        let mut closest_distance = SELECTION_MARGIN;
 
-        // Check if any entities are selected
-        if !selected.is_empty() {
-            info!("Deleting {} selected entities", selected.len());
+        for (entity, transform) in selectable_query.iter() {
+            let entity_pos = transform.translation().truncate();
+            let distance = cursor_pos.distance(entity_pos);
 
-            // For now, we'll just log the deletion
-            // In a real implementation, you would actually delete the entities
-            info!("Entities to delete: {:?}", selected);
+            if distance < closest_distance {
+                closest_distance = distance;
+                closest_entity = Some(entity);
+            }
+        }
 
-            // Clear selection after deletion
-            selection_state.clear();
+        // Add hover state only to the closest entity
+        if let Some(entity) = closest_entity {
+            // Check if the entity is already hovered to avoid unnecessary component updates
+            if !hovered_query.contains(entity) {
+                commands.entity(entity).insert(Hovered);
+            }
         }
     }
 }
 
-/// System to render visual indicators for selected entities
+/// System to draw the selection rectangle
+pub fn render_selection_rect(
+    mut gizmos: Gizmos,
+    selection_rect_query: Query<&SelectionRect>,
+) {
+    for rect in &selection_rect_query {
+        let rect_bounds = Rect::from_corners(rect.start, rect.end);
+        let points = [
+            Vec3::new(rect_bounds.min.x, rect_bounds.min.y, 0.0),
+            Vec3::new(rect_bounds.max.x, rect_bounds.min.y, 0.0),
+            Vec3::new(rect_bounds.max.x, rect_bounds.max.y, 0.0),
+            Vec3::new(rect_bounds.min.x, rect_bounds.max.y, 0.0),
+            Vec3::new(rect_bounds.min.x, rect_bounds.min.y, 0.0),
+        ];
+
+        // Draw the rectangle outline
+        gizmos.linestrip(points, Color::WHITE);
+    }
+}
+
+/// System to draw visual indicators for selected entities
 pub fn render_selected_entities(
     mut gizmos: Gizmos,
-    selected_query: Query<
-        (&GlobalTransform, Option<&PointType>),
-        With<Selected>,
-    >,
+    selected_query: Query<&GlobalTransform, With<Selected>>,
 ) {
-    for (transform, point_type) in selected_query.iter() {
+    for transform in &selected_query {
         let position = transform.translation().truncate();
 
-        // Base selection color (orange-yellow)
-        let selection_color = Color::srgba(1.0, 0.7, 0.2, 0.9);
-
-        // Draw a circle to indicate selection
-        gizmos.circle_2d(position, 14.0, selection_color);
-
-        // Render differently based on point type
-        match point_type {
-            // Off-curve points (control points) - render as small circles
-            Some(PointType::OffCurve) => {
-                // Draw a hollow circle for off-curve points
-                gizmos.circle_2d(position, 7.0, selection_color);
-
-                // Small filled center
-                gizmos.circle_2d(position, 2.5, selection_color);
-            }
-
-            // On-curve points or default - render as squares
-            _ => {
-                // Draw a square for on-curve points
-                let square_size = 8.0;
-                let half_size = square_size / 2.0;
-
-                // Draw square using four lines
-                let top_left =
-                    Vec2::new(position.x - half_size, position.y - half_size);
-                let top_right =
-                    Vec2::new(position.x + half_size, position.y - half_size);
-                let bottom_right =
-                    Vec2::new(position.x + half_size, position.y + half_size);
-                let bottom_left =
-                    Vec2::new(position.x - half_size, position.y + half_size);
-
-                gizmos.line_2d(top_left, top_right, selection_color);
-                gizmos.line_2d(top_right, bottom_right, selection_color);
-                gizmos.line_2d(bottom_right, bottom_left, selection_color);
-                gizmos.line_2d(bottom_left, top_left, selection_color);
-
-                // Draw a filled center
-                gizmos.circle_2d(position, 3.0, selection_color);
-            }
-        }
+        // Draw a circle around the selected point
+        gizmos.circle_2d(
+            position,
+            SELECT_POINT_RADIUS * 1.5,
+            Color::srgb(1.0, 1.0, 0.0), // Yellow
+        );
     }
 }
 
-/// System to render visual indicators for hovered entities
+/// System to draw visual indicators for hovered entities
 pub fn render_hovered_entities(
     mut gizmos: Gizmos,
-    hovered_query: Query<
-        (&GlobalTransform, Option<&PointType>),
-        (With<Hovered>, Without<Selected>),
-    >,
+    hovered_query: Query<&GlobalTransform, With<Hovered>>,
 ) {
-    for (transform, point_type) in hovered_query.iter() {
+    for transform in &hovered_query {
         let position = transform.translation().truncate();
 
-        // Hover color (lighter orange)
-        let hover_color = Color::srgba(1.0, 0.8, 0.4, 0.7);
-
-        // Draw hover indicator
-        gizmos.circle_2d(position, 16.0, hover_color);
-
-        // Different hover indicator based on point type
-        match point_type {
-            // Off-curve points (control points)
-            Some(PointType::OffCurve) => {
-                // Draw a smaller hover indicator for off-curve points
-                gizmos.circle_2d(position, 8.0, hover_color);
-            }
-
-            // On-curve points
-            _ => {
-                // Draw a square outline for on-curve points
-                let square_size = 10.0;
-                let half_size = square_size / 2.0;
-
-                let top_left =
-                    Vec2::new(position.x - half_size, position.y - half_size);
-                let top_right =
-                    Vec2::new(position.x + half_size, position.y - half_size);
-                let bottom_right =
-                    Vec2::new(position.x + half_size, position.y + half_size);
-                let bottom_left =
-                    Vec2::new(position.x - half_size, position.y + half_size);
-
-                gizmos.line_2d(top_left, top_right, hover_color);
-                gizmos.line_2d(top_right, bottom_right, hover_color);
-                gizmos.line_2d(bottom_right, bottom_left, hover_color);
-                gizmos.line_2d(bottom_left, top_left, hover_color);
-            }
-        }
+        // Draw a circle around the hovered point
+        gizmos.circle_2d(
+            position,
+            SELECT_POINT_RADIUS * 1.2,
+            Color::srgba(0.3, 0.8, 1.0, 0.7),
+        );
     }
 }
 
-/// System to reset selection when app state changes
+/// System to clear selection when the app state changes
 pub fn clear_selection_on_app_change(
+    mut commands: Commands,
+    query: Query<Entity, With<Selected>>,
     mut selection_state: ResMut<SelectionState>,
     mut events: EventReader<AppStateChanged>,
 ) {
     for _ in events.read() {
         // Clear the selection when app state changes (e.g., when codepoint changes)
-        selection_state.clear();
+        selection_state.selected.clear();
+
+        // Also remove the Selected component from all entities
+        for entity in &query {
+            commands.entity(entity).remove::<Selected>();
+        }
+
         info!("Selection cleared due to app state change");
     }
 }

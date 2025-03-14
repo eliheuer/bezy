@@ -4,7 +4,7 @@ use bevy::prelude::*;
 ///
 /// These correspond to nine anchor points, and are used for things like
 /// calculating the position of selection handles, as well as in the coordinate panel.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect)]
 pub enum Quadrant {
     #[default]
     Center,

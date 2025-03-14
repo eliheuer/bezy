@@ -29,3 +29,55 @@ impl From<&ContourPoint> for EditPoint {
         }
     }
 }
+
+/// An identifier for a point or other entity in the glyph
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
+pub struct EntityId {
+    /// The parent path or component ID
+    parent: u32,
+    /// The index within the parent
+    index: u16,
+    /// The type of entity
+    kind: EntityKind,
+}
+
+/// The type of entity
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
+pub enum EntityKind {
+    /// A point in a path
+    Point,
+    /// A guide
+    Guide,
+    /// A component
+    Component,
+}
+
+impl EntityId {
+    /// Create a new entity ID for a point
+    pub fn point(parent: u32, index: u16) -> Self {
+        Self {
+            parent,
+            index,
+            kind: EntityKind::Point,
+        }
+    }
+
+    /// Create a new entity ID for a guide
+    pub fn guide(index: u16) -> Self {
+        Self {
+            parent: 0,
+            index,
+            kind: EntityKind::Guide,
+        }
+    }
+
+    /// Get the parent ID
+    pub fn parent(&self) -> u32 {
+        self.parent
+    }
+
+    /// Check if this is a guide
+    pub fn is_guide(&self) -> bool {
+        self.kind == EntityKind::Guide
+    }
+}

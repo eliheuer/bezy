@@ -24,6 +24,8 @@ use bevy_pancam::PanCamPlugin;
 use crate::cli::CliArgs;
 use crate::data::AppState;
 use crate::theme::BACKGROUND_COLOR;
+use bezy::edit_session::EditSessionPlugin;
+use bezy::undo_plugin::UndoPlugin;
 
 // Plugins
 use crate::checkerboard::CheckerboardPlugin;
@@ -122,6 +124,8 @@ fn add_plugins(app: &mut App) {
             SelectionPlugin,
             // Text input and editing functionality
             TextEditorPlugin,
+            // Edit session management
+            EditSessionPlugin,
         ))
         // ---- Core Application Logic ----
         // These plugins handle the application's main systems and behavior
@@ -129,6 +133,8 @@ fn add_plugins(app: &mut App) {
             // Main application systems bundle (defined in plugins.rs)
             BezySystems,
             // Command handling for user actions
-            crate::commands::CommandsPlugin,
+            // crate::commands::CommandsPlugin,
+            // Undo/redo system
+            UndoPlugin,
         ));
 }

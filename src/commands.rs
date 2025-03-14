@@ -311,7 +311,7 @@ pub fn handle_codepoint_cycling(
 }
 
 /// System to handle keyboard shortcuts for saving the font
-/// 
+///
 /// This system watches for Command+S (macOS) or Ctrl+S (Windows/Linux)
 /// and triggers a save operation when detected
 pub fn handle_save_shortcuts(
@@ -319,10 +319,10 @@ pub fn handle_save_shortcuts(
     mut save_event: EventWriter<SaveFileEvent>,
 ) {
     // Check for Command (macOS) or Control (Windows/Linux)
-    let modifier_pressed = keyboard.pressed(KeyCode::SuperLeft) ||
-                            keyboard.pressed(KeyCode::SuperRight) ||
-                            keyboard.pressed(KeyCode::ControlLeft) ||
-                            keyboard.pressed(KeyCode::ControlRight);
+    let modifier_pressed = keyboard.pressed(KeyCode::SuperLeft)
+        || keyboard.pressed(KeyCode::SuperRight)
+        || keyboard.pressed(KeyCode::ControlLeft)
+        || keyboard.pressed(KeyCode::ControlRight);
 
     // If modifier is pressed and S is just pressed, trigger save
     if modifier_pressed && keyboard.just_pressed(KeyCode::KeyS) {
