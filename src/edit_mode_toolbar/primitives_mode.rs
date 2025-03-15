@@ -5,7 +5,6 @@ use bevy::prelude::*;
 
 // Import primitive shapes modules directly
 use crate::edit_mode_toolbar::primitives::base;
-use crate::edit_mode_toolbar::select::SelectModeActive;
 
 // An enum to track which primitive type is currently selected
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Resource)]

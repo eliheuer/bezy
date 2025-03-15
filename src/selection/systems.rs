@@ -2,7 +2,7 @@ use super::components::*;
 use crate::cameras::DesignCamera;
 use crate::data::AppState;
 use crate::draw::AppStateChanged;
-use crate::selection::nudge::{EditEvent, NudgeState, PointCoordinates};
+use crate::selection::nudge::{EditEvent, NudgeState};
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -531,7 +531,7 @@ pub fn render_hovered_entities(
     }
 }
 
-/// System to clear selection when the app state changes
+#[allow(dead_code)]
 pub fn clear_selection_on_app_change(
     mut commands: Commands,
     query: Query<Entity, With<Selected>>,
@@ -559,7 +559,7 @@ pub fn update_glyph_data_from_selection(
     >,
     mut app_state: ResMut<AppState>,
     // Track if we're in a nudging operation
-    nudge_state: Res<crate::selection::nudge::NudgeState>,
+    _nudge_state: Res<crate::selection::nudge::NudgeState>,
 ) {
     // Early return if no points were nudged
     if query.is_empty() {
@@ -567,7 +567,7 @@ pub fn update_glyph_data_from_selection(
     }
 
     // Only modify app_state after detaching its change detection
-    let mut app_state = app_state.bypass_change_detection();
+    let app_state = app_state.bypass_change_detection();
 
     // Process each nudged point
     for (transform, point_ref) in query.iter() {

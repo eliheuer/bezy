@@ -2,7 +2,7 @@
 
 use crate::data::{AppState, FontMetrics};
 use crate::design_space::{DPoint, ViewPort};
-use crate::selection::{PointType, Selectable};
+use crate::selection::Selectable;
 use crate::theme::{
     DEBUG_SHOW_ORIGIN_CROSS, HANDLE_LINE_COLOR, METRICS_GUIDE_COLOR,
     OFF_CURVE_POINT_COLOR, OFF_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR,
@@ -1034,15 +1034,15 @@ fn spawn_entities_for_glyph(
 
                 // Determine if we should add the Selected component
                 let mut entity_cmds = commands.spawn((
-                    TransformBundle {
-                        local: Transform::from_translation(Vec3::new(
-                            point_pos.0,
-                            point_pos.1,
-                            0.0,
-                        )),
-                        ..Default::default()
-                    },
-                    VisibilityBundle::default(),
+                    Transform::from_translation(Vec3::new(
+                        point_pos.0,
+                        point_pos.1,
+                        0.0,
+                    )),
+                    GlobalTransform::default(),
+                    Visibility::default(),
+                    InheritedVisibility::default(),
+                    ViewVisibility::default(),
                     Selectable,
                     crate::selection::components::PointType { is_on_curve },
                     crate::selection::nudge::PointCoordinates {

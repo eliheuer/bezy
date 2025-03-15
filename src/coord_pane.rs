@@ -441,10 +441,13 @@ fn create_test_selection(
 
     for (i, position) in test_points.iter().enumerate() {
         commands
-            .spawn(SpatialBundle {
-                transform: Transform::from_translation(*position),
-                ..Default::default()
-            })
+            .spawn((
+                Transform::from_translation(*position),
+                Visibility::default(),
+                GlobalTransform::default(),
+                InheritedVisibility::default(),
+                ViewVisibility::default(),
+            ))
             .insert(Selectable)
             .insert(PointType { is_on_curve: true })
             .insert(Name::new(format!("TestPoint{}", i + 1)));

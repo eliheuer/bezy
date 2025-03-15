@@ -28,6 +28,7 @@ pub struct LastEditType {
 
 /// Event to signal that an edit has been made that should be added to the undo stack
 #[derive(Event, Debug, Clone)]
+#[allow(dead_code)]
 pub struct EditEvent {
     pub edit_type: EditType,
 }

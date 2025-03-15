@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use crate::edit_session::EditSession;
 use crate::edit_type::EditType;
-use crate::selection::nudge::EditEvent;
 use crate::undo::UndoState;
 
 /// Resource that holds the undo/redo stack
