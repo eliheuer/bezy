@@ -136,7 +136,7 @@ fn add_plugins(app: &mut App) {
             // Main application systems bundle (defined in plugins.rs)
             BezySystems,
             // Command handling for user actions
-            // crate::commands::CommandsPlugin,
+            crate::commands::CommandsPlugin,
             // Undo/redo system
             UndoPlugin,
         ));

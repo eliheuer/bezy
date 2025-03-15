@@ -31,8 +31,8 @@ impl Plugin for SelectionPlugin {
                     systems::handle_mouse_input,
                     systems::handle_selection_shortcuts,
                     systems::handle_key_releases,
-                    // Temporarily disable update_hover_state system to focus on nudging
-                    // systems::update_hover_state,
+                    // Enable hover state system now that we have proper mode separation
+                    systems::update_hover_state,
                     systems::render_selection_rect,
                     systems::render_selected_entities,
                     systems::render_hovered_entities,

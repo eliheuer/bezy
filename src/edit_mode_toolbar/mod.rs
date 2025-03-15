@@ -18,6 +18,7 @@ pub use pan::PanMode;
 pub use pen::PenMode;
 pub use primitives::base::{
     handle_primitive_mouse_events, ActivePrimitiveDrawing,
+    render_active_primitive_drawing,
 };
 pub use primitives::ui::{
     handle_radius_input, spawn_primitive_controls,
@@ -98,6 +99,8 @@ impl Plugin for EditModeToolbarPlugin {
                     handle_radius_input,
                     // Mouse event handling for drawing shapes - runs AFTER UI systems
                     handle_primitive_mouse_events,
+                    // Render the active primitive shape while drawing
+                    render_active_primitive_drawing,
                     // Camera panning control based on edit mode
                     pan::toggle_pancam_on_mode_change,
                 ),

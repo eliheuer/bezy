@@ -5,6 +5,7 @@ use bevy::prelude::*;
 
 // Import primitive shapes modules directly
 use crate::edit_mode_toolbar::primitives::base;
+use crate::edit_mode_toolbar::select::SelectModeActive;
 
 // An enum to track which primitive type is currently selected
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Resource)]
@@ -53,6 +54,9 @@ pub struct PrimitivesMode;
 
 impl EditModeSystem for PrimitivesMode {
     fn update(&self, commands: &mut Commands) {
+        // Disable selection mode while in primitives mode
+        commands.insert_resource(crate::edit_mode_toolbar::select::SelectModeActive(false));
+        
         // The actual implementation will need to access the current primitive type through a system parameter
         // For now, we'll just use the default rectangle
         let primitive_tool = base::get_primitive_tool(PrimitiveType::Rectangle);
