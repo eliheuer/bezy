@@ -1,27 +1,27 @@
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <glyph name="noon-ar.init" format="2">
-  <advance width="268"/>
-  <outline>
-    <component base="behDotless-ar.init" identifier="385F10DD"/>
-    <component base="dotabove-ar" yOffset="-176" identifier="F91B94B0"/>
-  </outline>
-  <lib>
-    <dict>
-      <key>com.schriftgestaltung.Glyphs.lastChange</key>
-      <string>2025-03-13 05:19:31 +0000</string>
-      <key>public.objectLibs</key>
-      <dict>
-        <key>385F10DD</key>
-        <dict>
-          <key>com.schriftgestaltung.alignment</key>
-          <integer>-1</integer>
-        </dict>
-        <key>F91B94B0</key>
-        <dict>
-          <key>com.schriftgestaltung.alignment</key>
-          <integer>-1</integer>
-        </dict>
-      </dict>
-    </dict>
-  </lib>
+	<advance width="268"/>
+	<outline>
+		<component base="behDotless-ar.init" identifier="385F10DD"/>
+		<component base="dotabove-ar" yOffset="-176" identifier="F91B94B0"/>
+	</outline>
+	<lib>
+		<dict>
+			<key>com.schriftgestaltung.Glyphs.lastChange</key>
+			<string>2025-03-13 05:19:31 +0000</string>
+			<key>public.objectLibs</key>
+			<dict>
+				<key>385F10DD</key>
+				<dict>
+					<key>com.schriftgestaltung.alignment</key>
+					<integer>-1</integer>
+				</dict>
+				<key>F91B94B0</key>
+				<dict>
+					<key>com.schriftgestaltung.alignment</key>
+					<integer>-1</integer>
+				</dict>
+			</dict>
+		</dict>
+	</lib>
 </glyph>
