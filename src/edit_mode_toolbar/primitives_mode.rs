@@ -55,8 +55,10 @@ pub struct PrimitivesMode;
 impl EditModeSystem for PrimitivesMode {
     fn update(&self, commands: &mut Commands) {
         // Disable selection mode while in primitives mode
-        commands.insert_resource(crate::edit_mode_toolbar::select::SelectModeActive(false));
-        
+        commands.insert_resource(
+            crate::edit_mode_toolbar::select::SelectModeActive(false),
+        );
+
         // The actual implementation will need to access the current primitive type through a system parameter
         // For now, we'll just use the default rectangle
         let primitive_tool = base::get_primitive_tool(PrimitiveType::Rectangle);

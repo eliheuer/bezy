@@ -17,8 +17,8 @@ pub use measure::MeasureMode;
 pub use pan::PanMode;
 pub use pen::PenMode;
 pub use primitives::base::{
-    handle_primitive_mouse_events, ActivePrimitiveDrawing,
-    render_active_primitive_drawing,
+    handle_primitive_mouse_events, render_active_primitive_drawing,
+    ActivePrimitiveDrawing,
 };
 pub use primitives::ui::{
     handle_radius_input, spawn_primitive_controls,

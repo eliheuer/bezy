@@ -585,66 +585,79 @@ pub fn render_active_primitive_drawing(
     if let Some(rect) = active_drawing.get_rect() {
         // Define the orange color to match selected buttons (similar to PRESSED_BUTTON in theme.rs)
         let orange_color = Color::srgb(1.0, 0.6, 0.1);
-        
+
         // Draw based on the primitive type
         match active_drawing.tool_type {
             PrimitiveType::Rectangle => {
                 draw_dashed_rectangle(&mut gizmos, rect, orange_color);
-            },
+            }
             PrimitiveType::Ellipse => {
                 draw_dashed_ellipse(&mut gizmos, rect, orange_color);
-            },
+            }
             PrimitiveType::RoundedRectangle => {
                 // Use a default corner radius of 10
-                draw_dashed_rounded_rectangle(&mut gizmos, rect, 10.0, orange_color);
-            },
+                draw_dashed_rounded_rectangle(
+                    &mut gizmos,
+                    rect,
+                    10.0,
+                    orange_color,
+                );
+            }
         }
     }
 }
 
 // Helper function to draw a dashed rectangle
-fn draw_dashed_rectangle(
-    gizmos: &mut Gizmos,
-    rect: Rect,
-    color: Color,
-) {
+fn draw_dashed_rectangle(gizmos: &mut Gizmos, rect: Rect, color: Color) {
     let dash_length = 10.0;
     let gap_length = 5.0;
-    
+
     // Get the corner points
     let min_x = rect.min.x;
     let min_y = rect.min.y;
     let max_x = rect.max.x;
     let max_y = rect.max.y;
-    
+
     // Draw dashed lines for each side of the rectangle
-    draw_dashed_line(gizmos, 
-        Vec2::new(min_x, min_y), 
-        Vec2::new(max_x, min_y), 
-        dash_length, gap_length, color);
-        
-    draw_dashed_line(gizmos, 
-        Vec2::new(max_x, min_y), 
-        Vec2::new(max_x, max_y), 
-        dash_length, gap_length, color);
-        
-    draw_dashed_line(gizmos, 
-        Vec2::new(max_x, max_y), 
-        Vec2::new(min_x, max_y), 
-        dash_length, gap_length, color);
-        
-    draw_dashed_line(gizmos, 
-        Vec2::new(min_x, max_y), 
-        Vec2::new(min_x, min_y), 
-        dash_length, gap_length, color);
+    draw_dashed_line(
+        gizmos,
+        Vec2::new(min_x, min_y),
+        Vec2::new(max_x, min_y),
+        dash_length,
+        gap_length,
+        color,
+    );
+
+    draw_dashed_line(
+        gizmos,
+        Vec2::new(max_x, min_y),
+        Vec2::new(max_x, max_y),
+        dash_length,
+        gap_length,
+        color,
+    );
+
+    draw_dashed_line(
+        gizmos,
+        Vec2::new(max_x, max_y),
+        Vec2::new(min_x, max_y),
+        dash_length,
+        gap_length,
+        color,
+    );
+
+    draw_dashed_line(
+        gizmos,
+        Vec2::new(min_x, max_y),
+        Vec2::new(min_x, min_y),
+        dash_length,
+        gap_length,
+        color,
+    );
 }
 
 // Helper function to draw a dashed ellipse
-fn draw_dashed_ellipse(
-    gizmos: &mut Gizmos,
-    rect: Rect,
-    color: Color,
-) {
+fn draw_dashed_ellipse(gizmos: &mut Gizmos, rect: Rect, color: Color) {
     // Calculate ellipse center and radii
     let center = Vec2::new(
         (rect.min.x + rect.max.x) / 2.0,
@@ -652,26 +665,26 @@ fn draw_dashed_ellipse(
     );
     let radius_x = (rect.max.x - rect.min.x) / 2.0;
     let radius_y = (rect.max.y - rect.min.y) / 2.0;
-    
+
     // Number of segments for the ellipse approximation
     let segments = 32;
     let segment_angle = std::f32::consts::PI * 2.0 / segments as f32;
-    
+
     // Draw segments to approximate the ellipse
     for i in 0..segments {
         let start_angle = i as f32 * segment_angle;
         let end_angle = (i + 1) as f32 * segment_angle;
-        
+
         let start_point = Vec2::new(
             center.x + radius_x * start_angle.cos(),
             center.y + radius_y * start_angle.sin(),
         );
-        
+
         let end_point = Vec2::new(
             center.x + radius_x * end_angle.cos(),
             center.y + radius_y * end_angle.sin(),
         );
-        
+
         // Skip every other segment to create a dashed effect
         if i % 2 == 0 {
             gizmos.line_2d(start_point, end_point, color);
@@ -691,54 +704,98 @@ fn draw_dashed_rounded_rectangle(
     let min_y = rect.min.y;
     let max_x = rect.max.x;
     let max_y = rect.max.y;
-    
+
     // Limit the radius to half the smallest dimension
     let max_radius = ((max_x - min_x) / 2.0).min((max_y - min_y) / 2.0);
     let radius = radius.min(max_radius);
-    
+
     if radius <= 0.1 {
         // If radius is very small, draw a regular rectangle
         draw_dashed_rectangle(gizmos, rect, color);
         return;
     }
-    
+
     // Draw the straight segments with dashed lines
     // Top line
-    draw_dashed_line(gizmos, 
-        Vec2::new(min_x + radius, min_y), 
-        Vec2::new(max_x - radius, min_y), 
-        10.0, 5.0, color);
-    
+    draw_dashed_line(
+        gizmos,
+        Vec2::new(min_x + radius, min_y),
+        Vec2::new(max_x - radius, min_y),
+        10.0,
+        5.0,
+        color,
+    );
+
     // Right line
-    draw_dashed_line(gizmos, 
-        Vec2::new(max_x, min_y + radius), 
-        Vec2::new(max_x, max_y - radius), 
-        10.0, 5.0, color);
-    
+    draw_dashed_line(
+        gizmos,
+        Vec2::new(max_x, min_y + radius),
+        Vec2::new(max_x, max_y - radius),
+        10.0,
+        5.0,
+        color,
+    );
+
     // Bottom line
-    draw_dashed_line(gizmos, 
-        Vec2::new(max_x - radius, max_y), 
-        Vec2::new(min_x + radius, max_y), 
-        10.0, 5.0, color);
-    
+    draw_dashed_line(
+        gizmos,
+        Vec2::new(max_x - radius, max_y),
+        Vec2::new(min_x + radius, max_y),
+        10.0,
+        5.0,
+        color,
+    );
+
     // Left line
-    draw_dashed_line(gizmos, 
-        Vec2::new(min_x, max_y - radius), 
-        Vec2::new(min_x, min_y + radius), 
-        10.0, 5.0, color);
-    
+    draw_dashed_line(
+        gizmos,
+        Vec2::new(min_x, max_y - radius),
+        Vec2::new(min_x, min_y + radius),
+        10.0,
+        5.0,
+        color,
+    );
+
     // Draw the curved corners
     // Top-left corner
-    draw_dashed_corner(gizmos, Vec2::new(min_x + radius, min_y + radius), radius, 180.0, 270.0, color);
-    
+    draw_dashed_corner(
+        gizmos,
+        Vec2::new(min_x + radius, min_y + radius),
+        radius,
+        180.0,
+        270.0,
+        color,
+    );
+
     // Top-right corner
-    draw_dashed_corner(gizmos, Vec2::new(max_x - radius, min_y + radius), radius, 270.0, 360.0, color);
-    
+    draw_dashed_corner(
+        gizmos,
+        Vec2::new(max_x - radius, min_y + radius),
+        radius,
+        270.0,
+        360.0,
+        color,
+    );
+
     // Bottom-right corner
-    draw_dashed_corner(gizmos, Vec2::new(max_x - radius, max_y - radius), radius, 0.0, 90.0, color);
-    
+    draw_dashed_corner(
+        gizmos,
+        Vec2::new(max_x - radius, max_y - radius),
+        radius,
+        0.0,
+        90.0,
+        color,
+    );
+
     // Bottom-left corner
-    draw_dashed_corner(gizmos, Vec2::new(min_x + radius, max_y - radius), radius, 90.0, 180.0, color);
+    draw_dashed_corner(
+        gizmos,
+        Vec2::new(min_x + radius, max_y - radius),
+        radius,
+        90.0,
+        180.0,
+        color,
+    );
 }
 
 // Helper function to draw a dashed corner arc
@@ -752,26 +809,28 @@ fn draw_dashed_corner(
 ) {
     let start_angle = start_angle_deg * std::f32::consts::PI / 180.0;
     let end_angle = end_angle_deg * std::f32::consts::PI / 180.0;
-    
+
     // Number of segments for the corner approximation
     let segments = 8;
     let angle_per_segment = (end_angle - start_angle) / segments as f32;
-    
+
     for i in 0..segments {
-        if i % 2 == 0 {  // Skip every other segment for dashed effect
+        if i % 2 == 0 {
+            // Skip every other segment for dashed effect
             let seg_start_angle = start_angle + i as f32 * angle_per_segment;
-            let seg_end_angle = start_angle + (i + 1) as f32 * angle_per_segment;
-            
+            let seg_end_angle =
+                start_angle + (i + 1) as f32 * angle_per_segment;
+
             let start_point = Vec2::new(
                 center.x + radius * seg_start_angle.cos(),
                 center.y + radius * seg_start_angle.sin(),
             );
-            
+
             let end_point = Vec2::new(
                 center.x + radius * seg_end_angle.cos(),
                 center.y + radius * seg_end_angle.sin(),
             );
-            
+
             gizmos.line_2d(start_point, end_point, color);
         }
     }
@@ -790,23 +849,23 @@ fn draw_dashed_line(
     if direction == Vec2::ZERO {
         return; // Cannot draw a line with zero length
     }
-    
+
     let total_length = start.distance(end);
-    
+
     let segment_length = dash_length + gap_length;
     let num_segments = (total_length / segment_length).ceil() as usize;
-    
+
     for i in 0..num_segments {
         let segment_start = start + direction * (i as f32 * segment_length);
         let raw_segment_end = segment_start + direction * dash_length;
-        
+
         // Make sure we don't go past the end point
         let segment_end = if raw_segment_end.distance(start) > total_length {
             end
         } else {
             raw_segment_end
         };
-        
+
         gizmos.line_2d(segment_start, segment_end, color);
     }
 }

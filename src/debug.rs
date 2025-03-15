@@ -1,7 +1,7 @@
 // General purpose debugging functions
 
+use crate::theme::{ARABIC_DEBUG_FONT_PATH, TEXT_COLOR};
 use bevy::prelude::*;
-use crate::theme::{TEXT_COLOR, ARABIC_DEBUG_FONT_PATH};
 
 #[allow(dead_code)]
 pub fn green_text(text: String) -> String {
@@ -24,8 +24,8 @@ pub struct ArabicDebugPlugin;
 impl Plugin for ArabicDebugPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ArabicDebugTextState>()
-           .add_systems(Startup, setup_arabic_debug_text)
-           .add_systems(Update, ensure_debug_text_visible);
+            .add_systems(Startup, setup_arabic_debug_text)
+            .add_systems(Update, ensure_debug_text_visible);
     }
 }
 
@@ -41,36 +41,40 @@ pub struct ArabicDebugTextState {
 
 /// System to set up the Arabic debug text (runs once during startup)
 fn setup_arabic_debug_text(
-    mut commands: Commands, 
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut state: ResMut<ArabicDebugTextState>
+    mut state: ResMut<ArabicDebugTextState>,
 ) {
     // Create the debug text UI element
     let entity = create_debug_text(&mut commands, &asset_server);
     state.text_entity = Some(entity);
-    
+
     info!("Arabic debug text initialized");
 }
 
 /// Creates the Arabic debug text UI element
-fn create_debug_text(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Entity {
+fn create_debug_text(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+) -> Entity {
     // Arabic text to display
-    let text = "إشهد يا الهي بانك خلقتني";
-    
+    // let text = "أشهد يا إلهي بانك خلقتني";
+    let text = "\u{E000}";
+
     // Create the text entity directly, positioned in the lower right corner
     commands
         .spawn((
             // Place the text in the lower right corner
             Node {
                 position_type: PositionType::Absolute,
-                bottom: Val::Px(32.0),
-                right: Val::Px(32.0),
+                bottom: Val::Px(-48.0),
+                right: Val::Px(16.0),
                 ..default()
             },
             Text::new(text),
             TextFont {
                 font: asset_server.load(ARABIC_DEBUG_FONT_PATH),
-                font_size: 64.0,
+                font_size: 256.0,
                 ..default()
             },
             TextColor(TEXT_COLOR),
@@ -91,18 +95,18 @@ fn ensure_debug_text_visible(
         Some(entity) => text_query.contains(entity),
         None => false,
     };
-    
+
     // If the text doesn't exist, create it
     if !text_exists {
         // Clean up any existing text entities first (just in case)
         for entity in text_query.iter() {
             commands.entity(entity).despawn_recursive();
         }
-        
+
         // Create a new text entity and store its entity
         let text_entity = create_debug_text(&mut commands, &asset_server);
         text_state.text_entity = Some(text_entity);
-        
+
         info!("Arabic debug text restored");
     }
 }

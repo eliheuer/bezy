@@ -40,7 +40,9 @@ pub fn handle_mouse_input(
     selection_rect_query: Query<Entity, With<SelectionRect>>,
     mut selection_state: ResMut<SelectionState>,
     nudge_state: Res<NudgeState>,
-    select_mode: Option<Res<crate::edit_mode_toolbar::select::SelectModeActive>>,
+    select_mode: Option<
+        Res<crate::edit_mode_toolbar::select::SelectModeActive>,
+    >,
 ) {
     // Only process mouse input when in select mode
     if let Some(select_mode) = select_mode {
@@ -251,7 +253,9 @@ pub fn handle_selection_shortcuts(
     selectable_query: Query<Entity, With<Selectable>>,
     mut selection_state: ResMut<SelectionState>,
     mut event_writer: EventWriter<EditEvent>,
-    select_mode: Option<Res<crate::edit_mode_toolbar::select::SelectModeActive>>,
+    select_mode: Option<
+        Res<crate::edit_mode_toolbar::select::SelectModeActive>,
+    >,
 ) {
     // Only process shortcuts when in select mode
     if let Some(select_mode) = select_mode {
@@ -300,7 +304,9 @@ pub fn update_hover_state(
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
     selectable_query: Query<(Entity, &GlobalTransform), With<Selectable>>,
     hovered_query: Query<Entity, With<Hovered>>,
-    select_mode: Option<Res<crate::edit_mode_toolbar::select::SelectModeActive>>,
+    select_mode: Option<
+        Res<crate::edit_mode_toolbar::select::SelectModeActive>,
+    >,
 ) {
     // Only process hover in select mode
     if let Some(select_mode) = select_mode {
@@ -361,7 +367,9 @@ pub fn update_hover_state(
 pub fn render_selection_rect(
     mut gizmos: Gizmos,
     selection_rect_query: Query<&SelectionRect>,
-    select_mode: Option<Res<crate::edit_mode_toolbar::select::SelectModeActive>>,
+    select_mode: Option<
+        Res<crate::edit_mode_toolbar::select::SelectModeActive>,
+    >,
 ) {
     // Only render the selection rectangle in select mode
     if let Some(select_mode) = select_mode {
@@ -372,41 +380,57 @@ pub fn render_selection_rect(
 
     for rect in &selection_rect_query {
         let rect_bounds = Rect::from_corners(rect.start, rect.end);
-        
+
         // Define the orange color to match selected buttons (similar to PRESSED_BUTTON in theme.rs)
         let orange_color = Color::srgb(1.0, 0.6, 0.1);
-        
+
         // Create dashed lines by drawing multiple small segments
         // Get the corner points
         let min_x = rect_bounds.min.x;
         let min_y = rect_bounds.min.y;
         let max_x = rect_bounds.max.x;
         let max_y = rect_bounds.max.y;
-        
+
         // Define dash properties
         let dash_length = 10.0;
         let gap_length = 5.0;
-        
+
         // Draw dashed lines for each side of the rectangle
-        draw_dashed_line(&mut gizmos, 
-            Vec2::new(min_x, min_y), 
-            Vec2::new(max_x, min_y), 
-            dash_length, gap_length, orange_color);
-            
-        draw_dashed_line(&mut gizmos, 
-            Vec2::new(max_x, min_y), 
-            Vec2::new(max_x, max_y), 
-            dash_length, gap_length, orange_color);
-            
-        draw_dashed_line(&mut gizmos, 
-            Vec2::new(max_x, max_y), 
-            Vec2::new(min_x, max_y), 
-            dash_length, gap_length, orange_color);
-            
-        draw_dashed_line(&mut gizmos, 
-            Vec2::new(min_x, max_y), 
-            Vec2::new(min_x, min_y), 
-            dash_length, gap_length, orange_color);
+        draw_dashed_line(
+            &mut gizmos,
+            Vec2::new(min_x, min_y),
+            Vec2::new(max_x, min_y),
+            dash_length,
+            gap_length,
+            orange_color,
+        );
+
+        draw_dashed_line(
+            &mut gizmos,
+            Vec2::new(max_x, min_y),
+            Vec2::new(max_x, max_y),
+            dash_length,
+            gap_length,
+            orange_color,
+        );
+
+        draw_dashed_line(
+            &mut gizmos,
+            Vec2::new(max_x, max_y),
+            Vec2::new(min_x, max_y),
+            dash_length,
+            gap_length,
+            orange_color,
+        );
+
+        draw_dashed_line(
+            &mut gizmos,
+            Vec2::new(min_x, max_y),
+            Vec2::new(min_x, min_y),
+            dash_length,
+            gap_length,
+            orange_color,
+        );
     }
 }
 
@@ -421,21 +445,21 @@ fn draw_dashed_line(
 ) {
     let direction = (end - start).normalize();
     let total_length = start.distance(end);
-    
+
     let segment_length = dash_length + gap_length;
     let num_segments = (total_length / segment_length).ceil() as usize;
-    
+
     for i in 0..num_segments {
         let segment_start = start + direction * (i as f32 * segment_length);
         let raw_segment_end = segment_start + direction * dash_length;
-        
+
         // Make sure we don't go past the end point
         let segment_end = if raw_segment_end.distance(start) > total_length {
             end
         } else {
             raw_segment_end
         };
-        
+
         gizmos.line_2d(segment_start, segment_end, color);
     }
 }
@@ -444,7 +468,9 @@ fn draw_dashed_line(
 pub fn render_selected_entities(
     mut gizmos: Gizmos,
     selected_query: Query<&GlobalTransform, With<Selected>>,
-    select_mode: Option<Res<crate::edit_mode_toolbar::select::SelectModeActive>>,
+    select_mode: Option<
+        Res<crate::edit_mode_toolbar::select::SelectModeActive>,
+    >,
 ) {
     // Only render selection indicators in select mode
     if let Some(select_mode) = select_mode {
@@ -482,7 +508,9 @@ pub fn render_selected_entities(
 pub fn render_hovered_entities(
     mut gizmos: Gizmos,
     hovered_query: Query<&GlobalTransform, With<Hovered>>,
-    select_mode: Option<Res<crate::edit_mode_toolbar::select::SelectModeActive>>,
+    select_mode: Option<
+        Res<crate::edit_mode_toolbar::select::SelectModeActive>,
+    >,
 ) {
     // Only render hover indicators in select mode
     if let Some(select_mode) = select_mode {

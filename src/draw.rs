@@ -1028,7 +1028,7 @@ fn spawn_entities_for_glyph(
                      info.point_index.map(|idx| idx == point_idx).unwrap_or(false))
                     ||
                     // Fallback to position matching with tolerance
-                    ((info.position.0 - point_pos.0).abs() < 0.001 && 
+                    ((info.position.0 - point_pos.0).abs() < 0.001 &&
                      (info.position.1 - point_pos.1).abs() < 0.001)
                 });
 
