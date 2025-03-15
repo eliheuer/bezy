@@ -6,6 +6,21 @@ use bevy::prelude::*;
 pub use components::*;
 pub use nudge::*;
 
+/// Resource to track the drag selection state
+#[derive(Resource, Default)]
+pub struct DragSelectionState {
+    /// Whether a drag selection is in progress
+    pub is_dragging: bool,
+    /// The start position of the drag selection
+    pub start_position: Option<Vec2>,
+    /// The current position of the drag selection
+    pub current_position: Option<Vec2>,
+    /// Whether this is a multi-select operation (shift is held)
+    pub is_multi_select: bool,
+    /// The previous selection before the drag started
+    pub previous_selection: Vec<Entity>,
+}
+
 /// Plugin to register all selection-related components and systems
 pub struct SelectionPlugin;
 
@@ -22,7 +37,7 @@ impl Plugin for SelectionPlugin {
             .register_type::<LastEditType>()
             // Register resources
             .init_resource::<SelectionState>()
-            .init_resource::<systems::DragSelectionState>()
+            .init_resource::<DragSelectionState>()
             // Add systems for selection
             .add_systems(
                 Update,

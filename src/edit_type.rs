@@ -37,11 +37,12 @@ impl EditType {
     #[allow(clippy::match_like_matches_macro)]
     pub fn needs_new_undo_group(self, other: EditType) -> bool {
         match (self, other) {
-            // Consecutive nudges in the same direction are combined
-            (EditType::NudgeDown, EditType::NudgeDown) => false,
-            (EditType::NudgeUp, EditType::NudgeUp) => false,
-            (EditType::NudgeLeft, EditType::NudgeLeft) => false,
-            (EditType::NudgeRight, EditType::NudgeRight) => false,
+            // Make each nudge operation its own undo group
+            (EditType::NudgeDown, EditType::NudgeDown) => true,
+            (EditType::NudgeUp, EditType::NudgeUp) => true,
+            (EditType::NudgeLeft, EditType::NudgeLeft) => true,
+            (EditType::NudgeRight, EditType::NudgeRight) => true,
+            
             // A drag and its completion are combined
             (EditType::Drag, EditType::Drag) => false,
             (EditType::Drag, EditType::DragUp) => false,

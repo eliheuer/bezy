@@ -10,6 +10,8 @@ mod debug;
 mod design_space;
 mod draw;
 mod edit_mode_toolbar;
+mod edit_session;
+mod edit_type;
 mod glyph_pane;
 mod hud;
 mod logger;
@@ -20,6 +22,8 @@ mod tests;
 mod text_editor;
 mod theme;
 mod ufo;
+mod undo;
+mod undo_plugin;
 mod virtual_font;
 
 fn main() {

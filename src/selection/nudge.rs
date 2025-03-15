@@ -1,5 +1,9 @@
 use crate::selection::components::Selected;
 use bevy::prelude::*;
+use crate::edit_session::EditSession;
+use crate::edit_type::EditType;
+use crate::undo_plugin::UndoStateResource;
+use std::sync::Arc;
 
 /// The amount to nudge by in each direction (in design units)
 const NUDGE_AMOUNT: f32 = 1.0;
@@ -33,25 +37,6 @@ pub struct EditEvent {
     pub edit_type: EditType,
 }
 
-/// The type of edit that was made
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
-pub enum EditType {
-    /// Added a new point
-    AddPoint,
-    /// Moved a point
-    MovePoint,
-    /// Deleted a point
-    DeletePoint,
-    /// Nudged points left
-    NudgeLeft,
-    /// Nudged points right
-    NudgeRight,
-    /// Nudged points up
-    NudgeUp,
-    /// Nudged points down
-    NudgeDown,
-}
-
 /// Component to track point coordinates in font space
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component)]
@@ -69,6 +54,7 @@ pub fn handle_nudge_shortcuts(
     mut event_writer: EventWriter<EditEvent>,
     mut nudge_state: ResMut<NudgeState>,
     time: Res<Time>,
+    mut edit_sessions: Query<&mut EditSession>,
 ) {
     // Store the pressed key if any
     let pressed_key = if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
@@ -137,6 +123,12 @@ pub fn handle_nudge_shortcuts(
     // Mark that we're in a nudging operation
     nudge_state.is_nudging = true;
     nudge_state.last_nudge_time = time.elapsed_secs();
+    
+    // Get the current edit session if available
+    let mut session_updated = false;
+    if let Ok(mut session) = edit_sessions.get_single_mut() {
+        session_updated = true;
+    }
 
     // Apply nudge to all selected entities
     for (entity, mut transform, mut coordinates) in &mut query {
@@ -146,6 +138,16 @@ pub fn handle_nudge_shortcuts(
         // Also update the point coordinates to keep in sync
         coordinates.position.x = transform.translation.x;
         coordinates.position.y = transform.translation.y;
+        
+        // Directly update the EditSession for this entity
+        if session_updated {
+            if let Ok(mut session) = edit_sessions.get_single_mut() {
+                session.point_positions.insert(
+                    entity,
+                    Vec2::new(transform.translation.x, transform.translation.y)
+                );
+            }
+        }
 
         debug!(
             "Nudged entity {:?} to position {:?}",
@@ -190,6 +192,93 @@ pub fn sync_transforms_and_coordinates(
     }
 }
 
+/// System to handle edit events for the undo stack
+#[allow(clippy::type_complexity)]
+pub fn handle_edit_events(
+    mut events: EventReader<EditEvent>,
+    mut undo_state: ResMut<UndoStateResource>,
+    edit_session_entities: Query<Entity, With<EditSession>>,
+    edit_session_query: Query<&EditSession>,
+) {
+    // Log if we have any events
+    let event_count = events.len();
+    if event_count > 0 {
+        info!("Processing {} edit events", event_count);
+    }
+    
+    // Create a default EditSession for undo purposes
+    let default_session = EditSession::default();
+    
+    for event in events.read() {
+        let edit_type = event.edit_type;
+        
+        info!("Received edit event: {:?}", edit_type);
+        
+        // Create a snapshot of the current state
+        // Try to find an EditSession entity first
+        let session = if let Some(entity) = edit_session_entities.iter().next() {
+            // Try to get the EditSession component from the entity
+            if let Ok(session) = edit_session_query.get(entity) {
+                info!("Found EditSession entity: {:?}", entity);
+                // Make sure to clone the session to get a true snapshot
+                let session_clone = session.clone();
+                
+                // Create a snapshot right now (deferred to after all systems) 
+                // We'll use this snapshot for the undo stack
+                let snapshot = Arc::new(session_clone);
+                
+                // Check if we need a new undo group based on the edit type
+                if let Some(last_edit_type) = undo_state.last_edit_type() {
+                    let needs_new_group = last_edit_type.needs_new_undo_group(edit_type);
+                    
+                    if needs_new_group {
+                        // Start a new undo group
+                        info!("Creating new undo group for edit type: {:?}", edit_type);
+                        let stack_size_before = undo_state.stack_size();
+                        let stack_index_before = undo_state.current_index();
+                        undo_state.push_undo_state(snapshot);
+                        let stack_size_after = undo_state.stack_size();
+                        let stack_index_after = undo_state.current_index();
+                        info!("Undo stack changed: size {}→{}, index {}→{}", 
+                              stack_size_before, stack_size_after,
+                              stack_index_before, stack_index_after);
+                    } else {
+                        // Update the current undo group
+                        info!("Updating current undo group for edit type: {:?}", edit_type);
+                        let stack_index_before = undo_state.current_index();
+                        undo_state.update_current_undo(snapshot);
+                        let stack_index_after = undo_state.current_index();
+                        info!("Updated undo group at index {} (now {})", 
+                              stack_index_before, stack_index_after);
+                    }
+                } else {
+                    // This is the first edit, so create a new undo group
+                    info!("Creating first undo group for edit type: {:?}", edit_type);
+                    let stack_size_before = undo_state.stack_size();
+                    let stack_index_before = undo_state.current_index();
+                    undo_state.push_undo_state(snapshot);
+                    let stack_size_after = undo_state.stack_size();
+                    let stack_index_after = undo_state.current_index();
+                    info!("Undo stack initialized: size {}→{}, index {}→{}", 
+                          stack_size_before, stack_size_after,
+                          stack_index_before, stack_index_after);
+                }
+                
+                // Update the last edit type
+                undo_state.set_last_edit_type(edit_type);
+                
+                session.clone()
+            } else {
+                warn!("Found EditSession entity but couldn't get component, using default");
+                default_session.clone()
+            }
+        } else {
+            warn!("No EditSession found, using default");
+            default_session.clone()
+        };
+    }
+}
+
 /// Plugin to set up nudging functionality
 pub struct NudgePlugin;
 
@@ -206,6 +295,7 @@ impl Plugin for NudgePlugin {
                     handle_nudge_shortcuts,
                     reset_nudge_state,
                     sync_transforms_and_coordinates,
+                    handle_edit_events,
                 ),
             );
     }

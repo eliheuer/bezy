@@ -1,7 +1,9 @@
 use super::components::*;
+use super::DragSelectionState;
 use crate::cameras::DesignCamera;
 use crate::data::AppState;
 use crate::draw::AppStateChanged;
+use crate::edit_type::EditType;
 use crate::selection::nudge::{EditEvent, NudgeState};
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
@@ -10,21 +12,6 @@ use bevy::window::PrimaryWindow;
 // Constants for selection
 const SELECTION_MARGIN: f32 = 10.0; // Distance in pixels for selection hit testing
 const SELECT_POINT_RADIUS: f32 = 5.0; // Radius for drawing selection circle
-
-// Resource to track the drag selection state
-#[derive(Resource, Default)]
-pub struct DragSelectionState {
-    /// Whether a drag selection is in progress
-    pub is_dragging: bool,
-    /// The start position of the drag selection
-    pub start_position: Option<Vec2>,
-    /// The current position of the drag selection
-    pub current_position: Option<Vec2>,
-    /// Whether this is a multi-select operation (shift is held)
-    pub is_multi_select: bool,
-    /// The previous selection before the drag started
-    pub previous_selection: Vec<Entity>,
-}
 
 /// System to handle mouse input for selection and hovering
 pub fn handle_mouse_input(
@@ -117,7 +104,7 @@ pub fn handle_mouse_input(
 
                 // Notify about the edit
                 event_writer.send(EditEvent {
-                    edit_type: crate::selection::nudge::EditType::AddPoint,
+                    edit_type: EditType::Normal,
                 });
             } else {
                 // No entity clicked, start drag selection
@@ -240,7 +227,7 @@ pub fn handle_mouse_input(
 
         // Notify about the edit
         event_writer.send(EditEvent {
-            edit_type: crate::selection::nudge::EditType::AddPoint,
+            edit_type: EditType::Normal,
         });
     }
 }
@@ -292,7 +279,7 @@ pub fn handle_selection_shortcuts(
         }
 
         event_writer.send(EditEvent {
-            edit_type: crate::selection::nudge::EditType::AddPoint,
+            edit_type: EditType::Normal,
         });
     }
 }

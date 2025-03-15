@@ -4,10 +4,12 @@ use crate::cameras::toggle_camera_controls;
 // Use the bezy namespace for the coord_pane module
 use crate::crypto_toolbar::CryptoToolbarPlugin;
 use crate::edit_mode_toolbar::CurrentEditMode;
+use crate::edit_session::EditSessionPlugin;
 use crate::glyph_pane::GlyphPanePlugin;
 use crate::setup::setup;
 use crate::theme::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::ufo::{initialize_font_state, print_font_info_to_terminal};
+use crate::undo_plugin::UndoPlugin;
 use bezy::coord_pane::CoordPanePlugin;
 
 /// Configure the default Bevy plugins with custom settings

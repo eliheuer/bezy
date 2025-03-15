@@ -24,8 +24,8 @@ use bevy_pancam::PanCamPlugin;
 use crate::cli::CliArgs;
 use crate::data::AppState;
 use crate::theme::BACKGROUND_COLOR;
-use bezy::edit_session::EditSessionPlugin;
-use bezy::undo_plugin::UndoPlugin;
+use crate::edit_session::EditSessionPlugin;
+use crate::undo_plugin::UndoPlugin;
 
 // Plugins
 use crate::checkerboard::CheckerboardPlugin;
@@ -121,12 +121,12 @@ fn add_plugins(app: &mut App) {
             EditModeToolbarPlugin,
             // Selection mode implementation
             SelectModePlugin,
+            // Edit session management
+            EditSessionPlugin,
             // Selection management (handling selected points, paths, etc.)
             SelectionPlugin,
             // Text input and editing functionality
             TextEditorPlugin,
-            // Edit session management
-            EditSessionPlugin,
             // Arabic debug text display
             ArabicDebugPlugin,
         ))

@@ -83,6 +83,11 @@ impl<T: Clone> UndoState<T> {
         self.stack.len()
     }
 
+    /// Get the current index position in the undo stack.
+    pub fn current_index(&self) -> usize {
+        self.live_index
+    }
+
     /// Check if the undo stack is empty.
     pub fn is_empty(&self) -> bool {
         self.stack.is_empty()
