@@ -136,6 +136,35 @@ To explore the font's structure, you can examine the UFO directory:
 assets/fonts/bezy-grotesk-regular.ufo/
 ```
 
+### Hotkeys
+
+Many of Bezy's settings can be customized by editing the `src/settings.rs` file. For example, nudge amounts (2, 8, and 32 units) can be modified to better suit your workflow preferences. This aligns with Bezy's core philosophy of user empowerment and customization.
+
+> ⚠️ **Pre-v1.0 Alpha Notice**: In the current pre-release state, many features in Bezy are only accessible via keyboard shortcuts. UI buttons for all features will be implemented before v1.0.
+
+#### Selection and Navigation
+- **Arrow Keys**: Nudge selected points (by 2 unit)
+- **Shift + Arrow Keys**: Nudge selected points (by 8 units)
+- **Cmd/Ctrl + Arrow Keys**: Nudge selected points (by 32 units)
+- **Shift + +**: Switch to next codepoint
+- **Shift + -**: Switch to previous codepoint
+- **Shift + Click**: Add to selection (multi-select)
+- **Click + Drag**: Box selection
+- **Shift + Click + Drag**: Add to selection with box selection
+- **Esc**: Deselect all
+
+#### Edit Operations
+- **Cmd/Ctrl + Z**: Undo
+- **Cmd/Ctrl + Shift + Z** or **Cmd/Ctrl + Y**: Redo
+- **Cmd/Ctrl + S**: Save font
+- **Delete/Backspace**: Delete selected points
+
+#### View Controls
+- **Middle Mouse/Space + Drag**: Pan the view
+- **Mouse Wheel/Trackpad Gesture**: Zoom in/out
+
+These hotkeys are based on the current implementation in the codebase and may evolve as development continues toward v1.0.
+
 ## Developing with Bezy
 
 If you're new to Rust and want to contribute to Bezy:
