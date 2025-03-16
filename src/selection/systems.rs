@@ -5,13 +5,17 @@ use crate::data::AppState;
 use crate::draw::AppStateChanged;
 use crate::edit_type::EditType;
 use crate::selection::nudge::{EditEvent, NudgeState};
+use crate::theme::{
+    HOVER_CIRCLE_RADIUS_MULTIPLIER, HOVER_POINT_COLOR,
+    SELECTED_CIRCLE_RADIUS_MULTIPLIER, SELECTED_CROSS_SIZE_MULTIPLIER,
+    SELECTED_POINT_COLOR, SELECTION_POINT_RADIUS,
+};
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 // Constants for selection
 const SELECTION_MARGIN: f32 = 10.0; // Distance in pixels for selection hit testing
-const SELECT_POINT_RADIUS: f32 = 5.0; // Radius for drawing selection circle
 
 /// System to handle mouse input for selection and hovering
 pub fn handle_mouse_input(
@@ -472,21 +476,21 @@ pub fn render_selected_entities(
         // Draw a circle around the selected point
         gizmos.circle_2d(
             position,
-            SELECT_POINT_RADIUS * 1.5,
-            Color::srgb(1.0, 1.0, 0.0), // Yellow
+            SELECTION_POINT_RADIUS * SELECTED_CIRCLE_RADIUS_MULTIPLIER,
+            SELECTED_POINT_COLOR,
         );
 
         // Also add a small visual cross to make selection more visible
-        let line_size = SELECT_POINT_RADIUS * 1.2;
+        let line_size = SELECTION_POINT_RADIUS * SELECTED_CROSS_SIZE_MULTIPLIER;
         gizmos.line_2d(
             Vec2::new(position.x - line_size, position.y),
             Vec2::new(position.x + line_size, position.y),
-            Color::srgb(1.0, 1.0, 0.0),
+            SELECTED_POINT_COLOR,
         );
         gizmos.line_2d(
             Vec2::new(position.x, position.y - line_size),
             Vec2::new(position.x, position.y + line_size),
-            Color::srgb(1.0, 1.0, 0.0),
+            SELECTED_POINT_COLOR,
         );
     }
 }
@@ -512,8 +516,8 @@ pub fn render_hovered_entities(
         // Draw a circle around the hovered point
         gizmos.circle_2d(
             position,
-            SELECT_POINT_RADIUS * 1.2,
-            Color::srgba(0.3, 0.8, 1.0, 0.7),
+            SELECTION_POINT_RADIUS * HOVER_CIRCLE_RADIUS_MULTIPLIER,
+            HOVER_POINT_COLOR,
         );
     }
 }

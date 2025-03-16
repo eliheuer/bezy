@@ -22,25 +22,34 @@ pub const HOVERED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.99, 0.99, 0.99);
 pub const PRESSED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(1.0, 0.6, 0.0);
 
 // Path Drawing
-#[allow(dead_code)]
-pub const POINT_RADIUS: f32 = 4.0;
-#[allow(dead_code)]
-pub const PATH_COLOR: Color = Color::srgb(0.8, 0.0, 0.0);
+//#[allow(dead_code)]
+//pub const POINT_RADIUS: f32 = 4.0;
+//#[allow(dead_code)]
+//pub const PATH_COLOR: Color = Color::srgb(0.8, 0.0, 0.0);
 
 // Glyph Point Rendering
-pub const ON_CURVE_POINT_RADIUS: f32 = 8.0;
-pub const OFF_CURVE_POINT_RADIUS: f32 = 6.0;
+pub const ON_CURVE_POINT_RADIUS: f32 = 4.0;
+pub const OFF_CURVE_POINT_RADIUS: f32 = 4.0;
 
 pub const ON_CURVE_POINT_COLOR: Color = Color::srgb(0.3, 1.0, 0.5);
 pub const OFF_CURVE_POINT_COLOR: Color = Color::srgb(0.6, 0.4, 1.0);
 
-// Handle lines connecting on-curve and off-curve points
-pub const HANDLE_LINE_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 0.2);
+// Point Layout Details
+pub const ON_CURVE_SQUARE_ADJUSTMENT: f32 = 1.0; // Divider for square size to make it visually balanced
+pub const ON_CURVE_INNER_CIRCLE_RATIO: f32 = 0.5; // Inner circle size as a ratio of half_size
+pub const OFF_CURVE_INNER_CIRCLE_RATIO: f32 = 0.5; // Inner circle size as a ratio of the point radius
 
-#[allow(dead_code)]
-pub const SELECTED_POINT_COLOR: Color = Color::srgba(1.0, 0.8, 0.0, 1.0);
-#[allow(dead_code)]
-pub const HOVER_POINT_COLOR: Color = Color::srgba(0.0, 1.0, 0.8, 1.0);
+// Selection and Hover Styling
+pub const SELECTION_POINT_RADIUS: f32 = 4.0; // Base radius for selection indicators
+pub const SELECTED_CIRCLE_RADIUS_MULTIPLIER: f32 = 1.0; // Multiplier for selected point circle
+pub const SELECTED_CROSS_SIZE_MULTIPLIER: f32 = 1.0; // Multiplier for selected point cross lines
+pub const SELECTED_POINT_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0); // Yellow
+pub const HOVER_CIRCLE_RADIUS_MULTIPLIER: f32 = 1.0; // Multiplier for hover point circle
+pub const HOVER_POINT_COLOR: Color = Color::srgba(0.3, 0.8, 1.0, 0.7); // Light blue with alpha
+
+// Handle lines connecting on-curve and off-curve points
+pub const HANDLE_LINE_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 0.3);
+
 #[allow(dead_code)]
 pub const POINT_STROKE_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.8);
 pub const PATH_LINE_COLOR: Color = Color::srgba(1.0, 1.0, 1.0, 1.0);
@@ -49,7 +58,7 @@ pub const PATH_LINE_WIDTH: f32 = 2.0;
 pub const USE_SQUARE_FOR_ON_CURVE: bool = true;
 
 // Metrics Guide
-pub const METRICS_GUIDE_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 0.25);
+pub const METRICS_GUIDE_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 0.5);
 
 // Debug Settings
 pub const DEBUG_SHOW_ORIGIN_CROSS: bool = false; // Set to true to show the red cross at origin
@@ -73,7 +82,7 @@ pub const PATH_FILL_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
 
 // Checkerboard Configuration
 pub const CHECKERBOARD_UNIT_SIZE: f32 = 8.0; // Width and height of each square in pixels
-pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.15, 0.15, 0.15); // Single color for checkerboard squares
+pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.125, 0.125, 0.125); // Single color for checkerboard squares
 
 // Button Styling
 pub const BUTTON_BORDER_RADIUS: f32 = 8.0;

@@ -7,6 +7,7 @@ use crate::theme::{
     DEBUG_SHOW_ORIGIN_CROSS, HANDLE_LINE_COLOR, METRICS_GUIDE_COLOR,
     OFF_CURVE_POINT_COLOR, OFF_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR,
     ON_CURVE_POINT_RADIUS, PATH_LINE_COLOR, USE_SQUARE_FOR_ON_CURVE,
+    ON_CURVE_SQUARE_ADJUSTMENT, ON_CURVE_INNER_CIRCLE_RATIO, OFF_CURVE_INNER_CIRCLE_RATIO,
 };
 use bevy::prelude::*;
 use norad::Glyph;
@@ -468,11 +469,10 @@ fn draw_glyph_points(
                 // Draw the appropriate shape based on point type
                 if is_on_curve && USE_SQUARE_FOR_ON_CURVE {
                     // For on-curve points, draw a square outline
-                    let half_size = size / 1.4; // Adjusting size for visual balance
+                    let half_size = size / ON_CURVE_SQUARE_ADJUSTMENT; // Adjusting size for visual balance
 
-                    // Draw a filled square by first drawing a circle fill then the square outline
                     // First draw a filled circle inside the square
-                    gizmos.circle_2d(screen_pos, half_size * 0.5, color);
+                    gizmos.circle_2d(screen_pos, half_size * ON_CURVE_INNER_CIRCLE_RATIO, color);
 
                     // Then draw the square outline
                     let top_left = Vec2::new(
@@ -503,8 +503,7 @@ fn draw_glyph_points(
                     gizmos.circle_2d(screen_pos, size, color);
 
                     // Then draw a smaller inner circle with the same color
-                    // Draw the inner circle at 40% of the original size
-                    gizmos.circle_2d(screen_pos, size * 0.4, color);
+                    gizmos.circle_2d(screen_pos, size * OFF_CURVE_INNER_CIRCLE_RATIO, color);
                 }
             }
         }
