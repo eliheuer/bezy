@@ -42,7 +42,7 @@ impl EditType {
             (EditType::NudgeUp, EditType::NudgeUp) => true,
             (EditType::NudgeLeft, EditType::NudgeLeft) => true,
             (EditType::NudgeRight, EditType::NudgeRight) => true,
-            
+
             // A drag and its completion are combined
             (EditType::Drag, EditType::Drag) => false,
             (EditType::Drag, EditType::DragUp) => false,

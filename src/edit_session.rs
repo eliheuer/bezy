@@ -13,7 +13,7 @@ pub struct EditSession {
 
 impl Default for EditSession {
     fn default() -> Self {
-        Self { 
+        Self {
             selection_count: 0,
             point_positions: HashMap::new(),
         }
@@ -22,11 +22,13 @@ impl Default for EditSession {
 
 impl EditSession {
     /// Check if the selection is empty
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.selection_count == 0
     }
 
     /// Nudge the selected points by the given amount
+    #[allow(dead_code)]
     pub fn nudge_selection(&mut self, nudge: bevy::prelude::Vec2) {
         if self.is_empty() {
             return;
@@ -45,12 +47,14 @@ pub struct EditSessionPlugin;
 
 impl Plugin for EditSessionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, create_edit_session)
-            .add_systems(Update, (
+        app.add_systems(Startup, create_edit_session).add_systems(
+            Update,
+            (
                 update_edit_session,
                 sync_transforms_with_session,
                 debug_print_edit_sessions,
-            ));
+            ),
+        );
     }
 }
 
@@ -64,20 +68,23 @@ fn create_edit_session(mut commands: Commands) {
 fn update_edit_session(
     mut edit_sessions: Query<&mut EditSession>,
     selected_points: Query<(Entity, &Transform), With<Selected>>,
-    all_points: Query<(Entity, &Transform), With<crate::selection::components::Selectable>>,
+    all_points: Query<
+        (Entity, &Transform),
+        With<crate::selection::components::Selectable>,
+    >,
 ) {
     if let Ok(mut session) = edit_sessions.get_single_mut() {
         // Update selection count
         session.selection_count = selected_points.iter().count();
-        
+
         // Clear the previous session's position map to avoid stale entries
         session.point_positions.clear();
-        
+
         // First track all points for complete snapshots
         for (entity, transform) in all_points.iter() {
             session.point_positions.insert(
-                entity, 
-                Vec2::new(transform.translation.x, transform.translation.y)
+                entity,
+                Vec2::new(transform.translation.x, transform.translation.y),
             );
         }
     }
@@ -95,7 +102,7 @@ fn sync_transforms_with_session(
         if !session.point_positions.is_empty() {
             // Count how many transforms we updated
             let mut updated_count = 0;
-            
+
             for (mut transform, entity) in transforms.iter_mut() {
                 if let Some(position) = session.point_positions.get(&entity) {
                     // Update transform position from stored position
@@ -104,7 +111,7 @@ fn sync_transforms_with_session(
                     updated_count += 1;
                 }
             }
-            
+
             if updated_count > 0 {
                 debug!("Synced {} transforms from EditSession", updated_count);
             }
@@ -115,6 +122,10 @@ fn sync_transforms_with_session(
 /// Debug system to print out all entities with the EditSession component
 fn debug_print_edit_sessions(edit_sessions: Query<Entity, With<EditSession>>) {
     if !edit_sessions.is_empty() {
-        info!("Found {} EditSession entities: {:?}", edit_sessions.iter().count(), edit_sessions.iter().collect::<Vec<_>>());
+        info!(
+            "Found {} EditSession entities: {:?}",
+            edit_sessions.iter().count(),
+            edit_sessions.iter().collect::<Vec<_>>()
+        );
     }
 }

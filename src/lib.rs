@@ -15,6 +15,7 @@ pub mod point;
 mod point_list;
 pub mod quadrant;
 pub mod selection;
+pub mod settings;
 pub mod theme;
 pub mod ufo;
 pub mod undo;

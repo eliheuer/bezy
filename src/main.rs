@@ -17,6 +17,7 @@ mod hud;
 mod logger;
 mod plugins;
 mod selection;
+mod settings;
 mod setup;
 mod tests;
 mod text_editor;

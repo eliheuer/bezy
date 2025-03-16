@@ -23,8 +23,8 @@ use bevy_pancam::PanCamPlugin;
 // Core app functionality
 use crate::cli::CliArgs;
 use crate::data::AppState;
-use crate::theme::BACKGROUND_COLOR;
 use crate::edit_session::EditSessionPlugin;
+use crate::theme::BACKGROUND_COLOR;
 use crate::undo_plugin::UndoPlugin;
 
 // Plugins

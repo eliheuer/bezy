@@ -89,16 +89,19 @@ impl<T: Clone> UndoState<T> {
     }
 
     /// Check if the undo stack is empty.
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.stack.is_empty()
     }
 
     /// Alias for push
+    #[allow(dead_code)]
     pub fn add_undo_group(&mut self, item: T) {
         self.push(item)
     }
 
     /// Alias for update_current
+    #[allow(dead_code)]
     pub fn update_current_undo(&mut self, mut f: impl FnMut(&mut T)) {
         if let Some(state) = self.stack.get_mut(self.live_index) {
             f(state);
