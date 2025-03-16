@@ -8,7 +8,7 @@ pub const ARABIC_DEBUG_FONT_PATH: &str = "fonts/bezy-grotesk-regular.ttf"; // Us
 
 // Window Configuration
 pub const WINDOW_TITLE: &str = "Bezy";
-pub const WINDOW_WIDTH: f32 = 1200.0;
+pub const WINDOW_WIDTH: f32 = 800.0;
 pub const WINDOW_HEIGHT: f32 = 900.0;
 
 // Button Colors

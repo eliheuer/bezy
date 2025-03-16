@@ -65,7 +65,7 @@ pub fn spawn_crypto_toolbar(
             ..default()
         },))
         .with_children(|parent| {
-            spawn_button(parent, "Connect", &asset_server, 192.0);
+            spawn_button(parent, "\u{E008}", &asset_server, 64.0);
         });
 }
 
