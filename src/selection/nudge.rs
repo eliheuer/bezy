@@ -118,10 +118,10 @@ pub fn handle_nudge_shortcuts(
     nudge_state.is_nudging = true;
     nudge_state.last_nudge_time = time.elapsed_secs();
 
-    // Get the current edit session if available
-    let mut session_updated = false;
-    if let Ok(_) = edit_sessions.get_single_mut() {
-        session_updated = true;
+    // Get the edit session once if available
+    let mut session = None;
+    if let Ok(s) = edit_sessions.get_single_mut() {
+        session = Some(s);
     }
 
     // Apply nudge to all selected entities
@@ -133,24 +133,14 @@ pub fn handle_nudge_shortcuts(
         coordinates.position.x = transform.translation.x;
         coordinates.position.y = transform.translation.y;
 
-        // Directly update the EditSession for this entity
-        if session_updated {
-            if let Ok(mut session) = edit_sessions.get_single_mut() {
-                session.point_positions.insert(
-                    entity,
-                    Vec2::new(transform.translation.x, transform.translation.y),
-                );
-            }
+        // Update the edit session
+        if let Some(s) = &mut session {
+            s.point_positions.insert(
+                entity,
+                Vec2::new(transform.translation.x, transform.translation.y),
+            );
         }
-
-        debug!(
-            "Nudged entity {:?} to position {:?}",
-            entity, transform.translation
-        );
     }
-
-    // Log the nudge operation
-    info!("Nudged {} points by {:?}", count, direction);
 
     // Send edit event for undo system
     event_writer.send(EditEvent { edit_type });
@@ -171,6 +161,11 @@ pub fn reset_nudge_state(mut nudge_state: ResMut<NudgeState>, time: Res<Time>) {
 pub fn sync_transforms_and_coordinates(
     mut query: Query<(&Transform, &mut PointCoordinates), Changed<Transform>>,
 ) {
+    // Skip if nothing to process
+    if query.is_empty() {
+        return;
+    }
+
     for (transform, mut coords) in &mut query {
         // Only update if there's a significant difference to avoid unnecessary updates
         if (coords.position.x - transform.translation.x).abs() > 0.001
@@ -178,10 +173,6 @@ pub fn sync_transforms_and_coordinates(
         {
             coords.position.x = transform.translation.x;
             coords.position.y = transform.translation.y;
-            debug!(
-                "Synced point coordinates to transform: {:?}",
-                coords.position
-            );
         }
     }
 }
@@ -194,10 +185,9 @@ pub fn handle_edit_events(
     edit_session_entities: Query<Entity, With<EditSession>>,
     edit_session_query: Query<&EditSession>,
 ) {
-    // Log if we have any events
-    let event_count = events.len();
-    if event_count > 0 {
-        info!("Processing {} edit events", event_count);
+    // Skip if there are no events
+    if events.is_empty() {
+        return;
     }
 
     // Create a default EditSession for undo purposes
@@ -206,20 +196,14 @@ pub fn handle_edit_events(
     for event in events.read() {
         let edit_type = event.edit_type;
 
-        info!("Received edit event: {:?}", edit_type);
-
-        // Create a snapshot of the current state
         // Try to find an EditSession entity first
-        let _session = if let Some(entity) = edit_session_entities.iter().next()
-        {
+        if let Some(entity) = edit_session_entities.iter().next() {
             // Try to get the EditSession component from the entity
             if let Ok(session) = edit_session_query.get(entity) {
-                info!("Found EditSession entity: {:?}", entity);
                 // Make sure to clone the session to get a true snapshot
                 let session_clone = session.clone();
 
-                // Create a snapshot right now (deferred to after all systems)
-                // We'll use this snapshot for the undo stack
+                // Create a snapshot right now
                 let snapshot = Arc::new(session_clone);
 
                 // Check if we need a new undo group based on the edit type
@@ -229,68 +213,28 @@ pub fn handle_edit_events(
 
                     if needs_new_group {
                         // Start a new undo group
-                        info!(
-                            "Creating new undo group for edit type: {:?}",
-                            edit_type
-                        );
-                        let stack_size_before = undo_state.stack_size();
-                        let stack_index_before = undo_state.current_index();
                         undo_state.push_undo_state(snapshot);
-                        let stack_size_after = undo_state.stack_size();
-                        let stack_index_after = undo_state.current_index();
-                        info!(
-                            "Undo stack changed: size {}→{}, index {}→{}",
-                            stack_size_before,
-                            stack_size_after,
-                            stack_index_before,
-                            stack_index_after
-                        );
                     } else {
                         // Update the current undo group
-                        info!(
-                            "Updating current undo group for edit type: {:?}",
-                            edit_type
-                        );
-                        let stack_index_before = undo_state.current_index();
                         undo_state.update_current_undo(snapshot);
-                        let stack_index_after = undo_state.current_index();
-                        info!(
-                            "Updated undo group at index {} (now {})",
-                            stack_index_before, stack_index_after
-                        );
                     }
                 } else {
                     // This is the first edit, so create a new undo group
-                    info!(
-                        "Creating first undo group for edit type: {:?}",
-                        edit_type
-                    );
-                    let stack_size_before = undo_state.stack_size();
-                    let stack_index_before = undo_state.current_index();
                     undo_state.push_undo_state(snapshot);
-                    let stack_size_after = undo_state.stack_size();
-                    let stack_index_after = undo_state.current_index();
-                    info!(
-                        "Undo stack initialized: size {}→{}, index {}→{}",
-                        stack_size_before,
-                        stack_size_after,
-                        stack_index_before,
-                        stack_index_after
-                    );
                 }
 
                 // Update the last edit type
                 undo_state.set_last_edit_type(edit_type);
-
-                session.clone()
             } else {
-                warn!("Found EditSession entity but couldn't get component, using default");
-                default_session.clone()
+                // If we found an entity but couldn't get its component
+                undo_state.push_undo_state(Arc::new(default_session.clone()));
+                undo_state.set_last_edit_type(edit_type);
             }
         } else {
-            warn!("No EditSession found, using default");
-            default_session.clone()
-        };
+            // If no EditSession entity was found
+            undo_state.push_undo_state(Arc::new(default_session.clone()));
+            undo_state.set_last_edit_type(edit_type);
+        }
     }
 }
 
