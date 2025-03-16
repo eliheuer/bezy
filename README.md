@@ -18,6 +18,10 @@ Post v1.0, Bezy will have built-in AI-agent functionality using Font Garden and 
 - [Bezy Design Principles](#bezy-design-principles)
 - [Installation](#installation)
 - [Using Bezy](#using-bezy)
+  - [Basic Usage](#basic-usage)
+  - [Command Line Arguments](#command-line-arguments)
+  - [The Bezy Grotesk Test Font](#the-bezy-grotesk-test-font)
+  - [Hotkeys](#hotkeys)
 - [Developing with Bezy](#developing-with-bezy)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
@@ -59,14 +63,14 @@ Bezy, like the Rust programming language, is fundamentally about empowerment. We
 
 3. **Build and run**:
    ```bash
-   cargo run -- --load-ufo assets/fonts/bezy-grotesk-regular.ufo --test-unicode 0061
+   cargo run
    ```
 
 ## Using Bezy
 
 ### Basic Usage
 
-Simply running `cargo run` will start Bezy with a default empty state.
+Simply running `cargo run` will start Bezy with a default UFO (Bezy Grotesk Regular Latin/Arabic) and the lowercase a glyph (U+0061).
 
 ### Command Line Arguments
 
