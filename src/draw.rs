@@ -312,6 +312,10 @@ pub fn draw_glyph_points_system(
         With<crate::cameras::DesignCamera>,
     >,
     window_query: Query<&Window>,
+    selected_points_query: Query<
+        (Entity, &crate::selection::components::GlyphPointReference),
+        With<crate::selection::components::Selected>,
+    >,
 ) {
     // Get the primary viewport or create a default one if none exists
     let viewport = match viewports.get_single() {
@@ -327,6 +331,9 @@ pub fn draw_glyph_points_system(
         return;
     }
 
+    // Collect selected points for efficient checking
+    let selected_points: Vec<_> = selected_points_query.iter().collect();
+
     match app_state.workspace.font.ufo.get_default_layer() {
         Some(default_layer) => {
             // Flag to track if we found the glyph
@@ -338,7 +345,7 @@ pub fn draw_glyph_points_system(
                 cli_args.find_glyph(&app_state.workspace.font.ufo)
             {
                 if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
-                    draw_glyph_points(&mut gizmos, viewport, glyph);
+                    draw_glyph_points(&mut gizmos, viewport, glyph, &selected_points);
                     cli_args.codepoint_found = true;
                     glyph_found = true;
                     found_glyph = Some(glyph);
@@ -353,7 +360,7 @@ pub fn draw_glyph_points_system(
                 for glyph_name_str in common_glyphs.iter() {
                     let name = norad::GlyphName::from(*glyph_name_str);
                     if let Some(glyph) = default_layer.get_glyph(&name) {
-                        draw_glyph_points(&mut gizmos, viewport, glyph);
+                        draw_glyph_points(&mut gizmos, viewport, glyph, &selected_points);
                         cli_args.codepoint_found = true;
                         glyph_found = true;
                         found_glyph = Some(glyph);
@@ -431,11 +438,12 @@ fn draw_glyph_points(
     gizmos: &mut Gizmos,
     viewport: ViewPort,
     glyph: &norad::Glyph,
+    selected_points: &[(Entity, &crate::selection::components::GlyphPointReference)],
 ) {
     // Only proceed if the glyph has an outline
     if let Some(outline) = &glyph.outline {
         // Iterate through all contours
-        for (_contour_idx, contour) in outline.contours.iter().enumerate() {
+        for (contour_idx, contour) in outline.contours.iter().enumerate() {
             if contour.points.is_empty() {
                 continue;
             }
@@ -446,8 +454,20 @@ fn draw_glyph_points(
             // Then draw the control handles for off-curve points
             draw_control_handles(gizmos, viewport, contour);
 
-            // Finally, draw the points themselves
-            for point in contour.points.iter() {
+            // Finally, draw the points themselves, but only if they're not selected
+            for (point_idx, point) in contour.points.iter().enumerate() {
+                // Check if this point is currently selected
+                let is_selected = selected_points.iter().any(|(_, ref_point)| {
+                    ref_point.glyph_name == glyph.name.to_string() && 
+                    ref_point.contour_index == contour_idx && 
+                    ref_point.point_index == point_idx
+                });
+                
+                // Skip drawing this point if it's selected (the selection indicator will be shown instead)
+                if is_selected {
+                    continue;
+                }
+                
                 let point_pos = (point.x as f32, point.y as f32);
                 let screen_pos = viewport.to_screen(DPoint::from(point_pos));
 

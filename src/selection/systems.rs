@@ -458,7 +458,7 @@ fn draw_dashed_line(
 /// System to draw visual indicators for selected entities
 pub fn render_selected_entities(
     mut gizmos: Gizmos,
-    selected_query: Query<&GlobalTransform, With<Selected>>,
+    selected_query: Query<(&GlobalTransform, &crate::selection::components::PointType), With<Selected>>,
     select_mode: Option<
         Res<crate::edit_mode_toolbar::select::SelectModeActive>,
     >,
@@ -470,27 +470,73 @@ pub fn render_selected_entities(
         }
     }
 
-    for transform in &selected_query {
+    for (transform, point_type) in &selected_query {
         let position = transform.translation().truncate();
 
-        // Draw a circle around the selected point
-        gizmos.circle_2d(
-            position,
-            SELECTION_POINT_RADIUS * SELECTED_CIRCLE_RADIUS_MULTIPLIER,
-            SELECTED_POINT_COLOR,
-        );
+        // Different rendering based on point type
+        if point_type.is_on_curve && crate::theme::USE_SQUARE_FOR_ON_CURVE {
+            // Draw a square for on-curve points
+            let half_size = crate::theme::SELECTION_POINT_RADIUS / crate::theme::ON_CURVE_SQUARE_ADJUSTMENT;
 
-        // Also add a small visual cross to make selection more visible
-        let line_size = SELECTION_POINT_RADIUS * SELECTED_CROSS_SIZE_MULTIPLIER;
+            // First draw a filled circle inside the square
+            gizmos.circle_2d(
+                position,
+                half_size * crate::theme::ON_CURVE_INNER_CIRCLE_RATIO,
+                crate::theme::SELECTED_POINT_COLOR,
+            );
+
+            // Then draw the square outline
+            let top_left = Vec2::new(
+                position.x - half_size,
+                position.y + half_size,
+            );
+            let top_right = Vec2::new(
+                position.x + half_size,
+                position.y + half_size,
+            );
+            let bottom_right = Vec2::new(
+                position.x + half_size,
+                position.y - half_size,
+            );
+            let bottom_left = Vec2::new(
+                position.x - half_size,
+                position.y - half_size,
+            );
+
+            // Draw the square sides
+            gizmos.line_2d(top_left, top_right, crate::theme::SELECTED_POINT_COLOR);
+            gizmos.line_2d(top_right, bottom_right, crate::theme::SELECTED_POINT_COLOR);
+            gizmos.line_2d(bottom_right, bottom_left, crate::theme::SELECTED_POINT_COLOR);
+            gizmos.line_2d(bottom_left, top_left, crate::theme::SELECTED_POINT_COLOR);
+        } else {
+            // Draw a circle for off-curve points
+            gizmos.circle_2d(
+                position,
+                crate::theme::SELECTION_POINT_RADIUS * crate::theme::SELECTED_CIRCLE_RADIUS_MULTIPLIER,
+                crate::theme::SELECTED_POINT_COLOR,
+            );
+            
+            // For off-curve points, also draw a smaller inner circle
+            if !point_type.is_on_curve {
+                gizmos.circle_2d(
+                    position,
+                    crate::theme::SELECTION_POINT_RADIUS * crate::theme::OFF_CURVE_INNER_CIRCLE_RATIO,
+                    crate::theme::SELECTED_POINT_COLOR,
+                );
+            }
+        }
+
+        // Always draw the crosshair for all selected points
+        let line_size = crate::theme::SELECTION_POINT_RADIUS * crate::theme::SELECTED_CROSS_SIZE_MULTIPLIER;
         gizmos.line_2d(
             Vec2::new(position.x - line_size, position.y),
             Vec2::new(position.x + line_size, position.y),
-            SELECTED_POINT_COLOR,
+            crate::theme::SELECTED_POINT_COLOR,
         );
         gizmos.line_2d(
             Vec2::new(position.x, position.y - line_size),
             Vec2::new(position.x, position.y + line_size),
-            SELECTED_POINT_COLOR,
+            crate::theme::SELECTED_POINT_COLOR,
         );
     }
 }
@@ -498,7 +544,7 @@ pub fn render_selected_entities(
 /// System to draw visual indicators for hovered entities
 pub fn render_hovered_entities(
     mut gizmos: Gizmos,
-    hovered_query: Query<&GlobalTransform, With<Hovered>>,
+    hovered_query: Query<(&GlobalTransform, &crate::selection::components::PointType), With<Hovered>>,
     select_mode: Option<
         Res<crate::edit_mode_toolbar::select::SelectModeActive>,
     >,
@@ -510,15 +556,63 @@ pub fn render_hovered_entities(
         }
     }
 
-    for transform in &hovered_query {
+    // Use the hover color from theme
+    let hover_color = crate::theme::HOVER_ORANGE_COLOR;
+
+    for (transform, point_type) in &hovered_query {
         let position = transform.translation().truncate();
 
-        // Draw a circle around the hovered point
-        gizmos.circle_2d(
-            position,
-            SELECTION_POINT_RADIUS * HOVER_CIRCLE_RADIUS_MULTIPLIER,
-            HOVER_POINT_COLOR,
-        );
+        // Draw the hover indicator with the same shape as the original point
+        if point_type.is_on_curve && crate::theme::USE_SQUARE_FOR_ON_CURVE {
+            // Draw a square for on-curve points
+            let half_size = crate::theme::ON_CURVE_POINT_RADIUS / crate::theme::ON_CURVE_SQUARE_ADJUSTMENT;
+
+            // First draw a filled circle inside the square
+            gizmos.circle_2d(
+                position,
+                half_size * crate::theme::ON_CURVE_INNER_CIRCLE_RATIO,
+                hover_color,
+            );
+
+            // Then draw the square outline
+            let top_left = Vec2::new(
+                position.x - half_size,
+                position.y + half_size,
+            );
+            let top_right = Vec2::new(
+                position.x + half_size,
+                position.y + half_size,
+            );
+            let bottom_right = Vec2::new(
+                position.x + half_size,
+                position.y - half_size,
+            );
+            let bottom_left = Vec2::new(
+                position.x - half_size,
+                position.y - half_size,
+            );
+
+            // Draw the square sides
+            gizmos.line_2d(top_left, top_right, hover_color);
+            gizmos.line_2d(top_right, bottom_right, hover_color);
+            gizmos.line_2d(bottom_right, bottom_left, hover_color);
+            gizmos.line_2d(bottom_left, top_left, hover_color);
+        } else {
+            // For off-curve points, draw a filled circle with a smaller circle inside
+            // First draw the outer circle
+            gizmos.circle_2d(
+                position,
+                crate::theme::OFF_CURVE_POINT_RADIUS, 
+                hover_color,
+            );
+
+            // Then draw a smaller inner circle with the same color
+            gizmos.circle_2d(
+                position,
+                crate::theme::OFF_CURVE_POINT_RADIUS * crate::theme::OFF_CURVE_INNER_CIRCLE_RATIO,
+                hover_color,
+            );
+        }
     }
 }
 

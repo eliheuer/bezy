@@ -46,6 +46,7 @@ pub const SELECTED_CROSS_SIZE_MULTIPLIER: f32 = 1.0; // Multiplier for selected 
 pub const SELECTED_POINT_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0); // Yellow
 pub const HOVER_CIRCLE_RADIUS_MULTIPLIER: f32 = 1.0; // Multiplier for hover point circle
 pub const HOVER_POINT_COLOR: Color = Color::srgba(0.3, 0.8, 1.0, 0.7); // Light blue with alpha
+pub const HOVER_ORANGE_COLOR: Color = Color::srgb(1.0, 0.4, 0.0); // Bright orange for hover indicators
 
 // Handle lines connecting on-curve and off-curve points
 pub const HANDLE_LINE_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 0.3);
