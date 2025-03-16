@@ -45,11 +45,11 @@ impl Plugin for SelectionPlugin {
                     systems::handle_mouse_input,
                     systems::handle_selection_shortcuts,
                     systems::handle_key_releases,
-                    // Enable hover state system now that we have proper mode separation
-                    systems::update_hover_state,
+                    // Hover functionality disabled per user request
+                    // systems::update_hover_state,
                     systems::render_selection_rect,
                     systems::render_selected_entities,
-                    systems::render_hovered_entities,
+                    // systems::render_hovered_entities,
                     // Add the new system to update glyph data
                     systems::update_glyph_data_from_selection,
                 ),

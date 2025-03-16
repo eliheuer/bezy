@@ -37,6 +37,8 @@ pub struct Selectable;
 pub struct Selected;
 
 /// Marker component for entities that are currently hovered
+/// Disabled per user request - hover functionality removed
+#[allow(dead_code)]
 #[derive(Component, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct Hovered;

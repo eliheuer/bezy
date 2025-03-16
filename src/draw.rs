@@ -5,9 +5,10 @@ use crate::design_space::{DPoint, ViewPort};
 use crate::selection::Selectable;
 use crate::theme::{
     DEBUG_SHOW_ORIGIN_CROSS, HANDLE_LINE_COLOR, METRICS_GUIDE_COLOR,
-    OFF_CURVE_POINT_COLOR, OFF_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR,
-    ON_CURVE_POINT_RADIUS, PATH_LINE_COLOR, USE_SQUARE_FOR_ON_CURVE,
-    ON_CURVE_SQUARE_ADJUSTMENT, ON_CURVE_INNER_CIRCLE_RATIO, OFF_CURVE_INNER_CIRCLE_RATIO,
+    OFF_CURVE_INNER_CIRCLE_RATIO, OFF_CURVE_POINT_COLOR,
+    OFF_CURVE_POINT_RADIUS, ON_CURVE_INNER_CIRCLE_RATIO, ON_CURVE_POINT_COLOR,
+    ON_CURVE_POINT_RADIUS, ON_CURVE_SQUARE_ADJUSTMENT, PATH_LINE_COLOR,
+    USE_SQUARE_FOR_ON_CURVE,
 };
 use bevy::prelude::*;
 use norad::Glyph;
@@ -345,7 +346,12 @@ pub fn draw_glyph_points_system(
                 cli_args.find_glyph(&app_state.workspace.font.ufo)
             {
                 if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
-                    draw_glyph_points(&mut gizmos, viewport, glyph, &selected_points);
+                    draw_glyph_points(
+                        &mut gizmos,
+                        viewport,
+                        glyph,
+                        &selected_points,
+                    );
                     cli_args.codepoint_found = true;
                     glyph_found = true;
                     found_glyph = Some(glyph);
@@ -360,7 +366,12 @@ pub fn draw_glyph_points_system(
                 for glyph_name_str in common_glyphs.iter() {
                     let name = norad::GlyphName::from(*glyph_name_str);
                     if let Some(glyph) = default_layer.get_glyph(&name) {
-                        draw_glyph_points(&mut gizmos, viewport, glyph, &selected_points);
+                        draw_glyph_points(
+                            &mut gizmos,
+                            viewport,
+                            glyph,
+                            &selected_points,
+                        );
                         cli_args.codepoint_found = true;
                         glyph_found = true;
                         found_glyph = Some(glyph);
@@ -438,7 +449,10 @@ fn draw_glyph_points(
     gizmos: &mut Gizmos,
     viewport: ViewPort,
     glyph: &norad::Glyph,
-    selected_points: &[(Entity, &crate::selection::components::GlyphPointReference)],
+    selected_points: &[(
+        Entity,
+        &crate::selection::components::GlyphPointReference,
+    )],
 ) {
     // Only proceed if the glyph has an outline
     if let Some(outline) = &glyph.outline {
@@ -457,17 +471,18 @@ fn draw_glyph_points(
             // Finally, draw the points themselves, but only if they're not selected
             for (point_idx, point) in contour.points.iter().enumerate() {
                 // Check if this point is currently selected
-                let is_selected = selected_points.iter().any(|(_, ref_point)| {
-                    ref_point.glyph_name == glyph.name.to_string() && 
-                    ref_point.contour_index == contour_idx && 
-                    ref_point.point_index == point_idx
-                });
-                
+                let is_selected =
+                    selected_points.iter().any(|(_, ref_point)| {
+                        ref_point.glyph_name == glyph.name.to_string()
+                            && ref_point.contour_index == contour_idx
+                            && ref_point.point_index == point_idx
+                    });
+
                 // Skip drawing this point if it's selected (the selection indicator will be shown instead)
                 if is_selected {
                     continue;
                 }
-                
+
                 let point_pos = (point.x as f32, point.y as f32);
                 let screen_pos = viewport.to_screen(DPoint::from(point_pos));
 
@@ -492,7 +507,11 @@ fn draw_glyph_points(
                     let half_size = size / ON_CURVE_SQUARE_ADJUSTMENT; // Adjusting size for visual balance
 
                     // First draw a filled circle inside the square
-                    gizmos.circle_2d(screen_pos, half_size * ON_CURVE_INNER_CIRCLE_RATIO, color);
+                    gizmos.circle_2d(
+                        screen_pos,
+                        half_size * ON_CURVE_INNER_CIRCLE_RATIO,
+                        color,
+                    );
 
                     // Then draw the square outline
                     let top_left = Vec2::new(
@@ -523,7 +542,11 @@ fn draw_glyph_points(
                     gizmos.circle_2d(screen_pos, size, color);
 
                     // Then draw a smaller inner circle with the same color
-                    gizmos.circle_2d(screen_pos, size * OFF_CURVE_INNER_CIRCLE_RATIO, color);
+                    gizmos.circle_2d(
+                        screen_pos,
+                        size * OFF_CURVE_INNER_CIRCLE_RATIO,
+                        color,
+                    );
                 }
             }
         }

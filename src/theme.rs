@@ -44,8 +44,13 @@ pub const SELECTION_POINT_RADIUS: f32 = 4.0; // Base radius for selection indica
 pub const SELECTED_CIRCLE_RADIUS_MULTIPLIER: f32 = 1.0; // Multiplier for selected point circle
 pub const SELECTED_CROSS_SIZE_MULTIPLIER: f32 = 1.0; // Multiplier for selected point cross lines
 pub const SELECTED_POINT_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0); // Yellow
+
+// Hover-related constants - disabled per user request
+#[allow(dead_code)]
 pub const HOVER_CIRCLE_RADIUS_MULTIPLIER: f32 = 1.0; // Multiplier for hover point circle
+#[allow(dead_code)]
 pub const HOVER_POINT_COLOR: Color = Color::srgba(0.3, 0.8, 1.0, 0.7); // Light blue with alpha
+#[allow(dead_code)]
 pub const HOVER_ORANGE_COLOR: Color = Color::srgb(1.0, 0.4, 0.0); // Bright orange for hover indicators
 
 // Handle lines connecting on-curve and off-curve points
