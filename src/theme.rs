@@ -40,10 +40,10 @@ pub const ON_CURVE_INNER_CIRCLE_RATIO: f32 = 0.5; // Inner circle size as a rati
 pub const OFF_CURVE_INNER_CIRCLE_RATIO: f32 = 0.5; // Inner circle size as a ratio of the point radius
 
 // Selection and Hover Styling
-pub const SELECTION_POINT_RADIUS: f32 = 4.0; // Base radius for selection indicators
-pub const SELECTED_CIRCLE_RADIUS_MULTIPLIER: f32 = 1.0; // Multiplier for selected point circle
-pub const SELECTED_CROSS_SIZE_MULTIPLIER: f32 = 1.0; // Multiplier for selected point cross lines
-pub const SELECTED_POINT_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0); // Yellow
+pub const SELECTION_POINT_RADIUS: f32 = 4.0; // Changed back to 4.0 to match unselected points
+pub const SELECTED_CIRCLE_RADIUS_MULTIPLIER: f32 = 1.0; // Changed back to 1.0 for consistent sizing
+pub const SELECTED_CROSS_SIZE_MULTIPLIER: f32 = 0.7; // Reduced to keep crosshairs within the circle/square
+pub const SELECTED_POINT_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0); // Changed back to yellow
 
 // Hover-related constants - disabled per user request
 #[allow(dead_code)]

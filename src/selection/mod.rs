@@ -38,21 +38,26 @@ impl Plugin for SelectionPlugin {
             // Register resources
             .init_resource::<SelectionState>()
             .init_resource::<DragSelectionState>()
-            // Add systems for selection
+            // Add core selection systems
             .add_systems(
                 Update,
                 (
                     systems::handle_mouse_input,
                     systems::handle_selection_shortcuts,
                     systems::handle_key_releases,
-                    // Hover functionality disabled per user request
-                    // systems::update_hover_state,
-                    systems::render_selection_rect,
-                    systems::render_selected_entities,
-                    // systems::render_hovered_entities,
-                    // Add the new system to update glyph data
                     systems::update_glyph_data_from_selection,
                 ),
+            )
+            // Add selection drawing systems last to ensure they run at the end of the update
+            // This will make them appear on top of other elements
+            .add_systems(
+                Update,
+                (
+                    systems::render_selection_rect,
+                    systems::render_selected_entities
+                        .after(systems::render_selection_rect),
+                )
+                    .after(systems::update_glyph_data_from_selection),
             )
             // Add the nudge plugin
             .add_plugins(NudgePlugin);

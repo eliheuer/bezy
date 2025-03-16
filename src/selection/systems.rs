@@ -5,11 +5,6 @@ use crate::data::AppState;
 use crate::draw::AppStateChanged;
 use crate::edit_type::EditType;
 use crate::selection::nudge::{EditEvent, NudgeState};
-use crate::theme::{
-    HOVER_CIRCLE_RADIUS_MULTIPLIER, HOVER_POINT_COLOR,
-    SELECTED_CIRCLE_RADIUS_MULTIPLIER, SELECTED_CROSS_SIZE_MULTIPLIER,
-    SELECTED_POINT_COLOR, SELECTION_POINT_RADIUS,
-};
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -128,11 +123,12 @@ pub fn handle_mouse_input(
                     selection_state.selected.clear();
                 }
 
-                // Create selection rectangle entity
+                // Clean up any existing selection rectangle entities
                 for entity in &selection_rect_query {
-                    commands.entity(entity).despawn();
+                    commands.entity(entity).despawn_recursive();
                 }
 
+                // Create a fresh selection rectangle entity
                 commands.spawn((
                     Transform::default(),
                     GlobalTransform::default(),
@@ -156,13 +152,31 @@ pub fn handle_mouse_input(
         }) {
             drag_state.current_position = Some(cursor_pos);
 
-            // Update selection rectangle
-            for rect_entity in &selection_rect_query {
+            // Update selection rectangle - only if we have a rectangle entity
+            if !selection_rect_query.is_empty() {
+                for rect_entity in &selection_rect_query {
+                    if let Some(start_pos) = drag_state.start_position {
+                        commands.entity(rect_entity).insert(SelectionRect {
+                            start: start_pos,
+                            end: cursor_pos,
+                        });
+                    }
+                }
+            } else {
+                // Create selection rectangle entity if it doesn't exist
                 if let Some(start_pos) = drag_state.start_position {
-                    commands.entity(rect_entity).insert(SelectionRect {
-                        start: start_pos,
-                        end: cursor_pos,
-                    });
+                    commands.spawn((
+                        Transform::default(),
+                        GlobalTransform::default(),
+                        Visibility::default(),
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
+                        SelectionRect {
+                            start: start_pos,
+                            end: cursor_pos,
+                        },
+                        Name::new("Selection Rectangle"),
+                    ));
                 }
             }
 
@@ -216,7 +230,7 @@ pub fn handle_mouse_input(
         }
     }
 
-    // End drag selection
+    // Handle mouse button release to complete selection
     if mouse_button_input.just_released(MouseButton::Left)
         && drag_state.is_dragging
     {
@@ -224,15 +238,17 @@ pub fn handle_mouse_input(
         drag_state.start_position = None;
         drag_state.current_position = None;
 
-        // Remove selection rectangle
+        // Clean up the selection rectangle
         for entity in &selection_rect_query {
-            commands.entity(entity).despawn();
+            commands.entity(entity).despawn_recursive();
         }
 
-        // Notify about the edit
-        event_writer.send(EditEvent {
-            edit_type: EditType::Normal,
-        });
+        // Notify about the edit if we made a selection
+        if !selection_state.selected.is_empty() {
+            event_writer.send(EditEvent {
+                edit_type: EditType::Normal,
+            });
+        }
     }
 }
 
@@ -318,6 +334,9 @@ pub fn render_selection_rect(
             return;
         }
     }
+
+    // Use a small Z offset to ensure selection rectangle is drawn on top
+    const SELECTION_Z_OFFSET: f32 = 5.0; // Increased from 0.1 to 5.0 for better visibility
 
     for rect in &selection_rect_query {
         let rect_bounds = Rect::from_corners(rect.start, rect.end);
@@ -423,8 +442,18 @@ pub fn render_selected_entities(
         }
     }
 
+    // Use a small Z offset to ensure selection indicators are drawn on top
+    const SELECTION_Z_OFFSET: f32 = 5.0; // Increased from 0.1 to 5.0 for better visibility
+
     for (transform, point_type) in &selected_query {
         let position = transform.translation().truncate();
+        // Use a position with a slight Z offset to ensure it renders on top
+        let position_3d = Vec3::new(
+            position.x,
+            position.y,
+            transform.translation().z + SELECTION_Z_OFFSET,
+        );
+        let position_2d = position_3d.truncate();
 
         // Different rendering based on point type
         if point_type.is_on_curve && crate::theme::USE_SQUARE_FOR_ON_CURVE {
@@ -434,20 +463,20 @@ pub fn render_selected_entities(
 
             // First draw a filled circle inside the square
             gizmos.circle_2d(
-                position,
+                position_2d,
                 half_size * crate::theme::ON_CURVE_INNER_CIRCLE_RATIO,
                 crate::theme::SELECTED_POINT_COLOR,
             );
 
             // Then draw the square outline
             let top_left =
-                Vec2::new(position.x - half_size, position.y + half_size);
+                Vec2::new(position_2d.x - half_size, position_2d.y + half_size);
             let top_right =
-                Vec2::new(position.x + half_size, position.y + half_size);
+                Vec2::new(position_2d.x + half_size, position_2d.y + half_size);
             let bottom_right =
-                Vec2::new(position.x + half_size, position.y - half_size);
+                Vec2::new(position_2d.x + half_size, position_2d.y - half_size);
             let bottom_left =
-                Vec2::new(position.x - half_size, position.y - half_size);
+                Vec2::new(position_2d.x - half_size, position_2d.y - half_size);
 
             // Draw the square sides
             gizmos.line_2d(
@@ -473,7 +502,7 @@ pub fn render_selected_entities(
         } else {
             // Draw a circle for off-curve points
             gizmos.circle_2d(
-                position,
+                position_2d,
                 crate::theme::SELECTION_POINT_RADIUS
                     * crate::theme::SELECTED_CIRCLE_RADIUS_MULTIPLIER,
                 crate::theme::SELECTED_POINT_COLOR,
@@ -482,7 +511,7 @@ pub fn render_selected_entities(
             // For off-curve points, also draw a smaller inner circle
             if !point_type.is_on_curve {
                 gizmos.circle_2d(
-                    position,
+                    position_2d,
                     crate::theme::SELECTION_POINT_RADIUS
                         * crate::theme::OFF_CURVE_INNER_CIRCLE_RATIO,
                     crate::theme::SELECTED_POINT_COLOR,
@@ -494,13 +523,13 @@ pub fn render_selected_entities(
         let line_size = crate::theme::SELECTION_POINT_RADIUS
             * crate::theme::SELECTED_CROSS_SIZE_MULTIPLIER;
         gizmos.line_2d(
-            Vec2::new(position.x - line_size, position.y),
-            Vec2::new(position.x + line_size, position.y),
+            Vec2::new(position_2d.x - line_size, position_2d.y),
+            Vec2::new(position_2d.x + line_size, position_2d.y),
             crate::theme::SELECTED_POINT_COLOR,
         );
         gizmos.line_2d(
-            Vec2::new(position.x, position.y - line_size),
-            Vec2::new(position.x, position.y + line_size),
+            Vec2::new(position_2d.x, position_2d.y - line_size),
+            Vec2::new(position_2d.x, position_2d.y + line_size),
             crate::theme::SELECTED_POINT_COLOR,
         );
     }
