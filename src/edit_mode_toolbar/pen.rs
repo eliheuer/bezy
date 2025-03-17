@@ -3,10 +3,6 @@ use bevy::prelude::*;
 use kurbo::BezPath;
 use norad::{Contour, ContourPoint};
 
-/// Component to mark entities related to pen tool operations
-#[derive(Component)]
-pub struct PenToolComponent;
-
 /// Resource to track if pen mode is active
 #[derive(Resource, Default, PartialEq, Eq)]
 pub struct PenModeActive(pub bool);
@@ -62,7 +58,7 @@ impl Default for PenToolState {
 
 /// The state of the pen tool
 #[derive(Debug, Clone, PartialEq, Default)]
-enum PenState {
+pub(crate) enum PenState {
     /// Ready to place a point
     #[default]
     Ready,

@@ -335,9 +335,6 @@ pub fn render_selection_rect(
         }
     }
 
-    // Use a small Z offset to ensure selection rectangle is drawn on top
-    const SELECTION_Z_OFFSET: f32 = 5.0; // Increased from 0.1 to 5.0 for better visibility
-
     for rect in &selection_rect_query {
         let rect_bounds = Rect::from_corners(rect.start, rect.end);
 
@@ -442,16 +439,13 @@ pub fn render_selected_entities(
         }
     }
 
-    // Use a small Z offset to ensure selection indicators are drawn on top
-    const SELECTION_Z_OFFSET: f32 = 5.0; // Increased from 0.1 to 5.0 for better visibility
-
     for (transform, point_type) in &selected_query {
         let position = transform.translation().truncate();
         // Use a position with a slight Z offset to ensure it renders on top
         let position_3d = Vec3::new(
             position.x,
             position.y,
-            transform.translation().z + SELECTION_Z_OFFSET,
+            transform.translation().z + 5.0,
         );
         let position_2d = position_3d.truncate();
 

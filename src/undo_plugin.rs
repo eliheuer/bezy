@@ -46,12 +46,12 @@ impl UndoStateResource {
     }
 
     /// Get the current size of the undo stack
-    pub fn stack_size(&self) -> usize {
+    pub fn _stack_size(&self) -> usize {
         self.undo_stack.len()
     }
 
     /// Get the current index in the undo stack
-    pub fn current_index(&self) -> usize {
+    pub fn _current_index(&self) -> usize {
         self.undo_stack.current_index()
     }
 }
