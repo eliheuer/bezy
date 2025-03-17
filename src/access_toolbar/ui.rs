@@ -51,8 +51,8 @@ fn spawn_button(
         });
 }
 
-/// Spawn the crypto toolbar with a Connect button in the upper right corner
-pub fn spawn_crypto_toolbar(
+/// Spawn the access toolbar with a Connect button in the upper right corner
+pub fn spawn_access_toolbar(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
@@ -107,4 +107,4 @@ pub fn handle_connect_button_interaction(
             }
         }
     }
-}
+} 

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::cameras::toggle_camera_controls;
 // Use the bezy namespace for the coord_pane module
-use crate::crypto_toolbar::CryptoToolbarPlugin;
+use crate::access_toolbar::AccessToolbarPlugin;
 use crate::edit_mode_toolbar::CurrentEditMode;
 use crate::glyph_pane::GlyphPanePlugin;
 use crate::setup::setup;
@@ -61,7 +61,7 @@ pub struct ToolbarPlugin;
 impl Plugin for ToolbarPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CurrentEditMode>()
-            .add_plugins(CryptoToolbarPlugin);
+            .add_plugins(AccessToolbarPlugin);
     }
 }
 

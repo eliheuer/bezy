@@ -4,7 +4,7 @@ mod cameras;
 mod checkerboard;
 mod cli;
 mod commands;
-mod crypto_toolbar;
+mod access_toolbar;
 mod data;
 mod debug;
 mod design_space;
