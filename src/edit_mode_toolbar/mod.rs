@@ -84,6 +84,7 @@ impl Plugin for EditModeToolbarPlugin {
             .init_resource::<CurrentCornerRadius>()
             .init_resource::<UiInteractionState>()
             .add_plugins(pen::PenModePlugin)
+            .add_plugins(knife::KnifeModePlugin)
             .add_systems(Startup, handle_primitive_selection)
             .add_systems(
                 Update,
