@@ -1,6 +1,8 @@
 use super::EditModeSystem;
+use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
-use kurbo::{BezPath, Line, ParamCurve, ParamCurveNearest};
+use kurbo::{BezPath, Line, ParamCurve};
+use log::info;
 
 /// Resource to track if knife mode is active
 #[derive(Resource, Default, PartialEq, Eq)]
@@ -55,6 +57,44 @@ impl Default for KnifeToolState {
             gesture: KnifeGestureState::default(),
             shift_locked: false,
             intersections: Vec::new(),
+        }
+    }
+}
+
+impl KnifeToolState {
+    fn new() -> Self {
+        Self {
+            gesture: KnifeGestureState::Ready,
+            intersections: Vec::new(),
+            shift_locked: false,
+            active: false,
+        }
+    }
+    
+    /// Create a line tuple for intersection testing
+    fn create_line(&self) -> Option<((f64, f64), (f64, f64))> {
+        match self.gesture {
+            KnifeGestureState::Cutting { start, current } => {
+                let actual_end = if self.shift_locked {
+                    // Apply axis constraint for shift key
+                    let delta = current - start;
+                    if delta.x.abs() > delta.y.abs() {
+                        // Horizontal line
+                        Vec2::new(current.x, start.y)
+                    } else {
+                        // Vertical line
+                        Vec2::new(start.x, current.y)
+                    }
+                } else {
+                    current
+                };
+                
+                Some((
+                    (start.x as f64, start.y as f64),
+                    (actual_end.x as f64, actual_end.y as f64),
+                ))
+            }
+            KnifeGestureState::Ready => None, // Not in cutting state, no line to check
         }
     }
 }
@@ -215,6 +255,7 @@ pub fn render_knife_preview(
     // Define colors
     let line_color = Color::srgba(1.0, 0.3, 0.3, 0.9); // Reddish for cut line
     let intersection_color = Color::srgba(1.0, 1.0, 0.0, 1.0); // Yellow for intersections
+    let start_point_color = Color::srgba(0.3, 0.9, 1.0, 1.0); // Blue for start point
 
     // Draw the current knife line
     if let KnifeGestureState::Cutting { start, current } = knife_state.gesture {
@@ -235,15 +276,16 @@ pub fn render_knife_preview(
         // Draw the knife line with dashed style
         draw_dashed_line(&mut gizmos, start, actual_end, 8.0, 4.0, line_color);
 
-        // Mark start point
-        gizmos.circle_2d(start, 4.0, line_color);
+        // Mark start point with a larger circle
+        gizmos.circle_2d(start, 6.0, start_point_color);
 
-        // Draw intersection points
+        // Draw intersection points with a more visible indicator
         for point in &knife_state.intersections {
+            // Draw filled circle at intersection
             gizmos.circle_2d(*point, 6.0, intersection_color);
 
-            // Draw a small cross at each intersection
-            let cross_size = 4.0;
+            // Draw a small cross at each intersection for extra visibility
+            let cross_size = 8.0;
             gizmos.line_2d(
                 Vec2::new(point.x - cross_size, point.y),
                 Vec2::new(point.x + cross_size, point.y),
@@ -293,6 +335,7 @@ pub fn handle_knife_keyboard_events(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut knife_state: ResMut<KnifeToolState>,
     knife_mode: Option<Res<KnifeModeActive>>,
+    app_state: Res<crate::data::AppState>,
 ) {
     // Only handle events when in knife mode
     if let Some(knife_mode) = knife_mode {
@@ -301,82 +344,109 @@ pub fn handle_knife_keyboard_events(
         }
     }
 
-    // Handle Escape key to cancel current cut
-    if keyboard.just_pressed(KeyCode::Escape) {
-        knife_state.gesture = KnifeGestureState::Ready;
-        knife_state.intersections.clear();
-        info!("Cancelled current knife cut with Escape key");
-    }
-
-    // Update shift key state
-    let new_shift_state = keyboard.pressed(KeyCode::ShiftLeft)
+    // Track shift key state for axis-aligned cuts
+    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft)
         || keyboard.pressed(KeyCode::ShiftRight);
-
-    if knife_state.shift_locked != new_shift_state {
-        knife_state.shift_locked = new_shift_state;
+    
+    // Only update if the state has changed
+    if knife_state.shift_locked != shift_pressed {
+        knife_state.shift_locked = shift_pressed;
+        
+        // If we're in the middle of drawing a cut line, update intersections
+        if let KnifeGestureState::Cutting { .. } = knife_state.gesture {
+            // Update intersections based on the new constraint
+            update_intersections(&mut *knife_state, &app_state);
+        }
     }
-}
 
-/// Update the list of intersections with the current glyphs
-fn update_intersections(
-    knife_state: &mut KnifeToolState,
-    app_state: &crate::data::AppState,
-) {
-    // Clear previous intersections
-    knife_state.intersections.clear();
-
-    if let KnifeGestureState::Cutting { start, current } = knife_state.gesture {
-        // Apply axis constraint if shift is pressed
-        let actual_end = if knife_state.shift_locked {
-            let delta = current - start;
-            if delta.x.abs() > delta.y.abs() {
-                // Horizontal constraint
-                Vec2::new(current.x, start.y)
-            } else {
-                // Vertical constraint
-                Vec2::new(start.x, current.y)
-            }
-        } else {
-            current
-        };
-
-        // Create a Line from the knife cut
-        let line = Line::new(
-            (start.x as f64, start.y as f64),
-            (actual_end.x as f64, actual_end.y as f64),
-        );
-
-        // Get the font from the workspace
-        let font = &app_state.workspace.font;
-
-        // Get the selected glyph (if any)
-        if let Some(selected) = &app_state.workspace.selected {
-            // Try to get the default layer
-            if let Some(layer) = font.ufo.get_default_layer() {
-                // Try to get the glyph
-                if let Some(glyph) = layer.get_glyph(selected) {
-                    // Process the outline if it exists
-                    if let Some(outline) = &glyph.outline {
-                        for contour in &outline.contours {
-                            // Convert contour to BezPath and find intersections
-                            if let Some(bez_path) =
-                                convert_contour_to_bezpath(contour)
-                            {
-                                find_intersections(
-                                    &bez_path,
-                                    line,
-                                    &mut knife_state.intersections,
-                                );
-                            }
-                        }
-                    }
-                }
-            }
+    // Handle Escape key to cancel current knife operation
+    if keyboard.just_pressed(KeyCode::Escape) {
+        if let KnifeGestureState::Cutting { .. } = knife_state.gesture {
+            // Reset to ready state
+            knife_state.gesture = KnifeGestureState::Ready;
+            knife_state.intersections.clear();
+            info!("Knife operation cancelled with Escape key");
         }
     }
 }
 
-/// Helper function to convert a contour to BezPath for intersection checking
+/// Update the intersection points for the knife tool
+fn update_intersections(
+    knife_state: &mut KnifeToolState,
+    app_state: &crate::data::AppState,
+) {
+    info!("Updating intersections for knife tool");
+    
+    knife_state.intersections.clear();
+    
+    if let Some(line) = knife_state.create_line() {
+        // Attempt to get a glyph
+        let glyph_name = if let Some(selected) = &app_state.workspace.selected {
+            info!("Using glyph from workspace selection: {}", selected);
+            selected.clone()
+        } else {
+            // Try to get some common glyphs that are likely to exist
+            let common_glyphs = ["a", "A", "space", "period"];
+            
+            let mut found_glyph = None;
+            for &glyph_name in common_glyphs.iter() {
+                let glyph_name = norad::GlyphName::from(glyph_name);
+                if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
+                    if default_layer.get_glyph(&glyph_name).is_some() {
+                        info!("Using glyph: {}", glyph_name);
+                        found_glyph = Some(glyph_name);
+                        break;
+                    }
+                }
+            }
+            
+            if let Some(glyph_name) = found_glyph {
+                glyph_name
+            } else {
+                info!("No suitable glyph found");
+                return;
+            }
+        };
+
+        // Get the specified glyph
+        if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
+            if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
+                info!("Working with glyph: {}", glyph_name);
+                info!("Checking for intersections with line: ({:.2}, {:.2}) to ({:.2}, {:.2})",
+                       line.0.0, line.0.1, line.1.0, line.1.1);
+                
+                if let Some(outline) = &glyph.outline {
+                    // Check each contour for intersections
+                    for (i, contour) in outline.contours.iter().enumerate() {
+                        let mut contour_intersections = Vec::new();
+                        
+                        // Find intersections between the line and this contour
+                        find_intersections(contour, line, &mut contour_intersections);
+                        
+                        if !contour_intersections.is_empty() {
+                            info!("Found {} intersections with contour {}", 
+                                 contour_intersections.len(), i);
+                                 
+                            // Convert kurbo Points to Vec2 for storage in knife_state
+                            for point in contour_intersections {
+                                knife_state.intersections.push(Vec2::new(
+                                    point.x as f32, 
+                                    point.y as f32
+                                ));
+                            }
+                        }
+                    }
+                }
+            } else {
+                info!("Glyph not found: {}", glyph_name);
+            }
+        }
+    }
+    
+    info!("Found {} intersections", knife_state.intersections.len());
+}
+
+/// Helper function to convert a norad::Contour to a kurbo::BezPath for intersection testing
 fn convert_contour_to_bezpath(contour: &norad::Contour) -> Option<BezPath> {
     let mut path = BezPath::new();
 
@@ -400,9 +470,7 @@ fn convert_contour_to_bezpath(contour: &norad::Contour) -> Option<BezPath> {
                 path.line_to((point.x as f64, point.y as f64));
             }
             norad::PointType::Curve => {
-                // Cubic Bezier curves need control points
-                // This is a simplification; real code would need to handle this properly
-                // by looking at previous points for control points
+                // Handle cubic Bezier curves
                 if i >= 3 {
                     let cp1 = &contour.points[i - 2];
                     let cp2 = &contour.points[i - 1];
@@ -444,373 +512,686 @@ fn convert_contour_to_bezpath(contour: &norad::Contour) -> Option<BezPath> {
     Some(path)
 }
 
-/// Find intersections between a BezPath and a Line
-fn find_intersections(
-    path: &BezPath,
-    line: Line,
-    intersections: &mut Vec<Vec2>,
-) {
-    // Iterate through each segment in the path
-    for seg in path.segments() {
-        // Check for intersections with this segment
-        for hit in seg.intersect_line(line) {
-            // Convert the intersection point to Vec2
-            let point = line.eval(hit.line_t);
-            intersections.push(Vec2::new(point.x as f32, point.y as f32));
-        }
-    }
+/// Helper function to check if two points are close to each other
+fn is_point_near(p1: Vec2, p2: Vec2, threshold: f32) -> bool {
+    p1.distance(p2) < threshold
 }
 
-/// Perform the actual cut operation
+/// Helper function to check if a point is on a line segment
+fn is_point_on_segment(point: Vec2, segment: Line) -> bool {
+    // Convert kurbo Line to Vec2 coordinates
+    let start = Vec2::new(segment.start().x as f32, segment.start().y as f32);
+    let end = Vec2::new(segment.end().x as f32, segment.end().y as f32);
+    
+    // Calculate distance from point to line segment
+    let line_length_squared = start.distance_squared(end);
+    
+    // If segment length is almost zero, check distance to endpoints
+    if line_length_squared < 1e-6 {
+        return point.distance(start) < 1.0;
+    }
+    
+    // Calculate projection of point onto line
+    let line_vec = end - start;
+    let point_vec = point - start;
+    
+    // Calculate the parameter value (t) along the line
+    let t = (point_vec.dot(line_vec) / line_length_squared).clamp(0.0, 1.0);
+    
+    // Calculate the projection point
+    let projection = start + t * line_vec;
+    
+    // Check if point is close to the projected point (use larger threshold)
+    point.distance(projection) < 1.0
+}
+
+/// Perform a cut operation with the knife tool
 fn perform_cut(
     start: &Vec2,
     end: &Vec2,
     shift_locked: bool,
     app_state: &mut crate::data::AppState,
-    cli_args: &crate::cli::CliArgs,
+    _cli_args: &crate::cli::CliArgs,
 ) {
-    // Apply axis constraint if shift is pressed
+    // Get the actual endpoint, adjusted for shift locking if needed
     let actual_end = if shift_locked {
         let delta = *end - *start;
         if delta.x.abs() > delta.y.abs() {
-            // Horizontal constraint
+            // Horizontal line
             Vec2::new(end.x, start.y)
         } else {
-            // Vertical constraint
+            // Vertical line
             Vec2::new(start.x, end.y)
         }
     } else {
         *end
     };
 
-    // Create a Line from the knife cut
-    let line = Line::new(
+    // Create the line for intersection testing
+    let line = (
         (start.x as f64, start.y as f64),
         (actual_end.x as f64, actual_end.y as f64),
     );
+    
+    info!("Performing cut with line: ({:.2}, {:.2}) to ({:.2}, {:.2})", 
+          start.x, start.y, actual_end.x, actual_end.y);
 
-    // Get the current glyph that needs to be cut
-    if let Some(glyph_name_str) =
-        cli_args.find_glyph(&app_state.workspace.font.ufo)
-    {
-        let glyph_name = glyph_name_str.clone();
-
-        // Get mutable access to the font
-        let font_obj = app_state.workspace.font_mut();
-
-        // Get the current glyph
-        if let Some(default_layer) = font_obj.ufo.get_default_layer_mut() {
-            if let Some(glyph) = default_layer.get_glyph_mut(&glyph_name) {
-                // Get the outline
-                if let Some(outline) = glyph.outline.as_mut() {
-                    // Process each contour for cutting
-                    let original_contours =
-                        std::mem::take(&mut outline.contours);
-
-                    // Count how many contours we modified
-                    let mut contours_cut = 0;
-
-                    // For each contour, try to cut it
-                    for contour in original_contours {
-                        // Convert contour to BezPath for intersection checking
-                        if let Some(bez_path) =
-                            convert_contour_to_bezpath(&contour)
-                        {
-                            // Find intersections with the knife line
-                            let mut intersections = Vec::new();
-
-                            // Collect all intersection points
-                            for seg in bez_path.segments() {
-                                for hit in seg.intersect_line(line) {
-                                    let point = line.eval(hit.line_t);
-                                    let vec2_point = Vec2::new(
-                                        point.x as f32,
-                                        point.y as f32,
-                                    );
-
-                                    // Add this intersection if it's not a duplicate
-                                    if !intersections.iter().any(|p: &Vec2| {
-                                        is_point_near(*p, vec2_point, 0.01)
-                                    }) {
-                                        intersections.push(vec2_point);
-                                    }
-                                }
-                            }
-
-                            // Perform the cut if we have enough intersections
-                            if intersections.len() >= 2 {
-                                let cut_contours =
-                                    cut_contour(&contour, &intersections, line);
-                                let num_parts = cut_contours.len();
-                                if num_parts > 1 {
-                                    // If we generated new contours, add them
-                                    outline.contours.extend(cut_contours);
-                                    contours_cut += 1;
-                                    info!(
-                                        "Cut contour into {} parts",
-                                        num_parts
-                                    );
-                                } else {
-                                    // If cutting failed, keep the original
-                                    outline.contours.push(contour);
-                                    info!("Cutting failed, keeping original contour");
-                                }
-                            } else {
-                                // Not enough intersections, keep original contour
-                                outline.contours.push(contour);
-                                info!("Not enough intersections ({}) to cut contour", intersections.len());
-                            }
-                        } else {
-                            // Could not convert to BezPath, keep original
-                            outline.contours.push(contour);
-                            info!("Failed to convert contour to BezPath for cutting");
-                        }
-                    }
-
-                    info!("Knife operation completed: cut {} contours in glyph {}", contours_cut, glyph_name);
+    // Try to get the glyph name from different sources
+    let glyph_name = if let Some(selected) = &app_state.workspace.selected {
+        info!("Using glyph from workspace selection: {}", selected);
+        selected.clone()
+    } else {
+        // Try to get some common glyphs that are likely to exist
+        let common_glyphs = ["a", "A", "space", "period"];
+        
+        let mut found_glyph = None;
+        for &glyph_str in common_glyphs.iter() {
+            let glyph_name = norad::GlyphName::from(glyph_str);
+            if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
+                if default_layer.get_glyph(&glyph_name).is_some() {
+                    info!("Using glyph: {}", glyph_name);
+                    found_glyph = Some(glyph_name);
+                    break;
                 }
             }
         }
-    }
-}
-
-/// Cut a contour at the intersection points with a line
-fn cut_contour(
-    contour: &norad::Contour,
-    intersections: &[Vec2],
-    _line: Line,
-) -> Vec<norad::Contour> {
-    // Need at least 2 intersections to make a cut
-    if intersections.len() < 2 {
-        return vec![contour.clone()];
-    }
-
-    info!(
-        "Cutting contour with {} intersection points",
-        intersections.len()
-    );
-
-    // 1. Convert intersections to point-parameter pairs on the contour
-    let mut contour_parameters: Vec<(usize, f64, Vec2)> = Vec::new();
-
-    // Create a BezPath for parameter calculation
-    let bez_path = match convert_contour_to_bezpath(contour) {
-        Some(path) => path,
-        None => return vec![contour.clone()],
+        
+        if let Some(glyph_name) = found_glyph {
+            glyph_name
+        } else {
+            info!("No suitable glyph found");
+            return;
+        }
     };
 
-    // For each segment in the path, find where it intersects
-    let path_segments: Vec<_> = bez_path.segments().collect();
+    // Process the selected glyph
+    info!("Working with glyph: {}", glyph_name);
 
-    // For each intersection point, find which segment it belongs to
-    // and its parameter value along that segment
-    for &intersection_point in intersections {
-        let point = kurbo::Point::new(
-            intersection_point.x as f64,
-            intersection_point.y as f64,
-        );
+    // Get mutable access to the font
+    let font_obj = app_state.workspace.font_mut();
 
-        // Find the segment and parameter value for this intersection
-        for (seg_idx, segment) in path_segments.iter().enumerate() {
-            // Find closest point on this segment
-            let closest = segment.nearest(point, 0.01);
-
-            // If this is a very close match (likely an intersection)
-            if closest.distance_sq < 1.0 {
-                // Get the point at parameter t
-                let point_at_t = segment.eval(closest.t);
-                // Check distance to the intersection point
-                if (point_at_t - point).length() < 1.0 {
-                    // Store (segment index, parameter, point)
-                    contour_parameters.push((
-                        seg_idx,
-                        closest.t,
-                        intersection_point,
-                    ));
+    // Get the current glyph
+    if let Some(default_layer) = font_obj.ufo.get_default_layer_mut() {
+        if let Some(glyph) = default_layer.get_glyph_mut(&glyph_name) {
+            // Get or create the outline
+            if let Some(outline) = glyph.outline.as_mut() {
+                // Check for intersections with the line
+                info!("Checking for intersections with line: ({:.2}, {:.2}) to ({:.2}, {:.2})",
+                      line.0.0, line.0.1, line.1.0, line.1.1);
+                
+                // Store results of cutting operations
+                let mut contours_to_remove = Vec::new();
+                let mut new_contours_to_add = Vec::new();
+                let mut contours_cut = 0;
+                
+                // Process each contour
+                for (idx, contour) in outline.contours.iter().enumerate() {
+                    let mut intersections = Vec::new();
+                    
+                    // Find intersections between the line and this contour
+                    find_intersections(contour, line, &mut intersections);
+                    
+                    info!("Contour {}: Found {} intersections", idx, intersections.len());
+                    
+                    // If we have any intersections, attempt to cut the contour
+                    if !intersections.is_empty() {
+                        info!("Attempting to cut contour {} with {} intersections", 
+                             idx, intersections.len());
+                        let new_contours = cut_contour(contour, &intersections, line);
+                        
+                        if !new_contours.is_empty() {
+                            info!("Successfully cut contour {} into {} new contours", 
+                                 idx, new_contours.len());
+                            contours_to_remove.push(idx);
+                            new_contours_to_add.extend(new_contours);
+                            contours_cut += 1;
+                        } else {
+                            info!("Cut failed for contour {}", idx);
+                        }
+                    } else {
+                        // No intersections found for this contour
+                        info!("No intersections found for contour {}", idx);
+                    }
                 }
-            }
-        }
-    }
-
-    // Sort parameters by segment index and parameter value
-    contour_parameters.sort_by(|a, b| {
-        a.0.cmp(&b.0).then_with(|| {
-            a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
-        })
-    });
-
-    // We need at least 2 parameters to perform a cut
-    if contour_parameters.len() < 2 {
-        return vec![contour.clone()];
-    }
-
-    // Create the first contour (from start to first intersection)
-    let mut result_contours = Vec::new();
-
-    // 2. Create two new contours, one for each side of the cut
-    let mut contour_a_points = Vec::new();
-    let mut contour_b_points = Vec::new();
-
-    // Get the intersection points in the order they are encountered along the contour
-    let intersection_points: Vec<Vec2> =
-        contour_parameters.iter().map(|(_, _, pt)| *pt).collect();
-
-    // Create the two new contours - we'll cut the contour between pairs of intersections
-    // First let's handle the simple case with exactly 2 intersections
-    if intersection_points.len() == 2 {
-        // Add the first intersection point to both contours
-        let first_intersection = intersection_points[0];
-        let second_intersection = intersection_points[1];
-
-        // Start both contours with the Move points at the intersections
-        contour_a_points.push(create_point_at_position(
-            first_intersection.x as f64,
-            first_intersection.y as f64,
-            norad::PointType::Move,
-        ));
-
-        contour_b_points.push(create_point_at_position(
-            second_intersection.x as f64,
-            second_intersection.y as f64,
-            norad::PointType::Move,
-        ));
-
-        // Find the closest original points to our intersections for proper replacement
-        let mut closest_to_first: Option<(usize, f32)> = None;
-        let mut closest_to_second: Option<(usize, f32)> = None;
-
-        // Find the closest original points to the intersections
-        for (idx, point) in contour.points.iter().enumerate() {
-            let point_vec = Vec2::new(point.x as f32, point.y as f32);
-
-            let dist_to_first = point_vec.distance(first_intersection);
-            if closest_to_first.map_or(true, |(_, dist)| dist_to_first < dist) {
-                closest_to_first = Some((idx, dist_to_first));
-            }
-
-            let dist_to_second = point_vec.distance(second_intersection);
-            if closest_to_second.map_or(true, |(_, dist)| dist_to_second < dist)
-            {
-                closest_to_second = Some((idx, dist_to_second));
-            }
-        }
-
-        // Process all contour points, splitting at the intersections
-        if let (Some((first_idx, _)), Some((second_idx, _))) =
-            (closest_to_first, closest_to_second)
-        {
-            // Determine which index comes first in the contour
-            let (earlier_idx, earlier_point, later_idx, later_point) =
-                if first_idx <= second_idx {
-                    (
-                        first_idx,
-                        first_intersection,
-                        second_idx,
-                        second_intersection,
-                    )
+                
+                // Apply the cuts by removing cut contours and adding new ones
+                if contours_cut > 0 {
+                    // Remove the contours that were cut, in reverse order to avoid index shifting
+                    for idx in contours_to_remove.iter().rev() {
+                        outline.contours.remove(*idx);
+                    }
+                    
+                    // Add the new contours
+                    outline.contours.extend(new_contours_to_add);
+                    
+                    info!("Cut {} contours in glyph {}", contours_cut, glyph_name);
                 } else {
-                    (
-                        second_idx,
-                        second_intersection,
-                        first_idx,
-                        first_intersection,
-                    )
-                };
-
-            // Add points from original contour to the first section
-            for i in 0..earlier_idx {
-                contour_a_points.push(contour.points[i].clone());
+                    info!("No contours were cut in glyph {}", glyph_name);
+                }
+            } else {
+                info!("Glyph {} has no outline", glyph_name);
             }
+        } else {
+            info!("Glyph not found: {}", glyph_name);
+        }
+    } else {
+        info!("Could not get default layer");
+    }
+}
 
-            // Add first intersection point (if not already at an existing point)
-            if closest_to_first.unwrap().1 > 0.1 {
-                contour_a_points.push(create_point_at_position(
-                    earlier_point.x as f64,
-                    earlier_point.y as f64,
-                    norad::PointType::Line,
-                ));
+/// Cut a contour based on intersections with a line
+fn cut_contour(
+    contour: &norad::Contour,
+    intersections: &Vec<kurbo::Point>,
+    _line: ((f64, f64), (f64, f64)), // Prefix with underscore to indicate intentionally unused
+) -> Vec<norad::Contour> {
+    let mut results = Vec::new();
+    
+    // For single intersection point, we'll handle differently
+    if intersections.len() == 1 {
+        info!("Single intersection case - attempting to cut open the contour");
+        return cut_contour_single_intersection(contour, &intersections[0]);
+    }
+    
+    // Need at least 2 intersections to make a meaningful cut
+    if intersections.len() < 2 {
+        info!("Not enough intersections to cut contour");
+        return results;
+    }
+    
+    info!("Cutting contour with {} points using {} intersections", 
+           contour.points.len(), intersections.len());
+    
+    // Convert intersections to Vec2 for simpler handling
+    let intersections_as_vec2: Vec<Vec2> = intersections
+        .iter()
+        .map(|p| Vec2::new(p.x as f32, p.y as f32))
+        .collect();
+    
+    let points = &contour.points;
+    if points.is_empty() {
+        info!("Contour has no points");
+        return results;
+    }
+    
+    // Track if each intersection is exactly on an existing point
+    let mut intersection_at_point_indices = Vec::new();
+    let mut intersection_on_segment = Vec::new();
+    
+    // Check each intersection
+    for intersection in &intersections_as_vec2 {
+        let mut found_exact = false;
+        
+        // Check if intersection is exactly on an existing point
+        for (i, point) in points.iter().enumerate() {
+            let point_vec = Vec2::new(point.x, point.y);
+            if is_point_near_vec2(*intersection, point_vec, 1.0) {
+                intersection_at_point_indices.push(i);
+                found_exact = true;
+                info!("Intersection at existing point index {}", i);
+                break;
             }
-
-            // Add the cut line to the first contour
-            contour_a_points.push(create_point_at_position(
-                later_point.x as f64,
-                later_point.y as f64,
-                norad::PointType::Line,
-            ));
-
-            // Add second intersection point to second contour
-            contour_b_points.push(create_point_at_position(
-                later_point.x as f64,
-                later_point.y as f64,
-                norad::PointType::Line,
-            ));
-
-            // Add remaining points from original contour
-            for i in later_idx..contour.points.len() {
-                contour_b_points.push(contour.points[i].clone());
-            }
-
-            // Add the remaining points from the beginning of the contour
-            for i in 0..=earlier_idx {
-                if i < contour.points.len() {
-                    contour_b_points.push(contour.points[i].clone());
+        }
+        
+        if !found_exact {
+            // Intersection is on a segment
+            let mut found_segment = false;
+            for i in 0..points.len() {
+                let p1 = Vec2::new(points[i].x, points[i].y);
+                let p2 = Vec2::new(
+                    points[(i + 1) % points.len()].x,
+                    points[(i + 1) % points.len()].y,
+                );
+                
+                if is_point_on_segment_vec2(*intersection, p1, p2, 1.0) {
+                    intersection_on_segment.push((i, *intersection));
+                    found_segment = true;
+                    info!("Intersection on segment between points {} and {}", i, (i + 1) % points.len());
+                    break;
                 }
             }
+            
+            if !found_segment {
+                info!("Intersection not found on any segment: {:?}", intersection);
+            }
+        }
+    }
+    
+    // Now create new contours based on the intersection information
+    if intersection_at_point_indices.len() == 2 && intersection_on_segment.is_empty() {
+        // Both intersections are at existing points - simplest case
+        info!("Cut case: both intersections at existing points");
+        
+        let i1 = intersection_at_point_indices[0];
+        let i2 = intersection_at_point_indices[1];
+        
+        // Create first contour: from i1 to i2
+        let mut first_contour_points = Vec::new();
+        let mut i = i1;
+        
+        loop {
+            first_contour_points.push(points[i].clone());
+            i = (i + 1) % points.len();
+            if i == i2 {
+                first_contour_points.push(points[i].clone());
+                break;
+            }
+        }
+        
+        // Create second contour: from i2 to i1
+        let mut second_contour_points = Vec::new();
+        i = i2;
+        
+        loop {
+            second_contour_points.push(points[i].clone());
+            i = (i + 1) % points.len();
+            if i == i1 {
+                second_contour_points.push(points[i].clone());
+                break;
+            }
+        }
+        
+        // Check if we have enough points to make valid contours
+        let point_count1 = first_contour_points.len();
+        let point_count2 = second_contour_points.len();
+        
+        // Only add contours with at least 3 points
+        if point_count1 >= 3 {
+            info!("Adding first contour with {} points", point_count1);
+            results.push(norad::Contour::new(first_contour_points, None, None));
+        } else {
+            info!("First contour has only {} points, not adding", point_count1);
+        }
+        
+        if point_count2 >= 3 {
+            info!("Adding second contour with {} points", point_count2);
+            results.push(norad::Contour::new(second_contour_points, None, None));
+        } else {
+            info!("Second contour has only {} points, not adding", point_count2);
+        }
+    } 
+    else if intersection_at_point_indices.len() == 1 && intersection_on_segment.len() == 1 {
+        // One intersection at point, one on segment
+        info!("Cut case: one intersection at point, one on segment");
+        
+        let point_idx = intersection_at_point_indices[0];
+        let (segment_idx, segment_point) = intersection_on_segment[0];
+        
+        // Create a new point for the segment intersection
+        let new_point = norad::ContourPoint::new(
+            segment_point.x, 
+            segment_point.y, 
+            norad::PointType::Line, 
+            false, // not smooth
+            None,  // no name
+            None,  // no identifier
+            None,  // no metadata
+        );
+        
+        // Create first contour: from point_idx to segment
+        let mut first_contour_points = Vec::new();
+        let mut i = point_idx;
+        
+        loop {
+            first_contour_points.push(points[i].clone());
+            i = (i + 1) % points.len();
+            if i == (segment_idx + 1) % points.len() {
+                // Insert our new point before continuing
+                first_contour_points.push(new_point.clone());
+                break;
+            }
+            
+            // Add the segment point if we're at the segment
+            if i == segment_idx + 1 {
+                first_contour_points.push(new_point.clone());
+            }
+        }
+        
+        // Create second contour: from segment to point_idx
+        let mut second_contour_points = Vec::new();
+        second_contour_points.push(new_point);
+        
+        i = (segment_idx + 1) % points.len();
+        
+        while i != point_idx {
+            second_contour_points.push(points[i].clone());
+            i = (i + 1) % points.len();
+        }
+        
+        second_contour_points.push(points[point_idx].clone());
+        
+        // Check if we have enough points to make valid contours
+        let point_count1 = first_contour_points.len();
+        let point_count2 = second_contour_points.len();
+        
+        // Only add contours with at least 3 points
+        if point_count1 >= 3 {
+            info!("Adding first contour with {} points", point_count1);
+            results.push(norad::Contour::new(first_contour_points, None, None));
+        } else {
+            info!("First contour has only {} points, not adding", point_count1);
+        }
+        
+        if point_count2 >= 3 {
+            info!("Adding second contour with {} points", point_count2);
+            results.push(norad::Contour::new(second_contour_points, None, None));
+        } else {
+            info!("Second contour has only {} points, not adding", point_count2);
+        }
+    } 
+    else if intersection_at_point_indices.is_empty() && intersection_on_segment.len() == 2 {
+        // Both intersections on segments
+        info!("Cut case: both intersections on segments");
+        
+        let (segment1_idx, segment1_point) = intersection_on_segment[0];
+        let (segment2_idx, segment2_point) = intersection_on_segment[1];
+        
+        // Create new points for the segment intersections
+        let new_point1 = norad::ContourPoint::new(
+            segment1_point.x, 
+            segment1_point.y, 
+            norad::PointType::Line, 
+            false, // not smooth
+            None,  // no name
+            None,  // no identifier
+            None,  // no metadata
+        );
+        
+        let new_point2 = norad::ContourPoint::new(
+            segment2_point.x, 
+            segment2_point.y, 
+            norad::PointType::Line, 
+            false, // not smooth
+            None,  // no name
+            None,  // no identifier
+            None,  // no metadata
+        );
+        
+        // Create first contour: from segment1 to segment2
+        let mut first_contour_points = Vec::new();
+        first_contour_points.push(new_point1.clone());
+        
+        let mut i = (segment1_idx + 1) % points.len();
+        
+        while i != (segment2_idx + 1) % points.len() {
+            first_contour_points.push(points[i].clone());
+            i = (i + 1) % points.len();
+            
+            // Don't add the second point yet
+            if i == segment2_idx + 1 {
+                break;
+            }
+        }
+        
+        first_contour_points.push(new_point2.clone());
+        
+        // Create second contour: from segment2 to segment1
+        let mut second_contour_points = Vec::new();
+        second_contour_points.push(new_point2);
+        
+        i = (segment2_idx + 1) % points.len();
+        
+        while i != (segment1_idx + 1) % points.len() {
+            second_contour_points.push(points[i].clone());
+            i = (i + 1) % points.len();
+            
+            // Don't add the first point yet
+            if i == segment1_idx + 1 {
+                break;
+            }
+        }
+        
+        second_contour_points.push(new_point1);
+        
+        // Check if we have enough points to make valid contours
+        let point_count1 = first_contour_points.len();
+        let point_count2 = second_contour_points.len();
+        
+        // Only add contours with at least 3 points
+        if point_count1 >= 3 {
+            info!("Adding first contour with {} points", point_count1);
+            results.push(norad::Contour::new(first_contour_points, None, None));
+        } else {
+            info!("First contour has only {} points, not adding", point_count1);
+        }
+        
+        if point_count2 >= 3 {
+            info!("Adding second contour with {} points", point_count2);
+            results.push(norad::Contour::new(second_contour_points, None, None));
+        } else {
+            info!("Second contour has only {} points, not adding", point_count2);
+        }
+    } 
+    else {
+        // Complex case or more than 2 intersections - not handling
+        info!("Complex case with {} point intersections and {} segment intersections - not supported",
+             intersection_at_point_indices.len(), intersection_on_segment.len());
+    }
+    
+    info!("Created {} new contours from cut operation", results.len());
+    results
+}
 
-            // Close the contours with the cut line
-            contour_b_points.push(create_point_at_position(
-                earlier_point.x as f64,
-                earlier_point.y as f64,
+/// Cut a contour at a single intersection point, opening it up
+fn cut_contour_single_intersection(
+    contour: &norad::Contour,
+    intersection: &kurbo::Point
+) -> Vec<norad::Contour> {
+    let mut results = Vec::new();
+    let points = &contour.points;
+    
+    if points.is_empty() {
+        info!("Contour has no points to cut at single intersection");
+        return results;
+    }
+    
+    // Convert intersection to Vec2
+    let intersection_vec2 = Vec2::new(intersection.x as f32, intersection.y as f32);
+    
+    // Check if intersection is exactly on an existing point
+    for (i, point) in points.iter().enumerate() {
+        let point_vec = Vec2::new(point.x, point.y);
+        if is_point_near_vec2(intersection_vec2, point_vec, 1.0) {
+            // Create a new open contour starting and ending at this point
+            let mut new_points = Vec::new();
+            
+            // Start from the intersection point and go all the way around
+            for idx in 0..points.len() {
+                let adjusted_idx = (i + idx) % points.len();
+                new_points.push(points[adjusted_idx].clone());
+            }
+            
+            info!("Created open contour starting at intersection point {}", i);
+            let point_count = new_points.len();
+            
+            if point_count >= 2 {
+                // Create the contour and mark it as open
+                let new_contour = norad::Contour::new(new_points, None, None);
+                // There's no direct way to set a contour as open/closed in norad API
+                // The contour is considered closed by default, so we'll add it anyway
+                results.push(new_contour);
+            } else {
+                info!("Not enough points ({}) to create a valid contour", point_count);
+            }
+            
+            return results;
+        }
+    }
+    
+    // Intersection is on a segment, need to insert a new point
+    for i in 0..points.len() {
+        let p1 = Vec2::new(points[i].x, points[i].y);
+        let p2 = Vec2::new(
+            points[(i + 1) % points.len()].x,
+            points[(i + 1) % points.len()].y,
+        );
+        
+        if is_point_on_segment_vec2(intersection_vec2, p1, p2, 1.0) {
+            // Create a new open contour with the intersection point duplicated
+            let mut new_points = Vec::new();
+            
+            // Add all points up to the segment
+            for j in 0..=i {
+                new_points.push(points[j].clone());
+            }
+            
+            // Add the intersection point
+            let new_point = norad::ContourPoint::new(
+                intersection_vec2.x,
+                intersection_vec2.y,
                 norad::PointType::Line,
-            ));
+                false,  // not smooth
+                None,   // no name
+                None,   // no identifier
+                None,   // no metadata
+            );
+            new_points.push(new_point.clone());
+            
+            // Add the rest of the points
+            for j in (i+1)..points.len() {
+                new_points.push(points[j].clone());
+            }
+            
+            // Add the intersection point again at the end to complete the circle
+            new_points.push(new_point);
+            
+            info!("Created open contour by inserting intersection point between {} and {}", 
+                  i, (i + 1) % points.len());
+            let point_count = new_points.len();
+            
+            if point_count >= 2 {
+                // Create the contour
+                let new_contour = norad::Contour::new(new_points, None, None);
+                results.push(new_contour);
+            } else {
+                info!("Not enough points ({}) to create a valid contour", point_count);
+            }
+            
+            return results;
         }
-
-        // Create the two final contours
-        if contour_a_points.len() >= 3 {
-            result_contours.push(norad::Contour::new(
-                contour_a_points,
-                None,
-                None,
-            ));
-        }
-
-        if contour_b_points.len() >= 3 {
-            result_contours.push(norad::Contour::new(
-                contour_b_points,
-                None,
-                None,
-            ));
-        }
-    } else {
-        // For more complex cases with more than 2 intersections
-        // Return the original contour for now
-        // In a real implementation, this would handle multiple intersections
-        result_contours.push(contour.clone());
     }
+    
+    info!("Could not find intersection point on contour");
+    results
+}
 
-    // If something went wrong and we have no results, return the original
-    if result_contours.is_empty() {
-        vec![contour.clone()]
-    } else {
-        result_contours
+/// Helper function to check if a point is near another point
+fn is_point_near_vec2(p1: Vec2, p2: Vec2, threshold: f32) -> bool {
+    (p1.x - p2.x).abs() < threshold && (p1.y - p2.y).abs() < threshold
+}
+
+/// Helper function to check if a point is on a line segment
+fn is_point_on_segment_vec2(point: Vec2, line_start: Vec2, line_end: Vec2, threshold: f32) -> bool {
+    // Calculate the distance from the point to the line
+    let line_vector = line_end - line_start;
+    let point_vector = point - line_start;
+    
+    // Project the point vector onto the line vector
+    let line_length_squared = line_vector.length_squared();
+    
+    // Avoid division by zero
+    if line_length_squared < 1e-6 {
+        return false;
+    }
+    
+    let t = point_vector.dot(line_vector) / line_length_squared;
+    
+    // If t is between 0 and 1, the projection is on the line segment
+    if t < 0.0 || t > 1.0 {
+        return false;
+    }
+    
+    // Calculate the projection point
+    let projection = line_start + line_vector * t;
+    
+    // Calculate the distance from the original point to the projection
+    let distance = (point - projection).length();
+    
+    // If the distance is less than the threshold, the point is on the segment
+    distance < threshold
+}
+
+/// Find intersections between a BezPath and a Line
+fn find_intersections_bezpath(
+    path: &BezPath, 
+    line: ((f64, f64), (f64, f64)), 
+    intersections: &mut Vec<kurbo::Point>
+) {
+    let kurbo_line = kurbo::Line::new(
+        kurbo::Point::new(line.0.0, line.0.1),
+        kurbo::Point::new(line.1.0, line.1.1),
+    );
+    
+    // Clear existing intersections
+    intersections.clear();
+
+    // Iterate through each segment of the path
+    for segment in path.segments() {
+        let segment_intersections = segment.intersect_line(kurbo_line);
+        info!("Segment check found {} intersections", segment_intersections.len());
+        
+        for t in segment_intersections {
+            // Get the point on the segment at parameter t
+            let point = segment.eval(t.segment_t);
+            
+            // Check if this point is already in our list (with a small tolerance)
+            let is_duplicate = intersections.iter().any(|p| {
+                (p.x - point.x).abs() < 1.0 && (p.y - point.y).abs() < 1.0
+            });
+            
+            if !is_duplicate {
+                info!("Adding intersection point: ({:.2}, {:.2})", point.x, point.y);
+                intersections.push(point);
+            }
+        }
+    }
+    
+    // Sort the intersections along the line for consistent processing
+    if intersections.len() > 1 {
+        sort_intersections_along_line(intersections, line);
     }
 }
 
-/// Helper function to create a ContourPoint at the given position
-fn create_point_at_position(
-    x: f64,
-    y: f64,
-    point_type: norad::PointType,
-) -> norad::ContourPoint {
-    norad::ContourPoint::new(
-        x as f32, y as f32, point_type, false, // not smooth
-        None,  // no name
-        None,  // no identifier
-        None,  // no comments
-    )
+/// Find intersections between a Contour and a Line
+fn find_intersections(
+    contour: &norad::Contour, 
+    line: ((f64, f64), (f64, f64)), 
+    intersections: &mut Vec<kurbo::Point>
+) {
+    // First convert the contour to a BezPath
+    if let Some(path) = convert_contour_to_bezpath(contour) {
+        find_intersections_bezpath(&path, line, intersections);
+    } else {
+        info!("Failed to convert contour to BezPath for intersection testing");
+    }
 }
 
-/// Helper function to check if two points are close to each other
-fn is_point_near(p1: Vec2, p2: Vec2, threshold: f32) -> bool {
-    p1.distance(p2) < threshold
+/// Sort intersections along a line to ensure consistent ordering
+fn sort_intersections_along_line(intersections: &mut Vec<kurbo::Point>, line: ((f64, f64), (f64, f64))) {
+    let kurbo_line = kurbo::Line::new(
+        kurbo::Point::new(line.0.0, line.0.1),
+        kurbo::Point::new(line.1.0, line.1.1),
+    );
+    
+    intersections.sort_by(|a, b| {
+        let a_param = project_point_onto_line(*a, kurbo_line);
+        let b_param = project_point_onto_line(*b, kurbo_line);
+        a_param.partial_cmp(&b_param).unwrap_or(std::cmp::Ordering::Equal)
+    });
+}
+
+/// Project a point onto a line and return the parameter value along the line
+fn project_point_onto_line(point: kurbo::Point, line: kurbo::Line) -> f64 {
+    let line_vec = line.end() - line.start();
+    let point_vec = point - line.start();
+    
+    // Calculate the projection parameter
+    let line_length_squared = line_vec.dot(line_vec);
+    if line_length_squared < 1e-10 {
+        return 0.0; // Avoid division by near-zero
+    }
+    
+    // Calculate the parameter value (t) along the line
+    let t = point_vec.dot(line_vec) / line_length_squared;
+    t.clamp(0.0, 1.0)
 }

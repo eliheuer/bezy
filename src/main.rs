@@ -1,4 +1,4 @@
-//! A font editor made with Rust and the Bevy game engine.
+//! A font editor made with Rust, the Bevy game engine, and some Linebender crates.
 
 // “The enjoyment of one’s tools is an essential ingredient of successful work.”
 //
