@@ -252,11 +252,6 @@ pub fn render_knife_preview(
         }
     }
 
-    // Define colors
-    let line_color = Color::srgba(1.0, 0.3, 0.3, 0.9); // Reddish for cut line
-    let intersection_color = Color::srgba(1.0, 1.0, 0.0, 1.0); // Yellow for intersections
-    let start_point_color = Color::srgba(0.3, 0.9, 1.0, 1.0); // Blue for start point
-
     // Draw the current knife line
     if let KnifeGestureState::Cutting { start, current } = knife_state.gesture {
         let actual_end = if knife_state.shift_locked {
@@ -274,27 +269,34 @@ pub fn render_knife_preview(
         };
 
         // Draw the knife line with dashed style
-        draw_dashed_line(&mut gizmos, start, actual_end, 8.0, 4.0, line_color);
+        draw_dashed_line(
+            &mut gizmos, 
+            start, 
+            actual_end, 
+            crate::theme::KNIFE_DASH_LENGTH, 
+            crate::theme::KNIFE_GAP_LENGTH, 
+            crate::theme::KNIFE_LINE_COLOR
+        );
 
         // Mark start point with a larger circle
-        gizmos.circle_2d(start, 6.0, start_point_color);
+        gizmos.circle_2d(start, 6.0, crate::theme::KNIFE_START_POINT_COLOR);
 
         // Draw intersection points with a more visible indicator
         for point in &knife_state.intersections {
             // Draw filled circle at intersection
-            gizmos.circle_2d(*point, 6.0, intersection_color);
+            gizmos.circle_2d(*point, 6.0, crate::theme::KNIFE_INTERSECTION_COLOR);
 
             // Draw a small cross at each intersection for extra visibility
-            let cross_size = 8.0;
+            let cross_size = crate::theme::KNIFE_CROSS_SIZE;
             gizmos.line_2d(
                 Vec2::new(point.x - cross_size, point.y),
                 Vec2::new(point.x + cross_size, point.y),
-                intersection_color,
+                crate::theme::KNIFE_INTERSECTION_COLOR,
             );
             gizmos.line_2d(
                 Vec2::new(point.x, point.y - cross_size),
                 Vec2::new(point.x, point.y + cross_size),
-                intersection_color,
+                crate::theme::KNIFE_INTERSECTION_COLOR,
             );
         }
     }

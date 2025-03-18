@@ -93,6 +93,14 @@ pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.125, 0.125, 0.125); // Singl
 // Button Styling
 pub const BUTTON_BORDER_RADIUS: f32 = 8.0;
 
+// Knife Tool Colors
+pub const KNIFE_LINE_COLOR: Color = Color::srgba(1.0, 0.3, 0.3, 0.9); // Reddish for cut line
+pub const KNIFE_INTERSECTION_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0); // Yellow for intersections
+pub const KNIFE_START_POINT_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 1.0); // Green for start point (same as on-curve points)
+pub const KNIFE_DASH_LENGTH: f32 = 8.0; // Length of dash segments
+pub const KNIFE_GAP_LENGTH: f32 = 4.0; // Length of gaps between dashes
+pub const KNIFE_CROSS_SIZE: f32 = 8.0; // Size of crosses at intersection points
+
 pub fn get_default_text_style(asset_server: &Res<AssetServer>) -> TextFont {
     TextFont {
         font: asset_server.load(DEFAULT_FONT_PATH),
