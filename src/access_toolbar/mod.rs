@@ -12,4 +12,4 @@ impl Plugin for AccessToolbarPlugin {
             .add_systems(Update, handle_connect_button_interaction);
         info!("AccessToolbarPlugin initialized");
     }
-} 
+}

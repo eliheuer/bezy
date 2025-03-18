@@ -1,10 +1,15 @@
 //! A font editor made with Rust and the Bevy game engine.
+
+// “The enjoyment of one’s tools is an essential ingredient of successful work.”
+//
+// — Donald Knuth
+
+mod access_toolbar;
 mod app;
 mod cameras;
 mod checkerboard;
 mod cli;
 mod commands;
-mod access_toolbar;
 mod data;
 mod debug;
 mod design_space;

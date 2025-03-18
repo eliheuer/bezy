@@ -29,7 +29,17 @@ pub fn handle_mouse_input(
     select_mode: Option<
         Res<crate::edit_mode_toolbar::select::SelectModeActive>,
     >,
+    knife_mode: Option<
+        Res<crate::edit_mode_toolbar::knife::KnifeModeActive>,
+    >,
 ) {
+    // Skip processing mouse input if knife mode is active
+    if let Some(knife_mode) = knife_mode {
+        if knife_mode.0 {
+            return;
+        }
+    }
+
     // Only process mouse input when in select mode
     if let Some(select_mode) = select_mode {
         if !select_mode.0 {
@@ -263,7 +273,17 @@ pub fn handle_selection_shortcuts(
     select_mode: Option<
         Res<crate::edit_mode_toolbar::select::SelectModeActive>,
     >,
+    knife_mode: Option<
+        Res<crate::edit_mode_toolbar::knife::KnifeModeActive>,
+    >,
 ) {
+    // Skip processing shortcuts if knife mode is active
+    if let Some(knife_mode) = knife_mode {
+        if knife_mode.0 {
+            return;
+        }
+    }
+
     // Only process shortcuts when in select mode
     if let Some(select_mode) = select_mode {
         if !select_mode.0 {
@@ -327,7 +347,17 @@ pub fn render_selection_rect(
     select_mode: Option<
         Res<crate::edit_mode_toolbar::select::SelectModeActive>,
     >,
+    knife_mode: Option<
+        Res<crate::edit_mode_toolbar::knife::KnifeModeActive>,
+    >,
 ) {
+    // Skip rendering the selection rectangle if knife mode is active
+    if let Some(knife_mode) = knife_mode {
+        if knife_mode.0 {
+            return;
+        }
+    }
+
     // Only render the selection rectangle in select mode
     if let Some(select_mode) = select_mode {
         if !select_mode.0 {
@@ -431,7 +461,17 @@ pub fn render_selected_entities(
     select_mode: Option<
         Res<crate::edit_mode_toolbar::select::SelectModeActive>,
     >,
+    knife_mode: Option<
+        Res<crate::edit_mode_toolbar::knife::KnifeModeActive>,
+    >,
 ) {
+    // Skip rendering selection indicators if knife mode is active
+    if let Some(knife_mode) = knife_mode {
+        if knife_mode.0 {
+            return;
+        }
+    }
+
     // Only render selection indicators in select mode
     if let Some(select_mode) = select_mode {
         if !select_mode.0 {
@@ -442,11 +482,8 @@ pub fn render_selected_entities(
     for (transform, point_type) in &selected_query {
         let position = transform.translation().truncate();
         // Use a position with a slight Z offset to ensure it renders on top
-        let position_3d = Vec3::new(
-            position.x,
-            position.y,
-            transform.translation().z + 5.0,
-        );
+        let position_3d =
+            Vec3::new(position.x, position.y, transform.translation().z + 5.0);
         let position_2d = position_3d.truncate();
 
         // Different rendering based on point type
@@ -574,7 +611,17 @@ pub fn update_glyph_data_from_selection(
     mut app_state: ResMut<AppState>,
     // Track if we're in a nudging operation
     _nudge_state: Res<crate::selection::nudge::NudgeState>,
+    knife_mode: Option<
+        Res<crate::edit_mode_toolbar::knife::KnifeModeActive>,
+    >,
 ) {
+    // Skip processing if knife mode is active
+    if let Some(knife_mode) = knife_mode {
+        if knife_mode.0 {
+            return;
+        }
+    }
+
     // Early return if no points were nudged
     if query.is_empty() {
         return;

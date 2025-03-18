@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 mod hyper;
-mod knife;
+pub mod knife;
 mod measure;
 mod pan;
 mod pen;

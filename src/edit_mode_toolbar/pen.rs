@@ -89,18 +89,23 @@ pub fn reset_pen_mode_when_inactive(
     current_mode: Res<crate::edit_mode_toolbar::CurrentEditMode>,
     mut commands: Commands,
     mut pen_state: ResMut<PenToolState>,
-    mut app_state_changed: EventWriter<crate::draw::AppStateChanged>
+    mut app_state_changed: EventWriter<crate::draw::AppStateChanged>,
 ) {
     if current_mode.0 != crate::edit_mode_toolbar::EditMode::Pen {
         // Commit any open path before deactivating
-        if pen_state.state == PenState::Drawing && !pen_state.points.is_empty() && pen_state.points.len() >= 2 {
-            if let Some(_contour) = create_contour_from_points(&pen_state.points) {
+        if pen_state.state == PenState::Drawing
+            && !pen_state.points.is_empty()
+            && pen_state.points.len() >= 2
+        {
+            if let Some(_contour) =
+                create_contour_from_points(&pen_state.points)
+            {
                 // Signal that we've made a change to the glyph
                 app_state_changed.send(crate::draw::AppStateChanged);
                 info!("Committing path on mode change");
             }
         }
-        
+
         // Clear state and mark inactive
         *pen_state = PenToolState::default();
         pen_state.active = false;
@@ -114,13 +119,16 @@ pub fn handle_pen_mouse_events(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut cursor_moved_events: EventReader<CursorMoved>,
     windows: Query<&Window>,
-    camera_q: Query<(&Camera, &GlobalTransform), With<crate::cameras::DesignCamera>>,
+    camera_q: Query<
+        (&Camera, &GlobalTransform),
+        With<crate::cameras::DesignCamera>,
+    >,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut pen_state: ResMut<PenToolState>,
     pen_mode: Option<Res<PenModeActive>>,
     cli_args: Res<crate::cli::CliArgs>,
     mut app_state: ResMut<crate::data::AppState>,
-    mut app_state_changed: EventWriter<crate::draw::AppStateChanged>
+    mut app_state_changed: EventWriter<crate::draw::AppStateChanged>,
 ) {
     // Only handle events when in pen mode
     if let Some(pen_mode) = pen_mode {
@@ -164,7 +172,8 @@ pub fn handle_pen_mouse_events(
                 || keyboard.pressed(KeyCode::ShiftRight);
 
             // Adjust position based on shift (for axis alignment)
-            let adjusted_pos = if shift_pressed && !pen_state.points.is_empty() {
+            let adjusted_pos = if shift_pressed && !pen_state.points.is_empty()
+            {
                 let last_point = pen_state.points.last().unwrap();
                 axis_lock_position(world_pos, *last_point)
             } else {
@@ -175,58 +184,79 @@ pub fn handle_pen_mouse_events(
                 PenState::Ready => {
                     // Start a new path
                     let mut path = BezPath::new();
-                    path.move_to((adjusted_pos.x as f64, adjusted_pos.y as f64));
+                    path.move_to((
+                        adjusted_pos.x as f64,
+                        adjusted_pos.y as f64,
+                    ));
                     pen_state.current_path = Some(path);
                     pen_state.points.push(adjusted_pos);
                     pen_state.state = PenState::Drawing;
-                    
+
                     info!("Started new path at: {:?}", adjusted_pos);
-                },
+                }
                 PenState::Drawing => {
                     // Check if clicking on start point to close the path
                     if !pen_state.points.is_empty() {
                         let start_point = pen_state.points[0];
                         let distance = start_point.distance(adjusted_pos);
 
-                        if distance < pen_state.close_path_threshold && pen_state.points.len() > 1 {
+                        if distance < pen_state.close_path_threshold
+                            && pen_state.points.len() > 1
+                        {
                             info!("Closing path - clicked near start point");
-                            
+
                             // Close the path in the BezPath
                             if let Some(ref mut path) = pen_state.current_path {
                                 path.close_path();
                             }
-                            
+
                             // Convert to contour and add to glyph
-                            if let Some(contour) = create_contour_from_points(&pen_state.points) {
+                            if let Some(contour) =
+                                create_contour_from_points(&pen_state.points)
+                            {
                                 // Add contour to the current glyph
-                                if let Some(glyph_name) = cli_args.find_glyph(&app_state.workspace.font.ufo) {
+                                if let Some(glyph_name) = cli_args
+                                    .find_glyph(&app_state.workspace.font.ufo)
+                                {
                                     let glyph_name = glyph_name.clone();
-                                    
+
                                     // Get mutable access to the font
-                                    let font_obj = app_state.workspace.font_mut();
-                                    
+                                    let font_obj =
+                                        app_state.workspace.font_mut();
+
                                     // Get the current glyph
-                                    if let Some(default_layer) = font_obj.ufo.get_default_layer_mut() {
-                                        if let Some(glyph) = default_layer.get_glyph_mut(&glyph_name) {
+                                    if let Some(default_layer) =
+                                        font_obj.ufo.get_default_layer_mut()
+                                    {
+                                        if let Some(glyph) = default_layer
+                                            .get_glyph_mut(&glyph_name)
+                                        {
                                             // Get or create the outline
-                                            let outline = glyph.outline.get_or_insert_with(|| {
-                                                norad::glyph::Outline {
-                                                    contours: Vec::new(),
-                                                    components: Vec::new(),
-                                                }
-                                            });
-                                            
+                                            let outline = glyph
+                                                .outline
+                                                .get_or_insert_with(|| {
+                                                    norad::glyph::Outline {
+                                                        contours: Vec::new(),
+                                                        components: Vec::new(),
+                                                    }
+                                                });
+
                                             // Add the new contour
                                             outline.contours.push(contour);
-                                            info!("Added new contour to glyph {}", glyph_name);
-                                            
+                                            info!(
+                                                "Added new contour to glyph {}",
+                                                glyph_name
+                                            );
+
                                             // Notify that the app state has changed
-                                            app_state_changed.send(crate::draw::AppStateChanged);
+                                            app_state_changed.send(
+                                                crate::draw::AppStateChanged,
+                                            );
                                         }
                                     }
                                 }
                             }
-                            
+
                             // Reset for next path
                             pen_state.current_path = None;
                             pen_state.points.clear();
@@ -234,9 +264,15 @@ pub fn handle_pen_mouse_events(
                         } else {
                             // Add line to existing path
                             if let Some(ref mut path) = pen_state.current_path {
-                                path.line_to((adjusted_pos.x as f64, adjusted_pos.y as f64));
+                                path.line_to((
+                                    adjusted_pos.x as f64,
+                                    adjusted_pos.y as f64,
+                                ));
                                 pen_state.points.push(adjusted_pos);
-                                info!("Added point to path: {:?}", adjusted_pos);
+                                info!(
+                                    "Added point to path: {:?}",
+                                    adjusted_pos
+                                );
                             }
                         }
                     }
@@ -244,43 +280,55 @@ pub fn handle_pen_mouse_events(
             }
         }
     }
-    
+
     // Handle right click to finish path without closing
     if mouse_button_input.just_pressed(MouseButton::Right) {
         if pen_state.state == PenState::Drawing && pen_state.points.len() >= 2 {
             info!("Finishing open path with right click");
-            
+
             // Convert to contour and add to glyph
-            if let Some(contour) = create_contour_from_points(&pen_state.points) {
+            if let Some(contour) = create_contour_from_points(&pen_state.points)
+            {
                 // Add contour to the current glyph
-                if let Some(glyph_name) = cli_args.find_glyph(&app_state.workspace.font.ufo) {
+                if let Some(glyph_name) =
+                    cli_args.find_glyph(&app_state.workspace.font.ufo)
+                {
                     let glyph_name = glyph_name.clone();
-                    
+
                     // Get mutable access to the font
                     let font_obj = app_state.workspace.font_mut();
-                    
+
                     // Get the current glyph
-                    if let Some(default_layer) = font_obj.ufo.get_default_layer_mut() {
-                        if let Some(glyph) = default_layer.get_glyph_mut(&glyph_name) {
+                    if let Some(default_layer) =
+                        font_obj.ufo.get_default_layer_mut()
+                    {
+                        if let Some(glyph) =
+                            default_layer.get_glyph_mut(&glyph_name)
+                        {
                             // Get or create the outline
-                            let outline = glyph.outline.get_or_insert_with(|| {
-                                norad::glyph::Outline {
-                                    contours: Vec::new(),
-                                    components: Vec::new(),
-                                }
-                            });
-                            
+                            let outline =
+                                glyph.outline.get_or_insert_with(|| {
+                                    norad::glyph::Outline {
+                                        contours: Vec::new(),
+                                        components: Vec::new(),
+                                    }
+                                });
+
                             // Add the new contour
                             outline.contours.push(contour);
-                            info!("Added new open contour to glyph {}", glyph_name);
-                            
+                            info!(
+                                "Added new open contour to glyph {}",
+                                glyph_name
+                            );
+
                             // Notify that the app state has changed
-                            app_state_changed.send(crate::draw::AppStateChanged);
+                            app_state_changed
+                                .send(crate::draw::AppStateChanged);
                         }
                     }
                 }
             }
-            
+
             // Reset for next path
             pen_state.current_path = None;
             pen_state.points.clear();
@@ -310,41 +358,51 @@ pub fn render_pen_preview(
 
     // Visualization parameters
     let point_size = 5.0;
-    
+
     // Draw points and lines between them
     for (i, point) in pen_state.points.iter().enumerate() {
         // Draw point
-        gizmos.circle_2d(*point, point_size, if i == 0 {
-            // Highlight start point
-            Color::srgb(0.0, 1.0, 0.5)
-        } else {
-            point_color
-        });
-        
+        gizmos.circle_2d(
+            *point,
+            point_size,
+            if i == 0 {
+                // Highlight start point
+                Color::srgb(0.0, 1.0, 0.5)
+            } else {
+                point_color
+            },
+        );
+
         // Draw line to next point
         if i < pen_state.points.len() - 1 {
             gizmos.line_2d(*point, pen_state.points[i + 1], line_color);
         }
     }
-    
+
     // Draw preview line from last point to cursor
-    if let (Some(cursor_pos), true) = (pen_state.cursor_position, !pen_state.points.is_empty()) {
+    if let (Some(cursor_pos), true) =
+        (pen_state.cursor_position, !pen_state.points.is_empty())
+    {
         let last_point = *pen_state.points.last().unwrap();
         gizmos.line_2d(last_point, cursor_pos, preview_color);
-        
+
         // Check if cursor is near start point (for closing path)
         if pen_state.points.len() > 1 {
             let start_point = pen_state.points[0];
             let distance = start_point.distance(cursor_pos);
-            
+
             if distance < pen_state.close_path_threshold {
                 // Draw highlight to indicate path can be closed
-                gizmos.circle_2d(start_point, pen_state.close_path_threshold, Color::srgba(0.2, 1.0, 0.3, 0.3));
+                gizmos.circle_2d(
+                    start_point,
+                    pen_state.close_path_threshold,
+                    Color::srgba(0.2, 1.0, 0.3, 0.3),
+                );
                 gizmos.line_2d(last_point, start_point, close_highlight_color);
             }
         }
     }
-    
+
     // Draw cursor position
     if let Some(cursor_pos) = pen_state.cursor_position {
         gizmos.circle_2d(cursor_pos, 3.0, Color::srgba(1.0, 1.0, 1.0, 0.7));
@@ -403,12 +461,9 @@ fn create_contour_from_points(points: &[Vec2]) -> Option<Contour> {
             } else {
                 norad::PointType::Line
             };
-            
+
             ContourPoint::new(
-                p.x,
-                p.y,
-                point_type,
-                false, // not smooth
+                p.x, p.y, point_type, false, // not smooth
                 None,  // no name
                 None,  // no identifier
                 None,  // no comments
