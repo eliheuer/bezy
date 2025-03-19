@@ -38,6 +38,7 @@ use crate::edit_mode_toolbar::{
 use crate::plugins::*;
 use crate::selection::SelectionPlugin;
 use crate::text_editor::TextEditorPlugin;
+use crate::ui_interaction::UiInteractionPlugin;
 
 /// Creates and configures a new Bevy application with all required plugins and settings.
 ///
@@ -129,6 +130,8 @@ fn add_plugins(app: &mut App) {
             TextEditorPlugin,
             // Arabic debug text display
             ArabicDebugPlugin,
+            // UI interaction detection
+            UiInteractionPlugin,
         ))
         // ---- Core Application Logic ----
         // These plugins handle the application's main systems and behavior

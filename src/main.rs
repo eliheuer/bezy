@@ -28,6 +28,7 @@ mod tests;
 mod text_editor;
 mod theme;
 mod ufo;
+mod ui_interaction;
 mod undo;
 mod undo_plugin;
 mod virtual_font;

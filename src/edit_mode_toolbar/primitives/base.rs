@@ -87,15 +87,16 @@ pub fn handle_primitive_mouse_events(
         crate::edit_mode_toolbar::primitives::ui::CurrentCornerRadius,
     >,
     ui_state: Res<crate::edit_mode_toolbar::primitives::ui::UiInteractionState>,
+    ui_hover_state: Res<crate::ui_interaction::UiHoverState>,
 ) {
     // Only handle events when in primitives mode
     if current_mode.0 != crate::edit_mode_toolbar::EditMode::Primitives {
         return;
     }
 
-    // Don't process drawing events when interacting with UI
-    if ui_state.is_interacting_with_ui {
-        debug!("Skipping primitive drawing - UI is being interacted with");
+    // Don't process drawing events when hovering over or interacting with UI
+    if ui_state.is_interacting_with_ui || ui_hover_state.is_hovering_ui {
+        debug!("Skipping primitive drawing - UI is being interacted with or hovered over");
         return;
     }
 

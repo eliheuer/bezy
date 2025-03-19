@@ -32,19 +32,25 @@ pub fn handle_mouse_input(
     knife_mode: Option<
         Res<crate::edit_mode_toolbar::knife::KnifeModeActive>,
     >,
+    ui_hover_state: Res<crate::ui_interaction::UiHoverState>,
 ) {
-    // Skip processing mouse input if knife mode is active
+    // Skip if knife mode is active
     if let Some(knife_mode) = knife_mode {
         if knife_mode.0 {
             return;
         }
     }
 
-    // Only process mouse input when in select mode
+    // Only process when in select mode
     if let Some(select_mode) = select_mode {
         if !select_mode.0 {
             return;
         }
+    }
+
+    // Don't process selection when hovering over UI
+    if ui_hover_state.is_hovering_ui {
+        return;
     }
 
     // Early return if no window

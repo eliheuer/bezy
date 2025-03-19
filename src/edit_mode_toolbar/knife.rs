@@ -137,15 +137,12 @@ pub fn handle_knife_mouse_events(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut cursor_moved_events: EventReader<CursorMoved>,
     windows: Query<&Window>,
-    camera_q: Query<
-        (&Camera, &GlobalTransform),
-        With<crate::cameras::DesignCamera>,
-    >,
+    camera_q: Query<(&Camera, &GlobalTransform)>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut knife_state: ResMut<KnifeToolState>,
     knife_mode: Option<Res<KnifeModeActive>>,
-    cli_args: Res<crate::cli::CliArgs>,
     mut app_state: ResMut<crate::data::AppState>,
+    ui_hover_state: Res<crate::ui_interaction::UiHoverState>,
     mut app_state_changed: EventWriter<crate::draw::AppStateChanged>,
 ) {
     // Only handle events when in knife mode
@@ -153,6 +150,11 @@ pub fn handle_knife_mouse_events(
         if !knife_mode.0 {
             return;
         }
+    }
+
+    // Don't process knife interactions when hovering over UI
+    if ui_hover_state.is_hovering_ui {
+        return;
     }
 
     // Early return if no window
@@ -225,7 +227,6 @@ pub fn handle_knife_mouse_events(
                     &current,
                     knife_state.shift_locked,
                     &mut app_state,
-                    &cli_args,
                 );
 
                 // Notify that we've made a change to the glyph
@@ -553,7 +554,6 @@ fn perform_cut(
     end: &Vec2,
     shift_locked: bool,
     app_state: &mut crate::data::AppState,
-    _cli_args: &crate::cli::CliArgs,
 ) {
     // Get the actual endpoint, adjusted for shift locking if needed
     let actual_end = if shift_locked {

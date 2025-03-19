@@ -129,12 +129,18 @@ pub fn handle_pen_mouse_events(
     cli_args: Res<crate::cli::CliArgs>,
     mut app_state: ResMut<crate::data::AppState>,
     mut app_state_changed: EventWriter<crate::draw::AppStateChanged>,
+    ui_hover_state: Res<crate::ui_interaction::UiHoverState>,
 ) {
     // Only handle events when in pen mode
     if let Some(pen_mode) = pen_mode {
         if !pen_mode.0 {
             return;
         }
+    }
+
+    // Don't process drawing events when hovering over UI
+    if ui_hover_state.is_hovering_ui {
+        return;
     }
 
     // Early return if no window
