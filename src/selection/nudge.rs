@@ -7,13 +7,15 @@ use bevy::prelude::*;
 use std::sync::Arc;
 
 /// Resource to track if we're currently in a nudging operation
-#[derive(Resource, Debug, Default)]
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
 pub struct NudgeState {
     /// Whether we're currently nudging (to prevent selection loss)
     pub is_nudging: bool,
     /// Timestamp of the last nudge operation
     pub last_nudge_time: f32,
     /// The last key that was pressed for nudging
+    #[reflect(ignore)]
     pub last_key_pressed: Option<KeyCode>,
 }
 

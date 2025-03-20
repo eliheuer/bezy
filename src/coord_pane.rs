@@ -1,11 +1,14 @@
 //! The floating panel that displays coordinates of selected points.
 
-use crate::quadrant::Quadrant;
-use crate::selection::{PointType, Selectable, Selected};
 use bevy::prelude::*;
+use bevy::reflect::Reflect;
+use bevy::ui::{AlignItems, FlexDirection, JustifyContent, PositionType};
+use crate::selection::components::SelectionState;
+use crate::quadrant::Quadrant;
 
 /// Resource to store the current coordinate selection
-#[derive(Resource, Default)]
+#[derive(Resource, Reflect, Default)]
+#[reflect(Resource)]
 pub struct CoordinateSelection {
     /// The number of points selected
     pub count: usize,
@@ -16,116 +19,206 @@ pub struct CoordinateSelection {
 }
 
 /// Marker component for the coordinate pane
-#[derive(Component)]
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
 pub struct CoordPane;
 
-/// Marker component for the coordinate pane text
-#[derive(Component)]
-struct CoordText;
+/// Marker for X value text
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct XValue;
+
+/// Marker for Y value text
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct YValue;
+
+/// Marker for Width value text
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct WidthValue;
+
+/// Marker for Height value text
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct HeightValue;
 
 /// Marker component for quadrant selector
-#[derive(Component)]
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
 struct QuadrantSelector;
 
-/// Component to track which quadrant a button represents
-#[derive(Component)]
-struct QuadrantButton(Quadrant);
+/// Marker component for quadrant selector buttons
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+pub struct QuadrantButton(pub Quadrant);
 
-/// Plugin for coordinate pane functionality
-pub struct CoordPanePlugin;
-
-impl Plugin for CoordPanePlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<CoordinateSelection>()
-            // Spawn the coordinate pane
-            .add_systems(Startup, spawn_coord_pane)
-            // Add system to sync with the selection system
-            .add_systems(Update, sync_with_selection_system)
-            // Add debugging system to update the UI when selection changes
-            .add_systems(Update, debug_selection_changes)
-            // Handle quadrant selection
-            .add_systems(Update, handle_quadrant_selection)
-            // Create a mock selection for testing purposes
-            .add_systems(PostStartup, create_test_selection);
+impl Default for QuadrantButton {
+    fn default() -> Self {
+        Self(Quadrant::Center)
     }
 }
 
-/// Debug system to log changes to selection
-fn debug_selection_changes(
+/// Marker for selection indicator
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct SelectionIndicator;
+
+/// Plugin for coordinate pane functionality
+pub struct CoordinatePanePlugin;
+
+impl Plugin for CoordinatePanePlugin {
+    fn build(&self, app: &mut App) {
+        app
+            // Register the component type with the Reflect system
+            .register_type::<CoordPane>()
+            .register_type::<CoordinateSelection>()
+            .register_type::<XValue>()
+            .register_type::<YValue>()
+            .register_type::<WidthValue>()
+            .register_type::<HeightValue>()
+            .register_type::<QuadrantSelector>()
+            .register_type::<QuadrantButton>()
+            .register_type::<SelectionIndicator>()
+            // Register enums
+            .register_type::<Quadrant>()
+            // Initialize the coordinate selection resource
+            .init_resource::<CoordinateSelection>()
+            // Add systems to system sets
+            .add_systems(Startup, spawn_coord_pane)
+            .add_systems(
+                Update,
+                (
+                    display_selected_coordinates,
+                    update_coord_pane_ui,
+                    handle_quadrant_selection,
+                    toggle_coord_pane_visibility, // Allow toggling the pane with Ctrl+P
+                ),
+            );
+    }
+}
+
+/// System sets for Coordinate Pane systems
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum CoordinatePaneSet {
+    SyncSelection,
+    UpdateUI,
+}
+
+/// Debug system to log changes to selection and update UI with formatted values
+fn update_coord_pane_ui(
     coord_selection: Res<CoordinateSelection>,
-    mut coord_pane_query: Query<&mut Text, With<CoordText>>,
-    // mut visibility_query: Query<&mut Visibility, With<CoordPane>>,
-    _visibility_query: Query<&mut Visibility, With<CoordPane>>,
+    mut text_queries: ParamSet<(
+        Query<&mut Text, With<XValue>>, 
+        Query<&mut Text, With<YValue>>,
+        Query<&mut Text, With<WidthValue>>,
+        Query<&mut Text, With<HeightValue>>,
+        Query<(&mut Text, &mut TextColor), Without<SelectionIndicator>>,
+    )>,
+    mut indicator_query: Query<(&mut BackgroundColor, &Children), With<SelectionIndicator>>,
 ) {
-    // Comment out the visibility setting to keep it hidden
-    /*
-    // Make sure the coordinate pane is visible
-    for mut visibility in visibility_query.iter_mut() {
-        if *visibility != Visibility::Visible {
-            *visibility = Visibility::Visible;
-            info!("Set coordinate pane to visible");
+    // Update selection indicator color and text
+    if let Ok((mut bg_color, children)) = indicator_query.get_single_mut() {
+        if coord_selection.count > 0 {
+            // Points selected - bright green indicator with higher opacity
+            *bg_color = BackgroundColor(Color::srgba(0.0, 0.9, 0.2, 1.0)); // Brighter green for better visibility
+            
+            // Update the indicator text if it exists
+            if let Some(child) = children.first() {
+                if let Ok((mut text, mut text_color)) = text_queries.p4().get_mut(*child) {
+                    let point_text = if coord_selection.count == 1 { "point" } else { "points" };
+                    *text = Text::new(format!("Selected: {} {}", coord_selection.count, point_text));
+                    *text_color = TextColor(Color::srgba(1.0, 1.0, 1.0, 1.0)); // Bright white for contrast
+                }
+            }
+        } else {
+            // No selection - different color to indicate interactive state
+            *bg_color = BackgroundColor(Color::srgba(0.4, 0.4, 0.4, 0.8)); // Slightly brighter gray
+            
+            // Update the indicator text if it exists
+            if let Some(child) = children.first() {
+                if let Ok((mut text, mut text_color)) = text_queries.p4().get_mut(*child) {
+                    *text = Text::new("Click to select points");
+                    *text_color = TextColor(Color::srgba(0.9, 0.9, 0.9, 1.0)); // Lighter gray
+                }
+            }
         }
     }
-    */
+    
+    // Log the selection state
+    info!(
+        "Updating coordinate pane UI: count={}, quadrant={:?}, frame={:?}",
+        coord_selection.count,
+        coord_selection.quadrant,
+        coord_selection.frame
+    );
 
-    // Update coordinate pane text when selection changes
-    if coord_selection.is_changed() {
-        info!(
-            "CoordinateSelection changed: count={}, quadrant={:?}, frame={:?}",
-            coord_selection.count,
-            coord_selection.quadrant,
-            coord_selection.frame
-        );
+    // Update UI based on the selection state
+    if coord_selection.count == 0 {
+        // No selection - show zeros
+        if let Ok(mut text) = text_queries.p0().get_single_mut() {
+            *text = Text::new("0.0");
+        }
+        if let Ok(mut text) = text_queries.p1().get_single_mut() {
+            *text = Text::new("0.0");
+        }
+        if let Ok(mut text) = text_queries.p2().get_single_mut() {
+            *text = Text::new("0.0");
+        }
+        if let Ok(mut text) = text_queries.p3().get_single_mut() {
+            *text = Text::new("0.0");
+        }
+    } else {
+        let frame = coord_selection.frame;
 
-        // Update coordinate pane text when selection changes
-        if let Ok(mut text) = coord_pane_query.get_single_mut() {
-            if coord_selection.count == 0 {
-                *text = Text::new("Waiting for selection");
-            } else {
-                let frame = coord_selection.frame;
+        // Get the point based on the selected quadrant
+        let point = match coord_selection.quadrant {
+            Quadrant::Center => Vec2::new(
+                (frame.min.x + frame.max.x) / 2.0,
+                (frame.min.y + frame.max.y) / 2.0,
+            ),
+            Quadrant::TopLeft => Vec2::new(frame.min.x, frame.max.y),
+            Quadrant::Top => Vec2::new(
+                (frame.min.x + frame.max.x) / 2.0,
+                frame.max.y,
+            ),
+            Quadrant::TopRight => Vec2::new(frame.max.x, frame.max.y),
+            Quadrant::Right => Vec2::new(
+                frame.max.x,
+                (frame.min.y + frame.max.y) / 2.0,
+            ),
+            Quadrant::BottomRight => Vec2::new(frame.max.x, frame.min.y),
+            Quadrant::Bottom => Vec2::new(
+                (frame.min.x + frame.max.x) / 2.0,
+                frame.min.y,
+            ),
+            Quadrant::BottomLeft => Vec2::new(frame.min.x, frame.min.y),
+            Quadrant::Left => Vec2::new(
+                frame.min.x,
+                (frame.min.y + frame.max.y) / 2.0,
+            ),
+        };
 
-                // Get the point based on the selected quadrant
-                let point = match coord_selection.quadrant {
-                    Quadrant::Center => Vec2::new(
-                        (frame.min.x + frame.max.x) / 2.0,
-                        (frame.min.y + frame.max.y) / 2.0,
-                    ),
-                    Quadrant::TopLeft => Vec2::new(frame.min.x, frame.max.y),
-                    Quadrant::Top => Vec2::new(
-                        (frame.min.x + frame.max.x) / 2.0,
-                        frame.max.y,
-                    ),
-                    Quadrant::TopRight => Vec2::new(frame.max.x, frame.max.y),
-                    Quadrant::Right => Vec2::new(
-                        frame.max.x,
-                        (frame.min.y + frame.max.y) / 2.0,
-                    ),
-                    Quadrant::BottomRight => {
-                        Vec2::new(frame.max.x, frame.min.y)
-                    }
-                    Quadrant::Bottom => Vec2::new(
-                        (frame.min.x + frame.max.x) / 2.0,
-                        frame.min.y,
-                    ),
-                    Quadrant::BottomLeft => Vec2::new(frame.min.x, frame.min.y),
-                    Quadrant::Left => Vec2::new(
-                        frame.min.x,
-                        (frame.min.y + frame.max.y) / 2.0,
-                    ),
-                };
-
-                let display_text = format!(
-                    "Selection: {} points\nx: {:.1}, y: {:.1}\nw: {:.1}, h: {:.1}\nFrame: [{:.1},{:.1}] to [{:.1},{:.1}]",
-                    coord_selection.count,
-                    point.x, point.y,
-                    frame.max.x - frame.min.x,
-                    frame.max.y - frame.min.y,
-                    frame.min.x, frame.min.y,
-                    frame.max.x, frame.max.y
-                );
-
-                *text = Text::new(display_text);
-            }
+        // Update UI values with precision and log the values being set
+        if let Ok(mut text) = text_queries.p0().get_single_mut() {
+            let formatted = format!("{:.1}", point.x);
+            info!("Setting X value to: {}", formatted);
+            *text = Text::new(formatted);
+        }
+        if let Ok(mut text) = text_queries.p1().get_single_mut() {
+            let formatted = format!("{:.1}", point.y);
+            info!("Setting Y value to: {}", formatted);
+            *text = Text::new(formatted);
+        }
+        if let Ok(mut text) = text_queries.p2().get_single_mut() {
+            let formatted = format!("{:.1}", frame.max.x - frame.min.x);
+            info!("Setting Width value to: {}", formatted);
+            *text = Text::new(formatted);
+        }
+        if let Ok(mut text) = text_queries.p3().get_single_mut() {
+            let formatted = format!("{:.1}", frame.max.y - frame.min.y);
+            info!("Setting Height value to: {}", formatted);
+            *text = Text::new(formatted);
         }
     }
 }
@@ -163,11 +256,12 @@ fn handle_quadrant_selection(
 }
 
 /// Spawns the coordinate pane in the lower right corner
-fn spawn_coord_pane(mut commands: Commands) {
+fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Define panel colors (matching glyph_pane style)
     let panel_background_color = Color::srgba(0.1, 0.1, 0.1, 0.9);
     let text_color = Color::WHITE;
     let border_color = Color::srgba(1.0, 1.0, 1.0, 0.3);
+    let selection_indicator_color = Color::srgba(0.3, 0.3, 0.3, 0.7); // Gray for no selection
     let border_radius = 4.0;
     let quadrant_button_size = 20.0;
     let quadrant_spacing = 2.0;
@@ -191,21 +285,221 @@ fn spawn_coord_pane(mut commands: Commands) {
             BorderColor(border_color),
             BorderRadius::all(Val::Px(border_radius)),
             CoordPane,
-            // Make the pane initially hidden and set display to None to ensure it stays hidden
-            Visibility::Hidden,
+            // Make the pane visible by default (was previously Hidden)
+            Visibility::Visible,
             Name::new("CoordinatePane"),
         ))
         .with_children(|parent| {
-            // Text display for coordinates
+            // Add selection indicator - a more prominent rectangle that changes color when points are selected
             parent.spawn((
-                Text::new("Waiting for selection"),
-                TextFont {
-                    font_size: 18.0,
+                Node {
+                    width: Val::Px(64.0),  // Make it wider
+                    height: Val::Px(24.0), // Make it taller
+                    margin: UiRect::bottom(Val::Px(10.0)),
+                    border: UiRect::all(Val::Px(1.0)),
+                    padding: UiRect::all(Val::Px(2.0)),
+                    justify_content: JustifyContent::Center, // Center the text
+                    align_items: AlignItems::Center,        // Center the text
                     ..default()
                 },
-                TextColor(text_color),
-                CoordText,
-            ));
+                BackgroundColor(selection_indicator_color), // Default color (gray)
+                BorderColor(Color::WHITE),
+                BorderRadius::all(Val::Px(4.0)),
+                Name::new("SelectionIndicator"),
+                SelectionIndicator,
+            ))
+            .with_children(|indicator| {
+                // Add text label inside the indicator
+                indicator.spawn((
+                    // Basic text component with font settings
+                    Text::new("No Selection"),
+                    TextFont {
+                        font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                        font_size: 12.0,
+                        ..default()
+                    },
+                    TextColor(Color::WHITE),
+                    Name::new("SelectionIndicatorText"),
+                ));
+            });
+
+            // Coordinate Editor Section
+            parent.spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Start,
+                    margin: UiRect::bottom(Val::Px(8.0)),
+                    ..default()
+                },
+                Name::new("CoordinateEditor"),
+            ))
+            .with_children(|row| {
+                // X Label and Value
+                row.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        margin: UiRect::right(Val::Px(12.0)),
+                        ..default()
+                    },
+                ))
+                .with_children(|x_row| {
+                    // X Label
+                    x_row.spawn((
+                        Text::new("x"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                        Node {
+                            margin: UiRect::right(Val::Px(4.0)),
+                            ..default()
+                        },
+                    ));
+                    
+                    // X Value
+                    x_row.spawn((
+                        Text::new("0.0"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(text_color),
+                        XValue,
+                        Name::new("XValue"),
+                    ));
+                });
+                
+                // Y Label and Value
+                row.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                ))
+                .with_children(|y_row| {
+                    // Y Label
+                    y_row.spawn((
+                        Text::new("y"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                        Node {
+                            margin: UiRect::right(Val::Px(4.0)),
+                            ..default()
+                        },
+                    ));
+                    
+                    // Y Value
+                    y_row.spawn((
+                        Text::new("0.0"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(text_color),
+                        YValue,
+                        Name::new("YValue"),
+                    ));
+                });
+            });
+
+            // Add size information for multi-selection
+            parent.spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Start,
+                    margin: UiRect::bottom(Val::Px(8.0)),
+                    ..default()
+                },
+                Name::new("SizeInfo"),
+            ))
+            .with_children(|row| {
+                // Width Label and Value
+                row.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        margin: UiRect::right(Val::Px(12.0)),
+                        ..default()
+                    },
+                ))
+                .with_children(|w_row| {
+                    // W Label
+                    w_row.spawn((
+                        Text::new("w"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                        Node {
+                            margin: UiRect::right(Val::Px(4.0)),
+                            ..default()
+                        },
+                    ));
+                    
+                    // Width Value
+                    w_row.spawn((
+                        Text::new("0.0"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(text_color),
+                        WidthValue,
+                        Name::new("WidthValue"),
+                    ));
+                });
+                
+                // Height Label and Value
+                row.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                ))
+                .with_children(|h_row| {
+                    // H Label
+                    h_row.spawn((
+                        Text::new("h"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                        Node {
+                            margin: UiRect::right(Val::Px(4.0)),
+                            ..default()
+                        },
+                    ));
+                    
+                    // Height Value
+                    h_row.spawn((
+                        Text::new("0.0"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(text_color),
+                        HeightValue,
+                        Name::new("HeightValue"),
+                    ));
+                });
+            });
 
             // Add quadrant selector grid (3x3)
             parent
@@ -330,161 +624,112 @@ fn spawn_quadrant_button(
     ));
 }
 
-/// System to synchronize the CoordinateSelection with the actual selection system
-/// This is the key system that makes the coordinate pane respond to selections
-fn sync_with_selection_system(
-    // Look specifically for entities that have both a GlobalTransform and are Selected
-    entity_query: Query<(Entity, &GlobalTransform)>,
-    selected_query: Query<Entity, With<Selected>>,
-    _name_query: Query<(Entity, &Name)>,
+/// System to display coordinates for selected entities
+/// Uses SelectionState resource directly to get the most accurate selection information
+pub fn display_selected_coordinates(
     mut coord_selection: ResMut<CoordinateSelection>,
+    selection_state: Option<Res<crate::selection::components::SelectionState>>,
+    transforms: Query<&GlobalTransform>,
 ) {
-    // Get all selected entities
-    let selected_entities: Vec<Entity> = selected_query.iter().collect();
-
-    if !selected_entities.is_empty() {
-        // Only log this information periodically or on changes to reduce noise
-        static mut LAST_COUNT: usize = 0;
-        unsafe {
-            if LAST_COUNT != selected_entities.len() {
-                info!("Found {} selected entities", selected_entities.len());
-                LAST_COUNT = selected_entities.len();
+    // Check if the SelectionState resource is available
+    if let Some(state) = &selection_state {
+        info!("CoordPane: SelectionState is available with {} selected entities", state.selected.len());
+        
+        // Log entities in the selection for debugging
+        if !state.selected.is_empty() {
+            let entities: Vec<_> = state.selected.iter().collect();
+            info!("CoordPane: Selected entities in SelectionState: {:?}", entities);
+        }
+    } else {
+        info!("CoordPane: SelectionState resource is NOT available");
+    }
+    
+    // Default to zero if SelectionState is not available
+    let selected_count = selection_state.as_ref().map_or(0, |state| state.selected.len());
+    
+    // Log the selection count for debugging
+    info!("CoordPane: Selection system running with {selected_count} selected entities");
+    
+    if selected_count > 0 {
+        // Collect positions of selected entities directly from SelectionState
+        let mut positions = Vec::new();
+        
+        // Use the SelectionState directly instead of relying on Selected components
+        if let Some(state) = &selection_state {
+            for &entity in &state.selected {
+                if let Ok(transform) = transforms.get(entity) {
+                    let pos = transform.translation().truncate();
+                    info!("CoordPane: Found position for entity {entity:?}: {:?}", pos);
+                    positions.push(pos);
+                } else {
+                    // Log warning if entity has no transform
+                    info!("CoordPane: Selected entity {entity:?} has no transform");
+                }
             }
         }
-
-        // Collect positions of selected entities
-        let mut selected_points = Vec::new();
-
-        for entity in &selected_entities {
-            if let Ok((_, transform)) = entity_query.get(*entity) {
-                let position = transform.translation();
-                selected_points.push(position);
-                // Log position only if debugging is needed
-                // info!("Selected point at position: ({:.1}, {:.1}, {:.1})", position.x, position.y, position.z);
-            }
-        }
-
-        // Process any points we found
-        if !selected_points.is_empty() {
-            // Calculate bounds
+        
+        if !positions.is_empty() {
+            // Create a bounding rect from all positions
             let mut min_x = f32::MAX;
             let mut min_y = f32::MAX;
             let mut max_x = f32::MIN;
             let mut max_y = f32::MIN;
-
-            for position in &selected_points {
+            
+            for position in &positions {
                 min_x = min_x.min(position.x);
                 min_y = min_y.min(position.y);
                 max_x = max_x.max(position.x);
                 max_y = max_y.max(position.y);
             }
-
-            // Create the bounding rect
-            let bounds = Rect::from_corners(
-                Vec2::new(min_x, min_y),
-                Vec2::new(max_x, max_y),
-            );
-
-            // Only update if something changed
-            let selection_changed = coord_selection.count
-                != selected_points.len()
-                || coord_selection.frame != bounds;
-
-            if selection_changed {
-                info!(
-                    "Updating selection: {} points found with bounds: {:?}",
-                    selected_points.len(),
-                    bounds
-                );
-
-                coord_selection.count = selected_points.len();
-                coord_selection.frame = bounds;
-
-                // Use Center quadrant for new selections
-                if selected_points.len() == 1 {
-                    coord_selection.quadrant = Quadrant::Center;
-                }
-            }
-            return;
+            
+            let frame = Rect::from_corners(Vec2::new(min_x, min_y), Vec2::new(max_x, max_y));
+            coord_selection.count = selected_count;
+            coord_selection.frame = frame;
+            
+            info!("Updating coordinate pane UI: count={}, quadrant={:?}, frame={:?}", 
+                  selected_count, coord_selection.quadrant, frame);
+        } else {
+            // No valid positions found
+            info!("CoordPane: No valid positions found for selected entities");
+            coord_selection.count = 0;
+            coord_selection.frame = Rect::from_corners(Vec2::ZERO, Vec2::ZERO);
+            info!("Updating coordinate pane UI: count=0, quadrant={:?}, frame={:?}", 
+                  coord_selection.quadrant, coord_selection.frame);
         }
-    }
-
-    // Clear selection if no points were found but we have a selection
-    if coord_selection.count > 0 && !coord_selection.is_changed() {
-        info!("Clearing selection - no points found");
+    } else {
+        // No selection
+        info!("CoordPane: No selection - clearing coordinate display");
         coord_selection.count = 0;
-        coord_selection.frame = Rect::default();
+        coord_selection.frame = Rect::from_corners(Vec2::ZERO, Vec2::ZERO);
+        info!("Updating coordinate pane UI: count=0, quadrant={:?}, frame={:?}", 
+              coord_selection.quadrant, coord_selection.frame);
     }
 }
 
-/// Creates a test selection for visualization during development
-fn create_test_selection(
-    mut commands: Commands,
-    mut coord_selection: ResMut<CoordinateSelection>,
-    mut vis_query: Query<&mut Visibility, With<CoordPane>>,
-    mut text_query: Query<&mut Text, With<CoordText>>,
+/// System to toggle the coordinate pane visibility with keyboard shortcut (Ctrl+P)
+pub fn toggle_coord_pane_visibility(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut coord_pane_query: Query<&mut Visibility, With<CoordPane>>,
 ) {
-    // Create test selection data with a more realistic bounding box
-    info!("Creating test selection for coordinate pane");
+    // Check for Ctrl+P key combination
+    let ctrl_pressed = keyboard_input.pressed(KeyCode::ControlLeft)
+        || keyboard_input.pressed(KeyCode::ControlRight)
+        || keyboard_input.pressed(KeyCode::SuperLeft)
+        || keyboard_input.pressed(KeyCode::SuperRight);
 
-    // Keep the pane hidden
-    for mut visibility in vis_query.iter_mut() {
-        *visibility = Visibility::Hidden;
+    if ctrl_pressed && keyboard_input.just_pressed(KeyCode::KeyP) {
+        for mut visibility in coord_pane_query.iter_mut() {
+            // Toggle visibility between Visible and Hidden
+            *visibility = match *visibility {
+                Visibility::Visible => {
+                    info!("Hiding coordinate pane");
+                    Visibility::Hidden
+                }
+                _ => {
+                    info!("Showing coordinate pane");
+                    Visibility::Visible
+                }
+            };
+        }
     }
-
-    // Spawn test point entities with the Selected component
-    let test_points = [
-        Vec3::new(100.0, 100.0, 0.0),
-        Vec3::new(200.0, 100.0, 0.0),
-        Vec3::new(150.0, 200.0, 0.0),
-    ];
-
-    for (i, position) in test_points.iter().enumerate() {
-        commands
-            .spawn((
-                Transform::from_translation(*position),
-                Visibility::default(),
-                GlobalTransform::default(),
-                InheritedVisibility::default(),
-                ViewVisibility::default(),
-            ))
-            .insert(Selectable)
-            .insert(PointType { is_on_curve: true })
-            .insert(Name::new(format!("TestPoint{}", i + 1)));
-    }
-
-    // Create a bounding box that matches the test points
-    let min_x = test_points.iter().map(|p| p.x).fold(f32::MAX, f32::min);
-    let min_y = test_points.iter().map(|p| p.y).fold(f32::MAX, f32::min);
-    let max_x = test_points.iter().map(|p| p.x).fold(f32::MIN, f32::max);
-    let max_y = test_points.iter().map(|p| p.y).fold(f32::MIN, f32::max);
-
-    coord_selection.count = test_points.len();
-    coord_selection.frame =
-        Rect::from_corners(Vec2::new(min_x, min_y), Vec2::new(max_x, max_y));
-    coord_selection.quadrant = Quadrant::Center;
-
-    // Update the text directly
-    if let Ok(mut text) = text_query.get_single_mut() {
-        let frame = coord_selection.frame;
-        let point = Vec2::new(
-            (frame.min.x + frame.max.x) / 2.0,
-            (frame.min.y + frame.max.y) / 2.0,
-        );
-
-        *text = Text::new(format!(
-            "Selection: {} points\nx: {:.1}, y: {:.1}\nw: {:.1}, h: {:.1}\nFrame: [{:.1},{:.1}] to [{:.1},{:.1}]",
-            coord_selection.count,
-            point.x, point.y,
-            frame.max.x - frame.min.x,
-            frame.max.y - frame.min.y,
-            frame.min.x, frame.min.y,
-            frame.max.x, frame.max.y
-        ));
-    }
-
-    info!(
-        "Spawned {} test point entities with Selected component",
-        test_points.len()
-    );
 }

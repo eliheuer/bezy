@@ -29,7 +29,9 @@ use crate::undo_plugin::UndoPlugin;
 
 // Plugins
 use crate::checkerboard::CheckerboardPlugin;
-use crate::debug::ArabicDebugPlugin;
+use crate::debug::{
+    // ... existing code ...
+};
 use crate::design_space::DesignSpacePlugin;
 use crate::draw::DrawPlugin;
 use crate::edit_mode_toolbar::{
@@ -128,8 +130,6 @@ fn add_plugins(app: &mut App) {
             SelectionPlugin,
             // Text input and editing functionality
             TextEditorPlugin,
-            // Arabic debug text display
-            ArabicDebugPlugin,
             // UI interaction detection
             UiInteractionPlugin,
         ))

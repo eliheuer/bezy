@@ -21,7 +21,7 @@ pub fn handle_mouse_input(
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
     mut drag_state: ResMut<DragSelectionState>,
     mut event_writer: EventWriter<EditEvent>,
-    selectable_query: Query<(Entity, &GlobalTransform), With<Selectable>>,
+    selectable_query: Query<(Entity, &GlobalTransform, Option<&GlyphPointReference>), With<Selectable>>,
     selected_query: Query<Entity, With<Selected>>,
     selection_rect_query: Query<Entity, With<SelectionRect>>,
     mut selection_state: ResMut<SelectionState>,
@@ -34,9 +34,13 @@ pub fn handle_mouse_input(
     >,
     ui_hover_state: Res<crate::ui_interaction::UiHoverState>,
 ) {
+    // Log at the beginning of each frame
+    info!("Selection system running - current selected entities: {}", selection_state.selected.len());
+    
     // Skip if knife mode is active
     if let Some(knife_mode) = knife_mode {
         if knife_mode.0 {
+            info!("Selection skipped - knife mode active");
             return;
         }
     }
@@ -44,28 +48,33 @@ pub fn handle_mouse_input(
     // Only process when in select mode
     if let Some(select_mode) = select_mode {
         if !select_mode.0 {
+            info!("Selection skipped - select mode not active");
             return;
         }
     }
 
     // Don't process selection when hovering over UI
     if ui_hover_state.is_hovering_ui {
+        info!("Selection skipped - hovering over UI");
         return;
     }
 
     // Early return if no window
     let Ok(window) = windows.get_single() else {
+        info!("Selection skipped - no window");
         return;
     };
 
     // Early return if no camera
     let Ok((camera, camera_transform)) = camera_query.get_single() else {
+        info!("Selection skipped - no camera");
         return;
     };
 
     // If we're in the middle of a nudging operation, don't process mouse input
     // This prevents selection from being cleared during nudging
     if nudge_state.is_nudging {
+        info!("Selection skipped - nudging in progress");
         return;
     }
 
@@ -76,52 +85,83 @@ pub fn handle_mouse_input(
 
     // Check for mouse click to start selection
     if mouse_button_input.just_pressed(MouseButton::Left) {
+        info!("Mouse button pressed - checking for selection");
+        
         // Get cursor position in world coordinates
         if let Some(cursor_pos) = window.cursor_position().and_then(|pos| {
             camera.viewport_to_world_2d(camera_transform, pos).ok()
         }) {
+            info!("Cursor position in world: ({:.1}, {:.1})", cursor_pos.x, cursor_pos.y);
+            
             // Check if we clicked on a selectable entity
             let mut clicked_entity = None;
             let mut closest_distance = SELECTION_MARGIN;
+            let mut debug_distances = Vec::new();
 
-            for (entity, transform) in selectable_query.iter() {
+            for (entity, transform, point_ref) in selectable_query.iter() {
                 let entity_pos = transform.translation().truncate();
                 let distance = cursor_pos.distance(entity_pos);
+                
+                debug_distances.push((entity, entity_pos, distance));
 
                 if distance < closest_distance {
                     closest_distance = distance;
-                    clicked_entity = Some(entity);
+                    clicked_entity = Some((entity, point_ref));
                 }
             }
+            
+            // Log all close points for debugging
+            for (entity, pos, dist) in debug_distances.iter().filter(|(_, _, d)| *d < SELECTION_MARGIN * 2.0) {
+                info!("  Point entity {:?} at ({:.1}, {:.1}) distance: {:.2}", 
+                      entity, pos.x, pos.y, dist);
+            }
 
-            if let Some(entity) = clicked_entity {
+            if let Some((entity, point_ref)) = clicked_entity {
+                info!("Entity clicked: {:?} distance: {:.2}", entity, closest_distance);
+                
+                if let Some(glyph_ref) = point_ref {
+                    info!("  Glyph point: {} contour: {} point: {}", 
+                          glyph_ref.glyph_name, glyph_ref.contour_index, glyph_ref.point_index);
+                }
+                
                 // Handle entity selection
                 if selection_state.multi_select {
                     // Toggle selection with shift key
                     if selection_state.selected.contains(&entity) {
+                        info!("  Deselecting entity (multi-select) {:?}", entity);
                         selection_state.selected.remove(&entity);
                         commands.entity(entity).remove::<Selected>();
+                        info!("    -> Command to remove Selected component from entity {:?} queued", entity);
                     } else {
+                        info!("  Adding entity to selection (multi-select) {:?}", entity);
                         selection_state.selected.insert(entity);
                         commands.entity(entity).insert(Selected);
+                        info!("    -> Command to add Selected component to entity {:?} queued", entity);
                     }
                 } else {
                     // Clear previous selection
+                    info!("  Clearing previous selection of {} entities", selected_query.iter().count());
                     for entity in &selected_query {
                         commands.entity(entity).remove::<Selected>();
+                        info!("    -> Command to remove Selected component from entity {:?} queued", entity);
                     }
                     selection_state.selected.clear();
 
                     // Select the clicked entity
+                    info!("  Selecting new entity {:?}", entity);
                     selection_state.selected.insert(entity);
                     commands.entity(entity).insert(Selected);
+                    info!("    -> Command to add Selected component to entity {:?} queued", entity);
                 }
 
                 // Notify about the edit
                 event_writer.send(EditEvent {
                     edit_type: EditType::Normal,
                 });
+                
+                info!("Selection updated. Current selection count: {}", selection_state.selected.len());
             } else {
+                info!("No entity clicked, starting drag selection");
                 // No entity clicked, start drag selection
                 drag_state.is_dragging = true;
                 drag_state.start_position = Some(cursor_pos);
@@ -133,8 +173,10 @@ pub fn handle_mouse_input(
 
                 // If not multi-selecting, clear previous selection
                 if !selection_state.multi_select {
+                    info!("  Clearing previous selection for drag operation");
                     for entity in &selected_query {
                         commands.entity(entity).remove::<Selected>();
+                        info!("    -> Command to remove Selected component from entity {:?} queued", entity);
                     }
                     selection_state.selected.clear();
                 }
@@ -209,6 +251,7 @@ pub fn handle_mouse_input(
                         if !drag_state.previous_selection.contains(&entity) {
                             commands.entity(entity).remove::<Selected>();
                             selection_state.selected.remove(&entity);
+                            info!("  -> Command to remove Selected component from entity {:?} queued (drag)", entity);
                         }
                     }
 
@@ -216,18 +259,20 @@ pub fn handle_mouse_input(
                         if !selection_state.selected.contains(entity) {
                             commands.entity(*entity).insert(Selected);
                             selection_state.selected.insert(*entity);
+                            info!("  -> Command to add Selected component to entity {:?} queued (drag restore)", entity);
                         }
                     }
                 } else {
                     // Clear selection for non-multi-select
                     for entity in &selected_query {
                         commands.entity(entity).remove::<Selected>();
+                        info!("  -> Command to remove Selected component from entity {:?} queued (drag clear)", entity);
                     }
                     selection_state.selected.clear();
                 }
 
                 // Add entities in the rectangle to selection
-                for (entity, transform) in selectable_query.iter() {
+                for (entity, transform, _) in selectable_query.iter() {
                     let entity_pos = transform.translation().truncate();
                     if rect.contains(entity_pos) {
                         if drag_state.is_multi_select
@@ -236,9 +281,11 @@ pub fn handle_mouse_input(
                             // Toggle off if previously selected
                             selection_state.selected.remove(&entity);
                             commands.entity(entity).remove::<Selected>();
+                            info!("  -> Command to remove Selected component from entity {:?} queued (drag toggle)", entity);
                         } else {
                             selection_state.selected.insert(entity);
                             commands.entity(entity).insert(Selected);
+                            info!("  -> Command to add Selected component to entity {:?} queued (drag select)", entity);
                         }
                     }
                 }
@@ -264,6 +311,7 @@ pub fn handle_mouse_input(
             event_writer.send(EditEvent {
                 edit_type: EditType::Normal,
             });
+            info!("Drag selection completed with {} entities selected", selection_state.selected.len());
         }
     }
 }
@@ -691,3 +739,4 @@ pub fn handle_key_releases(
         }
     }
 }
+

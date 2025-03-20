@@ -80,11 +80,14 @@ impl Default for PointType {
 }
 
 /// Resource to track the global selection state
-#[derive(Resource, Debug, Default)]
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
 pub struct SelectionState {
     /// Whether multi-select mode is active (e.g., shift key is held)
     pub multi_select: bool,
     /// The currently selected entities
+    /// Using a public field without reflect(ignore) to make it more accessible to other systems
+    #[reflect(ignore)]
     pub selected: BTreeSet<Entity>,
 }
 

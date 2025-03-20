@@ -1,6 +1,6 @@
 //! A font editor made with Rust, the Bevy game engine, and some Linebender crates.
 
-// “The enjoyment of one’s tools is an essential ingredient of successful work.”
+// “The enjoyment of one's tools is an essential ingredient of successful work."
 //
 // — Donald Knuth
 
@@ -8,6 +8,7 @@ mod access_toolbar;
 mod app;
 mod cameras;
 mod checkerboard;
+mod coord_pane;
 mod cli;
 mod commands;
 mod data;
@@ -21,6 +22,7 @@ mod glyph_pane;
 mod hud;
 mod logger;
 mod plugins;
+mod quadrant;
 mod selection;
 mod settings;
 mod setup;
