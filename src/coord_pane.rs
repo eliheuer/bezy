@@ -59,11 +59,6 @@ impl Default for QuadrantButton {
     }
 }
 
-/// Marker for selection indicator
-#[derive(Component, Reflect, Default)]
-#[reflect(Component)]
-pub struct SelectionIndicator;
-
 /// Plugin for coordinate pane functionality
 pub struct CoordinatePanePlugin;
 
@@ -79,7 +74,6 @@ impl Plugin for CoordinatePanePlugin {
             .register_type::<HeightValue>()
             .register_type::<QuadrantSelector>()
             .register_type::<QuadrantButton>()
-            .register_type::<SelectionIndicator>()
             // Register enums
             .register_type::<Quadrant>()
             // Initialize the coordinate selection resource
@@ -113,38 +107,8 @@ fn update_coord_pane_ui(
         Query<&mut Text, With<YValue>>,
         Query<&mut Text, With<WidthValue>>,
         Query<&mut Text, With<HeightValue>>,
-        Query<(&mut Text, &mut TextColor), Without<SelectionIndicator>>,
     )>,
-    mut indicator_query: Query<(&mut BackgroundColor, &Children), With<SelectionIndicator>>,
 ) {
-    // Update selection indicator color and text
-    if let Ok((mut bg_color, children)) = indicator_query.get_single_mut() {
-        if coord_selection.count > 0 {
-            // Points selected - bright green indicator with higher opacity
-            *bg_color = BackgroundColor(Color::srgba(0.0, 0.9, 0.2, 1.0)); // Brighter green for better visibility
-            
-            // Update the indicator text if it exists
-            if let Some(child) = children.first() {
-                if let Ok((mut text, mut text_color)) = text_queries.p4().get_mut(*child) {
-                    let point_text = if coord_selection.count == 1 { "point" } else { "points" };
-                    *text = Text::new(format!("Selected: {} {}", coord_selection.count, point_text));
-                    *text_color = TextColor(Color::srgba(1.0, 1.0, 1.0, 1.0)); // Bright white for contrast
-                }
-            }
-        } else {
-            // No selection - different color to indicate interactive state
-            *bg_color = BackgroundColor(Color::srgba(0.4, 0.4, 0.4, 0.8)); // Slightly brighter gray
-            
-            // Update the indicator text if it exists
-            if let Some(child) = children.first() {
-                if let Ok((mut text, mut text_color)) = text_queries.p4().get_mut(*child) {
-                    *text = Text::new("Click to select points");
-                    *text_color = TextColor(Color::srgba(0.9, 0.9, 0.9, 1.0)); // Lighter gray
-                }
-            }
-        }
-    }
-    
     // Log the selection state
     info!(
         "Updating coordinate pane UI: count={}, quadrant={:?}, frame={:?}",
@@ -261,7 +225,6 @@ fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
     let panel_background_color = Color::srgba(0.1, 0.1, 0.1, 0.9);
     let text_color = Color::WHITE;
     let border_color = Color::srgba(1.0, 1.0, 1.0, 0.3);
-    let selection_indicator_color = Color::srgba(0.3, 0.3, 0.3, 0.7); // Gray for no selection
     let border_radius = 4.0;
     let quadrant_button_size = 20.0;
     let quadrant_spacing = 2.0;
@@ -290,39 +253,6 @@ fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
             Name::new("CoordinatePane"),
         ))
         .with_children(|parent| {
-            // Add selection indicator - a more prominent rectangle that changes color when points are selected
-            parent.spawn((
-                Node {
-                    width: Val::Px(64.0),  // Make it wider
-                    height: Val::Px(24.0), // Make it taller
-                    margin: UiRect::bottom(Val::Px(10.0)),
-                    border: UiRect::all(Val::Px(1.0)),
-                    padding: UiRect::all(Val::Px(2.0)),
-                    justify_content: JustifyContent::Center, // Center the text
-                    align_items: AlignItems::Center,        // Center the text
-                    ..default()
-                },
-                BackgroundColor(selection_indicator_color), // Default color (gray)
-                BorderColor(Color::WHITE),
-                BorderRadius::all(Val::Px(4.0)),
-                Name::new("SelectionIndicator"),
-                SelectionIndicator,
-            ))
-            .with_children(|indicator| {
-                // Add text label inside the indicator
-                indicator.spawn((
-                    // Basic text component with font settings
-                    Text::new("No Selection"),
-                    TextFont {
-                        font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                        font_size: 12.0,
-                        ..default()
-                    },
-                    TextColor(Color::WHITE),
-                    Name::new("SelectionIndicatorText"),
-                ));
-            });
-
             // Coordinate Editor Section
             parent.spawn((
                 Node {
