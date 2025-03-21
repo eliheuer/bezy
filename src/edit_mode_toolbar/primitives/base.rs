@@ -3,7 +3,6 @@ use crate::edit_mode_toolbar::primitives::tools::rectangle::RectanglePrimitive;
 use crate::edit_mode_toolbar::primitives::tools::rounded_rectangle::RoundedRectanglePrimitive;
 use crate::edit_mode_toolbar::CurrentPrimitiveType;
 use crate::edit_mode_toolbar::PrimitiveType;
-use crate::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
 use bevy::prelude::*;
 use kurbo::Shape;
 
@@ -140,22 +139,12 @@ pub fn handle_primitive_mouse_events(
                 }
             };
 
-            // Apply snap to grid if enabled
-            let snapped_position = if SNAP_TO_GRID_ENABLED {
-                Vec2::new(
-                    (world_position.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
-                    (world_position.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
-                )
-            } else {
-                world_position
-            };
-
-            active_drawing.current_position = Some(snapped_position);
+            active_drawing.current_position = Some(world_position);
 
             // If we're already drawing, update the current drawing
             if active_drawing.is_drawing {
                 let mut tool = get_primitive_tool(current_primitive_type.0);
-                tool.update_draw(snapped_position);
+                tool.update_draw(world_position);
             }
         }
     }
