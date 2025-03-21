@@ -2,6 +2,7 @@ use super::EditModeSystem;
 use bevy::prelude::*;
 use kurbo::BezPath;
 use norad::{Contour, ContourPoint};
+use crate::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
 
 /// Resource to track if pen mode is active
 #[derive(Resource, Default, PartialEq, Eq)]
@@ -176,6 +177,16 @@ pub fn handle_pen_mouse_events(
             // Get shift state for alignment
             let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft)
                 || keyboard.pressed(KeyCode::ShiftRight);
+
+            // Apply snap to grid if enabled
+            let world_pos = if SNAP_TO_GRID_ENABLED {
+                Vec2::new(
+                    (world_pos.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+                    (world_pos.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+                )
+            } else {
+                world_pos
+            };
 
             // Adjust position based on shift (for axis alignment)
             let adjusted_pos = if shift_pressed && !pen_state.points.is_empty()
@@ -390,12 +401,23 @@ pub fn render_pen_preview(
         (pen_state.cursor_position, !pen_state.points.is_empty())
     {
         let last_point = *pen_state.points.last().unwrap();
-        gizmos.line_2d(last_point, cursor_pos, preview_color);
+        
+        // Apply snap to grid for preview if enabled
+        let preview_cursor_pos = if SNAP_TO_GRID_ENABLED {
+            Vec2::new(
+                (cursor_pos.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+                (cursor_pos.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+            )
+        } else {
+            cursor_pos
+        };
+        
+        gizmos.line_2d(last_point, preview_cursor_pos, preview_color);
 
         // Check if cursor is near start point (for closing path)
         if pen_state.points.len() > 1 {
             let start_point = pen_state.points[0];
-            let distance = start_point.distance(cursor_pos);
+            let distance = start_point.distance(preview_cursor_pos);
 
             if distance < pen_state.close_path_threshold {
                 // Draw highlight to indicate path can be closed
@@ -411,7 +433,17 @@ pub fn render_pen_preview(
 
     // Draw cursor position
     if let Some(cursor_pos) = pen_state.cursor_position {
-        gizmos.circle_2d(cursor_pos, 3.0, Color::srgba(1.0, 1.0, 1.0, 0.7));
+        // Apply snap to grid for cursor display if enabled
+        let display_cursor_pos = if SNAP_TO_GRID_ENABLED {
+            Vec2::new(
+                (cursor_pos.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+                (cursor_pos.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+            )
+        } else {
+            cursor_pos
+        };
+        
+        gizmos.circle_2d(display_cursor_pos, 3.0, Color::srgba(1.0, 1.0, 1.0, 0.7));
     }
 }
 
