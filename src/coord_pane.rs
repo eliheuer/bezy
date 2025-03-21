@@ -2,8 +2,8 @@
 
 use bevy::prelude::*;
 use bevy::reflect::Reflect;
-use bevy::text::TextFont;
-use bevy::ui::{AlignItems, Display, FlexDirection, PositionType};
+use bevy::ui::{AlignItems, FlexDirection, JustifyContent, PositionType};
+use crate::selection::components::SelectionState;
 use crate::quadrant::Quadrant;
 
 /// Resource to store the current coordinate selection
@@ -59,16 +59,6 @@ impl Default for QuadrantButton {
     }
 }
 
-/// Marker for coordinate labels container
-#[derive(Component, Reflect, Default)]
-#[reflect(Component)]
-pub struct CoordinateLabelContainer;
-
-/// Marker for size labels container
-#[derive(Component, Reflect, Default)]
-#[reflect(Component)]
-pub struct SizeLabelContainer;
-
 /// Plugin for coordinate pane functionality
 pub struct CoordinatePanePlugin;
 
@@ -84,8 +74,6 @@ impl Plugin for CoordinatePanePlugin {
             .register_type::<HeightValue>()
             .register_type::<QuadrantSelector>()
             .register_type::<QuadrantButton>()
-            .register_type::<CoordinateLabelContainer>()
-            .register_type::<SizeLabelContainer>()
             // Register enums
             .register_type::<Quadrant>()
             // Initialize the coordinate selection resource
@@ -99,7 +87,6 @@ impl Plugin for CoordinatePanePlugin {
                     update_coord_pane_ui,
                     handle_quadrant_selection,
                     toggle_coord_pane_visibility, // Allow toggling the pane with Ctrl+P
-                    rebuild_coord_pane_on_selection_change, // System to rebuild the UI based on selection
                 ),
             );
     }
@@ -112,373 +99,91 @@ pub enum CoordinatePaneSet {
     UpdateUI,
 }
 
-/// System to update the coordinate pane UI values
+/// Debug system to log changes to selection and update UI with formatted values
 fn update_coord_pane_ui(
     coord_selection: Res<CoordinateSelection>,
     mut text_queries: ParamSet<(
-        Query<&mut Text, With<XValue>>,
+        Query<&mut Text, With<XValue>>, 
         Query<&mut Text, With<YValue>>,
         Query<&mut Text, With<WidthValue>>,
         Query<&mut Text, With<HeightValue>>,
     )>,
-    mut quadrant_query: Query<(&mut BorderColor, &QuadrantButton)>,
 ) {
-    if coord_selection.is_changed() {
-        debug!("Updating coordinate pane UI: count={}, quadrant={:?}, frame={:?}", 
-               coord_selection.count, coord_selection.quadrant, coord_selection.frame);
-        
-        // Only update UI values if there's a selection and visible UI elements
-        if coord_selection.count > 0 {
-            // Update coordinate values
-            if let Ok(mut text) = text_queries.p0().get_single_mut() {
-                *text = Text::new(format_coordinate(coord_selection.frame.min.x));
-            }
-            if let Ok(mut text) = text_queries.p1().get_single_mut() {
-                *text = Text::new(format_coordinate(coord_selection.frame.min.y));
-            }
-            
-            // Update size values
-            if let Ok(mut text) = text_queries.p2().get_single_mut() {
-                let width = coord_selection.frame.max.x - coord_selection.frame.min.x;
-                *text = Text::new(format_coordinate(width));
-            }
-            if let Ok(mut text) = text_queries.p3().get_single_mut() {
-                let height = coord_selection.frame.max.y - coord_selection.frame.min.y;
-                *text = Text::new(format_coordinate(height));
-            }
+    // Log the selection state
+    info!(
+        "Updating coordinate pane UI: count={}, quadrant={:?}, frame={:?}",
+        coord_selection.count,
+        coord_selection.quadrant,
+        coord_selection.frame
+    );
+
+    // Update UI based on the selection state
+    if coord_selection.count == 0 {
+        // No selection - show zeros
+        if let Ok(mut text) = text_queries.p0().get_single_mut() {
+            *text = Text::new("0.0");
         }
-        
-        // Update quadrant buttons to highlight the active one
-        let active_color = Color::srgba(1.0, 0.9, 0.2, 0.8); // Yellow highlight
-        let inactive_color = Color::srgba(0.4, 0.4, 0.4, 0.4); // Gray for inactive
-        
-        for (mut border_color, button) in quadrant_query.iter_mut() {
-            *border_color = if button.0 == coord_selection.quadrant {
-                BorderColor(active_color)
-            } else {
-                BorderColor(inactive_color)
-            };
+        if let Ok(mut text) = text_queries.p1().get_single_mut() {
+            *text = Text::new("0.0");
         }
-    }
-}
-
-/// System to rebuild the coordinate pane UI when selection changes
-fn rebuild_coord_pane_on_selection_change(
-    coord_selection: Res<CoordinateSelection>,
-    current_pane: Query<Entity, With<CoordPane>>,
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
-    if coord_selection.is_changed() {
-        // Only rebuild if the selection count changes from 0 to something or vice versa
-        // We don't want to rebuild for every selection change, just when we need to show/hide the labels
-        if let Ok(pane_entity) = current_pane.get_single() {
-            // First, find if we have any children to remove
-            commands.entity(pane_entity).despawn_descendants();
-            
-            // Rebuild the panel internals
-            let panel_background_color = Color::srgba(0.1, 0.1, 0.1, 0.9);
-            let text_color = Color::WHITE;
-            let border_color = Color::srgba(1.0, 1.0, 1.0, 0.3);
-            let border_radius = 4.0;
-            let quadrant_button_size = 20.0;
-            let quadrant_spacing = 2.0;
-            
-            let has_selection = coord_selection.count > 0;
-            
-            commands.entity(pane_entity).with_children(|parent| {
-                // Only show coordinate editor if there's a selection
-                if has_selection {
-                    // Coordinate Editor Section
-                    parent.spawn((
-                        Node {
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Start,
-                            margin: UiRect::bottom(Val::Px(8.0)),
-                            ..default()
-                        },
-                        Name::new("CoordinateEditor"),
-                        CoordinateLabelContainer,
-                    ))
-                    .with_children(|row| {
-                        // X Label and Value
-                        row.spawn((
-                            Node {
-                                flex_direction: FlexDirection::Row,
-                                align_items: AlignItems::Center,
-                                margin: UiRect::right(Val::Px(12.0)),
-                                ..default()
-                            },
-                        ))
-                        .with_children(|x_row| {
-                            // X Label
-                            x_row.spawn((
-                                Text::new("x"),
-                                TextFont {
-                                    font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                                    font_size: 16.0,
-                                    ..default()
-                                },
-                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                                Node {
-                                    margin: UiRect::right(Val::Px(4.0)),
-                                    ..default()
-                                },
-                            ));
-                            
-                            // X Value
-                            x_row.spawn((
-                                Text::new(format_coordinate(coord_selection.frame.min.x)),
-                                TextFont {
-                                    font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                                    font_size: 16.0,
-                                    ..default()
-                                },
-                                TextColor(text_color),
-                                XValue,
-                                Name::new("XValue"),
-                            ));
-                        });
-                        
-                        // Y Label and Value
-                        row.spawn((
-                            Node {
-                                flex_direction: FlexDirection::Row,
-                                align_items: AlignItems::Center,
-                                ..default()
-                            },
-                        ))
-                        .with_children(|y_row| {
-                            // Y Label
-                            y_row.spawn((
-                                Text::new("y"),
-                                TextFont {
-                                    font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                                    font_size: 16.0,
-                                    ..default()
-                                },
-                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                                Node {
-                                    margin: UiRect::right(Val::Px(4.0)),
-                                    ..default()
-                                },
-                            ));
-                            
-                            // Y Value
-                            y_row.spawn((
-                                Text::new(format_coordinate(coord_selection.frame.min.y)),
-                                TextFont {
-                                    font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                                    font_size: 16.0,
-                                    ..default()
-                                },
-                                TextColor(text_color),
-                                YValue,
-                                Name::new("YValue"),
-                            ));
-                        });
-                    });
-
-                    // Add size information for multi-selection
-                    parent.spawn((
-                        Node {
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Start,
-                            margin: UiRect::bottom(Val::Px(8.0)),
-                            ..default()
-                        },
-                        Name::new("SizeInfo"),
-                        SizeLabelContainer,
-                    ))
-                    .with_children(|row| {
-                        // Width Label and Value
-                        row.spawn((
-                            Node {
-                                flex_direction: FlexDirection::Row,
-                                align_items: AlignItems::Center,
-                                margin: UiRect::right(Val::Px(12.0)),
-                                ..default()
-                            },
-                        ))
-                        .with_children(|w_row| {
-                            // W Label
-                            w_row.spawn((
-                                Text::new("w"),
-                                TextFont {
-                                    font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                                    font_size: 16.0,
-                                    ..default()
-                                },
-                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                                Node {
-                                    margin: UiRect::right(Val::Px(4.0)),
-                                    ..default()
-                                },
-                            ));
-                            
-                            // Width Value
-                            let width = coord_selection.frame.max.x - coord_selection.frame.min.x;
-                            w_row.spawn((
-                                Text::new(format_coordinate(width)),
-                                TextFont {
-                                    font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                                    font_size: 16.0,
-                                    ..default()
-                                },
-                                TextColor(text_color),
-                                WidthValue,
-                                Name::new("WidthValue"),
-                            ));
-                        });
-                        
-                        // Height Label and Value
-                        row.spawn((
-                            Node {
-                                flex_direction: FlexDirection::Row,
-                                align_items: AlignItems::Center,
-                                ..default()
-                            },
-                        ))
-                        .with_children(|h_row| {
-                            // H Label
-                            h_row.spawn((
-                                Text::new("h"),
-                                TextFont {
-                                    font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                                    font_size: 16.0,
-                                    ..default()
-                                },
-                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                                Node {
-                                    margin: UiRect::right(Val::Px(4.0)),
-                                    ..default()
-                                },
-                            ));
-                            
-                            // Height Value
-                            let height = coord_selection.frame.max.y - coord_selection.frame.min.y;
-                            h_row.spawn((
-                                Text::new(format_coordinate(height)),
-                                TextFont {
-                                    font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                                    font_size: 16.0,
-                                    ..default()
-                                },
-                                TextColor(text_color),
-                                HeightValue,
-                                Name::new("HeightValue"),
-                            ));
-                        });
-                    });
-                }
-
-                // Add quadrant selector grid (3x3) - always visible
-                parent
-                    .spawn((
-                        Node {
-                            flex_direction: FlexDirection::Column,
-                            align_items: AlignItems::Center,
-                            // Only add top margin if there's content above it
-                            margin: if has_selection { UiRect::top(Val::Px(8.0)) } else { UiRect::all(Val::ZERO) },
-                            padding: UiRect::all(Val::Px(4.0)),
-                            ..default()
-                        },
-                        BorderColor(border_color),
-                        BorderRadius::all(Val::Px(border_radius / 2.0)),
-                        QuadrantSelector,
-                    ))
-                    .with_children(|grid| {
-                        // Top row: TopLeft, Top, TopRight
-                        grid.spawn(Node {
-                            flex_direction: FlexDirection::Row,
-                            column_gap: Val::Px(quadrant_spacing),
-                            margin: UiRect::bottom(Val::Px(quadrant_spacing)),
-                            ..default()
-                        })
-                        .with_children(|row| {
-                            spawn_quadrant_button(
-                                row,
-                                Quadrant::TopLeft,
-                                quadrant_button_size,
-                            );
-                            spawn_quadrant_button(
-                                row,
-                                Quadrant::Top,
-                                quadrant_button_size,
-                            );
-                            spawn_quadrant_button(
-                                row,
-                                Quadrant::TopRight,
-                                quadrant_button_size,
-                            );
-                        });
-
-                        // Middle row: Left, Center, Right
-                        grid.spawn(Node {
-                            flex_direction: FlexDirection::Row,
-                            column_gap: Val::Px(quadrant_spacing),
-                            margin: UiRect::vertical(Val::Px(
-                                quadrant_spacing / 2.0,
-                            )),
-                            ..default()
-                        })
-                        .with_children(|row| {
-                            spawn_quadrant_button(
-                                row,
-                                Quadrant::Left,
-                                quadrant_button_size,
-                            );
-                            spawn_quadrant_button(
-                                row,
-                                Quadrant::Center,
-                                quadrant_button_size,
-                            );
-                            spawn_quadrant_button(
-                                row,
-                                Quadrant::Right,
-                                quadrant_button_size,
-                            );
-                        });
-
-                        // Bottom row: BottomLeft, Bottom, BottomRight
-                        grid.spawn(Node {
-                            flex_direction: FlexDirection::Row,
-                            column_gap: Val::Px(quadrant_spacing),
-                            margin: UiRect::top(Val::Px(quadrant_spacing)),
-                            ..default()
-                        })
-                        .with_children(|row| {
-                            spawn_quadrant_button(
-                                row,
-                                Quadrant::BottomLeft,
-                                quadrant_button_size,
-                            );
-                            spawn_quadrant_button(
-                                row,
-                                Quadrant::Bottom,
-                                quadrant_button_size,
-                            );
-                            spawn_quadrant_button(
-                                row,
-                                Quadrant::BottomRight,
-                                quadrant_button_size,
-                            );
-                        });
-                    });
-            });
+        if let Ok(mut text) = text_queries.p2().get_single_mut() {
+            *text = Text::new("0.0");
         }
-    }
-}
-
-/// Helper function to format coordinates
-fn format_coordinate(value: f32) -> String {
-    // Check if the value is effectively a whole number
-    if value.fract().abs() < 0.001 {
-        // Display as integer
-        format!("{}", value.round() as i32)
+        if let Ok(mut text) = text_queries.p3().get_single_mut() {
+            *text = Text::new("0.0");
+        }
     } else {
-        // Display with one decimal place
-        format!("{:.1}", value)
+        let frame = coord_selection.frame;
+
+        // Get the point based on the selected quadrant
+        let point = match coord_selection.quadrant {
+            Quadrant::Center => Vec2::new(
+                (frame.min.x + frame.max.x) / 2.0,
+                (frame.min.y + frame.max.y) / 2.0,
+            ),
+            Quadrant::TopLeft => Vec2::new(frame.min.x, frame.max.y),
+            Quadrant::Top => Vec2::new(
+                (frame.min.x + frame.max.x) / 2.0,
+                frame.max.y,
+            ),
+            Quadrant::TopRight => Vec2::new(frame.max.x, frame.max.y),
+            Quadrant::Right => Vec2::new(
+                frame.max.x,
+                (frame.min.y + frame.max.y) / 2.0,
+            ),
+            Quadrant::BottomRight => Vec2::new(frame.max.x, frame.min.y),
+            Quadrant::Bottom => Vec2::new(
+                (frame.min.x + frame.max.x) / 2.0,
+                frame.min.y,
+            ),
+            Quadrant::BottomLeft => Vec2::new(frame.min.x, frame.min.y),
+            Quadrant::Left => Vec2::new(
+                frame.min.x,
+                (frame.min.y + frame.max.y) / 2.0,
+            ),
+        };
+
+        // Update UI values with precision and log the values being set
+        if let Ok(mut text) = text_queries.p0().get_single_mut() {
+            let formatted = format!("{:.1}", point.x);
+            info!("Setting X value to: {}", formatted);
+            *text = Text::new(formatted);
+        }
+        if let Ok(mut text) = text_queries.p1().get_single_mut() {
+            let formatted = format!("{:.1}", point.y);
+            info!("Setting Y value to: {}", formatted);
+            *text = Text::new(formatted);
+        }
+        if let Ok(mut text) = text_queries.p2().get_single_mut() {
+            let formatted = format!("{:.1}", frame.max.x - frame.min.x);
+            info!("Setting Width value to: {}", formatted);
+            *text = Text::new(formatted);
+        }
+        if let Ok(mut text) = text_queries.p3().get_single_mut() {
+            let formatted = format!("{:.1}", frame.max.y - frame.min.y);
+            info!("Setting Height value to: {}", formatted);
+            *text = Text::new(formatted);
+        }
     }
 }
 
@@ -518,12 +223,14 @@ fn handle_quadrant_selection(
 fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Define panel colors (matching glyph_pane style)
     let panel_background_color = Color::srgba(0.1, 0.1, 0.1, 0.9);
+    let text_color = Color::WHITE;
     let border_color = Color::srgba(1.0, 1.0, 1.0, 0.3);
     let border_radius = 4.0;
+    let quadrant_button_size = 20.0;
+    let quadrant_spacing = 2.0;
 
     info!("Spawning coordinate pane");
 
-    // Just spawn the container - the contents will be filled by the rebuild system
     commands
         .spawn((
             Node {
@@ -541,10 +248,282 @@ fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
             BorderColor(border_color),
             BorderRadius::all(Val::Px(border_radius)),
             CoordPane,
-            // Make the pane visible by default
+            // Make the pane visible by default (was previously Hidden)
             Visibility::Visible,
             Name::new("CoordinatePane"),
-        ));
+        ))
+        .with_children(|parent| {
+            // Coordinate Editor Section
+            parent.spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Start,
+                    margin: UiRect::bottom(Val::Px(8.0)),
+                    ..default()
+                },
+                Name::new("CoordinateEditor"),
+            ))
+            .with_children(|row| {
+                // X Label and Value
+                row.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        margin: UiRect::right(Val::Px(12.0)),
+                        ..default()
+                    },
+                ))
+                .with_children(|x_row| {
+                    // X Label
+                    x_row.spawn((
+                        Text::new("x"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                        Node {
+                            margin: UiRect::right(Val::Px(4.0)),
+                            ..default()
+                        },
+                    ));
+                    
+                    // X Value
+                    x_row.spawn((
+                        Text::new("0.0"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(text_color),
+                        XValue,
+                        Name::new("XValue"),
+                    ));
+                });
+                
+                // Y Label and Value
+                row.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                ))
+                .with_children(|y_row| {
+                    // Y Label
+                    y_row.spawn((
+                        Text::new("y"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                        Node {
+                            margin: UiRect::right(Val::Px(4.0)),
+                            ..default()
+                        },
+                    ));
+                    
+                    // Y Value
+                    y_row.spawn((
+                        Text::new("0.0"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(text_color),
+                        YValue,
+                        Name::new("YValue"),
+                    ));
+                });
+            });
+
+            // Add size information for multi-selection
+            parent.spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Start,
+                    margin: UiRect::bottom(Val::Px(8.0)),
+                    ..default()
+                },
+                Name::new("SizeInfo"),
+            ))
+            .with_children(|row| {
+                // Width Label and Value
+                row.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        margin: UiRect::right(Val::Px(12.0)),
+                        ..default()
+                    },
+                ))
+                .with_children(|w_row| {
+                    // W Label
+                    w_row.spawn((
+                        Text::new("w"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                        Node {
+                            margin: UiRect::right(Val::Px(4.0)),
+                            ..default()
+                        },
+                    ));
+                    
+                    // Width Value
+                    w_row.spawn((
+                        Text::new("0.0"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(text_color),
+                        WidthValue,
+                        Name::new("WidthValue"),
+                    ));
+                });
+                
+                // Height Label and Value
+                row.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                ))
+                .with_children(|h_row| {
+                    // H Label
+                    h_row.spawn((
+                        Text::new("h"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                        Node {
+                            margin: UiRect::right(Val::Px(4.0)),
+                            ..default()
+                        },
+                    ));
+                    
+                    // Height Value
+                    h_row.spawn((
+                        Text::new("0.0"),
+                        TextFont {
+                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(text_color),
+                        HeightValue,
+                        Name::new("HeightValue"),
+                    ));
+                });
+            });
+
+            // Add quadrant selector grid (3x3)
+            parent
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        margin: UiRect::top(Val::Px(8.0)),
+                        padding: UiRect::all(Val::Px(4.0)),
+                        ..default()
+                    },
+                    BorderColor(border_color),
+                    BorderRadius::all(Val::Px(border_radius / 2.0)),
+                    QuadrantSelector,
+                ))
+                .with_children(|grid| {
+                    // Top row: TopLeft, Top, TopRight
+                    grid.spawn(Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(quadrant_spacing),
+                        margin: UiRect::bottom(Val::Px(quadrant_spacing)),
+                        ..default()
+                    })
+                    .with_children(|row| {
+                        spawn_quadrant_button(
+                            row,
+                            Quadrant::TopLeft,
+                            quadrant_button_size,
+                        );
+                        spawn_quadrant_button(
+                            row,
+                            Quadrant::Top,
+                            quadrant_button_size,
+                        );
+                        spawn_quadrant_button(
+                            row,
+                            Quadrant::TopRight,
+                            quadrant_button_size,
+                        );
+                    });
+
+                    // Middle row: Left, Center, Right
+                    grid.spawn(Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(quadrant_spacing),
+                        margin: UiRect::vertical(Val::Px(
+                            quadrant_spacing / 2.0,
+                        )),
+                        ..default()
+                    })
+                    .with_children(|row| {
+                        spawn_quadrant_button(
+                            row,
+                            Quadrant::Left,
+                            quadrant_button_size,
+                        );
+                        spawn_quadrant_button(
+                            row,
+                            Quadrant::Center,
+                            quadrant_button_size,
+                        );
+                        spawn_quadrant_button(
+                            row,
+                            Quadrant::Right,
+                            quadrant_button_size,
+                        );
+                    });
+
+                    // Bottom row: BottomLeft, Bottom, BottomRight
+                    grid.spawn(Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(quadrant_spacing),
+                        margin: UiRect::top(Val::Px(quadrant_spacing)),
+                        ..default()
+                    })
+                    .with_children(|row| {
+                        spawn_quadrant_button(
+                            row,
+                            Quadrant::BottomLeft,
+                            quadrant_button_size,
+                        );
+                        spawn_quadrant_button(
+                            row,
+                            Quadrant::Bottom,
+                            quadrant_button_size,
+                        );
+                        spawn_quadrant_button(
+                            row,
+                            Quadrant::BottomRight,
+                            quadrant_button_size,
+                        );
+                    });
+                });
+        });
 }
 
 /// Helper to spawn a quadrant selection button
