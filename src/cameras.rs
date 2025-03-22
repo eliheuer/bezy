@@ -143,10 +143,8 @@ pub fn toggle_camera_controls(
             // Zoom in by multiplying scale by the zoom step factor
             // Smaller scale value = more zoomed in
             projection.scale *= KEYBOARD_ZOOM_STEP;
-
             // Ensure we don't zoom in too far (prevent scale from becoming too small)
             projection.scale = projection.scale.max(MIN_ALLOWED_ZOOM_SCALE);
-
             info!("Zoomed in to scale {:.3}", projection.scale);
         }
     }
@@ -157,10 +155,8 @@ pub fn toggle_camera_controls(
             // Zoom out by dividing scale by the zoom step factor
             // Larger scale value = more zoomed out
             projection.scale /= KEYBOARD_ZOOM_STEP;
-
             // Ensure we don't zoom out too far (prevent scale from becoming too large)
             projection.scale = projection.scale.min(MAX_ALLOWED_ZOOM_SCALE);
-
             info!("Zoomed out to scale {:.3}", projection.scale);
         }
     }
@@ -254,7 +250,7 @@ pub fn center_camera_on_glyph(
     // Apply an optical adjustment to move the camera up, which makes the glyph and
     // em square appear lower in the viewport. This provides better visual balance
     // by ensuring the glyph isn't positioned too close to the toolbar.
-    let optical_adjustment_factor = 0.06; // 6% of the glyph height
+    let optical_adjustment_factor = 0.03;
     let optical_adjustment = (max_y - min_y) * optical_adjustment_factor;
     let adjusted_center_y = center_y + optical_adjustment;
 
