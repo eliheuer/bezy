@@ -166,6 +166,9 @@ Many of Bezy's settings can be customized by editing the `src/settings.rs` file.
 #### View Controls
 - **Middle Mouse/Space + Drag**: Pan the view
 - **Mouse Wheel/Trackpad Gesture**: Zoom in/out
+- **Cmd/Ctrl + Plus (+)**: Zoom in
+- **Cmd/Ctrl + Minus (-)**: Zoom out
+- **T**: Toggle zoom-to-cursor behavior
 
 These hotkeys are based on the current implementation in the codebase and may evolve as development continues toward v1.0.
 

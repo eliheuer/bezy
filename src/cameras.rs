@@ -9,6 +9,9 @@
 //!
 //! Camera controls include panning, zooming, and centering on glyphs.
 
+use crate::settings::{
+    KEYBOARD_ZOOM_STEP, MAX_ALLOWED_ZOOM_SCALE, MIN_ALLOWED_ZOOM_SCALE,
+};
 use crate::theme::{CAMERA_MIN_SCALE, CAMERA_ZOOM_FACTOR};
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
@@ -36,11 +39,17 @@ pub fn spawn_design_camera(commands: &mut Commands) {
     commands.spawn((
         Camera2d,
         Camera {
-            order: 0, // Main camera renders first (lower value = earlier render)
+            // Camera order determines rendering sequence in a multi-camera setup
+            // Lower values render first, higher values render later (on top)
+            // Design camera (0) renders before UI camera (1)
+            order: 0,
             ..default()
         },
         DesignCamera,
-        RenderLayers::layer(0), // Main design elements are on layer 0
+        // Render layers control which entities this camera can see
+        // This camera only renders entities on layer 0 (design elements)
+        // UI elements are on layer 1 and won't be visible to this camera
+        RenderLayers::layer(0),
         PanCam {
             enabled: false, // Disabled by default, will be enabled based on edit mode
             ..default()
@@ -56,10 +65,16 @@ pub fn spawn_ui_camera(commands: &mut Commands) {
     commands.spawn((
         Camera2d,
         Camera {
-            order: 1, // UI camera renders after design camera (on top)
+            // Camera order determines rendering sequence in a multi-camera setup
+            // Higher values render later (on top) of cameras with lower values
+            // UI camera (1) renders after design camera (0), appearing on top
+            order: 1,
             ..default()
         },
-        RenderLayers::layer(1), // UI elements are on layer 1
+        // Render layers control which entities this camera can see
+        // This camera only renders entities on layer 1 (UI elements)
+        // Design elements are on layer 0 and won't be visible to this camera
+        RenderLayers::layer(1),
         UiCamera,
     ));
 }
@@ -69,8 +84,11 @@ pub fn spawn_ui_camera(commands: &mut Commands) {
 /// Keyboard shortcuts:
 /// - Space: Hold to temporarily enable camera panning (works in any edit mode)
 /// - T: Toggle zoom-to-cursor behavior
+/// - Cmd + Plus (+): Zoom in
+/// - Cmd + Minus (-): Zoom out
 pub fn toggle_camera_controls(
     mut query: Query<&mut PanCam>,
+    mut camera_query: Query<&mut OrthographicProjection, With<DesignCamera>>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
     // Spacebar handling for temporary panning in any edit mode
@@ -110,6 +128,40 @@ pub fn toggle_camera_controls(
                     "disabled"
                 }
             );
+        }
+    }
+
+    // Check for Command/Control modifier key (works on both macOS and Windows/Linux)
+    let cmd_ctrl_pressed = keys.pressed(KeyCode::SuperLeft)
+        || keys.pressed(KeyCode::SuperRight)
+        || keys.pressed(KeyCode::ControlLeft)
+        || keys.pressed(KeyCode::ControlRight);
+
+    // Handle Cmd++ (zoom in)
+    if cmd_ctrl_pressed && keys.just_pressed(KeyCode::Equal) {
+        if let Ok(mut projection) = camera_query.get_single_mut() {
+            // Zoom in by multiplying scale by the zoom step factor
+            // Smaller scale value = more zoomed in
+            projection.scale *= KEYBOARD_ZOOM_STEP;
+
+            // Ensure we don't zoom in too far (prevent scale from becoming too small)
+            projection.scale = projection.scale.max(MIN_ALLOWED_ZOOM_SCALE);
+
+            info!("Zoomed in to scale {:.3}", projection.scale);
+        }
+    }
+
+    // Handle Cmd+- (zoom out)
+    if cmd_ctrl_pressed && keys.just_pressed(KeyCode::Minus) {
+        if let Ok(mut projection) = camera_query.get_single_mut() {
+            // Zoom out by dividing scale by the zoom step factor
+            // Larger scale value = more zoomed out
+            projection.scale /= KEYBOARD_ZOOM_STEP;
+
+            // Ensure we don't zoom out too far (prevent scale from becoming too large)
+            projection.scale = projection.scale.min(MAX_ALLOWED_ZOOM_SCALE);
+
+            info!("Zoomed out to scale {:.3}", projection.scale);
         }
     }
 }
