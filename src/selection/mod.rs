@@ -40,8 +40,6 @@ impl Plugin for SelectionPlugin {
             // Register resources
             .init_resource::<SelectionState>()
             .init_resource::<DragSelectionState>()
-            .init_resource::<nudge::NudgeState>()
-            .add_event::<nudge::EditEvent>()
             // Add core selection systems
             .configure_sets(Update, (
                 SelectionSystemSet::Input,
@@ -73,16 +71,7 @@ impl Plugin for SelectionPlugin {
                 .after(SelectionSystemSet::Processing)
             )
             // Add the nudge plugin
-            .add_plugins(NudgePlugin)
-            // Add the new system here
-            .add_systems(
-                Update,
-                (
-                    systems::handle_line_segment_upgrade,
-                    systems::handle_line_segment_upgrade_shortcut,
-                ).in_set(SelectionSystemSet::Processing)
-                .after(SelectionSystemSet::Input)
-            );
+            .add_plugins(NudgePlugin);
     }
 }
 
