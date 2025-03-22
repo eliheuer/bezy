@@ -3,13 +3,10 @@ use bevy::prelude::*;
 
 // Font Path
 pub const DEFAULT_FONT_PATH: &str = "fonts/bezy-grotesk-regular.ttf";
-// For Arabic text support
-#[allow(dead_code)]
-pub const ARABIC_DEBUG_FONT_PATH: &str = "fonts/bezy-grotesk-regular.ttf"; // Use the default font or replace with one that supports Arabic
 
 // Window Configuration
 pub const WINDOW_TITLE: &str = "Bezy";
-pub const WINDOW_WIDTH: f32 = 800.0;
+pub const WINDOW_WIDTH: f32 = 1024.0;
 pub const WINDOW_HEIGHT: f32 = 900.0;
 
 // Button Colors
@@ -101,6 +98,10 @@ pub const KNIFE_START_POINT_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 1.0); // 
 pub const KNIFE_DASH_LENGTH: f32 = 8.0; // Length of dash segments
 pub const KNIFE_GAP_LENGTH: f32 = 4.0; // Length of gaps between dashes
 pub const KNIFE_CROSS_SIZE: f32 = 8.0; // Size of crosses at intersection points
+
+// Camera Settings
+pub const CAMERA_ZOOM_FACTOR: f32 = 0.5; // Factor used in zoom level calculation
+pub const CAMERA_MIN_SCALE: f32 = 0.8; // Minimum camera scale to prevent excessive zooming
 
 pub fn get_default_text_style(asset_server: &Res<AssetServer>) -> TextFont {
     TextFont {

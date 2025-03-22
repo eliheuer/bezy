@@ -1,8 +1,8 @@
 use super::EditModeSystem;
+use crate::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
 use bevy::prelude::*;
 use kurbo::BezPath;
 use norad::{Contour, ContourPoint};
-use crate::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
 
 /// Resource to track if pen mode is active
 #[derive(Resource, Default, PartialEq, Eq)]
@@ -181,8 +181,10 @@ pub fn handle_pen_mouse_events(
             // Apply snap to grid if enabled
             let world_pos = if SNAP_TO_GRID_ENABLED {
                 Vec2::new(
-                    (world_pos.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
-                    (world_pos.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+                    (world_pos.x / SNAP_TO_GRID_VALUE).round()
+                        * SNAP_TO_GRID_VALUE,
+                    (world_pos.y / SNAP_TO_GRID_VALUE).round()
+                        * SNAP_TO_GRID_VALUE,
                 )
             } else {
                 world_pos
@@ -401,17 +403,19 @@ pub fn render_pen_preview(
         (pen_state.cursor_position, !pen_state.points.is_empty())
     {
         let last_point = *pen_state.points.last().unwrap();
-        
+
         // Apply snap to grid for preview if enabled
         let preview_cursor_pos = if SNAP_TO_GRID_ENABLED {
             Vec2::new(
-                (cursor_pos.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
-                (cursor_pos.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+                (cursor_pos.x / SNAP_TO_GRID_VALUE).round()
+                    * SNAP_TO_GRID_VALUE,
+                (cursor_pos.y / SNAP_TO_GRID_VALUE).round()
+                    * SNAP_TO_GRID_VALUE,
             )
         } else {
             cursor_pos
         };
-        
+
         gizmos.line_2d(last_point, preview_cursor_pos, preview_color);
 
         // Check if cursor is near start point (for closing path)
@@ -436,14 +440,20 @@ pub fn render_pen_preview(
         // Apply snap to grid for cursor display if enabled
         let display_cursor_pos = if SNAP_TO_GRID_ENABLED {
             Vec2::new(
-                (cursor_pos.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
-                (cursor_pos.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+                (cursor_pos.x / SNAP_TO_GRID_VALUE).round()
+                    * SNAP_TO_GRID_VALUE,
+                (cursor_pos.y / SNAP_TO_GRID_VALUE).round()
+                    * SNAP_TO_GRID_VALUE,
             )
         } else {
             cursor_pos
         };
-        
-        gizmos.circle_2d(display_cursor_pos, 3.0, Color::srgba(1.0, 1.0, 1.0, 0.7));
+
+        gizmos.circle_2d(
+            display_cursor_pos,
+            3.0,
+            Color::srgba(1.0, 1.0, 1.0, 0.7),
+        );
     }
 }
 

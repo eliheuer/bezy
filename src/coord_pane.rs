@@ -1,9 +1,9 @@
 //! The floating panel that displays coordinates of selected points.
 
+use crate::quadrant::Quadrant;
 use bevy::prelude::*;
 use bevy::reflect::Reflect;
 use bevy::ui::{AlignItems, FlexDirection, PositionType};
-use crate::quadrant::Quadrant;
 
 /// Resource to store the current coordinate selection
 #[derive(Resource, Reflect, Default)]
@@ -95,7 +95,7 @@ impl Plugin for CoordinatePanePlugin {
 fn update_coord_pane_ui(
     coord_selection: Res<CoordinateSelection>,
     mut text_queries: ParamSet<(
-        Query<&mut Text, With<XValue>>, 
+        Query<&mut Text, With<XValue>>,
         Query<&mut Text, With<YValue>>,
         Query<&mut Text, With<WidthValue>>,
         Query<&mut Text, With<HeightValue>>,
@@ -104,9 +104,7 @@ fn update_coord_pane_ui(
     // Log the selection state
     info!(
         "Updating coordinate pane UI: count={}, quadrant={:?}, frame={:?}",
-        coord_selection.count,
-        coord_selection.quadrant,
-        coord_selection.frame
+        coord_selection.count, coord_selection.quadrant, coord_selection.frame
     );
 
     // Update UI based on the selection state
@@ -134,25 +132,21 @@ fn update_coord_pane_ui(
                 (frame.min.y + frame.max.y) / 2.0,
             ),
             Quadrant::TopLeft => Vec2::new(frame.min.x, frame.max.y),
-            Quadrant::Top => Vec2::new(
-                (frame.min.x + frame.max.x) / 2.0,
-                frame.max.y,
-            ),
+            Quadrant::Top => {
+                Vec2::new((frame.min.x + frame.max.x) / 2.0, frame.max.y)
+            }
             Quadrant::TopRight => Vec2::new(frame.max.x, frame.max.y),
-            Quadrant::Right => Vec2::new(
-                frame.max.x,
-                (frame.min.y + frame.max.y) / 2.0,
-            ),
+            Quadrant::Right => {
+                Vec2::new(frame.max.x, (frame.min.y + frame.max.y) / 2.0)
+            }
             Quadrant::BottomRight => Vec2::new(frame.max.x, frame.min.y),
-            Quadrant::Bottom => Vec2::new(
-                (frame.min.x + frame.max.x) / 2.0,
-                frame.min.y,
-            ),
+            Quadrant::Bottom => {
+                Vec2::new((frame.min.x + frame.max.x) / 2.0, frame.min.y)
+            }
             Quadrant::BottomLeft => Vec2::new(frame.min.x, frame.min.y),
-            Quadrant::Left => Vec2::new(
-                frame.min.x,
-                (frame.min.y + frame.max.y) / 2.0,
-            ),
+            Quadrant::Left => {
+                Vec2::new(frame.min.x, (frame.min.y + frame.max.y) / 2.0)
+            }
         };
 
         // Update UI values with precision and log the values being set
@@ -246,182 +240,184 @@ fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_children(|parent| {
             // Coordinate Editor Section
-            parent.spawn((
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Start,
-                    margin: UiRect::bottom(Val::Px(8.0)),
-                    ..default()
-                },
-                Name::new("CoordinateEditor"),
-            ))
-            .with_children(|row| {
-                // X Label and Value
-                row.spawn((
+            parent
+                .spawn((
                     Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Start,
+                        margin: UiRect::bottom(Val::Px(8.0)),
+                        ..default()
+                    },
+                    Name::new("CoordinateEditor"),
+                ))
+                .with_children(|row| {
+                    // X Label and Value
+                    row.spawn((Node {
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
                         margin: UiRect::right(Val::Px(12.0)),
                         ..default()
-                    },
-                ))
-                .with_children(|x_row| {
-                    // X Label
-                    x_row.spawn((
-                        Text::new("x"),
-                        TextFont {
-                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                        Node {
-                            margin: UiRect::right(Val::Px(4.0)),
-                            ..default()
-                        },
-                    ));
-                    
-                    // X Value
-                    x_row.spawn((
-                        Text::new("0.0"),
-                        TextFont {
-                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(text_color),
-                        XValue,
-                        Name::new("XValue"),
-                    ));
-                });
-                
-                // Y Label and Value
-                row.spawn((
-                    Node {
+                    },))
+                        .with_children(|x_row| {
+                            // X Label
+                            x_row.spawn((
+                                Text::new("x"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/bezy-grotesk-regular.ttf"),
+                                    font_size: 16.0,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                                Node {
+                                    margin: UiRect::right(Val::Px(4.0)),
+                                    ..default()
+                                },
+                            ));
+
+                            // X Value
+                            x_row.spawn((
+                                Text::new("0.0"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/bezy-grotesk-regular.ttf"),
+                                    font_size: 16.0,
+                                    ..default()
+                                },
+                                TextColor(text_color),
+                                XValue,
+                                Name::new("XValue"),
+                            ));
+                        });
+
+                    // Y Label and Value
+                    row.spawn((Node {
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
                         ..default()
-                    },
-                ))
-                .with_children(|y_row| {
-                    // Y Label
-                    y_row.spawn((
-                        Text::new("y"),
-                        TextFont {
-                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                        Node {
-                            margin: UiRect::right(Val::Px(4.0)),
-                            ..default()
-                        },
-                    ));
-                    
-                    // Y Value
-                    y_row.spawn((
-                        Text::new("0.0"),
-                        TextFont {
-                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(text_color),
-                        YValue,
-                        Name::new("YValue"),
-                    ));
+                    },))
+                        .with_children(|y_row| {
+                            // Y Label
+                            y_row.spawn((
+                                Text::new("y"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/bezy-grotesk-regular.ttf"),
+                                    font_size: 16.0,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                                Node {
+                                    margin: UiRect::right(Val::Px(4.0)),
+                                    ..default()
+                                },
+                            ));
+
+                            // Y Value
+                            y_row.spawn((
+                                Text::new("0.0"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/bezy-grotesk-regular.ttf"),
+                                    font_size: 16.0,
+                                    ..default()
+                                },
+                                TextColor(text_color),
+                                YValue,
+                                Name::new("YValue"),
+                            ));
+                        });
                 });
-            });
 
             // Add size information for multi-selection
-            parent.spawn((
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Start,
-                    margin: UiRect::bottom(Val::Px(8.0)),
-                    ..default()
-                },
-                Name::new("SizeInfo"),
-            ))
-            .with_children(|row| {
-                // Width Label and Value
-                row.spawn((
+            parent
+                .spawn((
                     Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Start,
+                        margin: UiRect::bottom(Val::Px(8.0)),
+                        ..default()
+                    },
+                    Name::new("SizeInfo"),
+                ))
+                .with_children(|row| {
+                    // Width Label and Value
+                    row.spawn((Node {
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
                         margin: UiRect::right(Val::Px(12.0)),
                         ..default()
-                    },
-                ))
-                .with_children(|w_row| {
-                    // W Label
-                    w_row.spawn((
-                        Text::new("w"),
-                        TextFont {
-                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                        Node {
-                            margin: UiRect::right(Val::Px(4.0)),
-                            ..default()
-                        },
-                    ));
-                    
-                    // Width Value
-                    w_row.spawn((
-                        Text::new("0.0"),
-                        TextFont {
-                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(text_color),
-                        WidthValue,
-                        Name::new("WidthValue"),
-                    ));
-                });
-                
-                // Height Label and Value
-                row.spawn((
-                    Node {
+                    },))
+                        .with_children(|w_row| {
+                            // W Label
+                            w_row.spawn((
+                                Text::new("w"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/bezy-grotesk-regular.ttf"),
+                                    font_size: 16.0,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                                Node {
+                                    margin: UiRect::right(Val::Px(4.0)),
+                                    ..default()
+                                },
+                            ));
+
+                            // Width Value
+                            w_row.spawn((
+                                Text::new("0.0"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/bezy-grotesk-regular.ttf"),
+                                    font_size: 16.0,
+                                    ..default()
+                                },
+                                TextColor(text_color),
+                                WidthValue,
+                                Name::new("WidthValue"),
+                            ));
+                        });
+
+                    // Height Label and Value
+                    row.spawn((Node {
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
                         ..default()
-                    },
-                ))
-                .with_children(|h_row| {
-                    // H Label
-                    h_row.spawn((
-                        Text::new("h"),
-                        TextFont {
-                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                        Node {
-                            margin: UiRect::right(Val::Px(4.0)),
-                            ..default()
-                        },
-                    ));
-                    
-                    // Height Value
-                    h_row.spawn((
-                        Text::new("0.0"),
-                        TextFont {
-                            font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(text_color),
-                        HeightValue,
-                        Name::new("HeightValue"),
-                    ));
+                    },))
+                        .with_children(|h_row| {
+                            // H Label
+                            h_row.spawn((
+                                Text::new("h"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/bezy-grotesk-regular.ttf"),
+                                    font_size: 16.0,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                                Node {
+                                    margin: UiRect::right(Val::Px(4.0)),
+                                    ..default()
+                                },
+                            ));
+
+                            // Height Value
+                            h_row.spawn((
+                                Text::new("0.0"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/bezy-grotesk-regular.ttf"),
+                                    font_size: 16.0,
+                                    ..default()
+                                },
+                                TextColor(text_color),
+                                HeightValue,
+                                Name::new("HeightValue"),
+                            ));
+                        });
                 });
-            });
 
             // Add quadrant selector grid (3x3)
             parent
@@ -555,33 +551,44 @@ pub fn display_selected_coordinates(
 ) {
     // Check if the SelectionState resource is available
     if let Some(state) = &selection_state {
-        info!("CoordPane: SelectionState is available with {} selected entities", state.selected.len());
-        
+        info!(
+            "CoordPane: SelectionState is available with {} selected entities",
+            state.selected.len()
+        );
+
         // Log entities in the selection for debugging
         if !state.selected.is_empty() {
             let entities: Vec<_> = state.selected.iter().collect();
-            info!("CoordPane: Selected entities in SelectionState: {:?}", entities);
+            info!(
+                "CoordPane: Selected entities in SelectionState: {:?}",
+                entities
+            );
         }
     } else {
         info!("CoordPane: SelectionState resource is NOT available");
     }
-    
+
     // Default to zero if SelectionState is not available
-    let selected_count = selection_state.as_ref().map_or(0, |state| state.selected.len());
-    
+    let selected_count = selection_state
+        .as_ref()
+        .map_or(0, |state| state.selected.len());
+
     // Log the selection count for debugging
     info!("CoordPane: Selection system running with {selected_count} selected entities");
-    
+
     if selected_count > 0 {
         // Collect positions of selected entities directly from SelectionState
         let mut positions = Vec::new();
-        
+
         // Use the SelectionState directly instead of relying on Selected components
         if let Some(state) = &selection_state {
             for &entity in &state.selected {
                 if let Ok(transform) = transforms.get(entity) {
                     let pos = transform.translation().truncate();
-                    info!("CoordPane: Found position for entity {entity:?}: {:?}", pos);
+                    info!(
+                        "CoordPane: Found position for entity {entity:?}: {:?}",
+                        pos
+                    );
                     positions.push(pos);
                 } else {
                     // Log warning if entity has no transform
@@ -589,25 +596,28 @@ pub fn display_selected_coordinates(
                 }
             }
         }
-        
+
         if !positions.is_empty() {
             // Create a bounding rect from all positions
             let mut min_x = f32::MAX;
             let mut min_y = f32::MAX;
             let mut max_x = f32::MIN;
             let mut max_y = f32::MIN;
-            
+
             for position in &positions {
                 min_x = min_x.min(position.x);
                 min_y = min_y.min(position.y);
                 max_x = max_x.max(position.x);
                 max_y = max_y.max(position.y);
             }
-            
-            let frame = Rect::from_corners(Vec2::new(min_x, min_y), Vec2::new(max_x, max_y));
+
+            let frame = Rect::from_corners(
+                Vec2::new(min_x, min_y),
+                Vec2::new(max_x, max_y),
+            );
             coord_selection.count = selected_count;
             coord_selection.frame = frame;
-            
+
             info!("Updating coordinate pane UI: count={}, quadrant={:?}, frame={:?}", 
                   selected_count, coord_selection.quadrant, frame);
         } else {
@@ -623,8 +633,10 @@ pub fn display_selected_coordinates(
         info!("CoordPane: No selection - clearing coordinate display");
         coord_selection.count = 0;
         coord_selection.frame = Rect::from_corners(Vec2::ZERO, Vec2::ZERO);
-        info!("Updating coordinate pane UI: count=0, quadrant={:?}, frame={:?}", 
-              coord_selection.quadrant, coord_selection.frame);
+        info!(
+            "Updating coordinate pane UI: count=0, quadrant={:?}, frame={:?}",
+            coord_selection.quadrant, coord_selection.frame
+        );
     }
 }
 

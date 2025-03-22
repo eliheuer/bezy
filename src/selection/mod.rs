@@ -41,34 +41,41 @@ impl Plugin for SelectionPlugin {
             .init_resource::<SelectionState>()
             .init_resource::<DragSelectionState>()
             // Add core selection systems
-            .configure_sets(Update, (
-                SelectionSystemSet::Input,
-                SelectionSystemSet::Processing,
-                SelectionSystemSet::Render,
-            ).chain())
+            .configure_sets(
+                Update,
+                (
+                    SelectionSystemSet::Input,
+                    SelectionSystemSet::Processing,
+                    SelectionSystemSet::Render,
+                )
+                    .chain(),
+            )
             .add_systems(
                 Update,
                 (
                     systems::handle_mouse_input,
                     systems::handle_selection_shortcuts,
                     systems::handle_key_releases,
-                ).in_set(SelectionSystemSet::Input)
+                )
+                    .in_set(SelectionSystemSet::Input),
             )
             .add_systems(
                 Update,
                 (
                     systems::update_glyph_data_from_selection,
                     sync_selected_components,
-                ).in_set(SelectionSystemSet::Processing)
-                .after(SelectionSystemSet::Input)
+                )
+                    .in_set(SelectionSystemSet::Processing)
+                    .after(SelectionSystemSet::Input),
             )
             .add_systems(
                 Update,
                 (
                     systems::render_selection_rect,
                     systems::render_selected_entities,
-                ).in_set(SelectionSystemSet::Render)
-                .after(SelectionSystemSet::Processing)
+                )
+                    .in_set(SelectionSystemSet::Render)
+                    .after(SelectionSystemSet::Processing),
             )
             // Add the nudge plugin
             .add_plugins(NudgePlugin);
@@ -91,17 +98,23 @@ pub fn sync_selected_components(
     entities: Query<Entity>,
 ) {
     // Always run this system to ensure components stay synchronized
-    info!("Synchronizing Selected components with SelectionState (current: {})", selection_state.selected.len());
-    
+    info!(
+        "Synchronizing Selected components with SelectionState (current: {})",
+        selection_state.selected.len()
+    );
+
     // First, ensure all entities in the selection_state have the Selected component
     for &entity in &selection_state.selected {
         // Only add the component if the entity is valid
         if entities.contains(entity) && !selected_entities.contains(entity) {
             commands.entity(entity).insert(Selected);
-            info!("Adding Selected component to entity {:?} from selection state", entity);
+            info!(
+                "Adding Selected component to entity {:?} from selection state",
+                entity
+            );
         }
     }
-    
+
     // Then, ensure all entities with the Selected component are in the selection_state
     for entity in &selected_entities {
         if !selection_state.selected.contains(&entity) {

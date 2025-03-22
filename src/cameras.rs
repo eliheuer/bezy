@@ -9,6 +9,7 @@
 //!
 //! Camera controls include panning, zooming, and centering on glyphs.
 
+use crate::theme::{CAMERA_MIN_SCALE, CAMERA_ZOOM_FACTOR};
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy_pancam::*;
@@ -239,8 +240,7 @@ pub fn center_camera_on_glyph(
         };
 
         // Apply zoom level, with a minimum to prevent excessive zooming for small glyphs
-        let min_scale = 0.8; // Provides a slightly zoomed out view for context
-        projection.scale = (1.0 / scale).max(min_scale);
+        projection.scale = (CAMERA_ZOOM_FACTOR / scale).max(CAMERA_MIN_SCALE);
 
         info!(
             "Centered camera on glyph at ({:.2}, {:.2}) with zoom {:.3}",

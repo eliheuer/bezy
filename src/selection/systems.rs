@@ -21,7 +21,10 @@ pub fn handle_mouse_input(
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
     mut drag_state: ResMut<DragSelectionState>,
     mut event_writer: EventWriter<EditEvent>,
-    selectable_query: Query<(Entity, &GlobalTransform, Option<&GlyphPointReference>), With<Selectable>>,
+    selectable_query: Query<
+        (Entity, &GlobalTransform, Option<&GlyphPointReference>),
+        With<Selectable>,
+    >,
     selected_query: Query<Entity, With<Selected>>,
     selection_rect_query: Query<Entity, With<SelectionRect>>,
     mut selection_state: ResMut<SelectionState>,
@@ -29,14 +32,15 @@ pub fn handle_mouse_input(
     select_mode: Option<
         Res<crate::edit_mode_toolbar::select::SelectModeActive>,
     >,
-    knife_mode: Option<
-        Res<crate::edit_mode_toolbar::knife::KnifeModeActive>,
-    >,
+    knife_mode: Option<Res<crate::edit_mode_toolbar::knife::KnifeModeActive>>,
     ui_hover_state: Res<crate::ui_interaction::UiHoverState>,
 ) {
     // Log at the beginning of each frame
-    info!("Selection system running - current selected entities: {}", selection_state.selected.len());
-    
+    info!(
+        "Selection system running - current selected entities: {}",
+        selection_state.selected.len()
+    );
+
     // Skip if knife mode is active
     if let Some(knife_mode) = knife_mode {
         if knife_mode.0 {
@@ -86,13 +90,16 @@ pub fn handle_mouse_input(
     // Check for mouse click to start selection
     if mouse_button_input.just_pressed(MouseButton::Left) {
         info!("Mouse button pressed - checking for selection");
-        
+
         // Get cursor position in world coordinates
         if let Some(cursor_pos) = window.cursor_position().and_then(|pos| {
             camera.viewport_to_world_2d(camera_transform, pos).ok()
         }) {
-            info!("Cursor position in world: ({:.1}, {:.1})", cursor_pos.x, cursor_pos.y);
-            
+            info!(
+                "Cursor position in world: ({:.1}, {:.1})",
+                cursor_pos.x, cursor_pos.y
+            );
+
             // Check if we clicked on a selectable entity
             let mut clicked_entity = None;
             let mut closest_distance = SELECTION_MARGIN;
@@ -101,7 +108,7 @@ pub fn handle_mouse_input(
             for (entity, transform, point_ref) in selectable_query.iter() {
                 let entity_pos = transform.translation().truncate();
                 let distance = cursor_pos.distance(entity_pos);
-                
+
                 debug_distances.push((entity, entity_pos, distance));
 
                 if distance < closest_distance {
@@ -109,38 +116,59 @@ pub fn handle_mouse_input(
                     clicked_entity = Some((entity, point_ref));
                 }
             }
-            
+
             // Log all close points for debugging
-            for (entity, pos, dist) in debug_distances.iter().filter(|(_, _, d)| *d < SELECTION_MARGIN * 2.0) {
-                info!("  Point entity {:?} at ({:.1}, {:.1}) distance: {:.2}", 
-                      entity, pos.x, pos.y, dist);
+            for (entity, pos, dist) in debug_distances
+                .iter()
+                .filter(|(_, _, d)| *d < SELECTION_MARGIN * 2.0)
+            {
+                info!(
+                    "  Point entity {:?} at ({:.1}, {:.1}) distance: {:.2}",
+                    entity, pos.x, pos.y, dist
+                );
             }
 
             if let Some((entity, point_ref)) = clicked_entity {
-                info!("Entity clicked: {:?} distance: {:.2}", entity, closest_distance);
-                
+                info!(
+                    "Entity clicked: {:?} distance: {:.2}",
+                    entity, closest_distance
+                );
+
                 if let Some(glyph_ref) = point_ref {
-                    info!("  Glyph point: {} contour: {} point: {}", 
-                          glyph_ref.glyph_name, glyph_ref.contour_index, glyph_ref.point_index);
+                    info!(
+                        "  Glyph point: {} contour: {} point: {}",
+                        glyph_ref.glyph_name,
+                        glyph_ref.contour_index,
+                        glyph_ref.point_index
+                    );
                 }
-                
+
                 // Handle entity selection
                 if selection_state.multi_select {
                     // Toggle selection with shift key
                     if selection_state.selected.contains(&entity) {
-                        info!("  Deselecting entity (multi-select) {:?}", entity);
+                        info!(
+                            "  Deselecting entity (multi-select) {:?}",
+                            entity
+                        );
                         selection_state.selected.remove(&entity);
                         commands.entity(entity).remove::<Selected>();
                         info!("    -> Command to remove Selected component from entity {:?} queued", entity);
                     } else {
-                        info!("  Adding entity to selection (multi-select) {:?}", entity);
+                        info!(
+                            "  Adding entity to selection (multi-select) {:?}",
+                            entity
+                        );
                         selection_state.selected.insert(entity);
                         commands.entity(entity).insert(Selected);
                         info!("    -> Command to add Selected component to entity {:?} queued", entity);
                     }
                 } else {
                     // Clear previous selection
-                    info!("  Clearing previous selection of {} entities", selected_query.iter().count());
+                    info!(
+                        "  Clearing previous selection of {} entities",
+                        selected_query.iter().count()
+                    );
                     for entity in &selected_query {
                         commands.entity(entity).remove::<Selected>();
                         info!("    -> Command to remove Selected component from entity {:?} queued", entity);
@@ -158,8 +186,11 @@ pub fn handle_mouse_input(
                 event_writer.send(EditEvent {
                     edit_type: EditType::Normal,
                 });
-                
-                info!("Selection updated. Current selection count: {}", selection_state.selected.len());
+
+                info!(
+                    "Selection updated. Current selection count: {}",
+                    selection_state.selected.len()
+                );
             } else {
                 info!("No entity clicked, starting drag selection");
                 // No entity clicked, start drag selection
@@ -311,7 +342,10 @@ pub fn handle_mouse_input(
             event_writer.send(EditEvent {
                 edit_type: EditType::Normal,
             });
-            info!("Drag selection completed with {} entities selected", selection_state.selected.len());
+            info!(
+                "Drag selection completed with {} entities selected",
+                selection_state.selected.len()
+            );
         }
     }
 }
@@ -327,9 +361,7 @@ pub fn handle_selection_shortcuts(
     select_mode: Option<
         Res<crate::edit_mode_toolbar::select::SelectModeActive>,
     >,
-    knife_mode: Option<
-        Res<crate::edit_mode_toolbar::knife::KnifeModeActive>,
-    >,
+    knife_mode: Option<Res<crate::edit_mode_toolbar::knife::KnifeModeActive>>,
 ) {
     // Skip processing shortcuts if knife mode is active
     if let Some(knife_mode) = knife_mode {
@@ -401,9 +433,7 @@ pub fn render_selection_rect(
     select_mode: Option<
         Res<crate::edit_mode_toolbar::select::SelectModeActive>,
     >,
-    knife_mode: Option<
-        Res<crate::edit_mode_toolbar::knife::KnifeModeActive>,
-    >,
+    knife_mode: Option<Res<crate::edit_mode_toolbar::knife::KnifeModeActive>>,
 ) {
     // Skip rendering the selection rectangle if knife mode is active
     if let Some(knife_mode) = knife_mode {
@@ -515,9 +545,7 @@ pub fn render_selected_entities(
     select_mode: Option<
         Res<crate::edit_mode_toolbar::select::SelectModeActive>,
     >,
-    knife_mode: Option<
-        Res<crate::edit_mode_toolbar::knife::KnifeModeActive>,
-    >,
+    knife_mode: Option<Res<crate::edit_mode_toolbar::knife::KnifeModeActive>>,
 ) {
     // Skip rendering selection indicators if knife mode is active
     if let Some(knife_mode) = knife_mode {
@@ -665,9 +693,7 @@ pub fn update_glyph_data_from_selection(
     mut app_state: ResMut<AppState>,
     // Track if we're in a nudging operation
     _nudge_state: Res<crate::selection::nudge::NudgeState>,
-    knife_mode: Option<
-        Res<crate::edit_mode_toolbar::knife::KnifeModeActive>,
-    >,
+    knife_mode: Option<Res<crate::edit_mode_toolbar::knife::KnifeModeActive>>,
 ) {
     // Skip processing if knife mode is active
     if let Some(knife_mode) = knife_mode {
@@ -739,4 +765,3 @@ pub fn handle_key_releases(
         }
     }
 }
-

@@ -2,6 +2,7 @@
 //!
 //! This module is responsible for creating and configuring the Bevy application.
 //! It sets up all resources, plugins, and initial state for the Bezy font editor.
+//! For customization and styling, see theme.rs, settings.rs, and plugins.rs.
 //!
 //! The main function to use from this module is `create_app()`, which takes command line
 //! arguments and returns a configured Bevy application ready to be run.
@@ -11,8 +12,6 @@
 //! - Application creation is handled by `create_app()`
 //! - Resource configuration is handled by `configure_app_settings()`
 //! - Plugin registration is handled by `add_plugins()`
-//!
-//! This separation of concerns makes the code more maintainable and easier to understand.
 
 // External crates
 use bevy::prelude::*;

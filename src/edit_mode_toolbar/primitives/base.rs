@@ -143,8 +143,10 @@ pub fn handle_primitive_mouse_events(
             // Apply snap to grid if enabled
             let snapped_position = if SNAP_TO_GRID_ENABLED {
                 Vec2::new(
-                    (world_position.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
-                    (world_position.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+                    (world_position.x / SNAP_TO_GRID_VALUE).round()
+                        * SNAP_TO_GRID_VALUE,
+                    (world_position.y / SNAP_TO_GRID_VALUE).round()
+                        * SNAP_TO_GRID_VALUE,
                 )
             } else {
                 world_position

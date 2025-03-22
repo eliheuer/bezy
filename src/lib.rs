@@ -18,9 +18,9 @@ pub mod selection;
 pub mod settings;
 pub mod theme;
 pub mod ufo;
+pub mod ui_interaction;
 pub mod undo;
 pub mod undo_plugin;
-pub mod ui_interaction;
 
 pub use point::EditPoint;
 pub use point_list::PointList;
