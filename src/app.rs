@@ -29,9 +29,6 @@ use crate::undo_plugin::UndoPlugin;
 
 // Plugins
 use crate::checkerboard::CheckerboardPlugin;
-use crate::debug::{
-    // ... existing code ...
-};
 use crate::design_space::DesignSpacePlugin;
 use crate::draw::DrawPlugin;
 use crate::edit_mode_toolbar::{

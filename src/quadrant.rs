@@ -18,6 +18,7 @@ pub enum Quadrant {
     Left,
 }
 
+#[allow(dead_code)]
 static ALL_QUADRANTS: &[Quadrant] = &[
     Quadrant::TopLeft,
     Quadrant::Top,
@@ -32,6 +33,7 @@ static ALL_QUADRANTS: &[Quadrant] = &[
 
 impl Quadrant {
     /// Return all `Quadrant`s, suitable for iterating.
+    #[allow(dead_code)]
     pub fn all() -> &'static [Quadrant] {
         ALL_QUADRANTS
     }
@@ -40,10 +42,14 @@ impl Quadrant {
     ///
     /// This is used when dragging a selection handle; you anchor the point
     /// opposite the selected handle.
+    #[allow(dead_code)]
     pub fn inverse(self) -> Quadrant {
         self.invert_y().invert_x()
     }
 
+    /// Return the quadrant that is horizontally opposite. This preserves the Y
+    /// coordinate.
+    #[allow(dead_code)]
     fn invert_y(self) -> Quadrant {
         match self {
             Quadrant::TopRight => Quadrant::BottomRight,
@@ -56,6 +62,9 @@ impl Quadrant {
         }
     }
 
+    /// Return the quadrant that is vertically opposite. This preserves the X
+    /// coordinate.
+    #[allow(dead_code)]
     fn invert_x(self) -> Quadrant {
         match self {
             Quadrant::TopRight => Quadrant::TopLeft,
@@ -68,17 +77,21 @@ impl Quadrant {
         }
     }
 
-    /// Returns true if this quadrant affects the x axis when modified
+    /// Returns `true` if this quadrant modifies the x axis of a rectangle.
+    #[allow(dead_code)]
     pub fn modifies_x_axis(self) -> bool {
         !matches!(self, Quadrant::Top | Quadrant::Bottom | Quadrant::Center)
     }
 
-    /// Returns true if this quadrant affects the y axis when modified
+    /// Returns `true` if this quadrant modifies the y axis of a rectangle.
+    #[allow(dead_code)]
     pub fn modifies_y_axis(self) -> bool {
         !matches!(self, Quadrant::Left | Quadrant::Right | Quadrant::Center)
     }
 
-    /// Given a point and a size, return the quadrant containing that point.
+    /// Returns the quadrant that contains the given point, when overlaid on a
+    /// rectangle of the given size.
+    #[allow(dead_code)]
     pub fn for_point_in_bounds(pt: Vec2, size: Vec2) -> Self {
         let zone_x = size.x / 3.0;
         let zone_y = size.y / 3.0;
@@ -110,7 +123,9 @@ impl Quadrant {
         }
     }
 
-    /// Given a bounds, return the point corresponding to this quadrant.
+    /// Given a rect's bounds, return a point representing the position of this
+    /// quadrant in that rect.
+    #[allow(dead_code)]
     pub fn point_in_rect(self, bounds: Rect) -> Vec2 {
         let size = Vec2::new(bounds.width(), bounds.height());
         let origin = Vec2::new(bounds.min.x, bounds.min.y);
@@ -130,17 +145,20 @@ impl Quadrant {
         origin + rel_point
     }
 
-    /// Given a rect in *design space* (that is, y-up), return the point
-    /// corresponding to this quadrant.
+    /// Given a rect, return a point representing the position of this quadrant, in the design space.
+    ///
+    /// This is a variant of `point_in_rect` with the coordinate system of our design space, (UL is 0,0).
+    /// Our Bevy coordinate system has 0,0 at bottom-left, UI is top-left, so we need to handle the conversion.
+    #[allow(dead_code)]
     pub fn point_in_design_space_rect(self, rect: Rect) -> Vec2 {
         self.invert_y().point_in_rect(rect)
     }
 
-    /// Return the x&y suitable for transforming `rect` given a drag
-    /// originating at this quadrant.
+    /// Given a rectangle and a drag vector, return a new drag vector that scales the rectangle.
     ///
-    /// This can be negative in either direction if the drag crosses the
-    /// opposite quadrant point.
+    /// The rectangle is anchored at the opposite quadrant (for resize handles),
+    /// and the returned Vec2 keeps the origin fixed and scales the rectangle to include the drag point.
+    #[allow(dead_code)]
     pub fn scale_design_space_rect(self, rect: Rect, drag: Vec2) -> Vec2 {
         // axis locking should have already happened
         assert_eq!(drag, self.lock_delta(drag));
@@ -156,7 +174,10 @@ impl Quadrant {
         )
     }
 
-    /// When dragging from a control handle, side handles lock an axis.
+    /// Lock a motion delta to only one dimension, as needed for the given quadrant.
+    ///
+    /// For example, if the quadrant is `Top`, only the Y component of the delta is preserved.
+    #[allow(dead_code)]
     pub fn lock_delta(self, delta: Vec2) -> Vec2 {
         match self {
             Quadrant::Top | Quadrant::Bottom => Vec2::new(0.0, delta.y),
@@ -166,8 +187,9 @@ impl Quadrant {
     }
 }
 
-/// Compute scale vectors based on original and current sizes.
-/// Returns a Vec2 where x is the x-scale factor and y is the y-scale factor.
+/// Calculate how much a rectangle would need to scale to have its origin at the origin point
+/// and a corner at the current point
+#[allow(dead_code)]
 fn compute_scale(origin: Vec2, current: Vec2) -> Vec2 {
     let mut scale = Vec2::ONE;
 

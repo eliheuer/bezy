@@ -4,6 +4,7 @@ use bevy::prelude::*;
 // Font Path
 pub const DEFAULT_FONT_PATH: &str = "fonts/bezy-grotesk-regular.ttf";
 // For Arabic text support
+#[allow(dead_code)]
 pub const ARABIC_DEBUG_FONT_PATH: &str = "fonts/bezy-grotesk-regular.ttf"; // Use the default font or replace with one that supports Arabic
 
 // Window Configuration

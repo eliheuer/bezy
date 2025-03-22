@@ -2,8 +2,7 @@
 
 use bevy::prelude::*;
 use bevy::reflect::Reflect;
-use bevy::ui::{AlignItems, FlexDirection, JustifyContent, PositionType};
-use crate::selection::components::SelectionState;
+use bevy::ui::{AlignItems, FlexDirection, PositionType};
 use crate::quadrant::Quadrant;
 
 /// Resource to store the current coordinate selection
@@ -90,13 +89,6 @@ impl Plugin for CoordinatePanePlugin {
                 ),
             );
     }
-}
-
-/// System sets for Coordinate Pane systems
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum CoordinatePaneSet {
-    SyncSelection,
-    UpdateUI,
 }
 
 /// Debug system to log changes to selection and update UI with formatted values

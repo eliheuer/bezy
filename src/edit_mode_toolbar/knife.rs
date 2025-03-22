@@ -1,7 +1,7 @@
 use super::EditModeSystem;
 use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
-use kurbo::{BezPath, Line, ParamCurve};
+use kurbo::{BezPath, ParamCurve};
 use log::info;
 
 /// Resource to track if knife mode is active
@@ -62,15 +62,6 @@ impl Default for KnifeToolState {
 }
 
 impl KnifeToolState {
-    fn new() -> Self {
-        Self {
-            gesture: KnifeGestureState::Ready,
-            intersections: Vec::new(),
-            shift_locked: false,
-            active: false,
-        }
-    }
-    
     /// Create a line tuple for intersection testing
     fn create_line(&self) -> Option<((f64, f64), (f64, f64))> {
         match self.gesture {
@@ -513,39 +504,6 @@ fn convert_contour_to_bezpath(contour: &norad::Contour) -> Option<BezPath> {
     }
 
     Some(path)
-}
-
-/// Helper function to check if two points are close to each other
-fn is_point_near(p1: Vec2, p2: Vec2, threshold: f32) -> bool {
-    p1.distance(p2) < threshold
-}
-
-/// Helper function to check if a point is on a line segment
-fn is_point_on_segment(point: Vec2, segment: Line) -> bool {
-    // Convert kurbo Line to Vec2 coordinates
-    let start = Vec2::new(segment.start().x as f32, segment.start().y as f32);
-    let end = Vec2::new(segment.end().x as f32, segment.end().y as f32);
-    
-    // Calculate distance from point to line segment
-    let line_length_squared = start.distance_squared(end);
-    
-    // If segment length is almost zero, check distance to endpoints
-    if line_length_squared < 1e-6 {
-        return point.distance(start) < 1.0;
-    }
-    
-    // Calculate projection of point onto line
-    let line_vec = end - start;
-    let point_vec = point - start;
-    
-    // Calculate the parameter value (t) along the line
-    let t = (point_vec.dot(line_vec) / line_length_squared).clamp(0.0, 1.0);
-    
-    // Calculate the projection point
-    let projection = start + t * line_vec;
-    
-    // Check if point is close to the projected point (use larger threshold)
-    point.distance(projection) < 1.0
 }
 
 /// Perform a cut operation with the knife tool
