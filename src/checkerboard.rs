@@ -9,7 +9,7 @@ pub struct CheckerboardSquare;
 // Main function to spawn the checkerboard
 pub fn spawn_checkerboard(commands: &mut Commands) {
     // Define a very large grid size to ensure coverage
-    let grid_size = 300; // Large number of squares in each dimension
+    let grid_size = 256; // Large number of squares in each dimension
 
     // Calculate the starting position to ensure (0,0) is in the center
     let half_size = (grid_size as f32 * CHECKERBOARD_UNIT_SIZE) / 2.0;
@@ -60,7 +60,6 @@ pub fn toggle_checkerboard_visibility(
     if let Ok(projection) = camera_query.get_single() {
         // Check if we've zoomed out past the default level
         let visible = projection.scale <= DEFAULT_ZOOM;
-
         // Update visibility for all checkerboard squares
         for mut visibility in checkerboard_query.iter_mut() {
             *visibility = if visible {
