@@ -4,7 +4,7 @@ use crate::quadrant::Quadrant;
 use crate::theme::*; // Import all theme items
 use bevy::prelude::*;
 use bevy::reflect::Reflect;
-use bevy::ui::{AlignItems, FlexDirection, PositionType};
+use bevy::ui::{AlignItems, FlexDirection, PositionType, JustifyContent};
 
 /// Resource to store the current coordinate selection
 #[derive(Resource, Reflect, Default)]
@@ -439,13 +439,15 @@ fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Center,
-                        margin: UiRect::top(Val::Px(8.0)),
-                        padding: UiRect::all(Val::Px(4.0)),
-                        width: Val::Px(QUADRANT_GRID_SIZE + 8.0), // Reduced padding
-                        height: Val::Px(QUADRANT_GRID_SIZE + 8.0), // Reduced padding
+                        justify_content: JustifyContent::Center,
+                        width: Val::Percent(100.0), // Take full width
+                        height: Val::Auto, // Height determined by content
+                        padding: UiRect::all(Val::Px(4.0)), // Small padding
+                        margin: UiRect::top(Val::Px(8.0)), // Same margin as text components
+                        border: UiRect::all(Val::Px(0.0)), // No border on the container
                         ..default()
                     },
-                    BorderColor(WIDGET_BORDER_COLOR),
+                    BackgroundColor(Color::srgba(0.15, 0.15, 0.15, 0.5)), // Subtle background
                     BorderRadius::all(Val::Px(WIDGET_BORDER_RADIUS / 2.0)),
                     QuadrantSelector,
                     Name::new("QuadrantSelector"),
@@ -460,29 +462,22 @@ fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// Spawns a Runebender-style quadrant selector with circles at key points
 /// This replaces the previous grid of button approach with a more visual representation
 fn spawn_quadrant_selector(parent: &mut ChildBuilder) {
-    // Base container for the selector
+    // Base container for the selector with proper sizing
+    let container_size = QUADRANT_GRID_SIZE; // Keep our constant for consistent circle positioning
+    
     parent.spawn((
         Node {
-            width: Val::Px(QUADRANT_GRID_SIZE),
-            height: Val::Px(QUADRANT_GRID_SIZE),
+            width: Val::Percent(100.0), // Take full width of parent
+            height: Val::Px(container_size), // Fixed height
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            padding: UiRect::all(Val::Px(0.0)), // No padding to maximize space
+            margin: UiRect::all(Val::Px(0.0)), // No margin within the container
             ..default()
         },
         Name::new("QuadrantSelectorGrid"),
     ))
     .with_children(|grid| {
-        // Spawn the outline rectangle first (as a background element)
-        grid.spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Px(QUADRANT_GRID_SIZE),
-                height: Val::Px(QUADRANT_GRID_SIZE),
-                border: UiRect::all(Val::Px(QUADRANT_OUTLINE_THICKNESS)),
-                ..default()
-            },
-            BorderColor(QUADRANT_UNSELECTED_OUTLINE_COLOR),
-            Name::new("QuadrantOutline"),
-        ));
-
         // Define quadrant positions as a percentage of the grid
         let positions = [
             (Quadrant::TopLeft, 0.0, 0.0),     // Top-Left corner
@@ -496,11 +491,42 @@ fn spawn_quadrant_selector(parent: &mut ChildBuilder) {
             (Quadrant::BottomRight, 1.0, 1.0), // Bottom-Right corner
         ];
 
+        // Calculate the outline rectangle dimensions and position based on the corner circles
+        // The circle radius is the distance from circle center to its edge
+        let circle_radius = QUADRANT_CIRCLE_RADIUS;
+        
+        // Get positions of the corner circles to align the rectangle with them
+        let top_left_x = positions[0].1 * container_size; // TopLeft x position
+        let top_left_y = positions[0].2 * container_size; // TopLeft y position
+        let bottom_right_x = positions[8].1 * container_size; // BottomRight x position
+        let bottom_right_y = positions[8].2 * container_size; // BottomRight y position
+        
+        // Calculate size from corner to corner
+        let outline_width = bottom_right_x - top_left_x;
+        let outline_height = bottom_right_y - top_left_y;
+        
+        // Spawn the outline rectangle with exact positioning
+        grid.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                // Position to align with corners exactly
+                left: Val::Px(top_left_x),
+                top: Val::Px(top_left_y),
+                // Size based on distance between corners
+                width: Val::Px(outline_width),
+                height: Val::Px(outline_height),
+                border: UiRect::all(Val::Px(QUADRANT_OUTLINE_THICKNESS)),
+                ..default()
+            },
+            BorderColor(QUADRANT_UNSELECTED_OUTLINE_COLOR),
+            Name::new("QuadrantOutline"),
+        ));
+
         // Spawn a circle for each quadrant position
         for (quadrant, x_pct, y_pct) in positions {
             // Calculate absolute position
-            let x_pos = x_pct * QUADRANT_GRID_SIZE;
-            let y_pos = y_pct * QUADRANT_GRID_SIZE;
+            let x_pos = x_pct * container_size;
+            let y_pos = y_pct * container_size;
 
             // Determine if this is the default selected quadrant (Center)
             let is_selected = quadrant == Quadrant::Center;
@@ -516,7 +542,7 @@ fn spawn_quadrant_selector(parent: &mut ChildBuilder) {
                 QUADRANT_UNSELECTED_OUTLINE_COLOR
             };
 
-            // Spawn the quadrant circle button - using components directly
+            // Spawn the quadrant circle button - using absolute positioning to place precisely
             grid.spawn((
                 Node {
                     position_type: PositionType::Absolute,

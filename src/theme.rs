@@ -6,17 +6,17 @@ pub const DEFAULT_FONT_PATH: &str = "fonts/bezy-grotesk-regular.ttf";
 pub const MONO_FONT_PATH: &str = "fonts/HasubiMono-Regular.ttf";
 
 // Font Sizes
-pub const WIDGET_TITLE_FONT_SIZE: f32 = 18.0;
-pub const WIDGET_TEXT_FONT_SIZE: f32 = 16.0;
+pub const WIDGET_TITLE_FONT_SIZE: f32 = 24.0;
+pub const WIDGET_TEXT_FONT_SIZE: f32 = 24.0;
 
 // Widget Styling
 pub const WIDGET_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.9);
-pub const WIDGET_BORDER_COLOR: Color = Color::srgba(1.0, 1.0, 1.0, 0.3);
-pub const WIDGET_BORDER_RADIUS: f32 = 4.0;
+pub const WIDGET_BORDER_COLOR: Color = Color::srgba(0.9, 0.9, 0.9, 1.0);
+pub const WIDGET_BORDER_RADIUS: f32 = 8.0;
 pub const WIDGET_BORDER_WIDTH: f32 = 2.0;
 pub const WIDGET_PADDING: f32 = 8.0;
 pub const WIDGET_MARGIN: f32 = 16.0;
-pub const WIDGET_ROW_GAP: f32 = 4.0;
+pub const WIDGET_ROW_GAP: f32 = 2.0;
 
 // Window Configuration
 pub const WINDOW_TITLE: &str = "Bezy";
