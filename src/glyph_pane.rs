@@ -19,7 +19,7 @@ pub struct CurrentGlyphMetrics {
 }
 
 /// Component marker for the glyph pane
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct GlyphPane;
 
 /// Component marker for the glyph name text
@@ -127,84 +127,76 @@ pub fn spawn_glyph_pane(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
 ) {
-    let font = asset_server.load(DEFAULT_FONT_PATH);
+    // Create the position properties for the glyph pane (bottom left)
+    let position_props = UiRect {
+        left: Val::Px(WIDGET_MARGIN),
+        bottom: Val::Px(WIDGET_MARGIN),
+        top: Val::Auto,  // Explicitly set top to Auto to prevent stretching
+        right: Val::Auto, // Explicitly set right to Auto for correct sizing
+        ..default()
+    };
 
     commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(24.0),
-                left: Val::Px(24.0),
-                padding: UiRect::all(Val::Px(12.0)),
-                margin: UiRect::all(Val::Px(0.0)),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(6.0),
-                border: UiRect::all(Val::Px(2.0)),
-                ..default()
-            },
-            BackgroundColor(PANEL_BACKGROUND_COLOR),
-            BorderColor(Color::srgba(1.0, 1.0, 1.0, 0.3)),
-            BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
+        .spawn(create_widget_style(
+            asset_server,
+            PositionType::Absolute,
+            position_props,
             GlyphPane,
+            "GlyphPane",
         ))
         .with_children(|parent| {
             // Glyph name
             parent.spawn((
-                Text::new("Glyph: Loading..."),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 18.0,
-                    ..default()
-                },
-                TextColor(TEXT_COLOR),
+                create_widget_text(
+                    asset_server,
+                    "Glyph: Loading...",
+                    WIDGET_TITLE_FONT_SIZE,
+                    TEXT_COLOR,
+                ),
                 GlyphNameText,
             ));
 
             // Unicode value
             parent.spawn((
-                Text::new("Unicode: Loading..."),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 18.0,
-                    ..default()
-                },
-                TextColor(TEXT_COLOR),
+                create_widget_text(
+                    asset_server,
+                    "Unicode: Loading...",
+                    WIDGET_TEXT_FONT_SIZE,
+                    TEXT_COLOR,
+                ),
                 GlyphUnicodeText,
             ));
 
             // Advance width
             parent.spawn((
-                Text::new("Advance: Loading..."),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 18.0,
-                    ..default()
-                },
-                TextColor(TEXT_COLOR),
+                create_widget_text(
+                    asset_server,
+                    "Advance: Loading...",
+                    WIDGET_TEXT_FONT_SIZE,
+                    TEXT_COLOR,
+                ),
                 GlyphAdvanceText,
             ));
 
             // Left side bearing
             parent.spawn((
-                Text::new("LSB: Loading..."),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 18.0,
-                    ..default()
-                },
-                TextColor(TEXT_COLOR),
+                create_widget_text(
+                    asset_server,
+                    "LSB: Loading...",
+                    WIDGET_TEXT_FONT_SIZE,
+                    TEXT_COLOR,
+                ),
                 GlyphLeftBearingText,
             ));
 
             // Right side bearing
             parent.spawn((
-                Text::new("RSB: Loading..."),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 18.0,
-                    ..default()
-                },
-                TextColor(TEXT_COLOR),
+                create_widget_text(
+                    asset_server,
+                    "RSB: Loading...",
+                    WIDGET_TEXT_FONT_SIZE,
+                    TEXT_COLOR,
+                ),
                 GlyphRightBearingText,
             ));
         });
