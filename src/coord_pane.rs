@@ -5,6 +5,7 @@ use crate::theme::*; // Import all theme items
 use crate::selection::SelectionState;
 use bevy::prelude::*;
 use bevy::reflect::Reflect;
+use bevy::ui::UiRect;
 
 /// Resource to store the current coordinate selection
 #[derive(Resource, Reflect, Default)]
@@ -22,6 +23,11 @@ pub struct CoordinateSelection {
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct CoordPane;
+
+/// Marker component for the coordinate values container
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct CoordValuesContainer;
 
 /// Marker for X value text
 #[derive(Component, Reflect, Default)]
@@ -59,6 +65,26 @@ impl Default for QuadrantButton {
     }
 }
 
+/// Marker for X coordinate row
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct XCoordinateRow;
+
+/// Marker for Y coordinate row
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct YCoordinateRow;
+
+/// Marker for Width coordinate row
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct WidthCoordinateRow;
+
+/// Marker for Height coordinate row
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct HeightCoordinateRow;
+
 /// Plugin for coordinate pane functionality
 pub struct CoordinatePanePlugin;
 
@@ -74,6 +100,11 @@ impl Plugin for CoordinatePanePlugin {
             .register_type::<HeightValue>()
             .register_type::<QuadrantSelector>()
             .register_type::<QuadrantButton>()
+            .register_type::<XCoordinateRow>()
+            .register_type::<YCoordinateRow>()
+            .register_type::<WidthCoordinateRow>()
+            .register_type::<HeightCoordinateRow>()
+            .register_type::<CoordValuesContainer>()
             // Register enums
             .register_type::<Quadrant>()
             // Initialize the coordinate selection resource
@@ -88,6 +119,7 @@ impl Plugin for CoordinatePanePlugin {
                     handle_quadrant_selection,
                     toggle_coord_pane_visibility, // Allow toggling the pane with Ctrl+P
                     update_coordinate_display,
+                    update_coord_pane_layout,     // Add system to update layout based on selection
                 ),
             );
     }
@@ -102,6 +134,13 @@ fn update_coord_pane_ui(
         Query<&mut Text, With<WidthValue>>,
         Query<&mut Text, With<HeightValue>>,
     )>,
+    mut row_queries: ParamSet<(
+        Query<&mut Visibility, With<XCoordinateRow>>,
+        Query<&mut Visibility, With<YCoordinateRow>>,
+        Query<&mut Visibility, With<WidthCoordinateRow>>,
+        Query<&mut Visibility, With<HeightCoordinateRow>>,
+        Query<&mut Visibility, With<QuadrantSelector>>,
+    )>,
 ) {
     // Log the selection state
     info!(
@@ -109,22 +148,34 @@ fn update_coord_pane_ui(
         coord_selection.count, coord_selection.quadrant, coord_selection.frame
     );
 
-    // Update UI based on the selection state
-    if coord_selection.count == 0 {
-        // No selection - show zeros
-        if let Ok(mut text) = text_queries.p0().get_single_mut() {
-            *text = Text::new("0");
-        }
-        if let Ok(mut text) = text_queries.p1().get_single_mut() {
-            *text = Text::new("0");
-        }
-        if let Ok(mut text) = text_queries.p2().get_single_mut() {
-            *text = Text::new("0");
-        }
-        if let Ok(mut text) = text_queries.p3().get_single_mut() {
-            *text = Text::new("0");
-        }
+    // Set visibility for coordinate rows based on whether we have a selection
+    let coord_visibility = if coord_selection.count == 0 {
+        Visibility::Hidden // Hide when no selection
     } else {
+        Visibility::Visible // Show when there is a selection
+    };
+
+    // Update visibility for all coordinate rows
+    if let Ok(mut vis) = row_queries.p0().get_single_mut() {
+        *vis = coord_visibility;
+    }
+    if let Ok(mut vis) = row_queries.p1().get_single_mut() {
+        *vis = coord_visibility;
+    }
+    if let Ok(mut vis) = row_queries.p2().get_single_mut() {
+        *vis = coord_visibility;
+    }
+    if let Ok(mut vis) = row_queries.p3().get_single_mut() {
+        *vis = coord_visibility;
+    }
+    
+    // Update quadrant selector visibility - always visible
+    if let Ok(mut vis) = row_queries.p4().get_single_mut() {
+        *vis = Visibility::Visible; // Always show quadrant selector
+    }
+
+    // Update UI values only if there is a selection
+    if coord_selection.count > 0 {
         let frame = coord_selection.frame;
 
         // Get the point based on the selected quadrant
@@ -222,7 +273,7 @@ const QUADRANT_UNSELECTED_OUTLINE_COLOR: Color = Color::srgba(0.7, 0.7, 0.7, 0.3
 
 // Text colors
 const TEXT_COLOR_DISABLED: Color = Color::srgba(0.6, 0.6, 0.6, 0.8);
-const COORD_PANE_WIDTH: f32 = 200.0;
+const COORD_PANE_WIDTH: f32 = 256.0;
 
 /// Spawns the coordinate pane in the lower right corner
 fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -246,197 +297,190 @@ fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
             "CoordinatePane",
         ))
         .with_children(|parent| {
-            // Coordinate Editor Section
-            parent
-                .spawn((
+            // Container for coordinate value rows
+            parent.spawn((
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Stretch,
+                    width: Val::Percent(100.0),
+                    ..default()
+                },
+                CoordValuesContainer,
+                Name::new("CoordValuesContainer"),
+            ))
+            .with_children(|values_container| {
+                // X coordinate
+                values_container.spawn((
                     Node {
                         flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Start,
-                        margin: UiRect::bottom(Val::Px(8.0)),
-                        width: Val::Auto,
-                        height: Val::Auto,
+                        align_items: AlignItems::Center,
+                        margin: UiRect::bottom(Val::Px(4.0)),
+                        width: Val::Percent(100.0),
                         ..default()
                     },
-                    Name::new("CoordinateEditor"),
+                    Name::new("XCoordinateRow"),
+                    XCoordinateRow,
+                    Visibility::Hidden, // Initially hidden until selection
                 ))
                 .with_children(|row| {
-                    // X Label and Value
+                    // X Label
                     row.spawn((
                         Node {
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Center,
-                            margin: UiRect::right(Val::Px(12.0)),
-                            width: Val::Auto,
+                            margin: UiRect::right(Val::Px(4.0)),
                             ..default()
                         },
-                        Name::new("XCoordinate"),
-                    ))
-                    .with_children(|x_row| {
-                        // X Label with value - using the label-value pair helper function
-                        let label = "x";
-                        let value = "0.0";
-                        
-                        // X Label
-                        x_row.spawn((
-                            Node {
-                                margin: UiRect::right(Val::Px(4.0)),
-                                width: Val::Auto,
-                                ..default()
-                            },
-                            Text::new(label),
-                            TextFont {
-                                font: asset_server.load(MONO_FONT_PATH),
-                                font_size: WIDGET_TEXT_FONT_SIZE,
-                                ..default()
-                            },
-                            TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                        ));
+                        Text::new("X: "),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                    ));
 
-                        // X Value
-                        x_row.spawn((
-                            Text::new(value),
-                            TextFont {
-                                font: asset_server.load(MONO_FONT_PATH),
-                                font_size: WIDGET_TEXT_FONT_SIZE,
-                                ..default()
-                            },
-                            TextColor(TEXT_COLOR),
-                            XValue,
-                            Name::new("XValue"),
-                        ));
-                    });
-
-                    // Y Label and Value
+                    // X Value
                     row.spawn((
-                        Node {
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Center,
+                        Text::new("0"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
-                        Name::new("YCoordinate"),
-                    ))
-                    .with_children(|y_row| {
-                        // Y Label
-                        y_row.spawn((
-                            Node {
-                                margin: UiRect::right(Val::Px(4.0)),
-                                ..default()
-                            },
-                            Text::new("y"),
-                            TextFont {
-                                font: asset_server.load(MONO_FONT_PATH),
-                                font_size: WIDGET_TEXT_FONT_SIZE,
-                                ..default()
-                            },
-                            TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                        ));
-
-                        // Y Value
-                        y_row.spawn((
-                            Text::new("0.0"),
-                            TextFont {
-                                font: asset_server.load(MONO_FONT_PATH),
-                                font_size: WIDGET_TEXT_FONT_SIZE,
-                                ..default()
-                            },
-                            TextColor(TEXT_COLOR),
-                            YValue,
-                            Name::new("YValue"),
-                        ));
-                    });
+                        TextColor(TEXT_COLOR),
+                        XValue,
+                        Name::new("XValue"),
+                    ));
                 });
 
-            // Add size information for multi-selection
-            parent
-                .spawn((
+                // Y coordinate
+                values_container.spawn((
                     Node {
                         flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Start,
-                        margin: UiRect::bottom(Val::Px(8.0)),
+                        align_items: AlignItems::Center,
+                        margin: UiRect::bottom(Val::Px(4.0)),
+                        width: Val::Percent(100.0),
                         ..default()
                     },
-                    Name::new("SizeInfo"),
+                    Name::new("YCoordinateRow"),
+                    YCoordinateRow,
+                    Visibility::Hidden, // Initially hidden until selection
                 ))
                 .with_children(|row| {
-                    // Width Label and Value
+                    // Y Label
                     row.spawn((
                         Node {
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Center,
-                            margin: UiRect::right(Val::Px(12.0)),
+                            margin: UiRect::right(Val::Px(4.0)),
                             ..default()
                         },
-                        Name::new("WidthInfo"),
-                    ))
-                    .with_children(|w_row| {
-                        // W Label
-                        w_row.spawn((
-                            Node {
-                                margin: UiRect::right(Val::Px(4.0)),
-                                ..default()
-                            },
-                            Text::new("w"),
-                            TextFont {
-                                font: asset_server.load(MONO_FONT_PATH),
-                                font_size: WIDGET_TEXT_FONT_SIZE,
-                                ..default()
-                            },
-                            TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                        ));
+                        Text::new("Y: "),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                    ));
 
-                        // Width Value
-                        w_row.spawn((
-                            Text::new("0.0"),
-                            TextFont {
-                                font: asset_server.load(MONO_FONT_PATH),
-                                font_size: WIDGET_TEXT_FONT_SIZE,
-                                ..default()
-                            },
-                            TextColor(TEXT_COLOR),
-                            WidthValue,
-                            Name::new("WidthValue"),
-                        ));
-                    });
-
-                    // Height Label and Value
+                    // Y Value
                     row.spawn((
-                        Node {
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Center,
+                        Text::new("0"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
-                        Name::new("HeightInfo"),
-                    ))
-                    .with_children(|h_row| {
-                        // H Label
-                        h_row.spawn((
-                            Node {
-                                margin: UiRect::right(Val::Px(4.0)),
-                                ..default()
-                            },
-                            Text::new("h"),
-                            TextFont {
-                                font: asset_server.load(MONO_FONT_PATH),
-                                font_size: WIDGET_TEXT_FONT_SIZE,
-                                ..default()
-                            },
-                            TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                        ));
-
-                        // Height Value
-                        h_row.spawn((
-                            Text::new("0.0"),
-                            TextFont {
-                                font: asset_server.load(MONO_FONT_PATH),
-                                font_size: WIDGET_TEXT_FONT_SIZE,
-                                ..default()
-                            },
-                            TextColor(TEXT_COLOR),
-                            HeightValue,
-                            Name::new("HeightValue"),
-                        ));
-                    });
+                        TextColor(TEXT_COLOR),
+                        YValue,
+                        Name::new("YValue"),
+                    ));
                 });
+
+                // Width coordinate
+                values_container.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        margin: UiRect::bottom(Val::Px(4.0)),
+                        width: Val::Percent(100.0),
+                        ..default()
+                    },
+                    Name::new("WidthCoordinateRow"),
+                    WidthCoordinateRow,
+                    Visibility::Hidden, // Initially hidden until selection
+                ))
+                .with_children(|row| {
+                    // Width Label
+                    row.spawn((
+                        Node {
+                            margin: UiRect::right(Val::Px(4.0)),
+                            ..default()
+                        },
+                        Text::new("W: "),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                    ));
+
+                    // Width Value
+                    row.spawn((
+                        Text::new("0"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(TEXT_COLOR),
+                        WidthValue,
+                        Name::new("WidthValue"),
+                    ));
+                });
+
+                // Height coordinate
+                values_container.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        margin: UiRect::bottom(Val::Px(8.0)),
+                        width: Val::Percent(100.0),
+                        ..default()
+                    },
+                    Name::new("HeightCoordinateRow"),
+                    HeightCoordinateRow,
+                    Visibility::Hidden, // Initially hidden until selection
+                ))
+                .with_children(|row| {
+                    // Height Label
+                    row.spawn((
+                        Node {
+                            margin: UiRect::right(Val::Px(4.0)),
+                            ..default()
+                        },
+                        Text::new("H: "),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                    ));
+
+                    // Height Value
+                    row.spawn((
+                        Text::new("0"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(TEXT_COLOR),
+                        HeightValue,
+                        Name::new("HeightValue"),
+                    ));
+                });
+            });
 
             // Add a Runebender-style quadrant selector 
             parent
@@ -454,6 +498,7 @@ fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
                     BorderRadius::all(Val::Px(WIDGET_BORDER_RADIUS / 2.0)),
                     QuadrantSelector,
                     Name::new("QuadrantSelector"),
+                    Visibility::Visible, // Always visible
                 ))
                 .with_children(|parent| {
                     // Spawn the visual quadrant selector
@@ -848,6 +893,43 @@ fn update_coordinate_display(
 // Component to mark text elements that display coordinate values
 #[derive(Component)]
 struct CoordinateValue(String);
+
+/// System to update the coord pane layout based on selection state
+fn update_coord_pane_layout(
+    coord_selection: Res<CoordinateSelection>,
+    mut coord_values_query: Query<&mut Node, With<CoordValuesContainer>>,
+    mut coord_pane_query: Query<&mut Node, (With<CoordPane>, Without<CoordValuesContainer>)>,
+) {
+    if !coord_selection.is_changed() {
+        return; // Only update when selection changes
+    }
+
+    // Update the values container visibility (height)
+    if let Ok(mut node) = coord_values_query.get_single_mut() {
+        if coord_selection.count == 0 {
+            // When nothing selected, collapse the values container
+            node.height = Val::Px(0.0);
+            node.margin = UiRect::all(Val::Px(0.0));
+            node.padding = UiRect::all(Val::Px(0.0));
+        } else {
+            // When selection exists, expand the values container
+            node.height = Val::Auto;
+            node.margin = UiRect::bottom(Val::Px(8.0));
+            node.padding = UiRect::all(Val::Px(4.0));
+        }
+    }
+
+    // Optional: Adjust the main pane width if needed
+    if let Ok(mut node) = coord_pane_query.get_single_mut() {
+        if coord_selection.count == 0 {
+            // Make more square when no selection, just enough for the quadrant selector
+            node.width = Val::Px(QUADRANT_GRID_SIZE + 24.0); // Just enough for the selector plus padding
+        } else {
+            // Normal width when showing coordinates
+            node.width = Val::Px(COORD_PANE_WIDTH);
+        }
+    }
+}
 
 /// Sets up the coordinate UI pane
 pub fn setup_ui(
