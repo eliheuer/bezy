@@ -85,6 +85,7 @@ pub const DEBUG_SHOW_ORIGIN_CROSS: bool = false; // Set to true to show the red 
 pub const BACKGROUND_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
 
 // UI Panel Colors
+#[allow(dead_code)]
 pub const PANEL_BACKGROUND_COLOR: Color = Color::srgb(0.15, 0.15, 0.15);
 pub const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 #[allow(dead_code)]
@@ -122,7 +123,7 @@ pub const CAMERA_MIN_SCALE: f32 = 0.8; // Minimum camera scale to prevent excess
 /// Returns a bundle of components that can be used to spawn a widget with
 /// consistent styling across the application.
 pub fn create_widget_style<T: Component + Default>(
-    asset_server: &Res<AssetServer>,
+    _asset_server: &Res<AssetServer>,
     position: PositionType,
     position_props: UiRect,
     marker: T,
@@ -178,6 +179,7 @@ pub fn create_widget_text(
 }
 
 /// Creates a label (dim) and value (bright) text pair for a widget row
+#[allow(dead_code)]
 pub fn create_widget_label_value_pair(
     asset_server: &Res<AssetServer>,
     label: &str,
@@ -225,6 +227,7 @@ pub fn get_default_text_style(asset_server: &Res<AssetServer>) -> TextFont {
     }
 }
 
+#[allow(dead_code)]
 pub fn get_mono_text_style(asset_server: &Res<AssetServer>) -> TextFont {
     TextFont {
         font: asset_server.load(MONO_FONT_PATH),
