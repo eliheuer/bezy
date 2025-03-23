@@ -4,6 +4,14 @@
 //
 // — Donald Knuth
 
+// “Even a billion dollars of capital cannot compete with a project having a soul.”
+//
+// — Vitalik Buterin
+
+// “It's not worth it, life is short. It's going to get taken over by robots in 5 years.”
+//
+// — Jonathan Blow on ECS: https://www.youtube.com/watch?v=VWC9RT5u8gQ
+
 mod access_toolbar;
 mod app;
 mod cameras;

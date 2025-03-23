@@ -145,7 +145,7 @@ pub fn create_widget_style<T: Component + Default>(
             height: Val::Auto,
             min_width: Val::Auto,
             min_height: Val::Auto,
-            max_width: Val::Px(280.0),  // Reduced maximum width for more compact widgets
+            max_width: Val::Px(380.0),  // Reduced maximum width for more compact widgets
             max_height: Val::Percent(50.0),  // Limit height to prevent stretching to top of screen
             justify_content: JustifyContent::FlexStart,
             align_items: AlignItems::FlexStart,
