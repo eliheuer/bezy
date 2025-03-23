@@ -15,7 +15,7 @@ pub const WIDGET_BORDER_COLOR: Color = Color::srgba(0.9, 0.9, 0.9, 1.0);
 pub const WIDGET_BORDER_RADIUS: f32 = 8.0;
 pub const WIDGET_BORDER_WIDTH: f32 = 2.0;
 pub const WIDGET_PADDING: f32 = 8.0;
-pub const WIDGET_MARGIN: f32 = 16.0;
+pub const WIDGET_MARGIN: f32 = 24.0;
 pub const WIDGET_ROW_GAP: f32 = 2.0;
 
 // Window Configuration

@@ -261,8 +261,8 @@ fn handle_quadrant_selection(
 }
 
 // Constants for quadrant selector styling
-const QUADRANT_CIRCLE_RADIUS: f32 = 12.0;
-const QUADRANT_GRID_SIZE: f32 = 100.0;
+const QUADRANT_CIRCLE_RADIUS: f32 = 16.0;
+const QUADRANT_GRID_SIZE: f32 = 128.0;
 const QUADRANT_OUTLINE_THICKNESS: f32 = 2.0;
 
 // Colors for quadrant selector (matching edit mode buttons)
@@ -488,10 +488,11 @@ fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
                         margin: UiRect::top(Val::Px(8.0)),
                         padding: UiRect::all(Val::Px(4.0)),
-                        width: Val::Px(QUADRANT_GRID_SIZE + 8.0), // Reduced padding
-                        height: Val::Px(QUADRANT_GRID_SIZE + 8.0), // Reduced padding
+                        width: Val::Px(QUADRANT_GRID_SIZE + 8.0),
+                        height: Val::Px(QUADRANT_GRID_SIZE + 8.0),
                         ..default()
                     },
                     BorderColor(WIDGET_BORDER_COLOR),
@@ -513,9 +514,11 @@ fn spawn_quadrant_selector(parent: &mut ChildBuilder) {
     // Main container with proper width and padding
     parent.spawn((
         Node {
-            width: Val::Percent(100.0),
+            width: Val::Px(QUADRANT_GRID_SIZE),
+            height: Val::Px(QUADRANT_GRID_SIZE),
             flex_direction: FlexDirection::Column,
-            padding: UiRect::all(Val::Px(8.0)),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
             ..default()
         },
         Name::new("QuadrantSelectorContainer"),
@@ -524,11 +527,11 @@ fn spawn_quadrant_selector(parent: &mut ChildBuilder) {
         // Inner container that will hold the grid layout and outline
         container.spawn((
             Node {
-                width: Val::Percent(100.0),
-                aspect_ratio: Some(1.0), // Perfect square
+                width: Val::Px(QUADRANT_GRID_SIZE - 16.0), // Account for padding
+                height: Val::Px(QUADRANT_GRID_SIZE - 16.0), // Account for padding
                 flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Stretch,
-                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
                 border: UiRect::all(Val::Px(QUADRANT_OUTLINE_THICKNESS)),
                 ..default()
             },
@@ -542,8 +545,9 @@ fn spawn_quadrant_selector(parent: &mut ChildBuilder) {
                     Node {
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
-                        justify_content: JustifyContent::SpaceBetween,
-                        height: Val::Percent(33.33),
+                        justify_content: JustifyContent::Center,
+                        height: Val::Px((QUADRANT_GRID_SIZE - 16.0) / 3.0),
+                        width: Val::Px(QUADRANT_GRID_SIZE - 16.0),
                         ..default()
                     },
                     Name::new(format!("QuadrantRow_{}", row_idx)),
@@ -579,22 +583,34 @@ fn spawn_quadrant_selector(parent: &mut ChildBuilder) {
                             QUADRANT_UNSELECTED_OUTLINE_COLOR
                         };
 
-                        // Spawn the quadrant circle button
+                        // Container to ensure proper spacing
                         row.spawn((
                             Node {
-                                width: Val::Px(QUADRANT_CIRCLE_RADIUS * 2.0),
-                                height: Val::Px(QUADRANT_CIRCLE_RADIUS * 2.0),
-                                margin: UiRect::all(Val::Px(4.0)),
-                                border: UiRect::all(Val::Px(QUADRANT_OUTLINE_THICKNESS)),
+                                width: Val::Px((QUADRANT_GRID_SIZE - 16.0) / 3.0),
+                                height: Val::Px((QUADRANT_GRID_SIZE - 16.0) / 3.0),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
                                 ..default()
                             },
-                            BackgroundColor(color),
-                            BorderColor(outline_color),
-                            BorderRadius::all(Val::Px(QUADRANT_CIRCLE_RADIUS)),
-                            Interaction::default(),
-                            QuadrantButton(quadrant),
-                            Name::new(format!("QuadrantButton_{:?}", quadrant)),
-                        ));
+                            Name::new(format!("QuadrantCell_{:?}", quadrant)),
+                        ))
+                        .with_children(|cell| {
+                            // Spawn the quadrant circle button
+                            cell.spawn((
+                                Node {
+                                    width: Val::Px(QUADRANT_CIRCLE_RADIUS * 2.0),
+                                    height: Val::Px(QUADRANT_CIRCLE_RADIUS * 2.0),
+                                    border: UiRect::all(Val::Px(QUADRANT_OUTLINE_THICKNESS)),
+                                    ..default()
+                                },
+                                BackgroundColor(color),
+                                BorderColor(outline_color),
+                                BorderRadius::all(Val::Px(QUADRANT_CIRCLE_RADIUS)),
+                                Interaction::default(),
+                                QuadrantButton(quadrant),
+                                Name::new(format!("QuadrantButton_{:?}", quadrant)),
+                            ));
+                        });
                     }
                 });
             }
