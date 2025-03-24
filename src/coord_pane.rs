@@ -21,9 +21,6 @@ use bevy::ui::UiRect;
 // CONSTANTS
 // ===============================================================================
 
-/// Width for the coordinate pane when fully expanded
-const COORD_PANE_WIDTH: f32 = 256.0;
-
 /// Size of the quadrant grid for the selector
 const QUADRANT_GRID_SIZE: f32 = 128.0;
 
@@ -205,12 +202,18 @@ fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
         right: Val::Px(WIDGET_MARGIN),
         bottom: Val::Px(WIDGET_MARGIN),
         top: Val::Auto,    // Prevents stretching
-        left: Val::Auto,   // Ensures correct sizing
-        ..default()
+        left: Val::Auto,   // Prevents stretching
     };
 
     // Spawn the main coordinate pane container
     commands
+        // Create the root UI node for the coordinate pane
+        // create_widget_style is a helper that bundles common UI styling, see theme.rs:
+        // - asset_server: Used for loading fonts and other assets
+        // - PositionType::Absolute: Makes the pane float over other UI elements
+        // - position: The UiRect we defined above for bottom-right positioning
+        // - CoordPane: Marker component to identify this as the coordinate pane
+        // - "CoordinatePane": Debug name for the entity in the inspector
         .spawn(create_widget_style(
             &asset_server,
             PositionType::Absolute,
@@ -218,11 +221,15 @@ fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
             CoordPane,
             "CoordinatePane",
         ))
+        // Add child UI elements to the coordinate pane
         .with_children(|parent| {
-            // Add the coordinate value display
+            // spawn_coordinate_values creates the X, Y, Width, Height value displays
+            // These show the actual coordinate numbers when something is selected
             spawn_coordinate_values(parent, &asset_server);
             
-            // Add the quadrant selector
+            // spawn_quadrant_selector_widget creates the 3x3 grid of circular buttons
+            // This lets users choose which point of the selection to use as reference
+            // (e.g., top-left, center, bottom-right, etc.)
             spawn_quadrant_selector_widget(parent);
         });
 }
@@ -366,10 +373,10 @@ fn spawn_quadrant_selector_widget(parent: &mut ChildBuilder) {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                margin: UiRect::all(Val::Px(8.0)), // Equal margins on all sides
+                margin: UiRect::all(Val::Px(0.0)), // Remove margin since parent handles spacing
                 padding: UiRect::all(Val::Px(4.0)),
-                width: Val::Px(QUADRANT_GRID_SIZE + 16.0), // Adjusted for margins
-                height: Val::Px(QUADRANT_GRID_SIZE + 16.0), // Adjusted for margins
+                width: Val::Px(QUADRANT_GRID_SIZE), // Base size without extra padding
+                height: Val::Px(QUADRANT_GRID_SIZE), // Base size without extra padding
                 ..default()
             },
             BorderColor(WIDGET_BORDER_COLOR),
@@ -819,14 +826,19 @@ fn update_coord_pane_layout(
         }
     }
 
-    // Update the main pane width
+    // Update the main pane width and ensure consistent padding
     if let Ok(mut node) = coord_pane_query.get_single_mut() {
         if coord_selection.count == 0 {
             // Make more square when just showing quadrant selector
-            node.width = Val::Px(QUADRANT_GRID_SIZE + 24.0);
+            // Add padding to both sides (WIDGET_PADDING * 2) to ensure consistent spacing
+            node.width = Val::Px(QUADRANT_GRID_SIZE + (WIDGET_PADDING * 2.0));
+            node.padding = UiRect::all(Val::Px(WIDGET_PADDING));
         } else {
-            // Use full width when showing coordinates
-            node.width = Val::Px(COORD_PANE_WIDTH);
+            // Use auto width when showing coordinates to fit contents
+            node.width = Val::Auto;
+            // Set a minimum width to ensure readability
+            node.min_width = Val::Px(QUADRANT_GRID_SIZE + (WIDGET_PADDING * 2.0));
+            node.padding = UiRect::all(Val::Px(WIDGET_PADDING));
         }
     }
 }

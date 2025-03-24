@@ -16,7 +16,7 @@ pub const WIDGET_BORDER_RADIUS: f32 = 8.0;
 pub const WIDGET_BORDER_WIDTH: f32 = 2.0;
 pub const WIDGET_PADDING: f32 = 8.0;
 pub const WIDGET_MARGIN: f32 = 24.0;
-pub const WIDGET_ROW_GAP: f32 = 2.0;
+pub const WIDGET_ROW_GAP: f32 = 0.0;
 
 // Window Configuration
 pub const WINDOW_TITLE: &str = "Bezy";
@@ -146,7 +146,7 @@ pub fn create_widget_style<T: Component + Default>(
             height: Val::Auto,
             min_width: Val::Auto,
             min_height: Val::Auto,
-            max_width: Val::Px(380.0),  // Reduced maximum width for more compact widgets
+            max_width: Val::Px(256.0),  // Reduced maximum width for more compact widgets
             max_height: Val::Percent(50.0),  // Limit height to prevent stretching to top of screen
             justify_content: JustifyContent::FlexStart,
             align_items: AlignItems::FlexStart,
