@@ -1,14 +1,36 @@
 //! Coordinate Pane Module
 //! 
-//! This module implements a floating panel that displays coordinates of selected points
-//! and provides a quadrant selector to choose reference points.
+//! This module implements a floating panel that displays coordinates and dimensions of selected elements.
+//! The pane consists of two main components:
+//! 
+//! 1. Coordinate Display:
+//!    - Shows X, Y coordinates of the selected reference point
+//!    - Shows Width (W) and Height (H) of the selection
+//!    - Values update in real-time as selection changes
+//!    - Values are hidden when nothing is selected
+//! 
+//! 2. Quadrant Selector:
+//!    - A 3x3 grid of circular buttons
+//!    - Allows choosing which point of the selection to use as reference
+//!    - Examples: top-left, center, bottom-right, etc.
+//!    - Always visible, even when nothing is selected
+//!    - Selected quadrant highlighted in orange
 //!
-//! The coordinate pane consists of two main parts:
-//! 1. A display showing X, Y, Width, and Height values of selected points
-//! 2. A quadrant selector grid allowing the user to choose which reference point to use
+//! Visual Layout:
+//! ```text
+//! ┌─────────────────┐
+//! │ X: 520         │  ← Coordinate display (shows when items selected)
+//! │ Y: 8           │
+//! │ W: 16          │
+//! │ H: 16          │
+//! │ ○ ○ ○         │  ← Quadrant selector (always visible)
+//! │ ○ ● ○         │    (● = selected quadrant)
+//! │ ○ ○ ○         │
+//! └─────────────────┘
+//! ```
 //!
-//! When points are selected, the coordinate values update to show their position and dimensions.
-//! The quadrant selector determines which point of the selection box is used as reference.
+//! The pane automatically positions itself in the bottom-right corner of the window
+//! and can be toggled with Ctrl+P.
 
 use crate::quadrant::Quadrant;
 use crate::theme::*;
@@ -21,116 +43,128 @@ use bevy::ui::UiRect;
 // CONSTANTS
 // ===============================================================================
 
-/// Size of the quadrant grid for the selector
+/// Size of the quadrant selector grid (width and height)
+/// This determines the overall size of the 3x3 grid of circular buttons
 const QUADRANT_GRID_SIZE: f32 = 128.0;
 
-/// Radius of the circles in the quadrant selector
+/// Radius of the individual circular buttons in the quadrant selector
+/// Each button is a circle with this radius, spaced evenly in the grid
 const QUADRANT_CIRCLE_RADIUS: f32 = 16.0;
 
-/// Border thickness for quadrant selector outline
+/// Thickness of the border around the quadrant selector outline
+/// Creates a square border that contains all nine quadrant buttons
 const QUADRANT_OUTLINE_THICKNESS: f32 = 2.0;
 
-/// Color for selected quadrant button (bright orange for visibility)
-const QUADRANT_SELECTED_COLOR: Color = Color::srgba(1.0, 0.6, 0.1, 0.9);
+/// Color for the currently selected quadrant button
+/// Bright orange with high opacity for clear visibility
+const QUADRANT_SELECTED_COLOR: Color = Color::srgba(1.0, 0.6, 0.1, 1.0);
 
-/// Color for unselected quadrant buttons (dark gray, less prominent)
-const QUADRANT_UNSELECTED_COLOR: Color = Color::srgba(0.3, 0.3, 0.3, 0.7);
+/// Color for unselected quadrant buttons
+/// Dark gray that's visible but not distracting
+const QUADRANT_UNSELECTED_COLOR: Color = Color::srgba(0.3, 0.3, 0.3, 1.0);
 
-/// Border color for selected quadrant button (bright outline for contrast)
-const QUADRANT_SELECTED_OUTLINE_COLOR: Color = Color::srgba(1.0, 0.8, 0.5, 0.8);
+/// Border color for the selected quadrant button
+/// Lighter orange than the fill color for a subtle glow effect
+const QUADRANT_SELECTED_OUTLINE_COLOR: Color = Color::srgba(1.0, 0.8, 0.5, 1.0);
 
-/// Border color for unselected quadrant buttons (subtle outline)
-const QUADRANT_UNSELECTED_OUTLINE_COLOR: Color = Color::srgba(0.7, 0.7, 0.7, 0.3);
+/// Border color for unselected quadrant buttons
+/// Light gray that provides subtle definition
+const QUADRANT_UNSELECTED_OUTLINE_COLOR: Color = Color::srgba(0.7, 0.7, 0.7, 1.0);
 
-/// Text color for disabled state (when no selection exists)
-const TEXT_COLOR_DISABLED: Color = Color::srgba(0.6, 0.6, 0.6, 0.8);
+/// Text color used when coordinate values are disabled
+/// (i.e., when no elements are selected)
+const TEXT_COLOR_DISABLED: Color = Color::srgba(0.6, 0.6, 0.6, 1.0);
 
 // ===============================================================================
 // COMPONENTS & RESOURCES
 // ===============================================================================
 
-/// Resource that stores information about the currently selected points
-/// and how their coordinates should be displayed
+/// Resource that tracks the current state of coordinate selection and display
+/// This is updated whenever the selection changes and drives the UI updates
 #[derive(Resource, Reflect, Default)]
 #[reflect(Resource)]
 pub struct CoordinateSelection {
-    /// Number of points currently selected
+    /// Number of elements currently selected
+    /// Used to determine if coordinates should be shown (count > 0)
     pub count: usize,
     
-    /// Which quadrant/reference point is currently active
+    /// Currently active quadrant that determines which reference point to use
+    /// This affects which point of the selection bounds is used for X/Y coordinates
     pub quadrant: Quadrant,
     
-    /// Bounding rectangle of the current selection
+    /// Bounding rectangle that encompasses all selected elements
+    /// Used to calculate coordinates and dimensions
     pub frame: Rect,
 }
 
 /// Marker component for the main coordinate pane container
+/// This is the root node that contains both the coordinate display and quadrant selector
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct CoordPane;
 
-/// Marker component for the container holding the coordinate value displays
+/// Marker for the container that holds all coordinate value displays
+/// This container is collapsed when nothing is selected
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct CoordValuesContainer;
 
-/// Marker for the X coordinate value text element
+/// Marker components for the different coordinate value text elements
+/// These are used to update the specific text values when coordinates change
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct XValue;
 
-/// Marker for the Y coordinate value text element
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct YValue;
 
-/// Marker for the Width value text element
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct WidthValue;
 
-/// Marker for the Height value text element
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct HeightValue;
 
-/// Marker component for the quadrant selector widget
+/// Marker for the quadrant selector widget container
+/// This contains the 3x3 grid of circular buttons
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 struct QuadrantSelector;
 
-/// Marker component with data for quadrant selector buttons
+/// Component that associates a quadrant button with its position in the grid
+/// The Quadrant enum value determines which reference point this button represents
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 pub struct QuadrantButton(pub Quadrant);
 
 impl Default for QuadrantButton {
     fn default() -> Self {
-        Self(Quadrant::Center) // Default to center quadrant
+        Self(Quadrant::Center) // Center is the default reference point
     }
 }
 
-/// Marker for the X coordinate row in the display
+/// Marker components for the coordinate display rows
+/// Used to control visibility of individual coordinate rows
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct XCoordinateRow;
 
-/// Marker for the Y coordinate row in the display
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct YCoordinateRow;
 
-/// Marker for the Width coordinate row in the display
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct WidthCoordinateRow;
 
-/// Marker for the Height coordinate row in the display
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct HeightCoordinateRow;
 
-/// Component to store coordinate value type for text elements
+/// Component that stores the type of coordinate value
+/// Used to determine which value to display in text elements
 #[derive(Component)]
 struct CoordinateValue(String);
 
@@ -139,12 +173,19 @@ struct CoordinateValue(String);
 // ===============================================================================
 
 /// Plugin that adds coordinate pane functionality to the application
+/// 
+/// This plugin handles:
+/// 1. Component and resource registration
+/// 2. Initial UI setup
+/// 3. Coordinate calculation and display systems
+/// 4. User interaction systems
 pub struct CoordinatePanePlugin;
 
 impl Plugin for CoordinatePanePlugin {
     fn build(&self, app: &mut App) {
         app
-            // Register all component types with reflection system
+            // Register all component types with Bevy's reflection system
+            // This enables debugging and serialization of these types
             .register_type::<CoordPane>()
             .register_type::<CoordinateSelection>()
             .register_type::<XValue>()
@@ -159,28 +200,28 @@ impl Plugin for CoordinatePanePlugin {
             .register_type::<HeightCoordinateRow>()
             .register_type::<CoordValuesContainer>()
             
-            // Register enum types
+            // Register the Quadrant enum for reflection
             .register_type::<Quadrant>()
             
-            // Initialize resources
+            // Initialize the coordinate selection resource with default values
             .init_resource::<CoordinateSelection>()
             
-            // Add systems
-            .add_systems(Startup, spawn_coord_pane)
+            // Add systems to the application
+            .add_systems(Startup, spawn_coord_pane)  // Creates initial UI
             .add_systems(
                 Update,
                 (
-                    // Selection handling and coordinate calculation
-                    display_selected_coordinates,
+                    // Core functionality
+                    display_selected_coordinates,     // Calculates coordinates from selection
                     
                     // UI update systems
-                    update_coord_pane_ui,
-                    handle_quadrant_selection,
-                    update_coord_pane_layout,
-                    update_coordinate_display,
+                    update_coord_pane_ui,            // Updates visibility and text values
+                    handle_quadrant_selection,        // Handles quadrant button clicks
+                    update_coord_pane_layout,         // Adjusts layout based on selection
+                    update_coordinate_display,        // Updates coordinate text display
                     
                     // User interaction
-                    toggle_coord_pane_visibility,
+                    toggle_coord_pane_visibility,     // Handles Ctrl+P shortcut
                 ),
             );
     }
@@ -192,12 +233,30 @@ impl Plugin for CoordinatePanePlugin {
 
 /// Creates the coordinate pane and adds it to the UI
 /// 
-/// This function spawns the main coordinate pane container in the bottom-right
-/// corner of the screen, along with all of its child elements.
+/// This function sets up the entire coordinate pane hierarchy:
+/// ```text
+/// CoordPane (root)
+/// ├── CoordValuesContainer
+/// │   ├── XCoordinateRow
+/// │   │   ├── Label ("X: ")
+/// │   │   └── Value
+/// │   ├── YCoordinateRow
+/// │   │   ├── Label ("Y: ")
+/// │   │   └── Value
+/// │   ├── WidthCoordinateRow
+/// │   │   ├── Label ("W: ")
+/// │   │   └── Value
+/// │   └── HeightCoordinateRow
+/// │       ├── Label ("H: ")
+/// │       └── Value
+/// └── QuadrantSelector
+///     └── Grid of 9 circular buttons
+/// ```
 fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
     info!("Spawning coordinate pane");
 
     // Position the coordinate pane in the bottom-right corner
+    // Using Auto for top/left prevents the pane from stretching
     let position = UiRect {
         right: Val::Px(WIDGET_MARGIN),
         bottom: Val::Px(WIDGET_MARGIN),
@@ -207,47 +266,41 @@ fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Spawn the main coordinate pane container
     commands
-        // Create the root UI node for the coordinate pane
-        // create_widget_style is a helper that bundles common UI styling, see theme.rs:
-        // - asset_server: Used for loading fonts and other assets
-        // - PositionType::Absolute: Makes the pane float over other UI elements
-        // - position: The UiRect we defined above for bottom-right positioning
-        // - CoordPane: Marker component to identify this as the coordinate pane
-        // - "CoordinatePane": Debug name for the entity in the inspector
         .spawn(create_widget_style(
             &asset_server,
-            PositionType::Absolute,
+            PositionType::Absolute,  // Makes the pane float over other UI
             position,
             CoordPane,
             "CoordinatePane",
         ))
-        // Add child UI elements to the coordinate pane
         .with_children(|parent| {
-            // spawn_coordinate_values creates the X, Y, Width, Height value displays
-            // These show the actual coordinate numbers when something is selected
+            // Create the coordinate value displays (X, Y, W, H)
             spawn_coordinate_values(parent, &asset_server);
             
-            // spawn_quadrant_selector_widget creates the 3x3 grid of circular buttons
-            // This lets users choose which point of the selection to use as reference
-            // (e.g., top-left, center, bottom-right, etc.)
+            // Create the quadrant selector grid
             spawn_quadrant_selector_widget(parent);
         });
 }
 
 /// Creates the container for coordinate value displays (X, Y, W, H)
+/// 
+/// This container holds four rows, one for each coordinate value.
+/// Each row contains a label and a value text element.
+/// The entire container is hidden when no elements are selected.
 fn spawn_coordinate_values(parent: &mut ChildBuilder, asset_server: &Res<AssetServer>) {
     parent.spawn((
         Node {
-            flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Stretch,
-            width: Val::Percent(100.0),
+            flex_direction: FlexDirection::Column,    // Stack rows vertically
+            align_items: AlignItems::Stretch,        // Stretch rows to container width
+            width: Val::Percent(100.0),              // Take full width of parent
+            margin: UiRect::bottom(Val::Px(4.0)),    // Space before quadrant selector
             ..default()
         },
         CoordValuesContainer,
         Name::new("CoordValuesContainer"),
     ))
     .with_children(|container| {
-        // Create all coordinate rows
+        // Create all coordinate rows in order
         spawn_coordinate_row(container, "X", XCoordinateRow, asset_server);
         spawn_coordinate_row(container, "Y", YCoordinateRow, asset_server);
         spawn_coordinate_row(container, "W", WidthCoordinateRow, asset_server);
@@ -257,8 +310,17 @@ fn spawn_coordinate_values(parent: &mut ChildBuilder, asset_server: &Res<AssetSe
 
 /// Creates a single coordinate row with label and value
 /// 
-/// Each row consists of a label (e.g., "X: ") and a value text element.
-/// The value element is tagged with the appropriate marker component.
+/// Each row is structured as:
+/// ```text
+/// ┌─ CoordinateRow ──────────┐
+/// │ Label ("X: ") │ Value    │
+/// └──────────────────────────┘
+/// ```
+/// 
+/// Parameters:
+/// - label: The text to show ("X", "Y", "W", or "H")
+/// - marker: Component to identify this row type
+/// - asset_server: For loading fonts
 fn spawn_coordinate_row<T: Component + Default>(
     parent: &mut ChildBuilder,
     label: &str,
@@ -267,21 +329,21 @@ fn spawn_coordinate_row<T: Component + Default>(
 ) {
     parent.spawn((
         Node {
-            flex_direction: FlexDirection::Row,
-            align_items: AlignItems::Center,
-            margin: UiRect::bottom(Val::Px(4.0)),
-            width: Val::Percent(100.0),
+            flex_direction: FlexDirection::Row,      // Label and value side by side
+            align_items: AlignItems::Center,         // Vertically center content
+            margin: UiRect::bottom(Val::Px(4.0)),    // Space between rows
+            width: Val::Percent(100.0),              // Take full width
             ..default()
         },
         Name::new(format!("{}CoordinateRow", label)),
         marker,
-        Visibility::Hidden, // Initially hidden until selection
+        Visibility::Hidden,                          // Initially hidden
     ))
     .with_children(|row| {
-        // Label component (e.g., "X: ")
+        // Create the label (e.g., "X: ")
         row.spawn((
             Node {
-                margin: UiRect::right(Val::Px(4.0)),
+                margin: UiRect::right(Val::Px(4.0)), // Space between label and value
                 ..default()
             },
             Text::new(format!("{}: ", label)),
@@ -290,82 +352,54 @@ fn spawn_coordinate_row<T: Component + Default>(
                 font_size: WIDGET_TEXT_FONT_SIZE,
                 ..default()
             },
-            TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+            TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),  // Dimmed label color
         ));
 
-        // Value component with appropriate marker
-        // Spawn the appropriate value component based on the label
+        // Create the value text with appropriate marker component
         match label {
-            "X" => {
-                row.spawn((
-                    Text::new("0"),
-                    TextFont {
-                        font: asset_server.load(MONO_FONT_PATH),
-                        font_size: WIDGET_TEXT_FONT_SIZE,
-                        ..default()
-                    },
-                    TextColor(TEXT_COLOR),
-                    XValue,
-                    Name::new("XValue"),
-                ));
-            },
-            "Y" => {
-                row.spawn((
-                    Text::new("0"),
-                    TextFont {
-                        font: asset_server.load(MONO_FONT_PATH),
-                        font_size: WIDGET_TEXT_FONT_SIZE,
-                        ..default()
-                    },
-                    TextColor(TEXT_COLOR),
-                    YValue,
-                    Name::new("YValue"),
-                ));
-            },
-            "W" => {
-                row.spawn((
-                    Text::new("0"),
-                    TextFont {
-                        font: asset_server.load(MONO_FONT_PATH),
-                        font_size: WIDGET_TEXT_FONT_SIZE,
-                        ..default()
-                    },
-                    TextColor(TEXT_COLOR),
-                    WidthValue,
-                    Name::new("WidthValue"),
-                ));
-            },
-            "H" => {
-                row.spawn((
-                    Text::new("0"),
-                    TextFont {
-                        font: asset_server.load(MONO_FONT_PATH),
-                        font_size: WIDGET_TEXT_FONT_SIZE,
-                        ..default()
-                    },
-                    TextColor(TEXT_COLOR),
-                    HeightValue,
-                    Name::new("HeightValue"),
-                ));
-            },
-            _ => {
-                row.spawn((
-                    Text::new("0"),
-                    TextFont {
-                        font: asset_server.load(MONO_FONT_PATH),
-                        font_size: WIDGET_TEXT_FONT_SIZE,
-                        ..default()
-                    },
-                    TextColor(TEXT_COLOR),
-                    XValue, // Default to XValue
-                    Name::new("DefaultValue"),
-                ));
-            }
+            "X" => spawn_value_text(row, asset_server, XValue, "XValue"),
+            "Y" => spawn_value_text(row, asset_server, YValue, "YValue"),
+            "W" => spawn_value_text(row, asset_server, WidthValue, "WidthValue"),
+            "H" => spawn_value_text(row, asset_server, HeightValue, "HeightValue"),
+            _ => spawn_value_text(row, asset_server, XValue, "DefaultValue"),
         }
     });
 }
 
-/// Creates the quadrant selector widget in the coordinate pane
+/// Helper function to spawn a value text element
+/// This reduces code duplication in spawn_coordinate_row
+fn spawn_value_text<T: Component>(
+    parent: &mut ChildBuilder,
+    asset_server: &Res<AssetServer>,
+    marker: T,
+    name: &str,
+) {
+    parent.spawn((
+        Text::new("0"),
+        TextFont {
+            font: asset_server.load(MONO_FONT_PATH),
+            font_size: WIDGET_TEXT_FONT_SIZE,
+            ..default()
+        },
+        TextColor(TEXT_COLOR),
+        marker,
+        Name::new(name.to_string()),  // Convert to owned String
+    ));
+}
+
+/// Creates the quadrant selector widget
+/// 
+/// This widget is a 3x3 grid of circular buttons that let the user
+/// choose which point of the selection to use as the reference point.
+/// 
+/// Layout:
+/// ```text
+/// ┌─ QuadrantSelector ─┐
+/// │ ○ ○ ○             │
+/// │ ○ ● ○  ← Selected │
+/// │ ○ ○ ○             │
+/// └──────────────────┘
+/// ```
 fn spawn_quadrant_selector_widget(parent: &mut ChildBuilder) {
     parent
         .spawn((
@@ -373,27 +407,28 @@ fn spawn_quadrant_selector_widget(parent: &mut ChildBuilder) {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                margin: UiRect::all(Val::Px(0.0)), // Remove margin since parent handles spacing
-                padding: UiRect::all(Val::Px(4.0)),
-                width: Val::Px(QUADRANT_GRID_SIZE), // Base size without extra padding
-                height: Val::Px(QUADRANT_GRID_SIZE), // Base size without extra padding
+                margin: UiRect::all(Val::Px(0.0)),   // Parent handles spacing
+                padding: UiRect::all(Val::Px(4.0)),  // Internal padding
+                width: Val::Px(QUADRANT_GRID_SIZE),  // Fixed size
+                height: Val::Px(QUADRANT_GRID_SIZE),
                 ..default()
             },
             BorderColor(WIDGET_BORDER_COLOR),
             BorderRadius::all(Val::Px(WIDGET_BORDER_RADIUS / 2.0)),
             QuadrantSelector,
             Name::new("QuadrantSelector"),
-            Visibility::Visible, // Always visible
+            Visibility::Visible,                      // Always visible
         ))
         .with_children(|parent| {
-            // Create the grid of quadrant selectors
             spawn_quadrant_selector_grid(parent);
         });
 }
 
 /// Creates the grid container for the quadrant selector
+/// 
+/// This creates a square outline that contains the 3x3 grid of buttons.
+/// The grid is centered within the outline with proper spacing.
 fn spawn_quadrant_selector_grid(parent: &mut ChildBuilder) {
-    // Outer container with fixed dimensions
     parent.spawn((
         Node {
             width: Val::Px(QUADRANT_GRID_SIZE),
@@ -406,11 +441,11 @@ fn spawn_quadrant_selector_grid(parent: &mut ChildBuilder) {
         Name::new("QuadrantSelectorContainer"),
     ))
     .with_children(|container| {
-        // Inner container with border outline
+        // Create the square outline container
         container.spawn((
             Node {
-                width: Val::Px(QUADRANT_GRID_SIZE - 16.0), // Account for padding
-                height: Val::Px(QUADRANT_GRID_SIZE - 16.0), // Account for padding
+                width: Val::Px(QUADRANT_GRID_SIZE - 50.0),  // Account for padding
+                height: Val::Px(QUADRANT_GRID_SIZE - 50.0),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
@@ -421,7 +456,7 @@ fn spawn_quadrant_selector_grid(parent: &mut ChildBuilder) {
             BorderColor(QUADRANT_UNSELECTED_OUTLINE_COLOR),
         ))
         .with_children(|grid| {
-            // Create the 3x3 grid of quadrant buttons
+            // Create the 3x3 grid of buttons
             for row_idx in 0..3 {
                 spawn_quadrant_grid_row(grid, row_idx);
             }
@@ -430,8 +465,10 @@ fn spawn_quadrant_selector_grid(parent: &mut ChildBuilder) {
 }
 
 /// Creates a single row in the quadrant selector grid
+/// 
+/// Each row contains three circular buttons, evenly spaced.
+/// The buttons are mapped to specific quadrants based on their position.
 fn spawn_quadrant_grid_row(parent: &mut ChildBuilder, row_idx: usize) {
-    // Set up a row with fixed height and centered content
     parent.spawn((
         Node {
             flex_direction: FlexDirection::Row,
@@ -444,9 +481,9 @@ fn spawn_quadrant_grid_row(parent: &mut ChildBuilder, row_idx: usize) {
         Name::new(format!("QuadrantRow_{}", row_idx)),
     ))
     .with_children(|row| {
-        // Create 3 quadrant buttons in this row
+        // Create three buttons for this row
         for col_idx in 0..3 {
-            // Map the grid coordinates to a quadrant
+            // Map grid position to quadrant type
             let quadrant = match (row_idx, col_idx) {
                 (0, 0) => Quadrant::TopLeft,
                 (0, 1) => Quadrant::Top,
@@ -460,18 +497,23 @@ fn spawn_quadrant_grid_row(parent: &mut ChildBuilder, row_idx: usize) {
                 _ => unreachable!(),
             };
 
-            // Create the button for this quadrant
             spawn_quadrant_button(row, quadrant);
         }
     });
 }
 
-/// Creates a single button in the quadrant selector grid
+/// Creates a single circular button in the quadrant selector
+/// 
+/// Each button is a circle with:
+/// - Background color (orange when selected, gray when not)
+/// - Border (lighter color than background)
+/// - Interaction component for click handling
+/// - QuadrantButton component to identify its position
 fn spawn_quadrant_button(parent: &mut ChildBuilder, quadrant: Quadrant) {
-    // Determine if this is the default selected quadrant (Center)
+    // Center is selected by default
     let is_selected = quadrant == Quadrant::Center;
     
-    // Apply appropriate styling based on selection state
+    // Choose colors based on selection state
     let color = if is_selected {
         QUADRANT_SELECTED_COLOR
     } else {
@@ -484,7 +526,7 @@ fn spawn_quadrant_button(parent: &mut ChildBuilder, quadrant: Quadrant) {
         QUADRANT_UNSELECTED_OUTLINE_COLOR
     };
 
-    // Create a container to ensure proper spacing
+    // Create a container for proper button spacing
     parent.spawn((
         Node {
             width: Val::Px((QUADRANT_GRID_SIZE - 16.0) / 3.0),
@@ -496,7 +538,7 @@ fn spawn_quadrant_button(parent: &mut ChildBuilder, quadrant: Quadrant) {
         Name::new(format!("QuadrantCell_{:?}", quadrant)),
     ))
     .with_children(|cell| {
-        // Create the circular quadrant button
+        // Create the circular button
         cell.spawn((
             Node {
                 width: Val::Px(QUADRANT_CIRCLE_RADIUS * 2.0),
@@ -507,7 +549,7 @@ fn spawn_quadrant_button(parent: &mut ChildBuilder, quadrant: Quadrant) {
             BackgroundColor(color),
             BorderColor(outline_color),
             BorderRadius::all(Val::Px(QUADRANT_CIRCLE_RADIUS)),
-            Interaction::default(), // Make it interactive
+            Interaction::default(),
             QuadrantButton(quadrant),
             Name::new(format!("QuadrantButton_{:?}", quadrant)),
         ));
@@ -521,22 +563,26 @@ fn spawn_quadrant_button(parent: &mut ChildBuilder, quadrant: Quadrant) {
 /// Calculates and updates coordinates for selected entities
 /// 
 /// This system:
-/// 1. Gets all selected entities from the SelectionState resource
-/// 2. Calculates the bounding box containing all selected entities
-/// 3. Updates the CoordinateSelection resource with the new information
+/// 1. Checks if any entities are selected
+/// 2. Gets the global transform (position) of each selected entity
+/// 3. Calculates a bounding box that contains all selected entities
+/// 4. Updates the CoordinateSelection resource with the new information
+/// 
+/// The bounding box is used to:
+/// - Calculate X/Y coordinates based on the selected quadrant
+/// - Determine the width and height of the selection
 pub fn display_selected_coordinates(
     mut coord_selection: ResMut<CoordinateSelection>,
     selection_state: Option<Res<crate::selection::components::SelectionState>>,
     transforms: Query<&GlobalTransform>,
 ) {
-    // Check if selection state is available
+    // Log selection state for debugging
     if let Some(state) = &selection_state {
         info!(
             "CoordPane: SelectionState is available with {} selected entities",
             state.selected.len()
         );
 
-        // Log selected entities for debugging
         if !state.selected.is_empty() {
             let entities: Vec<_> = state.selected.iter().collect();
             info!("CoordPane: Selected entities in SelectionState: {:?}", entities);
@@ -545,7 +591,7 @@ pub fn display_selected_coordinates(
         info!("CoordPane: SelectionState resource is NOT available");
     }
 
-    // Get the number of selected entities
+    // Get number of selected entities
     let selected_count = selection_state
         .as_ref()
         .map_or(0, |state| state.selected.len());
@@ -553,7 +599,7 @@ pub fn display_selected_coordinates(
     info!("CoordPane: Selection system running with {selected_count} selected entities");
 
     if selected_count > 0 {
-        // Process selection only if we have selected entities
+        // Process selection if we have selected entities
         process_selected_entities(&selection_state, &transforms, &mut coord_selection);
     } else {
         // Clear selection data if nothing is selected
@@ -563,8 +609,10 @@ pub fn display_selected_coordinates(
 
 /// Processes selected entities and updates the coordinate selection
 /// 
-/// Helper function that handles the logic of calculating the bounding box
-/// of selected entities and updating the coordinate selection resource.
+/// This helper function:
+/// 1. Collects positions of all selected entities
+/// 2. Calculates a bounding rectangle that contains all positions
+/// 3. Updates the coordinate selection resource with new data
 fn process_selected_entities(
     selection_state: &Option<Res<crate::selection::components::SelectionState>>,
     transforms: &Query<&GlobalTransform>,
@@ -586,10 +634,10 @@ fn process_selected_entities(
     }
 
     if !positions.is_empty() {
-        // Create a bounding rect from all positions
+        // Calculate bounding rectangle from positions
         let frame = calculate_bounding_rect(&positions);
         
-        // Update the selection resource
+        // Update selection resource
         coord_selection.count = selection_state.as_ref().map_or(0, |state| state.selected.len());
         coord_selection.frame = frame;
 
@@ -603,12 +651,16 @@ fn process_selected_entities(
 }
 
 /// Calculates a bounding rectangle containing all provided positions
+/// 
+/// This function finds the minimum and maximum X/Y coordinates
+/// of all positions to create a rectangle that encompasses them all.
 fn calculate_bounding_rect(positions: &[Vec2]) -> Rect {
     let mut min_x = f32::MAX;
     let mut min_y = f32::MAX;
     let mut max_x = f32::MIN;
     let mut max_y = f32::MIN;
 
+    // Find the extremes of all positions
     for position in positions {
         min_x = min_x.min(position.x);
         min_y = min_y.min(position.y);
@@ -616,13 +668,16 @@ fn calculate_bounding_rect(positions: &[Vec2]) -> Rect {
         max_y = max_y.max(position.y);
     }
 
+    // Create a rectangle from the min/max points
     Rect::from_corners(
         Vec2::new(min_x, min_y),
         Vec2::new(max_x, max_y),
     )
 }
 
-/// Clears the coordinate selection state (for when nothing is selected)
+/// Clears the coordinate selection state
+/// 
+/// Called when no entities are selected to reset the display
 fn clear_coordinate_selection(coord_selection: &mut CoordinateSelection) {
     info!("CoordPane: No selection - clearing coordinate display");
     coord_selection.count = 0;
@@ -633,12 +688,12 @@ fn clear_coordinate_selection(coord_selection: &mut CoordinateSelection) {
     );
 }
 
-/// Updates the UI elements in the coordinate pane based on selection state
+/// Updates the UI elements in the coordinate pane
 /// 
 /// This system:
-/// 1. Updates visibility of coordinate rows based on selection state
-/// 2. Always keeps the quadrant selector visible
-/// 3. Updates text values with calculated coordinates
+/// 1. Updates visibility of coordinate rows based on selection
+/// 2. Keeps the quadrant selector always visible
+/// 3. Updates text values with current coordinates
 fn update_coord_pane_ui(
     coord_selection: Res<CoordinateSelection>,
     mut text_queries: ParamSet<(
@@ -647,53 +702,43 @@ fn update_coord_pane_ui(
         Query<&mut Text, With<WidthValue>>,
         Query<&mut Text, With<HeightValue>>,
     )>,
-    mut row_queries: ParamSet<(
-        Query<&mut Visibility, With<XCoordinateRow>>,
-        Query<&mut Visibility, With<YCoordinateRow>>,
-        Query<&mut Visibility, With<WidthCoordinateRow>>,
-        Query<&mut Visibility, With<HeightCoordinateRow>>,
-        Query<&mut Visibility, With<QuadrantSelector>>,
-    )>,
+    mut visibility_query: Query<(&mut Visibility, Option<&XCoordinateRow>, Option<&YCoordinateRow>, Option<&WidthCoordinateRow>, Option<&HeightCoordinateRow>, Option<&QuadrantSelector>)>,
 ) {
-    // Log the current selection state
     info!(
         "Updating coordinate pane UI: count={}, quadrant={:?}, frame={:?}",
         coord_selection.count, coord_selection.quadrant, coord_selection.frame
     );
 
-    // Set visibility based on whether anything is selected
+    // Set visibility based on selection state
     let coord_visibility = if coord_selection.count == 0 {
-        Visibility::Hidden // Hide coordinate rows when nothing is selected
+        Visibility::Hidden
     } else {
-        Visibility::Visible // Show when something is selected
+        Visibility::Visible
     };
 
-    // Update visibility for all coordinate rows directly
-    if let Ok(mut visibility) = row_queries.p0().get_single_mut() {
-        *visibility = coord_visibility;
-    }
-    if let Ok(mut visibility) = row_queries.p1().get_single_mut() {
-        *visibility = coord_visibility;
-    }
-    if let Ok(mut visibility) = row_queries.p2().get_single_mut() {
-        *visibility = coord_visibility;
-    }
-    if let Ok(mut visibility) = row_queries.p3().get_single_mut() {
-        *visibility = coord_visibility;
-    }
-    
-    // Always keep the quadrant selector visible
-    if let Ok(mut visibility) = row_queries.p4().get_single_mut() {
-        *visibility = Visibility::Visible;
+    // Update visibility for all elements in a single pass
+    for (mut visibility, is_x, is_y, is_w, is_h, is_quadrant) in visibility_query.iter_mut() {
+        if is_quadrant.is_some() {
+            // Quadrant selector is always visible
+            *visibility = Visibility::Visible;
+        } else if is_x.is_some() || is_y.is_some() || is_w.is_some() || is_h.is_some() {
+            // Coordinate rows follow selection state
+            *visibility = coord_visibility;
+        }
     }
 
-    // Only update coordinate values if we have a selection
+    // Update coordinate values if we have a selection
     if coord_selection.count > 0 {
         update_coordinate_values(&coord_selection, &mut text_queries);
     }
 }
 
-/// Updates the coordinate text values based on the current selection
+/// Updates the coordinate text values based on selection
+/// 
+/// This function:
+/// 1. Gets the reference point based on selected quadrant
+/// 2. Updates X/Y coordinates to show that point's position
+/// 3. Updates W/H values to show selection dimensions
 fn update_coordinate_values(
     coord_selection: &CoordinateSelection,
     text_queries: &mut ParamSet<(
@@ -705,31 +750,28 @@ fn update_coordinate_values(
 ) {
     let frame = coord_selection.frame;
 
-    // Calculate the reference point based on selected quadrant
+    // Get the reference point for the selected quadrant
     let point = get_quadrant_point(&frame, coord_selection.quadrant);
 
-    // Update X coordinate text
+    // Update each coordinate value
     if let Ok(mut text) = text_queries.p0().get_single_mut() {
         let formatted = format_coord_value(point.x);
         info!("Setting X value to: {}", formatted);
         *text = Text::new(formatted);
     }
 
-    // Update Y coordinate text
     if let Ok(mut text) = text_queries.p1().get_single_mut() {
         let formatted = format_coord_value(point.y);
         info!("Setting Y value to: {}", formatted);
         *text = Text::new(formatted);
     }
 
-    // Update Width text
     if let Ok(mut text) = text_queries.p2().get_single_mut() {
         let formatted = format_coord_value(frame.width());
         info!("Setting Width value to: {}", formatted);
         *text = Text::new(formatted);
     }
 
-    // Update Height text
     if let Ok(mut text) = text_queries.p3().get_single_mut() {
         let formatted = format_coord_value(frame.height());
         info!("Setting Height value to: {}", formatted);
@@ -737,12 +779,18 @@ fn update_coordinate_values(
     }
 }
 
-/// Calculates a point on the bounding rectangle based on the selected quadrant
+/// Calculates a point on the bounding rectangle based on quadrant
+/// 
+/// Given a rectangle and a quadrant, this returns the corresponding point:
+/// - Center: Middle of the rectangle
+/// - TopLeft: Upper-left corner
+/// - Top: Middle of top edge
+/// - etc.
 fn get_quadrant_point(frame: &Rect, quadrant: Quadrant) -> Vec2 {
     match quadrant {
         Quadrant::Center => Vec2::new(
-            (frame.min.x + frame.max.x) / 2.0,
-            (frame.min.y + frame.max.y) / 2.0,
+            (frame.min.x + frame.max.x) / 2.0,  // Center X
+            (frame.min.y + frame.max.y) / 2.0,  // Center Y
         ),
         Quadrant::TopLeft => Vec2::new(frame.min.x, frame.max.y),
         Quadrant::Top => Vec2::new((frame.min.x + frame.max.x) / 2.0, frame.max.y),
@@ -752,122 +800,6 @@ fn get_quadrant_point(frame: &Rect, quadrant: Quadrant) -> Vec2 {
         Quadrant::Bottom => Vec2::new((frame.min.x + frame.max.x) / 2.0, frame.min.y),
         Quadrant::BottomLeft => Vec2::new(frame.min.x, frame.min.y),
         Quadrant::Left => Vec2::new(frame.min.x, (frame.min.y + frame.max.y) / 2.0),
-    }
-}
-
-// ===============================================================================
-// INTERACTION & LAYOUT SYSTEMS
-// ===============================================================================
-
-/// Handles user interaction with the quadrant selector buttons
-/// 
-/// This system:
-/// 1. Detects when a quadrant button is clicked
-/// 2. Updates the selected quadrant in the CoordinateSelection resource
-/// 3. Updates the visual appearance of all quadrant buttons
-fn handle_quadrant_selection(
-    interaction_query: Query<
-        (&Interaction, &QuadrantButton),
-        Changed<Interaction>,
-    >,
-    mut coord_selection: ResMut<CoordinateSelection>,
-    mut quadrant_buttons: Query<(&mut BackgroundColor, &mut BorderColor, &QuadrantButton)>,
-) {
-    // First, check for new interactions
-    for (interaction, quadrant_button) in interaction_query.iter() {
-        if *interaction == Interaction::Pressed {
-            // Update the selected quadrant when a button is clicked
-            coord_selection.quadrant = quadrant_button.0;
-        }
-    }
-
-    // Then update the visual state of all buttons
-    if coord_selection.is_changed() {
-        for (mut background, mut border_color, quadrant_button) in quadrant_buttons.iter_mut() {
-            if quadrant_button.0 == coord_selection.quadrant {
-                // Selected - use bright color
-                *background = BackgroundColor(QUADRANT_SELECTED_COLOR);
-                *border_color = BorderColor(QUADRANT_SELECTED_OUTLINE_COLOR);
-            } else {
-                // Not selected - use darker color
-                *background = BackgroundColor(QUADRANT_UNSELECTED_COLOR);
-                *border_color = BorderColor(QUADRANT_UNSELECTED_OUTLINE_COLOR);
-            }
-        }
-    }
-}
-
-/// Adjusts the layout of the coordinate pane based on selection state
-/// 
-/// When no points are selected, this system collapses the coordinate value
-/// section and makes the pane more compact, showing only the quadrant selector.
-fn update_coord_pane_layout(
-    coord_selection: Res<CoordinateSelection>,
-    mut coord_values_query: Query<&mut Node, With<CoordValuesContainer>>,
-    mut coord_pane_query: Query<&mut Node, (With<CoordPane>, Without<CoordValuesContainer>)>,
-) {
-    // Only update when the selection state changes
-    if !coord_selection.is_changed() {
-        return;
-    }
-
-    // Update the coordinate values container layout
-    if let Ok(mut node) = coord_values_query.get_single_mut() {
-        if coord_selection.count == 0 {
-            // Collapse when nothing is selected
-            node.height = Val::Px(0.0);
-            node.margin = UiRect::all(Val::Px(0.0));
-            node.padding = UiRect::all(Val::Px(0.0));
-        } else {
-            // Expand when something is selected
-            node.height = Val::Auto;
-            node.margin = UiRect::bottom(Val::Px(8.0));
-            node.padding = UiRect::all(Val::Px(4.0));
-        }
-    }
-
-    // Update the main pane width and ensure consistent padding
-    if let Ok(mut node) = coord_pane_query.get_single_mut() {
-        if coord_selection.count == 0 {
-            // Make more square when just showing quadrant selector
-            // Add padding to both sides (WIDGET_PADDING * 2) to ensure consistent spacing
-            node.width = Val::Px(QUADRANT_GRID_SIZE + (WIDGET_PADDING * 2.0));
-            node.padding = UiRect::all(Val::Px(WIDGET_PADDING));
-        } else {
-            // Use auto width when showing coordinates to fit contents
-            node.width = Val::Auto;
-            // Set a minimum width to ensure readability
-            node.min_width = Val::Px(QUADRANT_GRID_SIZE + (WIDGET_PADDING * 2.0));
-            node.padding = UiRect::all(Val::Px(WIDGET_PADDING));
-        }
-    }
-}
-
-/// Toggles the visibility of the coordinate pane with keyboard shortcut (Ctrl+P)
-pub fn toggle_coord_pane_visibility(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut coord_pane_query: Query<&mut Visibility, With<CoordPane>>,
-) {
-    // Check for Ctrl+P key combination
-    let ctrl_pressed = keyboard_input.pressed(KeyCode::ControlLeft)
-        || keyboard_input.pressed(KeyCode::ControlRight)
-        || keyboard_input.pressed(KeyCode::SuperLeft)
-        || keyboard_input.pressed(KeyCode::SuperRight);
-
-    if ctrl_pressed && keyboard_input.just_pressed(KeyCode::KeyP) {
-        for mut visibility in coord_pane_query.iter_mut() {
-            // Toggle between visible and hidden
-            *visibility = match *visibility {
-                Visibility::Visible => {
-                    info!("Hiding coordinate pane");
-                    Visibility::Hidden
-                }
-                _ => {
-                    info!("Showing coordinate pane");
-                    Visibility::Visible
-                }
-            };
-        }
     }
 }
 
@@ -937,13 +869,146 @@ fn calculate_selection_coordinates(
 }
 
 // ===============================================================================
+// INTERACTION & LAYOUT SYSTEMS
+// ===============================================================================
+
+/// Handles user interaction with the quadrant selector buttons
+/// 
+/// This system:
+/// 1. Detects when a quadrant button is clicked
+/// 2. Updates the selected quadrant in CoordinateSelection
+/// 3. Updates the visual appearance of all buttons
+/// 
+/// When a button is clicked:
+/// - It becomes highlighted in orange
+/// - Its border gets a lighter orange glow
+/// - Other buttons return to their unselected gray state
+fn handle_quadrant_selection(
+    interaction_query: Query<
+        (&Interaction, &QuadrantButton),
+        Changed<Interaction>,
+    >,
+    mut coord_selection: ResMut<CoordinateSelection>,
+    mut quadrant_buttons: Query<(&mut BackgroundColor, &mut BorderColor, &QuadrantButton)>,
+) {
+    // Check for new button interactions
+    for (interaction, quadrant_button) in interaction_query.iter() {
+        if *interaction == Interaction::Pressed {
+            coord_selection.quadrant = quadrant_button.0;
+        }
+    }
+
+    // Update button appearances when selection changes
+    if coord_selection.is_changed() {
+        for (mut background, mut border_color, quadrant_button) in quadrant_buttons.iter_mut() {
+            if quadrant_button.0 == coord_selection.quadrant {
+                // Selected button gets bright colors
+                *background = BackgroundColor(QUADRANT_SELECTED_COLOR);
+                *border_color = BorderColor(QUADRANT_SELECTED_OUTLINE_COLOR);
+            } else {
+                // Unselected buttons get muted colors
+                *background = BackgroundColor(QUADRANT_UNSELECTED_COLOR);
+                *border_color = BorderColor(QUADRANT_UNSELECTED_OUTLINE_COLOR);
+            }
+        }
+    }
+}
+
+/// Adjusts the layout of the coordinate pane based on selection
+/// 
+/// This system manages the pane's layout in two states:
+/// 
+/// 1. When nothing is selected:
+///    - Collapses the coordinate values section
+///    - Makes the pane more compact
+///    - Shows only the quadrant selector
+/// 
+/// 2. When elements are selected:
+///    - Expands to show coordinate values
+///    - Adjusts width to fit content
+///    - Maintains consistent padding
+fn update_coord_pane_layout(
+    coord_selection: Res<CoordinateSelection>,
+    mut coord_values_query: Query<&mut Node, With<CoordValuesContainer>>,
+    mut coord_pane_query: Query<&mut Node, (With<CoordPane>, Without<CoordValuesContainer>)>,
+) {
+    // Only update when selection changes
+    if !coord_selection.is_changed() {
+        return;
+    }
+
+    // Update the coordinate values container layout
+    if let Ok(mut node) = coord_values_query.get_single_mut() {
+        if coord_selection.count == 0 {
+            // Collapse when nothing is selected
+            node.height = Val::Px(0.0);
+            node.margin = UiRect::all(Val::Px(0.0));
+            node.padding = UiRect::all(Val::Px(0.0));
+        } else {
+            // Expand when something is selected
+            node.height = Val::Auto;
+            node.margin = UiRect::bottom(Val::Px(0.0));
+            node.padding = UiRect::all(Val::Px(0.0));
+        }
+    }
+
+    // Update the main pane layout
+    if let Ok(mut node) = coord_pane_query.get_single_mut() {
+        if coord_selection.count == 0 {
+            // Compact layout when just showing quadrant selector
+            node.width = Val::Px(QUADRANT_GRID_SIZE + (WIDGET_PADDING * 2.0));
+            node.padding = UiRect::all(Val::Px(WIDGET_PADDING));
+        } else {
+            // Expanded layout when showing coordinates
+            node.width = Val::Auto;
+            node.min_width = Val::Px(QUADRANT_GRID_SIZE + (WIDGET_PADDING * 2.0));
+            node.padding = UiRect::all(Val::Px(WIDGET_PADDING));
+        }
+    }
+}
+
+/// Toggles the coordinate pane visibility with Ctrl+P
+/// 
+/// This system:
+/// 1. Checks for the Ctrl+P key combination
+/// 2. Toggles the pane's visibility when pressed
+/// 3. Logs the visibility change for debugging
+pub fn toggle_coord_pane_visibility(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut coord_pane_query: Query<&mut Visibility, With<CoordPane>>,
+) {
+    // Check for Ctrl+P combination
+    let ctrl_pressed = keyboard_input.pressed(KeyCode::ControlLeft)
+        || keyboard_input.pressed(KeyCode::ControlRight)
+        || keyboard_input.pressed(KeyCode::SuperLeft)
+        || keyboard_input.pressed(KeyCode::SuperRight);
+
+    if ctrl_pressed && keyboard_input.just_pressed(KeyCode::KeyP) {
+        for mut visibility in coord_pane_query.iter_mut() {
+            // Toggle between visible and hidden
+            *visibility = match *visibility {
+                Visibility::Visible => {
+                    info!("Hiding coordinate pane");
+                    Visibility::Hidden
+                }
+                _ => {
+                    info!("Showing coordinate pane");
+                    Visibility::Visible
+                }
+            };
+        }
+    }
+}
+
+// ===============================================================================
 // UTILITY FUNCTIONS
 // ===============================================================================
 
 /// Formats a coordinate value for display
 /// 
-/// If the value has no fractional part, formats it as an integer.
-/// Otherwise, formats it with one decimal place.
+/// This function formats numbers in two ways:
+/// 1. Integers: Shown without decimal point (e.g., "42")
+/// 2. Decimals: Shown with one decimal place (e.g., "42.5")
 fn format_coord_value(value: f32) -> String {
     if value.fract() == 0.0 {
         format!("{}", value as i32)
