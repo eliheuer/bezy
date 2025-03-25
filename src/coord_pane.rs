@@ -18,19 +18,19 @@
 //!
 //! Visual Layout:
 //! ```text
-//! ┌─────────────────┐
-//! │ X: 520         │  ← Coordinate display (shows when items selected)
-//! │ Y: 8           │
-//! │ W: 16          │
-//! │ H: 16          │
-//! │ ○ ○ ○         │  ← Quadrant selector (always visible)
-//! │ ○ ● ○         │    (● = selected quadrant)
-//! │ ○ ○ ○         │
-//! └─────────────────┘
+//! ┌────────┐
+//! │ X:520  │ ← Coordinate display (shows when items selected)
+//! │ Y:8    │
+//! │ W:16   │
+//! │ H:16   │
+//! │ ○ ○ ○  │ ← Quadrant selector (always visible)
+//! │ ○ ● ○  │   (● = selected quadrant)
+//! │ ○ ○ ○  │
+//! └────────┘
 //! ```
 //!
 //! The pane automatically positions itself in the bottom-right corner of the window
-//! and can be toggled with Ctrl+P.
+//! and can be toggled with Ctrl+P. TODO: Remove the Ctrl+P shortcut.
 
 use crate::quadrant::Quadrant;
 use crate::theme::*;
@@ -46,34 +46,18 @@ use bevy::ui::UiRect;
 /// Size of the quadrant selector grid (width and height)
 /// This determines the overall size of the 3x3 grid of circular buttons
 const QUADRANT_GRID_SIZE: f32 = 128.0;
-
 /// Radius of the individual circular buttons in the quadrant selector
-/// Each button is a circle with this radius, spaced evenly in the grid
-const QUADRANT_CIRCLE_RADIUS: f32 = 16.0;
-
+const QUADRANT_CIRCLE_RADIUS: f32 = 12.0;
 /// Thickness of the border around the quadrant selector outline
-/// Creates a square border that contains all nine quadrant buttons
-const QUADRANT_OUTLINE_THICKNESS: f32 = 2.0;
-
+const QUADRANT_OUTLINE_THICKNESS: f32 = 1.0;
 /// Color for the currently selected quadrant button
-/// Bright orange with high opacity for clear visibility
 const QUADRANT_SELECTED_COLOR: Color = Color::srgba(1.0, 0.6, 0.1, 1.0);
-
 /// Color for unselected quadrant buttons
-/// Dark gray that's visible but not distracting
 const QUADRANT_UNSELECTED_COLOR: Color = Color::srgba(0.3, 0.3, 0.3, 1.0);
-
 /// Border color for the selected quadrant button
-/// Lighter orange than the fill color for a subtle glow effect
 const QUADRANT_SELECTED_OUTLINE_COLOR: Color = Color::srgba(1.0, 0.8, 0.5, 1.0);
-
 /// Border color for unselected quadrant buttons
-/// Light gray that provides subtle definition
 const QUADRANT_UNSELECTED_OUTLINE_COLOR: Color = Color::srgba(0.7, 0.7, 0.7, 1.0);
-
-/// Text color used when coordinate values are disabled
-/// (i.e., when no elements are selected)
-const TEXT_COLOR_DISABLED: Color = Color::srgba(0.6, 0.6, 0.6, 1.0);
 
 // ===============================================================================
 // COMPONENTS & RESOURCES
@@ -238,16 +222,16 @@ impl Plugin for CoordinatePanePlugin {
 /// CoordPane (root)
 /// ├── CoordValuesContainer
 /// │   ├── XCoordinateRow
-/// │   │   ├── Label ("X: ")
+/// │   │   ├── Label ("X:")
 /// │   │   └── Value
 /// │   ├── YCoordinateRow
-/// │   │   ├── Label ("Y: ")
+/// │   │   ├── Label ("Y:")
 /// │   │   └── Value
 /// │   ├── WidthCoordinateRow
-/// │   │   ├── Label ("W: ")
+/// │   │   ├── Label ("W:")
 /// │   │   └── Value
 /// │   └── HeightCoordinateRow
-/// │       ├── Label ("H: ")
+/// │       ├── Label ("H:")
 /// │       └── Value
 /// └── QuadrantSelector
 ///     └── Grid of 9 circular buttons
@@ -293,7 +277,7 @@ fn spawn_coordinate_values(parent: &mut ChildBuilder, asset_server: &Res<AssetSe
             flex_direction: FlexDirection::Column,    // Stack rows vertically
             align_items: AlignItems::Stretch,        // Stretch rows to container width
             width: Val::Percent(100.0),              // Take full width of parent
-            margin: UiRect::bottom(Val::Px(4.0)),    // Space before quadrant selector
+            margin: UiRect::bottom(Val::Px(0.0)),    // Space before quadrant selector
             ..default()
         },
         CoordValuesContainer,
@@ -343,10 +327,10 @@ fn spawn_coordinate_row<T: Component + Default>(
         // Create the label (e.g., "X: ")
         row.spawn((
             Node {
-                margin: UiRect::right(Val::Px(4.0)), // Space between label and value
+                margin: UiRect::right(Val::Px(0.0)), // Space between label and value
                 ..default()
             },
-            Text::new(format!("{}: ", label)),
+            Text::new(format!("{}:", label)),
             TextFont {
                 font: asset_server.load(MONO_FONT_PATH),
                 font_size: WIDGET_TEXT_FONT_SIZE,
@@ -381,7 +365,8 @@ fn spawn_value_text<T: Component>(
             font_size: WIDGET_TEXT_FONT_SIZE,
             ..default()
         },
-        TextColor(TEXT_COLOR),
+        // TextColor(TEXT_COLOR),
+        TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
         marker,
         Name::new(name.to_string()),  // Convert to owned String
     ));
@@ -834,7 +819,7 @@ fn update_coordinate_display(
 
         // Update text and color
         *text = Text::new(format_coord_value(value));
-        text_color.0 = if is_selected { TEXT_COLOR } else { TEXT_COLOR_DISABLED };
+        text_color.0 = TEXT_COLOR;  // Always use normal text color since visibility handles the disabled state
     }
 }
 
