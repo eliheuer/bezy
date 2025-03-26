@@ -274,14 +274,14 @@ fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn spawn_coordinate_values(parent: &mut ChildBuilder, asset_server: &Res<AssetServer>) {
     parent.spawn((
         Node {
-            flex_direction: FlexDirection::Column,    // Stack rows vertically
+            flex_direction: FlexDirection::Column,   // Stack rows vertically
             align_items: AlignItems::Stretch,        // Stretch rows to container width
             width: Val::Percent(100.0),              // Take full width of parent
             margin: UiRect::bottom(Val::Px(0.0)),    // Space before quadrant selector
             ..default()
         },
-        CoordValuesContainer,
-        Name::new("CoordValuesContainer"),
+        CoordValuesContainer,                        // Marker component to identify this container 
+        Name::new("CoordValuesContainer"),           // Debug name to identify this entity in Bevy's debug tools
     ))
     .with_children(|container| {
         // Create all coordinate rows in order
@@ -315,7 +315,7 @@ fn spawn_coordinate_row<T: Component + Default>(
         Node {
             flex_direction: FlexDirection::Row,      // Label and value side by side
             align_items: AlignItems::Center,         // Vertically center content
-            margin: UiRect::bottom(Val::Px(4.0)),    // Space between rows
+            margin: UiRect::bottom(Val::Px(0.0)),    // Space between rows
             width: Val::Percent(100.0),              // Take full width
             ..default()
         },
@@ -379,11 +379,11 @@ fn spawn_value_text<T: Component>(
 /// 
 /// Layout:
 /// ```text
-/// ┌─ QuadrantSelector ─┐
+/// ┌─ QuadrantSelector─┐
 /// │ ○ ○ ○             │
 /// │ ○ ● ○  ← Selected │
 /// │ ○ ○ ○             │
-/// └──────────────────┘
+/// └───────────────────┘
 /// ```
 fn spawn_quadrant_selector_widget(parent: &mut ChildBuilder) {
     parent
@@ -393,7 +393,7 @@ fn spawn_quadrant_selector_widget(parent: &mut ChildBuilder) {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 margin: UiRect::all(Val::Px(0.0)),   // Parent handles spacing
-                padding: UiRect::all(Val::Px(4.0)),  // Internal padding
+                padding: UiRect::all(Val::Px(0.0)),  // Internal padding
                 width: Val::Px(QUADRANT_GRID_SIZE),  // Fixed size
                 height: Val::Px(QUADRANT_GRID_SIZE),
                 ..default()
