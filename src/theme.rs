@@ -18,6 +18,16 @@ pub const WIDGET_PADDING: f32 = 16.0;
 pub const WIDGET_MARGIN: f32 = 24.0;
 pub const WIDGET_ROW_GAP: f32 = 0.0;
 
+// Toolbar Styling
+pub const TOOLBAR_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.9);
+pub const TOOLBAR_BORDER_COLOR: Color = Color::srgba(0.9, 0.9, 0.9, 1.0);
+pub const TOOLBAR_BORDER_RADIUS: f32 = 8.0;
+pub const TOOLBAR_BORDER_WIDTH: f32 = 2.0;
+pub const TOOLBAR_PADDING: f32 = 8.0;        // Slightly less padding than widgets for a more compact look
+pub const TOOLBAR_MARGIN: f32 = 24.0;        // Slightly less margin than widgets
+pub const TOOLBAR_ROW_GAP: f32 = 4.0;        // Small gap between toolbar items
+pub const TOOLBAR_ITEM_SPACING: f32 = 8.0;   // Horizontal spacing between toolbar items
+
 // Window Configuration
 pub const WINDOW_TITLE: &str = "Bezy";
 pub const WINDOW_WIDTH: f32 = 1024.0 + 256.0;
@@ -100,8 +110,8 @@ pub const OFF_CURVE_POINT_OUTER_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 pub const PATH_FILL_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
 
 // Checkerboard Configuration
-pub const CHECKERBOARD_UNIT_SIZE: f32 = 8.0; // Width and height of each square in pixels
-pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.125, 0.125, 0.125); // Single color for checkerboard squares
+pub const CHECKERBOARD_UNIT_SIZE: f32 = 16.0; // Width and height of each square in pixels
+pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.15, 0.15, 0.15); // Single color for checkerboard squares
 
 // Button Styling
 pub const BUTTON_BORDER_RADIUS: f32 = 8.0;

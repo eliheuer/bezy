@@ -101,6 +101,9 @@ pub fn spawn_primitives_submenu(
                 top: Val::Px(106.0), // Position below the main toolbar (32px + 64px + spacing)
                 left: Val::Px(32.0),
                 flex_direction: FlexDirection::Row,
+                padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),  // Use theme padding
+                margin: UiRect::all(Val::Px(TOOLBAR_MARGIN)),    // Use theme margin
+                row_gap: Val::Px(TOOLBAR_ROW_GAP),              // Use theme row gap
                 ..default()
             },
             Name::new("PrimitivesSubMenu"),
@@ -128,7 +131,7 @@ fn spawn_primitive_button(
 ) {
     parent
         .spawn(Node {
-            margin: UiRect::all(Val::Px(4.0)),
+            margin: UiRect::all(Val::Px(TOOLBAR_ITEM_SPACING)),  // Use theme spacing
             ..default()
         })
         .with_children(|button_container| {
@@ -137,30 +140,24 @@ fn spawn_primitive_button(
                     Button,
                     PrimitiveSubMenuButton,
                     PrimitiveTypeButton(*primitive_type),
-                    Name::new(format!(
-                        "{}Button",
-                        primitive_type.display_name()
-                    )),
                     Node {
                         width: Val::Px(64.0),
                         height: Val::Px(64.0),
-                        padding: UiRect::all(Val::Px(0.0)),
-                        border: UiRect::all(Val::Px(2.0)),
+                        padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),  // Use theme padding
+                        border: UiRect::all(Val::Px(TOOLBAR_BORDER_WIDTH)),  // Use theme border width
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    BorderColor(Color::WHITE),
-                    BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
-                    BackgroundColor(NORMAL_BUTTON),
+                    BorderColor(TOOLBAR_BORDER_COLOR),  // Use theme border color
+                    BorderRadius::all(Val::Px(TOOLBAR_BORDER_RADIUS)),  // Use theme border radius
+                    BackgroundColor(TOOLBAR_BACKGROUND_COLOR),  // Use theme background color
                 ))
                 .with_children(|button| {
-                    // Add the icon
                     button.spawn((
                         Text::new(primitive_type.get_icon().to_string()),
                         TextFont {
-                            font: asset_server
-                                .load("fonts/bezy-grotesk-regular.ttf"),
+                            font: asset_server.load(DEFAULT_FONT_PATH),  // Use theme font path
                             font_size: 48.0,
                             ..default()
                         },

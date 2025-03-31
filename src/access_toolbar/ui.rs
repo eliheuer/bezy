@@ -31,21 +31,25 @@ fn spawn_button(
             Node {
                 width: Val::Px(width),
                 height: Val::Px(64.0),
-                padding: UiRect::all(Val::Px(0.0)),
-                border: UiRect::all(Val::Px(2.0)),
-                margin: UiRect::all(Val::Px(4.0)),
+                padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),
+                border: UiRect::all(Val::Px(TOOLBAR_BORDER_WIDTH)),
+                margin: UiRect::ZERO,  // Remove margin since this is a single button
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BorderColor(Color::WHITE),
-            BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
-            BackgroundColor(NORMAL_BUTTON),
+            BorderColor(TOOLBAR_BORDER_COLOR),
+            BorderRadius::all(Val::Px(TOOLBAR_BORDER_RADIUS)),
+            BackgroundColor(TOOLBAR_BACKGROUND_COLOR),
         ))
         .with_children(|button| {
             button.spawn((
                 Text::new(label),
-                get_default_text_style(asset_server),
+                TextFont {
+                    font: asset_server.load(DEFAULT_FONT_PATH),
+                    font_size: 48.0,
+                    ..default()
+                },
                 TextColor(Color::WHITE),
             ));
         });
@@ -59,9 +63,12 @@ pub fn spawn_access_toolbar(
     commands
         .spawn((Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(32.0),
-            right: Val::Px(32.0),
+            top: Val::Px(TOOLBAR_MARGIN),      // Use theme margin for consistent spacing
+            right: Val::Px(TOOLBAR_MARGIN),    // Use theme margin for consistent spacing
             flex_direction: FlexDirection::Row,
+            padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),
+            margin: UiRect::all(Val::ZERO),    // Set all margins to zero since we're using position
+            row_gap: Val::Px(TOOLBAR_ROW_GAP),
             ..default()
         },))
         .with_children(|parent| {
@@ -88,21 +95,21 @@ pub fn handle_connect_button_interaction(
 
         // Update button colors based on state
         if button_state.is_connected {
-            *bg_color = PRESSED_BUTTON.into();
-            border_color.0 = PRESSED_BUTTON_OUTLINE_COLOR;
+            *bg_color = TOOLBAR_BACKGROUND_COLOR.into();
+            border_color.0 = TOOLBAR_BORDER_COLOR;
         } else {
             match *interaction {
                 Interaction::Pressed => {
-                    *bg_color = PRESSED_BUTTON.into();
-                    border_color.0 = PRESSED_BUTTON_OUTLINE_COLOR;
+                    *bg_color = TOOLBAR_BACKGROUND_COLOR.into();
+                    border_color.0 = TOOLBAR_BORDER_COLOR;
                 }
                 Interaction::Hovered => {
                     *bg_color = HOVERED_BUTTON.into();
                     border_color.0 = HOVERED_BUTTON_OUTLINE_COLOR;
                 }
                 Interaction::None => {
-                    *bg_color = NORMAL_BUTTON.into();
-                    border_color.0 = NORMAL_BUTTON_OUTLINE_COLOR;
+                    *bg_color = TOOLBAR_BACKGROUND_COLOR.into();
+                    border_color.0 = TOOLBAR_BORDER_COLOR;
                 }
             }
         }
