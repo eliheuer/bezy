@@ -21,7 +21,7 @@ pub struct TextColor(pub Color);
 fn spawn_button(
     commands: &mut ChildBuilder,
     label: &str,
-    asset_server: &Res<AssetServer>,
+    asset_server: &AssetServer,
     width: f32,
 ) {
     commands
@@ -67,8 +67,8 @@ pub fn spawn_access_toolbar(
             right: Val::Px(TOOLBAR_MARGIN),    // Use theme margin for consistent spacing
             flex_direction: FlexDirection::Row,
             padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),
-            margin: UiRect::all(Val::ZERO),    // Set all margins to zero since we're using position
-            row_gap: Val::Px(TOOLBAR_ROW_GAP),
+            margin: UiRect::all(Val::ZERO),    // Set margin to zero since we're using position offsets
+            column_gap: Val::Px(TOOLBAR_ITEM_SPACING),    // Use consistent spacing between buttons
             ..default()
         },))
         .with_children(|parent| {
