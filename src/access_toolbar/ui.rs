@@ -13,9 +13,9 @@ pub struct ConnectButtonState {
 // In Bevy 0.15.2, text styling is split between TextFont (for font and size) and this component for color.
 // While the theme system handles static colors, this component is necessary for dynamic color changes
 // at runtime (e.g., changing text color when a button is selected/deselected).
-#[derive(Component)]
-#[allow(dead_code)]
-pub struct TextColor(pub Color);
+//#[derive(Component)]
+//#[allow(dead_code)]
+//pub struct TextColor(pub Color);
 
 
 /// Spawn the access toolbar with a Connect button in the upper right corner
