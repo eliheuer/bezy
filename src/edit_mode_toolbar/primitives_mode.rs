@@ -99,11 +99,11 @@ pub fn spawn_primitives_submenu(
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(106.0), // Position below the main toolbar (32px + 64px + spacing)
-                left: Val::Px(32.0),
+                left: Val::Px(TOOLBAR_MARGIN), // Use TOOLBAR_MARGIN for consistent positioning
                 flex_direction: FlexDirection::Row,
                 padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),  // Use theme padding
-                margin: UiRect::all(Val::Px(TOOLBAR_MARGIN)),    // Use theme margin
-                row_gap: Val::Px(TOOLBAR_ROW_GAP),              // Use theme row gap
+                margin: UiRect::all(Val::ZERO),  // Set to ZERO since we're using absolute positioning
+                row_gap: Val::Px(TOOLBAR_ROW_GAP),  // Use theme row gap
                 ..default()
             },
             Name::new("PrimitivesSubMenu"),
