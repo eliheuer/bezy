@@ -17,43 +17,6 @@ pub struct ConnectButtonState {
 #[allow(dead_code)]
 pub struct TextColor(pub Color);
 
-/// Creates a button with standard styling
-fn spawn_button(
-    commands: &mut ChildBuilder,
-    label: &str,
-    asset_server: &AssetServer,
-    width: f32,
-) {
-    commands
-        .spawn((
-            Button,
-            ConnectButton,
-            Node {
-                width: Val::Px(width),
-                height: Val::Px(64.0),
-                padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),
-                border: UiRect::all(Val::Px(TOOLBAR_BORDER_WIDTH)),
-                margin: UiRect::ZERO,  // Remove margin since this is a single button
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BorderColor(TOOLBAR_BORDER_COLOR),
-            BorderRadius::all(Val::Px(TOOLBAR_BORDER_RADIUS)),
-            BackgroundColor(TOOLBAR_BACKGROUND_COLOR),
-        ))
-        .with_children(|button| {
-            button.spawn((
-                Text::new(label),
-                TextFont {
-                    font: asset_server.load(DEFAULT_FONT_PATH),
-                    font_size: 48.0,
-                    ..default()
-                },
-                TextColor(Color::WHITE),
-            ));
-        });
-}
 
 /// Spawn the access toolbar with a Connect button in the upper right corner
 pub fn spawn_access_toolbar(
@@ -72,7 +35,44 @@ pub fn spawn_access_toolbar(
             ..default()
         },))
         .with_children(|parent| {
-            spawn_button(parent, "\u{E008}", &asset_server, 64.0);
+            spawn_access_button(parent, "\u{E008}", &asset_server);
+        });
+}
+
+/// Creates a button with standard styling
+fn spawn_access_button(
+    commands: &mut ChildBuilder,
+    label: &str,
+    asset_server: &AssetServer,
+) {
+    commands
+        .spawn((
+            Button,
+            ConnectButton,
+            Node {
+                width: Val::Px(64.0),
+                height: Val::Px(64.0),
+                padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),
+                border: UiRect::all(Val::Px(TOOLBAR_BORDER_WIDTH)),
+                margin: UiRect::ZERO,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BorderColor(TOOLBAR_BORDER_COLOR),
+            BorderRadius::all(Val::Px(TOOLBAR_BORDER_RADIUS)),
+            BackgroundColor(TOOLBAR_BACKGROUND_COLOR),
+        ))
+        .with_children(|button| {
+            button.spawn((
+                Text::new(label),
+                TextFont {
+                    font: asset_server.load(DEFAULT_FONT_PATH),
+                    font_size: 48.0,
+                    ..default()
+                },
+                TextColor(TOOLBAR_ICON_COLOR),
+            ));
         });
 }
 

@@ -40,7 +40,7 @@ impl EditMode {
     /// Returns the Unicode PUA icon for each edit mode
     pub fn get_icon(&self) -> &'static str {
         match self {
-            EditMode::Select => "\u{E010}",
+            EditMode::Select => "A",  // Temporarily change one icon to a regular character from E010
             EditMode::Pen => "\u{E011}",
             EditMode::Hyper => "\u{E012}",
             EditMode::Knife => "\u{E013}",
@@ -77,12 +77,12 @@ pub fn spawn_edit_mode_toolbar(
     commands
         .spawn(Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(32.0),
-            left: Val::Px(32.0),
+            top: Val::Px(TOOLBAR_MARGIN),
+            left: Val::Px(TOOLBAR_MARGIN),
             flex_direction: FlexDirection::Row,
-            padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),  // Add padding from theme
-            margin: UiRect::all(Val::Px(TOOLBAR_MARGIN)),    // Add margin from theme
-            row_gap: Val::Px(TOOLBAR_ROW_GAP),              // Add row gap from theme
+            padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),
+            margin: UiRect::all(Val::ZERO),
+            row_gap: Val::Px(TOOLBAR_ROW_GAP),
             ..default()
         })
         .with_children(|parent| {
@@ -127,8 +127,8 @@ fn spawn_mode_button(
                     Node {
                         width: Val::Px(64.0),
                         height: Val::Px(64.0),
-                        padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),  // Use theme padding
-                        border: UiRect::all(Val::Px(TOOLBAR_BORDER_WIDTH)),  // Use theme border width
+                        padding: UiRect::all(Val::ZERO),
+                        border: UiRect::all(Val::Px(TOOLBAR_BORDER_WIDTH)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
@@ -142,12 +142,11 @@ fn spawn_mode_button(
                     button.spawn((
                         Text::new(edit_mode.get_icon().to_string()),
                         TextFont {
-                            font: asset_server
-                                .load(DEFAULT_FONT_PATH),  // Use theme font path
-                            font_size: 48.0, // Consistent size for all icons
+                            font: asset_server.load(DEFAULT_FONT_PATH),
+                            font_size: 48.0,
                             ..default()
                         },
-                        TextColor(Color::WHITE),
+                        TextColor(TOOLBAR_ICON_COLOR),
                     ));
                 });
         });
@@ -221,7 +220,7 @@ pub fn handle_toolbar_mode_selection(
                 border_color.0 = HOVERED_BUTTON_OUTLINE_COLOR;
             }
             (Interaction::None, false) => {
-                *color = NORMAL_BUTTON.into();
+                *color = TOOLBAR_ICON_COLOR.into();
                 border_color.0 = NORMAL_BUTTON_OUTLINE_COLOR;
             }
         }
@@ -230,10 +229,11 @@ pub fn handle_toolbar_mode_selection(
         for (parent, mut text_color) in &mut text_query {
             if parent.get() == entity {
                 text_color.0 = if is_current_mode {
-                    Color::BLACK
+                    PRESSED_BUTTON_OUTLINE_COLOR  // Use a contrasting color from our theme for selected items
                 } else {
-                    Color::WHITE
+                    TOOLBAR_ICON_COLOR
                 };
+                info!("Setting text color to: {:?}", text_color.0);
             }
         }
     }

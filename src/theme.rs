@@ -10,23 +10,24 @@ pub const WIDGET_TITLE_FONT_SIZE: f32 = 24.0;
 pub const WIDGET_TEXT_FONT_SIZE: f32 = 24.0;
 
 // Widget Styling
-pub const WIDGET_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.9);
-pub const WIDGET_BORDER_COLOR: Color = Color::srgba(0.9, 0.9, 0.9, 1.0);
+pub const WIDGET_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
+pub const WIDGET_BORDER_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
 pub const WIDGET_BORDER_RADIUS: f32 = 8.0;
-pub const WIDGET_BORDER_WIDTH: f32 = 2.0;
+pub const WIDGET_BORDER_WIDTH: f32 = 1.0;
 pub const WIDGET_PADDING: f32 = 16.0;
 pub const WIDGET_MARGIN: f32 = 24.0;
 pub const WIDGET_ROW_GAP: f32 = 0.0;
 
 // Toolbar Styling
-pub const TOOLBAR_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.9);
-pub const TOOLBAR_BORDER_COLOR: Color = Color::srgba(0.9, 0.9, 0.9, 1.0);
+pub const TOOLBAR_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
+pub const TOOLBAR_ICON_COLOR: Color = Color::srgb(1.0, 0.3, 0.0);
+pub const TOOLBAR_BORDER_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
 pub const TOOLBAR_BORDER_RADIUS: f32 = 8.0;
-pub const TOOLBAR_BORDER_WIDTH: f32 = 2.0;
+pub const TOOLBAR_BORDER_WIDTH: f32 = 1.0;
 pub const TOOLBAR_PADDING: f32 = 8.0;
 pub const TOOLBAR_MARGIN: f32 = 24.0;
 pub const TOOLBAR_ROW_GAP: f32 = 4.0;
-pub const TOOLBAR_ITEM_SPACING: f32 = 8.0;
+pub const TOOLBAR_ITEM_SPACING: f32 = 4.0;
 
 // Window Configuration
 pub const WINDOW_TITLE: &str = "Bezy";

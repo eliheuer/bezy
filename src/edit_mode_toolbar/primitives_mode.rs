@@ -161,7 +161,7 @@ fn spawn_primitive_button(
                             font_size: 48.0,
                             ..default()
                         },
-                        TextColor(Color::WHITE),
+                        TextColor(TOOLBAR_ICON_COLOR),
                     ));
                 });
         });
@@ -236,8 +236,11 @@ pub fn handle_primitive_selection(
             // Update text color for this button
             for (parent, mut text_color) in &mut text_query {
                 if parent.get() == entity {
-                    // Always keep text white for consistency with main menu
-                    text_color.0 = Color::WHITE;
+                    text_color.0 = if is_current_type {
+                        PRESSED_BUTTON_OUTLINE_COLOR
+                    } else {
+                        TOOLBAR_ICON_COLOR
+                    };
                 }
             }
         }
