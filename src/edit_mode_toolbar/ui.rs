@@ -5,9 +5,6 @@ use crate::theme::*;
 pub struct EditModeToolbarButton;
 
 #[derive(Component)]
-pub struct TextColor(pub Color);
-
-#[derive(Component)]
 pub struct ButtonName(pub String);
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
@@ -220,7 +217,7 @@ pub fn handle_toolbar_mode_selection(
                 border_color.0 = HOVERED_BUTTON_OUTLINE_COLOR;
             }
             (Interaction::None, false) => {
-                *color = TOOLBAR_ICON_COLOR.into();
+                *color = NORMAL_BUTTON.into();
                 border_color.0 = NORMAL_BUTTON_OUTLINE_COLOR;
             }
         }
