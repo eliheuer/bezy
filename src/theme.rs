@@ -9,20 +9,20 @@ pub const MONO_FONT_PATH: &str = "fonts/HasubiMono-Regular.ttf";
 pub const WIDGET_TITLE_FONT_SIZE: f32 = 24.0;
 pub const WIDGET_TEXT_FONT_SIZE: f32 = 24.0;
 
-// Widget Styling
+// Widget Visual Style Constants
 pub const WIDGET_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
 pub const WIDGET_BORDER_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
-pub const WIDGET_BORDER_RADIUS: f32 = 4.0;
+pub const WIDGET_BORDER_RADIUS: f32 = 0.0;
 pub const WIDGET_BORDER_WIDTH: f32 = 1.0;
 pub const WIDGET_PADDING: f32 = 16.0;
 pub const WIDGET_MARGIN: f32 = 24.0;
 pub const WIDGET_ROW_GAP: f32 = 0.0;
 
-// Toolbar Styling
+// Toolbar Visual Style Constants
 pub const TOOLBAR_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
 pub const TOOLBAR_ICON_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
 pub const TOOLBAR_BORDER_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
-pub const TOOLBAR_BORDER_RADIUS: f32 = 4.0;
+pub const TOOLBAR_BORDER_RADIUS: f32 = 0.0;
 pub const TOOLBAR_BORDER_WIDTH: f32 = 1.0;
 pub const TOOLBAR_PADDING: f32 = 8.0;
 pub const TOOLBAR_MARGIN: f32 = 16.0;
@@ -31,7 +31,7 @@ pub const TOOLBAR_ITEM_SPACING: f32 = 4.0;
 
 // Window Configuration
 pub const WINDOW_TITLE: &str = "Bezy";
-pub const WINDOW_WIDTH: f32 = 1024.0 + 256.0;
+pub const WINDOW_WIDTH: f32 = 1024.0;
 pub const WINDOW_HEIGHT: f32 = 900.0;
 
 // Button Colors
