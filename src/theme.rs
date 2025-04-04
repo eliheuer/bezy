@@ -12,20 +12,20 @@ pub const WIDGET_TEXT_FONT_SIZE: f32 = 24.0;
 // Widget Styling
 pub const WIDGET_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
 pub const WIDGET_BORDER_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
-pub const WIDGET_BORDER_RADIUS: f32 = 8.0;
+pub const WIDGET_BORDER_RADIUS: f32 = 4.0;
 pub const WIDGET_BORDER_WIDTH: f32 = 1.0;
 pub const WIDGET_PADDING: f32 = 16.0;
-pub const WIDGET_MARGIN: f32 = 32.0;
+pub const WIDGET_MARGIN: f32 = 24.0;
 pub const WIDGET_ROW_GAP: f32 = 0.0;
 
 // Toolbar Styling
 pub const TOOLBAR_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
-pub const TOOLBAR_ICON_COLOR: Color = Color::srgb(0.0, 0.3, 1.0);
+pub const TOOLBAR_ICON_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
 pub const TOOLBAR_BORDER_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
-pub const TOOLBAR_BORDER_RADIUS: f32 = 8.0;
+pub const TOOLBAR_BORDER_RADIUS: f32 = 4.0;
 pub const TOOLBAR_BORDER_WIDTH: f32 = 1.0;
 pub const TOOLBAR_PADDING: f32 = 8.0;
-pub const TOOLBAR_MARGIN: f32 = 24.0;
+pub const TOOLBAR_MARGIN: f32 = 16.0;
 pub const TOOLBAR_ROW_GAP: f32 = 4.0;
 pub const TOOLBAR_ITEM_SPACING: f32 = 4.0;
 
@@ -35,14 +35,15 @@ pub const WINDOW_WIDTH: f32 = 1024.0 + 256.0;
 pub const WINDOW_HEIGHT: f32 = 900.0;
 
 // Button Colors
-pub const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+pub const NORMAL_BUTTON: Color = Color::srgb(0.1, 0.1, 0.1);
 pub const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 pub const PRESSED_BUTTON: Color = Color::srgb(1.0, 0.4, 0.0);
 
 // Button Outline Colors
-pub const NORMAL_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.8, 0.8, 0.8);
-pub const HOVERED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.99, 0.99, 0.99);
-pub const PRESSED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(1.0, 0.6, 0.0);
+pub const NORMAL_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
+pub const HOVERED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
+pub const PRESSED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(1.0, 0.8, 0.3);
+pub const PRESSED_BUTTON_ICON_COLOR: Color = Color::srgb(1.0, 0.9, 0.8);
 
 // Path Drawing
 //#[allow(dead_code)]

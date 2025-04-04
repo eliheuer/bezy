@@ -37,7 +37,7 @@ impl EditMode {
     /// Returns the Unicode PUA icon for each edit mode
     pub fn get_icon(&self) -> &'static str {
         match self {
-            EditMode::Select => "A",  // Temporarily change one icon to a regular character from E010
+            EditMode::Select => "\u{E010}",  // Temporarily change one icon to a regular character from E010
             EditMode::Pen => "\u{E011}",
             EditMode::Hyper => "\u{E012}",
             EditMode::Knife => "\u{E013}",
@@ -226,7 +226,7 @@ pub fn handle_toolbar_mode_selection(
         for (parent, mut text_color) in &mut text_query {
             if parent.get() == entity {
                 text_color.0 = if is_current_mode {
-                    PRESSED_BUTTON_OUTLINE_COLOR  // Use a contrasting color from our theme for selected items
+                    PRESSED_BUTTON_ICON_COLOR  // Use a contrasting color from our theme for selected items
                 } else {
                     TOOLBAR_ICON_COLOR
                 };
