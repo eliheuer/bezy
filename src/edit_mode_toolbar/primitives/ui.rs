@@ -52,31 +52,33 @@ fn spawn_rounded_rect_controls(
             Name::new("RoundedRectSettingsPanel"),
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(184.0), // Moved down a bit more from the submenu
-                left: Val::Px(34.0),
+                // Calculate position based on toolbar and submenu positions
+                // Main toolbar (TOOLBAR_MARGIN + 64.0 + TOOLBAR_ITEM_SPACING) + submenu height (64.0 + TOOLBAR_ITEM_SPACING)
+                top: Val::Px(TOOLBAR_MARGIN + 64.0 + TOOLBAR_ITEM_SPACING + 64.0 + TOOLBAR_ITEM_SPACING + 20.0),
+                left: Val::Px(TOOLBAR_MARGIN + 12.0),
                 padding: UiRect::all(Val::Px(8.0)),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 min_width: Val::Px(190.0),
-                border: UiRect::all(Val::Px(2.0)),
+                border: UiRect::all(Val::Px(1.0)),
                 ..default()
             },
             BackgroundColor(NORMAL_BUTTON),
             Visibility::Hidden, // Start hidden
             BorderColor(NORMAL_BUTTON_OUTLINE_COLOR),
-            BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
+            BorderRadius::all(Val::Px(WIDGET_BORDER_RADIUS)),
         ))
         .with_children(|parent| {
             // Label for the input field
             parent.spawn((
                 Text::new("Corner Radius:"),
                 TextFont {
-                    font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                    font_size: 16.0,
+                    font: asset_server.load(MONO_FONT_PATH),
+                    font_size: 24.0,
                     ..default()
                 },
-                TextColor(Color::WHITE),
+                TextColor(TOOLBAR_ICON_COLOR),
                 Node {
                     margin: UiRect::bottom(Val::Px(5.0)),
                     ..default()
@@ -89,7 +91,7 @@ fn spawn_rounded_rect_controls(
                     Node {
                         width: Val::Px(180.0),
                         height: Val::Px(30.0),
-                        border: UiRect::all(Val::Px(2.0)),
+                        border: UiRect::all(Val::Px(1.0)),
                         padding: UiRect::all(Val::Px(5.0)),
                         margin: UiRect::all(Val::Px(5.0)),
                         justify_content: JustifyContent::Center,
@@ -98,21 +100,21 @@ fn spawn_rounded_rect_controls(
                     },
                     BackgroundColor(NORMAL_BUTTON),
                     BorderColor(NORMAL_BUTTON_OUTLINE_COLOR),
-                    BorderRadius::all(Val::Px(BUTTON_BORDER_RADIUS)),
+                    BorderRadius::all(Val::Px(TOOLBAR_BORDER_RADIUS)),
                     Interaction::None,
                     CornerRadiusInput,
                 ))
                 .with_children(|input_parent| {
                     // Text value display (also serves as input field value)
                     input_parent.spawn((
-                        Text::new("10"), // Initial value as integer
+                        Text::new("32"), // Initial value as integer
                         TextFont {
                             font: asset_server
-                                .load("fonts/bezy-grotesk-regular.ttf"),
-                            font_size: 16.0,
+                                .load(MONO_FONT_PATH),
+                            font_size: 24.0,
                             ..default()
                         },
-                        TextColor(Color::WHITE),
+                        TextColor(TOOLBAR_ICON_COLOR),
                         RadiusValueText,
                     ));
                 });
@@ -121,11 +123,11 @@ fn spawn_rounded_rect_controls(
             parent.spawn((
                 Text::new("Type a value and press Enter"),
                 TextFont {
-                    font: asset_server.load("fonts/bezy-grotesk-regular.ttf"),
-                    font_size: 12.0,
+                    font: asset_server.load(MONO_FONT_PATH),
+                    font_size: 24.0,
                     ..default()
                 },
-                TextColor(Color::srgba(0.8, 0.8, 0.8, 0.7)),
+                TextColor(TOOLBAR_ICON_COLOR),
                 Node {
                     margin: UiRect::top(Val::Px(5.0)),
                     ..default()
@@ -216,8 +218,9 @@ pub fn handle_radius_input(
         if let (Some(cursor_pos), Ok(panel_node)) =
             (window.cursor_position(), panel_query.get_single())
         {
-            let panel_left = 32.0;
-            let panel_top = 200.0;
+            // Calculate panel position using theme constants
+            let panel_left = TOOLBAR_MARGIN + TOOLBAR_ITEM_SPACING;
+            let panel_top = TOOLBAR_MARGIN + 64.0 + TOOLBAR_ITEM_SPACING + 64.0 + TOOLBAR_ITEM_SPACING;
             let panel_width = match panel_node.min_width {
                 Val::Px(width) => width,
                 _ => 200.0,

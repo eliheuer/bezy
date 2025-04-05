@@ -98,7 +98,10 @@ pub fn spawn_primitives_submenu(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(106.0), // Position below the main toolbar (32px + 64px + spacing)
+                // Calculate position based on toolbar size, margin, and spacing
+                // Main toolbar is positioned at TOOLBAR_MARGIN and has height of 64px
+                // Add TOOLBAR_ITEM_SPACING to maintain the same spacing as the horizontal buttons
+                top: Val::Px(TOOLBAR_MARGIN + 64.0 + TOOLBAR_ITEM_SPACING + 4.0),
                 left: Val::Px(TOOLBAR_MARGIN), // Use TOOLBAR_MARGIN for consistent positioning
                 flex_direction: FlexDirection::Row,
                 padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),  // Use theme padding

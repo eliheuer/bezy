@@ -12,7 +12,7 @@ pub const WIDGET_TEXT_FONT_SIZE: f32 = 24.0;
 // Widget Visual Style Constants
 pub const WIDGET_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
 pub const WIDGET_BORDER_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
-pub const WIDGET_BORDER_RADIUS: f32 = 0.0;
+pub const WIDGET_BORDER_RADIUS: f32 = 4.0;
 pub const WIDGET_BORDER_WIDTH: f32 = 1.0;
 pub const WIDGET_PADDING: f32 = 16.0;
 pub const WIDGET_MARGIN: f32 = 24.0;
@@ -22,7 +22,7 @@ pub const WIDGET_ROW_GAP: f32 = 0.0;
 pub const TOOLBAR_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
 pub const TOOLBAR_ICON_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
 pub const TOOLBAR_BORDER_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
-pub const TOOLBAR_BORDER_RADIUS: f32 = 0.0;
+pub const TOOLBAR_BORDER_RADIUS: f32 = 4.0;
 pub const TOOLBAR_BORDER_WIDTH: f32 = 1.0;
 pub const TOOLBAR_PADDING: f32 = 8.0;
 pub const TOOLBAR_MARGIN: f32 = 16.0;
@@ -93,9 +93,6 @@ pub const METRICS_GUIDE_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 0.5);
 // Debug Settings
 pub const DEBUG_SHOW_ORIGIN_CROSS: bool = false; // Set to true to show the red cross at origin
 
-// Background Color
-pub const BACKGROUND_COLOR: Color = Color::srgb(0.075, 0.075, 0.075);
-
 // UI Panel Colors
 #[allow(dead_code)]
 pub const PANEL_BACKGROUND_COLOR: Color = Color::srgb(0.15, 0.15, 0.15);
@@ -111,12 +108,15 @@ pub const OFF_CURVE_POINT_OUTER_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 #[allow(dead_code)]
 pub const PATH_FILL_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
 
+// Background Color
+pub const BACKGROUND_COLOR: Color = Color::srgb(0.05, 0.05, 0.05);
+
 // Checkerboard Configuration
 pub const CHECKERBOARD_UNIT_SIZE: f32 = 16.0; // Width and height of each square in pixels
-pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.125, 0.125, 0.125); // Single color for checkerboard squares
+pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.1, 0.1, 0.1); // Single color for checkerboard squares
 
 // Button Styling
-pub const BUTTON_BORDER_RADIUS: f32 = 8.0;
+// pub const BUTTON_BORDER_RADIUS: f32 = 8.0;
 
 // Knife Tool Colors
 pub const KNIFE_LINE_COLOR: Color = Color::srgba(1.0, 0.3, 0.3, 0.9); // Reddish for cut line
