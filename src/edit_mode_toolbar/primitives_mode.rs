@@ -240,7 +240,7 @@ pub fn handle_primitive_selection(
             for (parent, mut text_color) in &mut text_query {
                 if parent.get() == entity {
                     text_color.0 = if is_current_type {
-                        PRESSED_BUTTON_OUTLINE_COLOR
+                        PRESSED_BUTTON_ICON_COLOR
                     } else {
                         TOOLBAR_ICON_COLOR
                     };
