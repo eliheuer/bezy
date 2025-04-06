@@ -633,8 +633,14 @@ pub fn render_selected_entities(
         }
 
         // Always draw the crosshair for all selected points
-        let line_size = crate::theme::SELECTION_POINT_RADIUS
-            * crate::theme::SELECTED_CROSS_SIZE_MULTIPLIER;
+        let line_size = if point_type.is_on_curve && crate::theme::USE_SQUARE_FOR_ON_CURVE {
+            // For on-curve square points, use the half_size of the square
+            crate::theme::SELECTION_POINT_RADIUS / crate::theme::ON_CURVE_SQUARE_ADJUSTMENT
+        } else {
+            // For off-curve circle points, use the radius
+            crate::theme::SELECTION_POINT_RADIUS * crate::theme::SELECTED_CIRCLE_RADIUS_MULTIPLIER
+        };
+        
         gizmos.line_2d(
             Vec2::new(position_2d.x - line_size, position_2d.y),
             Vec2::new(position_2d.x + line_size, position_2d.y),
