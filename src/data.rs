@@ -20,6 +20,7 @@ use std::sync::Arc;
 use bevy::prelude::*;
 use norad::glyph::{ContourPoint, Glyph, GlyphName, PointType};
 use norad::{FontInfo, Ufo};
+use crate::selection::components::GlyphPointReference;
 
 /// Default units per em value used when creating new fonts or when this value is missing
 const DEFAULT_UNITS_PER_EM: f64 = 1024.;
@@ -48,6 +49,48 @@ impl AppState {
     /// The display name is generated from family and style names
     pub fn get_font_display_name(&self) -> String {
         self.workspace.info.get_display_name()
+    }
+    
+    /// Gets a point reference from an entity
+    ///
+    /// Returns the GlyphPointReference for the given entity if it exists
+    pub fn get_point_reference(&self, _entity: Entity) -> Option<GlyphPointReference> {
+        // This would normally require querying the entity for its GlyphPointReference component
+        // Since we can't do that directly from AppState, this is just a placeholder
+        // In the actual implementation, we would rely on the system querying the component
+        None
+    }
+    
+    /// Gets a mutable reference to a point in the font data
+    ///
+    /// # Parameters
+    /// - `point_ref`: Reference to the glyph point to update
+    ///
+    /// Returns a mutable reference to the ContourPoint if found
+    pub fn get_point_mut(&mut self, point_ref: &GlyphPointReference) -> Option<&mut ContourPoint> {
+        // Convert the glyph name from String to GlyphName
+        let glyph_name = GlyphName::from(&*point_ref.glyph_name);
+        
+        // Try to get the glyph
+        if let Some(default_layer) = self.workspace.font_mut().ufo.get_default_layer_mut() {
+            if let Some(glyph) = default_layer.get_glyph_mut(&glyph_name) {
+                // Get the outline
+                if let Some(outline) = glyph.outline.as_mut() {
+                    // Check if the contour index is valid
+                    if point_ref.contour_index < outline.contours.len() {
+                        let contour = &mut outline.contours[point_ref.contour_index];
+                        
+                        // Check if the point index is valid
+                        if point_ref.point_index < contour.points.len() {
+                            // Return mutable reference to the point
+                            return Some(&mut contour.points[point_ref.point_index]);
+                        }
+                    }
+                }
+            }
+        }
+        
+        None
     }
 }
 

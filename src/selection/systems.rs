@@ -1,5 +1,6 @@
 use super::components::*;
 use super::DragSelectionState;
+use super::DragPointState;
 use crate::cameras::DesignCamera;
 use crate::data::AppState;
 use crate::draw::AppStateChanged;
@@ -20,12 +21,13 @@ pub fn handle_mouse_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
     mut drag_state: ResMut<DragSelectionState>,
+    mut drag_point_state: ResMut<DragPointState>,
     mut event_writer: EventWriter<EditEvent>,
     selectable_query: Query<
         (Entity, &GlobalTransform, Option<&GlyphPointReference>),
         With<Selectable>,
     >,
-    selected_query: Query<Entity, With<Selected>>,
+    selected_query: Query<(Entity, &Transform), With<Selected>>,
     selection_rect_query: Query<Entity, With<SelectionRect>>,
     mut selection_state: ResMut<SelectionState>,
     nudge_state: Res<NudgeState>,
@@ -164,22 +166,43 @@ pub fn handle_mouse_input(
                         info!("    -> Command to add Selected component to entity {:?} queued", entity);
                     }
                 } else {
-                    // Clear previous selection
-                    info!(
-                        "  Clearing previous selection of {} entities",
-                        selected_query.iter().count()
-                    );
-                    for entity in &selected_query {
-                        commands.entity(entity).remove::<Selected>();
-                        info!("    -> Command to remove Selected component from entity {:?} queued", entity);
-                    }
-                    selection_state.selected.clear();
+                    // If clicked entity is not in selection, make it the only selection
+                    if !selection_state.selected.contains(&entity) {
+                        // Clear previous selection
+                        info!(
+                            "  Clearing previous selection of {} entities",
+                            selected_query.iter().count()
+                        );
+                        for (entity, _) in &selected_query {
+                            commands.entity(entity).remove::<Selected>();
+                            info!("    -> Command to remove Selected component from entity {:?} queued", entity);
+                        }
+                        selection_state.selected.clear();
 
-                    // Select the clicked entity
-                    info!("  Selecting new entity {:?}", entity);
-                    selection_state.selected.insert(entity);
-                    commands.entity(entity).insert(Selected);
-                    info!("    -> Command to add Selected component to entity {:?} queued", entity);
+                        // Select the clicked entity
+                        info!("  Selecting new entity {:?}", entity);
+                        selection_state.selected.insert(entity);
+                        commands.entity(entity).insert(Selected);
+                        info!("    -> Command to add Selected component to entity {:?} queued", entity);
+                    }
+                }
+
+                // Initialize drag point state for dragging the selected points
+                if !selection_state.selected.is_empty() {
+                    info!("Initializing point drag with {} selected points", selection_state.selected.len());
+                    drag_point_state.is_dragging = true;
+                    drag_point_state.start_position = Some(cursor_pos);
+                    drag_point_state.current_position = Some(cursor_pos);
+                    drag_point_state.dragged_entities = selected_query.iter().map(|(e, _)| e).collect();
+                    
+                    // Save the original positions
+                    drag_point_state.original_positions.clear();
+                    for (entity, transform) in &selected_query {
+                        drag_point_state.original_positions.insert(
+                            entity,
+                            Vec2::new(transform.translation.x, transform.translation.y)
+                        );
+                    }
                 }
 
                 // Notify about the edit
@@ -200,12 +223,12 @@ pub fn handle_mouse_input(
                 drag_state.is_multi_select = selection_state.multi_select;
 
                 // Save previous selection for potential multi-select operations
-                drag_state.previous_selection = selected_query.iter().collect();
+                drag_state.previous_selection = selected_query.iter().map(|(entity, _)| entity).collect();
 
                 // If not multi-selecting, clear previous selection
                 if !selection_state.multi_select {
                     info!("  Clearing previous selection for drag operation");
-                    for entity in &selected_query {
+                    for (entity, _) in &selected_query {
                         commands.entity(entity).remove::<Selected>();
                         info!("    -> Command to remove Selected component from entity {:?} queued", entity);
                     }
@@ -278,7 +301,7 @@ pub fn handle_mouse_input(
                 // In multi-select mode, start with previous selection
                 if drag_state.is_multi_select {
                     // Reset to previous selection
-                    for entity in &selected_query {
+                    for (entity, _) in &selected_query {
                         if !drag_state.previous_selection.contains(&entity) {
                             commands.entity(entity).remove::<Selected>();
                             selection_state.selected.remove(&entity);
@@ -286,16 +309,16 @@ pub fn handle_mouse_input(
                         }
                     }
 
-                    for entity in &drag_state.previous_selection {
-                        if !selection_state.selected.contains(entity) {
-                            commands.entity(*entity).insert(Selected);
-                            selection_state.selected.insert(*entity);
+                    for &entity in &drag_state.previous_selection {
+                        if !selection_state.selected.contains(&entity) {
+                            commands.entity(entity).insert(Selected);
+                            selection_state.selected.insert(entity);
                             info!("  -> Command to add Selected component to entity {:?} queued (drag restore)", entity);
                         }
                     }
                 } else {
                     // Clear selection for non-multi-select
-                    for entity in &selected_query {
+                    for (entity, _) in &selected_query {
                         commands.entity(entity).remove::<Selected>();
                         info!("  -> Command to remove Selected component from entity {:?} queued (drag clear)", entity);
                     }
@@ -324,28 +347,47 @@ pub fn handle_mouse_input(
         }
     }
 
-    // Handle mouse button release to complete selection
-    if mouse_button_input.just_released(MouseButton::Left)
-        && drag_state.is_dragging
-    {
-        drag_state.is_dragging = false;
-        drag_state.start_position = None;
-        drag_state.current_position = None;
-
-        // Clean up the selection rectangle
-        for entity in &selection_rect_query {
-            commands.entity(entity).despawn_recursive();
+    // Handle mouse button release
+    if mouse_button_input.just_released(MouseButton::Left) {
+        // Handle point drag end
+        if drag_point_state.is_dragging {
+            drag_point_state.is_dragging = false;
+            
+            // Only send edit event if points were actually moved
+            if drag_point_state.start_position != drag_point_state.current_position {
+                event_writer.send(EditEvent {
+                    edit_type: EditType::DragUp,
+                });
+                info!("Point drag completed");
+            }
+            
+            drag_point_state.start_position = None;
+            drag_point_state.current_position = None;
+            drag_point_state.dragged_entities.clear();
+            drag_point_state.original_positions.clear();
         }
+        
+        // Existing code for drag selection
+        if drag_state.is_dragging {
+            drag_state.is_dragging = false;
+            drag_state.start_position = None;
+            drag_state.current_position = None;
 
-        // Notify about the edit if we made a selection
-        if !selection_state.selected.is_empty() {
-            event_writer.send(EditEvent {
-                edit_type: EditType::Normal,
-            });
-            info!(
-                "Drag selection completed with {} entities selected",
-                selection_state.selected.len()
-            );
+            // Clean up the selection rectangle
+            for entity in &selection_rect_query {
+                commands.entity(entity).despawn_recursive();
+            }
+
+            // Notify about the edit if we made a selection
+            if !selection_state.selected.is_empty() {
+                event_writer.send(EditEvent {
+                    edit_type: EditType::Normal,
+                });
+                info!(
+                    "Drag selection completed with {} entities selected",
+                    selection_state.selected.len()
+                );
+            }
         }
     }
 }
@@ -768,6 +810,107 @@ pub fn handle_key_releases(
 
             // Note: We deliberately don't reset the nudging state here
             // to ensure selection is maintained through multiple nudges
+        }
+    }
+}
+
+/// System to handle dragging of selected points
+pub fn handle_point_drag(
+    windows: Query<&Window, With<PrimaryWindow>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
+    mut drag_point_state: ResMut<DragPointState>,
+    mut query: Query<(&mut Transform, &mut crate::selection::nudge::PointCoordinates, &GlyphPointReference, Entity), With<Selected>>,
+    mut app_state: ResMut<AppState>,
+    mut event_writer: EventWriter<EditEvent>,
+) {
+    // Skip if not currently dragging
+    if !drag_point_state.is_dragging || mouse_button_input.just_released(MouseButton::Left) {
+        return;
+    }
+
+    // Early return if no window or camera
+    let Ok(window) = windows.get_single() else {
+        return;
+    };
+
+    let Ok((camera, camera_transform)) = camera_query.get_single() else {
+        return;
+    };
+
+    // Get current cursor position
+    if let Some(cursor_pos) = window.cursor_position().and_then(|pos| {
+        camera.viewport_to_world_2d(camera_transform, pos).ok()
+    }) {
+        // Update the current position
+        let previous_pos = drag_point_state.current_position.unwrap_or(cursor_pos);
+        drag_point_state.current_position = Some(cursor_pos);
+        
+        // Calculate delta
+        let delta = cursor_pos - previous_pos;
+        
+        // Axis lock if shift is pressed
+        let mut drag_delta = delta;
+        if keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight) {
+            // Lock to the axis with the largest movement
+            if delta.x.abs() > delta.y.abs() {
+                drag_delta = Vec2::new(delta.x, 0.0);
+                info!("Axis-locked to X: {:.2}", drag_delta.x);
+            } else {
+                drag_delta = Vec2::new(0.0, delta.y);
+                info!("Axis-locked to Y: {:.2}", drag_delta.y);
+            }
+        }
+        
+        // Only proceed if there's actual movement
+        if drag_delta.length_squared() > 0.0 {
+            info!("Dragging points by delta: ({:.2}, {:.2})", drag_delta.x, drag_delta.y);
+            
+            let points_count = query.iter().count();
+            let mut updated_count = 0;
+            
+            // Apply the movement to all selected points
+            for (mut transform, mut coordinates, point_ref, entity) in &mut query {
+                // Update transform
+                transform.translation.x += drag_delta.x;
+                transform.translation.y += drag_delta.y;
+                
+                // Keep point coordinates in sync
+                coordinates.position.x = transform.translation.x;
+                coordinates.position.y = transform.translation.y;
+                
+                // Update the font data directly
+                if let Some(point) = app_state.get_point_mut(point_ref) {
+                    point.x = transform.translation.x;
+                    point.y = transform.translation.y;
+                    updated_count += 1;
+                    
+                    info!(
+                        "Updated point in glyph '{}' contour {} point {} to ({:.1}, {:.1})",
+                        point_ref.glyph_name,
+                        point_ref.contour_index,
+                        point_ref.point_index,
+                        point.x,
+                        point.y
+                    );
+                } else {
+                    info!(
+                        "Failed to update point for entity {:?} in glyph '{}' contour {} point {}",
+                        entity,
+                        point_ref.glyph_name,
+                        point_ref.contour_index,
+                        point_ref.point_index
+                    );
+                }
+            }
+            
+            info!("Updated {}/{} points in the font data", updated_count, points_count);
+            
+            // Send an edit event for undo purposes
+            event_writer.send(EditEvent {
+                edit_type: EditType::Drag,
+            });
         }
     }
 }

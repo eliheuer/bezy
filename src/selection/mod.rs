@@ -3,6 +3,7 @@ pub mod nudge;
 pub mod systems;
 
 use bevy::prelude::*;
+use std::collections::HashMap;
 pub use components::*;
 pub use nudge::*;
 
@@ -23,6 +24,24 @@ pub struct DragSelectionState {
     pub previous_selection: Vec<Entity>,
 }
 
+/// Resource to track the state of dragging points
+#[derive(Resource, Default, Reflect)]
+#[reflect(Resource)]
+pub struct DragPointState {
+    /// Whether a point drag is in progress
+    pub is_dragging: bool,
+    /// The start position of the drag
+    pub start_position: Option<Vec2>,
+    /// The current position of the drag
+    pub current_position: Option<Vec2>,
+    /// The entities being dragged
+    #[reflect(ignore)]
+    pub dragged_entities: Vec<Entity>,
+    /// The original positions of the dragged entities
+    #[reflect(ignore)]
+    pub original_positions: HashMap<Entity, Vec2>,
+}
+
 /// Plugin to add selection functionality to the font editor
 pub struct SelectionPlugin;
 
@@ -40,6 +59,7 @@ impl Plugin for SelectionPlugin {
             // Register resources
             .init_resource::<SelectionState>()
             .init_resource::<DragSelectionState>()
+            .init_resource::<DragPointState>()
             // Add core selection systems
             .configure_sets(
                 Update,
@@ -56,6 +76,7 @@ impl Plugin for SelectionPlugin {
                     systems::handle_mouse_input,
                     systems::handle_selection_shortcuts,
                     systems::handle_key_releases,
+                    systems::handle_point_drag,
                 )
                     .in_set(SelectionSystemSet::Input),
             )
