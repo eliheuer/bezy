@@ -584,6 +584,7 @@ pub fn render_selected_entities(
         (&GlobalTransform, &crate::selection::components::PointType),
         With<Selected>,
     >,
+    drag_point_state: Res<DragPointState>,
     select_mode: Option<
         Res<crate::edit_mode_toolbar::select::SelectModeActive>,
     >,
@@ -603,6 +604,20 @@ pub fn render_selected_entities(
         }
     }
 
+    // Determine if we're currently dragging points (for enhanced visibility)
+    let is_dragging = drag_point_state.is_dragging;
+    
+    // Increase the visual size slightly during dragging for better visibility
+    let size_multiplier = if is_dragging { 1.25 } else { 1.0 };
+    
+    // Select the color - make it brighter during dragging
+    let selection_color = if is_dragging {
+        // Brighter orange during dragging
+        Color::srgb(1.0, 0.7, 0.2)
+    } else {
+        crate::theme::SELECTED_POINT_COLOR
+    };
+
     for (transform, point_type) in &selected_query {
         let position = transform.translation().truncate();
         // Use a position with a slight Z offset to ensure it renders on top
@@ -614,13 +629,14 @@ pub fn render_selected_entities(
         if point_type.is_on_curve && crate::theme::USE_SQUARE_FOR_ON_CURVE {
             // Draw a square for on-curve points
             let half_size = crate::theme::SELECTION_POINT_RADIUS
-                / crate::theme::ON_CURVE_SQUARE_ADJUSTMENT;
+                / crate::theme::ON_CURVE_SQUARE_ADJUSTMENT
+                * size_multiplier;
 
             // First draw a filled circle inside the square
             gizmos.circle_2d(
                 position_2d,
                 half_size * crate::theme::ON_CURVE_INNER_CIRCLE_RATIO,
-                crate::theme::SELECTED_POINT_COLOR,
+                selection_color,
             );
 
             // Then draw the square outline
@@ -637,30 +653,31 @@ pub fn render_selected_entities(
             gizmos.line_2d(
                 top_left,
                 top_right,
-                crate::theme::SELECTED_POINT_COLOR,
+                selection_color,
             );
             gizmos.line_2d(
                 top_right,
                 bottom_right,
-                crate::theme::SELECTED_POINT_COLOR,
+                selection_color,
             );
             gizmos.line_2d(
                 bottom_right,
                 bottom_left,
-                crate::theme::SELECTED_POINT_COLOR,
+                selection_color,
             );
             gizmos.line_2d(
                 bottom_left,
                 top_left,
-                crate::theme::SELECTED_POINT_COLOR,
+                selection_color,
             );
         } else {
             // Draw a circle for off-curve points
             gizmos.circle_2d(
                 position_2d,
                 crate::theme::SELECTION_POINT_RADIUS
-                    * crate::theme::SELECTED_CIRCLE_RADIUS_MULTIPLIER,
-                crate::theme::SELECTED_POINT_COLOR,
+                    * crate::theme::SELECTED_CIRCLE_RADIUS_MULTIPLIER
+                    * size_multiplier,
+                selection_color,
             );
 
             // For off-curve points, also draw a smaller inner circle
@@ -668,8 +685,9 @@ pub fn render_selected_entities(
                 gizmos.circle_2d(
                     position_2d,
                     crate::theme::SELECTION_POINT_RADIUS
-                        * crate::theme::OFF_CURVE_INNER_CIRCLE_RATIO,
-                    crate::theme::SELECTED_POINT_COLOR,
+                        * crate::theme::OFF_CURVE_INNER_CIRCLE_RATIO
+                        * size_multiplier,
+                    selection_color,
                 );
             }
         }
@@ -683,16 +701,54 @@ pub fn render_selected_entities(
             crate::theme::SELECTION_POINT_RADIUS * crate::theme::SELECTED_CIRCLE_RADIUS_MULTIPLIER
         };
         
+        // Apply size multiplier to crosshairs as well
+        let line_size = line_size * size_multiplier;
+        
+        // Draw crosshair with optional thickness
+        // Note: In Bevy, we can't directly modify gizmos.config.line_width
+        // We'll need to draw with the default thickness instead
+        
         gizmos.line_2d(
             Vec2::new(position_2d.x - line_size, position_2d.y),
             Vec2::new(position_2d.x + line_size, position_2d.y),
-            crate::theme::SELECTED_POINT_COLOR,
+            selection_color,
         );
+        
         gizmos.line_2d(
             Vec2::new(position_2d.x, position_2d.y - line_size),
             Vec2::new(position_2d.x, position_2d.y + line_size),
-            crate::theme::SELECTED_POINT_COLOR,
+            selection_color,
         );
+        
+        // If dragging, draw a second set of lines to make them appear thicker
+        if is_dragging {
+            // Offset slightly to create thicker appearance
+            let offset = 0.5;
+            
+            gizmos.line_2d(
+                Vec2::new(position_2d.x - line_size, position_2d.y + offset),
+                Vec2::new(position_2d.x + line_size, position_2d.y + offset),
+                selection_color,
+            );
+            
+            gizmos.line_2d(
+                Vec2::new(position_2d.x - line_size, position_2d.y - offset),
+                Vec2::new(position_2d.x + line_size, position_2d.y - offset),
+                selection_color,
+            );
+            
+            gizmos.line_2d(
+                Vec2::new(position_2d.x + offset, position_2d.y - line_size),
+                Vec2::new(position_2d.x + offset, position_2d.y + line_size),
+                selection_color,
+            );
+            
+            gizmos.line_2d(
+                Vec2::new(position_2d.x - offset, position_2d.y - line_size),
+                Vec2::new(position_2d.x - offset, position_2d.y + line_size),
+                selection_color,
+            );
+        }
     }
 }
 
@@ -875,6 +931,10 @@ pub fn handle_point_drag(
                 // Update transform
                 transform.translation.x += drag_delta.x;
                 transform.translation.y += drag_delta.y;
+                
+                // Important: Set a small Z value to ensure visibility during dragging
+                // This helps prevent z-fighting or visibility issues during movement
+                transform.translation.z = 5.0;
                 
                 // Keep point coordinates in sync
                 coordinates.position.x = transform.translation.x;
