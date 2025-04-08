@@ -47,8 +47,11 @@ pub fn spawn_checkerboard(commands: &mut Commands) {
     let start_y = -half_size;
     let square_size = Vec2::splat(CHECKERBOARD_UNIT_SIZE);
 
-    info!("Spawning checkerboard background with grid size {}", GRID_SIZE);
-    
+    info!(
+        "Spawning checkerboard background with grid size {}",
+        GRID_SIZE
+    );
+
     // Create checkerboard pattern
     for x in 0..GRID_SIZE {
         for y in 0..GRID_SIZE {
@@ -56,10 +59,10 @@ pub fn spawn_checkerboard(commands: &mut Commands) {
             if (x % 2 == 0) == (y % 2 == 0) {
                 continue;
             }
-            
+
             // Calculate square position
             let position = calculate_square_position(x, y, start_x, start_y);
-            
+
             // Spawn the square
             commands.spawn((
                 Sprite {
@@ -67,7 +70,11 @@ pub fn spawn_checkerboard(commands: &mut Commands) {
                     custom_size: Some(square_size),
                     ..default()
                 },
-                Transform::from_xyz(position.x, position.y, CHECKERBOARD_Z_LEVEL),
+                Transform::from_xyz(
+                    position.x,
+                    position.y,
+                    CHECKERBOARD_Z_LEVEL,
+                ),
                 CheckerboardSquare,
             ));
         }
@@ -77,14 +84,19 @@ pub fn spawn_checkerboard(commands: &mut Commands) {
 /// Calculates the position of a checkerboard square
 ///
 /// Returns the center position of a square at the given grid coordinates.
-fn calculate_square_position(x: usize, y: usize, start_x: f32, start_y: f32) -> Vec2 {
-    let pos_x = start_x 
-        + (x as f32 * CHECKERBOARD_UNIT_SIZE) 
+fn calculate_square_position(
+    x: usize,
+    y: usize,
+    start_x: f32,
+    start_y: f32,
+) -> Vec2 {
+    let pos_x = start_x
+        + (x as f32 * CHECKERBOARD_UNIT_SIZE)
         + (CHECKERBOARD_UNIT_SIZE / 2.0);
-    let pos_y = start_y 
-        + (y as f32 * CHECKERBOARD_UNIT_SIZE) 
+    let pos_y = start_y
+        + (y as f32 * CHECKERBOARD_UNIT_SIZE)
         + (CHECKERBOARD_UNIT_SIZE / 2.0);
-    
+
     Vec2::new(pos_x, pos_y)
 }
 
@@ -107,12 +119,12 @@ pub fn toggle_checkerboard_visibility(
         } else {
             Visibility::Hidden
         };
-        
+
         // Skip visibility updates if there are no checkerboard squares
         if checkerboard_query.is_empty() {
             return;
         }
-        
+
         // Update visibility for all checkerboard squares
         for mut visibility in checkerboard_query.iter_mut() {
             *visibility = visibility_state;

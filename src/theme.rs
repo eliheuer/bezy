@@ -131,7 +131,7 @@ pub const CAMERA_ZOOM_FACTOR: f32 = 0.5; // Factor used in zoom level calculatio
 pub const CAMERA_MIN_SCALE: f32 = 0.8; // Minimum camera scale to prevent excessive zooming
 
 /// Creates a consistent styled container for UI widgets/panes
-/// 
+///
 /// Returns a bundle of components that can be used to spawn a widget with
 /// consistent styling across the application.
 pub fn create_widget_style<T: Component + Default>(
@@ -158,8 +158,8 @@ pub fn create_widget_style<T: Component + Default>(
             height: Val::Auto,
             min_width: Val::Auto,
             min_height: Val::Auto,
-            max_width: Val::Px(256.0),  // Reduced maximum width for more compact widgets
-            max_height: Val::Percent(50.0),  // Limit height to prevent stretching to top of screen
+            max_width: Val::Px(256.0), // Reduced maximum width for more compact widgets
+            max_height: Val::Percent(50.0), // Limit height to prevent stretching to top of screen
             justify_content: JustifyContent::FlexStart,
             align_items: AlignItems::FlexStart,
             ..default()

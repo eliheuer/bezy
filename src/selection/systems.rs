@@ -1,11 +1,13 @@
 use super::components::*;
-use super::DragSelectionState;
 use super::DragPointState;
+use super::DragSelectionState;
 use crate::cameras::DesignCamera;
 use crate::data::AppState;
 use crate::draw::AppStateChanged;
 use crate::edit_type::EditType;
 use crate::selection::nudge::{EditEvent, NudgeState};
+use crate::settings::SNAP_TO_GRID_ENABLED;
+use crate::settings::SNAP_TO_GRID_VALUE;
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -189,18 +191,25 @@ pub fn handle_mouse_input(
 
                 // Initialize drag point state for dragging the selected points
                 if !selection_state.selected.is_empty() {
-                    info!("Initializing point drag with {} selected points", selection_state.selected.len());
+                    info!(
+                        "Initializing point drag with {} selected points",
+                        selection_state.selected.len()
+                    );
                     drag_point_state.is_dragging = true;
                     drag_point_state.start_position = Some(cursor_pos);
                     drag_point_state.current_position = Some(cursor_pos);
-                    drag_point_state.dragged_entities = selected_query.iter().map(|(e, _)| e).collect();
-                    
+                    drag_point_state.dragged_entities =
+                        selected_query.iter().map(|(e, _)| e).collect();
+
                     // Save the original positions
                     drag_point_state.original_positions.clear();
                     for (entity, transform) in &selected_query {
                         drag_point_state.original_positions.insert(
                             entity,
-                            Vec2::new(transform.translation.x, transform.translation.y)
+                            Vec2::new(
+                                transform.translation.x,
+                                transform.translation.y,
+                            ),
                         );
                     }
                 }
@@ -223,7 +232,8 @@ pub fn handle_mouse_input(
                 drag_state.is_multi_select = selection_state.multi_select;
 
                 // Save previous selection for potential multi-select operations
-                drag_state.previous_selection = selected_query.iter().map(|(entity, _)| entity).collect();
+                drag_state.previous_selection =
+                    selected_query.iter().map(|(entity, _)| entity).collect();
 
                 // If not multi-selecting, clear previous selection
                 if !selection_state.multi_select {
@@ -352,21 +362,23 @@ pub fn handle_mouse_input(
         // Handle point drag end
         if drag_point_state.is_dragging {
             drag_point_state.is_dragging = false;
-            
+
             // Only send edit event if points were actually moved
-            if drag_point_state.start_position != drag_point_state.current_position {
+            if drag_point_state.start_position
+                != drag_point_state.current_position
+            {
                 event_writer.send(EditEvent {
                     edit_type: EditType::DragUp,
                 });
                 info!("Point drag completed");
             }
-            
+
             drag_point_state.start_position = None;
             drag_point_state.current_position = None;
             drag_point_state.dragged_entities.clear();
             drag_point_state.original_positions.clear();
         }
-        
+
         // Existing code for drag selection
         if drag_state.is_dragging {
             drag_state.is_dragging = false;
@@ -606,10 +618,10 @@ pub fn render_selected_entities(
 
     // Determine if we're currently dragging points (for enhanced visibility)
     let is_dragging = drag_point_state.is_dragging;
-    
+
     // Increase the visual size slightly during dragging for better visibility
     let size_multiplier = if is_dragging { 1.25 } else { 1.0 };
-    
+
     // Select the color - make it brighter during dragging
     let selection_color = if is_dragging {
         // Brighter orange during dragging
@@ -650,26 +662,10 @@ pub fn render_selected_entities(
                 Vec2::new(position_2d.x - half_size, position_2d.y - half_size);
 
             // Draw the square sides
-            gizmos.line_2d(
-                top_left,
-                top_right,
-                selection_color,
-            );
-            gizmos.line_2d(
-                top_right,
-                bottom_right,
-                selection_color,
-            );
-            gizmos.line_2d(
-                bottom_right,
-                bottom_left,
-                selection_color,
-            );
-            gizmos.line_2d(
-                bottom_left,
-                top_left,
-                selection_color,
-            );
+            gizmos.line_2d(top_left, top_right, selection_color);
+            gizmos.line_2d(top_right, bottom_right, selection_color);
+            gizmos.line_2d(bottom_right, bottom_left, selection_color);
+            gizmos.line_2d(bottom_left, top_left, selection_color);
         } else {
             // Draw a circle for off-curve points
             gizmos.circle_2d(
@@ -693,56 +689,60 @@ pub fn render_selected_entities(
         }
 
         // Always draw the crosshair for all selected points
-        let line_size = if point_type.is_on_curve && crate::theme::USE_SQUARE_FOR_ON_CURVE {
+        let line_size = if point_type.is_on_curve
+            && crate::theme::USE_SQUARE_FOR_ON_CURVE
+        {
             // For on-curve square points, use the half_size of the square
-            crate::theme::SELECTION_POINT_RADIUS / crate::theme::ON_CURVE_SQUARE_ADJUSTMENT
+            crate::theme::SELECTION_POINT_RADIUS
+                / crate::theme::ON_CURVE_SQUARE_ADJUSTMENT
         } else {
             // For off-curve circle points, use the radius
-            crate::theme::SELECTION_POINT_RADIUS * crate::theme::SELECTED_CIRCLE_RADIUS_MULTIPLIER
+            crate::theme::SELECTION_POINT_RADIUS
+                * crate::theme::SELECTED_CIRCLE_RADIUS_MULTIPLIER
         };
-        
+
         // Apply size multiplier to crosshairs as well
         let line_size = line_size * size_multiplier;
-        
+
         // Draw crosshair with optional thickness
         // Note: In Bevy, we can't directly modify gizmos.config.line_width
         // We'll need to draw with the default thickness instead
-        
+
         gizmos.line_2d(
             Vec2::new(position_2d.x - line_size, position_2d.y),
             Vec2::new(position_2d.x + line_size, position_2d.y),
             selection_color,
         );
-        
+
         gizmos.line_2d(
             Vec2::new(position_2d.x, position_2d.y - line_size),
             Vec2::new(position_2d.x, position_2d.y + line_size),
             selection_color,
         );
-        
+
         // If dragging, draw a second set of lines to make them appear thicker
         if is_dragging {
             // Offset slightly to create thicker appearance
             let offset = 0.5;
-            
+
             gizmos.line_2d(
                 Vec2::new(position_2d.x - line_size, position_2d.y + offset),
                 Vec2::new(position_2d.x + line_size, position_2d.y + offset),
                 selection_color,
             );
-            
+
             gizmos.line_2d(
                 Vec2::new(position_2d.x - line_size, position_2d.y - offset),
                 Vec2::new(position_2d.x + line_size, position_2d.y - offset),
                 selection_color,
             );
-            
+
             gizmos.line_2d(
                 Vec2::new(position_2d.x + offset, position_2d.y - line_size),
                 Vec2::new(position_2d.x + offset, position_2d.y + line_size),
                 selection_color,
             );
-            
+
             gizmos.line_2d(
                 Vec2::new(position_2d.x - offset, position_2d.y - line_size),
                 Vec2::new(position_2d.x - offset, position_2d.y + line_size),
@@ -877,12 +877,23 @@ pub fn handle_point_drag(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
     mut drag_point_state: ResMut<DragPointState>,
-    mut query: Query<(&mut Transform, &mut crate::selection::nudge::PointCoordinates, &GlyphPointReference, Entity), With<Selected>>,
+    mut query: Query<
+        (
+            &mut Transform,
+            &mut crate::selection::nudge::PointCoordinates,
+            &GlyphPointReference,
+            Option<&crate::selection::components::PointType>,
+            Entity,
+        ),
+        With<Selected>,
+    >,
     mut app_state: ResMut<AppState>,
     mut event_writer: EventWriter<EditEvent>,
 ) {
     // Skip if not currently dragging
-    if !drag_point_state.is_dragging || mouse_button_input.just_released(MouseButton::Left) {
+    if !drag_point_state.is_dragging
+        || mouse_button_input.just_released(MouseButton::Left)
+    {
         return;
     }
 
@@ -896,19 +907,23 @@ pub fn handle_point_drag(
     };
 
     // Get current cursor position
-    if let Some(cursor_pos) = window.cursor_position().and_then(|pos| {
-        camera.viewport_to_world_2d(camera_transform, pos).ok()
-    }) {
+    if let Some(cursor_pos) = window
+        .cursor_position()
+        .and_then(|pos| camera.viewport_to_world_2d(camera_transform, pos).ok())
+    {
         // Update the current position
-        let previous_pos = drag_point_state.current_position.unwrap_or(cursor_pos);
+        let previous_pos =
+            drag_point_state.current_position.unwrap_or(cursor_pos);
         drag_point_state.current_position = Some(cursor_pos);
-        
+
         // Calculate delta
         let delta = cursor_pos - previous_pos;
-        
+
         // Axis lock if shift is pressed
         let mut drag_delta = delta;
-        if keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight) {
+        if keyboard_input.pressed(KeyCode::ShiftLeft)
+            || keyboard_input.pressed(KeyCode::ShiftRight)
+        {
             // Lock to the axis with the largest movement
             if delta.x.abs() > delta.y.abs() {
                 drag_delta = Vec2::new(delta.x, 0.0);
@@ -918,34 +933,67 @@ pub fn handle_point_drag(
                 info!("Axis-locked to Y: {:.2}", drag_delta.y);
             }
         }
-        
+
         // Only proceed if there's actual movement
         if drag_delta.length_squared() > 0.0 {
-            info!("Dragging points by delta: ({:.2}, {:.2})", drag_delta.x, drag_delta.y);
-            
+            info!(
+                "Dragging points by delta: ({:.2}, {:.2})",
+                drag_delta.x, drag_delta.y
+            );
+
             let points_count = query.iter().count();
             let mut updated_count = 0;
-            
+
             // Apply the movement to all selected points
-            for (mut transform, mut coordinates, point_ref, entity) in &mut query {
+            for (
+                mut transform,
+                mut coordinates,
+                point_ref,
+                point_type,
+                entity,
+            ) in &mut query
+            {
                 // Update transform
                 transform.translation.x += drag_delta.x;
                 transform.translation.y += drag_delta.y;
-                
+
                 // Important: Set a small Z value to ensure visibility during dragging
                 // This helps prevent z-fighting or visibility issues during movement
                 transform.translation.z = 5.0;
-                
+
+                // Apply grid snapping for on-curve points if enabled
+                if crate::settings::SNAP_TO_GRID_ENABLED {
+                    // Only apply to on-curve points if we can determine the point type
+                    let should_snap = match point_type {
+                        Some(pt) => pt.is_on_curve,
+                        None => false, // Skip snapping if we can't determine point type
+                    };
+
+                    if should_snap {
+                        let grid_value = crate::settings::SNAP_TO_GRID_VALUE;
+                        // Snap to the nearest multiple of SNAP_TO_GRID_VALUE
+                        transform.translation.x = 
+                            (transform.translation.x / grid_value).round() * grid_value;
+                        transform.translation.y = 
+                            (transform.translation.y / grid_value).round() * grid_value;
+
+                        info!(
+                            "Snapped point to grid: ({:.1}, {:.1})",
+                            transform.translation.x, transform.translation.y
+                        );
+                    }
+                }
+
                 // Keep point coordinates in sync
                 coordinates.position.x = transform.translation.x;
                 coordinates.position.y = transform.translation.y;
-                
+
                 // Update the font data directly
                 if let Some(point) = app_state.get_point_mut(point_ref) {
                     point.x = transform.translation.x;
                     point.y = transform.translation.y;
                     updated_count += 1;
-                    
+
                     info!(
                         "Updated point in glyph '{}' contour {} point {} to ({:.1}, {:.1})",
                         point_ref.glyph_name,
@@ -964,9 +1012,12 @@ pub fn handle_point_drag(
                     );
                 }
             }
-            
-            info!("Updated {}/{} points in the font data", updated_count, points_count);
-            
+
+            info!(
+                "Updated {}/{} points in the font data",
+                updated_count, points_count
+            );
+
             // Send an edit event for undo purposes
             event_writer.send(EditEvent {
                 edit_type: EditType::Drag,

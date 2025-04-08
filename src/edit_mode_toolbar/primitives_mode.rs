@@ -101,12 +101,14 @@ pub fn spawn_primitives_submenu(
                 // Calculate position based on toolbar size, margin, and spacing
                 // Main toolbar is positioned at TOOLBAR_MARGIN and has height of 64px
                 // Add TOOLBAR_ITEM_SPACING to maintain the same spacing as the horizontal buttons
-                top: Val::Px(TOOLBAR_MARGIN + 64.0 + TOOLBAR_ITEM_SPACING + 4.0),
+                top: Val::Px(
+                    TOOLBAR_MARGIN + 64.0 + TOOLBAR_ITEM_SPACING + 4.0,
+                ),
                 left: Val::Px(TOOLBAR_MARGIN), // Use TOOLBAR_MARGIN for consistent positioning
                 flex_direction: FlexDirection::Row,
-                padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),  // Use theme padding
-                margin: UiRect::all(Val::ZERO),  // Set to ZERO since we're using absolute positioning
-                row_gap: Val::Px(TOOLBAR_ROW_GAP),  // Use theme row gap
+                padding: UiRect::all(Val::Px(TOOLBAR_PADDING)), // Use theme padding
+                margin: UiRect::all(Val::ZERO), // Set to ZERO since we're using absolute positioning
+                row_gap: Val::Px(TOOLBAR_ROW_GAP), // Use theme row gap
                 ..default()
             },
             Name::new("PrimitivesSubMenu"),
@@ -134,7 +136,7 @@ fn spawn_primitive_button(
 ) {
     parent
         .spawn(Node {
-            margin: UiRect::all(Val::Px(TOOLBAR_ITEM_SPACING)),  // Use theme spacing
+            margin: UiRect::all(Val::Px(TOOLBAR_ITEM_SPACING)), // Use theme spacing
             ..default()
         })
         .with_children(|button_container| {
@@ -146,21 +148,21 @@ fn spawn_primitive_button(
                     Node {
                         width: Val::Px(64.0),
                         height: Val::Px(64.0),
-                        padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),  // Use theme padding
-                        border: UiRect::all(Val::Px(TOOLBAR_BORDER_WIDTH)),  // Use theme border width
+                        padding: UiRect::all(Val::Px(TOOLBAR_PADDING)), // Use theme padding
+                        border: UiRect::all(Val::Px(TOOLBAR_BORDER_WIDTH)), // Use theme border width
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    BorderColor(TOOLBAR_BORDER_COLOR),  // Use theme border color
-                    BorderRadius::all(Val::Px(TOOLBAR_BORDER_RADIUS)),  // Use theme border radius
-                    BackgroundColor(TOOLBAR_BACKGROUND_COLOR),  // Use theme background color
+                    BorderColor(TOOLBAR_BORDER_COLOR), // Use theme border color
+                    BorderRadius::all(Val::Px(TOOLBAR_BORDER_RADIUS)), // Use theme border radius
+                    BackgroundColor(TOOLBAR_BACKGROUND_COLOR), // Use theme background color
                 ))
                 .with_children(|button| {
                     button.spawn((
                         Text::new(primitive_type.get_icon().to_string()),
                         TextFont {
-                            font: asset_server.load(DEFAULT_FONT_PATH),  // Use theme font path
+                            font: asset_server.load(DEFAULT_FONT_PATH), // Use theme font path
                             font_size: 48.0,
                             ..default()
                         },

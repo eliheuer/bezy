@@ -54,7 +54,14 @@ fn spawn_rounded_rect_controls(
                 position_type: PositionType::Absolute,
                 // Calculate position based on toolbar and submenu positions
                 // Main toolbar (TOOLBAR_MARGIN + 64.0 + TOOLBAR_ITEM_SPACING) + submenu height (64.0 + TOOLBAR_ITEM_SPACING)
-                top: Val::Px(TOOLBAR_MARGIN + 64.0 + TOOLBAR_ITEM_SPACING + 64.0 + TOOLBAR_ITEM_SPACING + 20.0),
+                top: Val::Px(
+                    TOOLBAR_MARGIN
+                        + 64.0
+                        + TOOLBAR_ITEM_SPACING
+                        + 64.0
+                        + TOOLBAR_ITEM_SPACING
+                        + 20.0,
+                ),
                 left: Val::Px(TOOLBAR_MARGIN + 12.0),
                 padding: UiRect::all(Val::Px(8.0)),
                 flex_direction: FlexDirection::Column,
@@ -109,8 +116,7 @@ fn spawn_rounded_rect_controls(
                     input_parent.spawn((
                         Text::new("32"), // Initial value as integer
                         TextFont {
-                            font: asset_server
-                                .load(MONO_FONT_PATH),
+                            font: asset_server.load(MONO_FONT_PATH),
                             font_size: 24.0,
                             ..default()
                         },
@@ -220,7 +226,11 @@ pub fn handle_radius_input(
         {
             // Calculate panel position using theme constants
             let panel_left = TOOLBAR_MARGIN + TOOLBAR_ITEM_SPACING;
-            let panel_top = TOOLBAR_MARGIN + 64.0 + TOOLBAR_ITEM_SPACING + 64.0 + TOOLBAR_ITEM_SPACING;
+            let panel_top = TOOLBAR_MARGIN
+                + 64.0
+                + TOOLBAR_ITEM_SPACING
+                + 64.0
+                + TOOLBAR_ITEM_SPACING;
             let panel_width = match panel_node.min_width {
                 Val::Px(width) => width,
                 _ => 200.0,

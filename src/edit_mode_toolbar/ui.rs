@@ -37,7 +37,7 @@ impl EditMode {
     /// Returns the Unicode PUA icon for each edit mode
     pub fn get_icon(&self) -> &'static str {
         match self {
-            EditMode::Select => "\u{E010}",  // Temporarily change one icon to a regular character from E010
+            EditMode::Select => "\u{E010}", // Temporarily change one icon to a regular character from E010
             EditMode::Pen => "\u{E011}",
             EditMode::Hyper => "\u{E012}",
             EditMode::Knife => "\u{E013}",
@@ -112,7 +112,7 @@ fn spawn_mode_button(
 ) {
     parent
         .spawn(Node {
-            margin: UiRect::all(Val::Px(TOOLBAR_ITEM_SPACING)),  // Use theme spacing between buttons
+            margin: UiRect::all(Val::Px(TOOLBAR_ITEM_SPACING)), // Use theme spacing between buttons
             ..default()
         })
         .with_children(|button_container| {
@@ -130,9 +130,9 @@ fn spawn_mode_button(
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    BorderColor(TOOLBAR_BORDER_COLOR),  // Use theme border color
-                    BorderRadius::all(Val::Px(TOOLBAR_BORDER_RADIUS)),  // Use theme border radius
-                    BackgroundColor(TOOLBAR_BACKGROUND_COLOR),  // Use theme background color
+                    BorderColor(TOOLBAR_BORDER_COLOR), // Use theme border color
+                    BorderRadius::all(Val::Px(TOOLBAR_BORDER_RADIUS)), // Use theme border radius
+                    BackgroundColor(TOOLBAR_BACKGROUND_COLOR), // Use theme background color
                 ))
                 .with_children(|button| {
                     // Add the icon using the EditMode method
@@ -226,7 +226,7 @@ pub fn handle_toolbar_mode_selection(
         for (parent, mut text_color) in &mut text_query {
             if parent.get() == entity {
                 text_color.0 = if is_current_mode {
-                    PRESSED_BUTTON_ICON_COLOR  // Use a contrasting color from our theme for selected items
+                    PRESSED_BUTTON_ICON_COLOR // Use a contrasting color from our theme for selected items
                 } else {
                     TOOLBAR_ICON_COLOR
                 };

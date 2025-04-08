@@ -17,7 +17,6 @@ pub struct ConnectButtonState {
 //#[allow(dead_code)]
 //pub struct TextColor(pub Color);
 
-
 /// Spawn the access toolbar with a Connect button in the upper right corner
 pub fn spawn_access_toolbar(
     mut commands: Commands,
@@ -26,12 +25,12 @@ pub fn spawn_access_toolbar(
     commands
         .spawn((Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(TOOLBAR_MARGIN),      // Use theme margin for consistent spacing
-            right: Val::Px(TOOLBAR_MARGIN),    // Use theme margin for consistent spacing
+            top: Val::Px(TOOLBAR_MARGIN), // Use theme margin for consistent spacing
+            right: Val::Px(TOOLBAR_MARGIN), // Use theme margin for consistent spacing
             flex_direction: FlexDirection::Row,
             padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),
-            margin: UiRect::all(Val::ZERO),    // Set margin to zero since we're using position offsets
-            column_gap: Val::Px(TOOLBAR_ITEM_SPACING),    // Use consistent spacing between buttons
+            margin: UiRect::all(Val::ZERO), // Set margin to zero since we're using position offsets
+            column_gap: Val::Px(TOOLBAR_ITEM_SPACING), // Use consistent spacing between buttons
             ..default()
         },))
         .with_children(|parent| {
