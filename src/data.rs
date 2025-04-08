@@ -54,6 +54,7 @@ impl AppState {
     /// Gets a point reference from an entity
     ///
     /// Returns the GlyphPointReference for the given entity if it exists
+    #[allow(dead_code)]
     pub fn get_point_reference(
         &self,
         _entity: Entity,

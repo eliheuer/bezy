@@ -28,6 +28,7 @@ impl PrimitiveType {
     }
 
     // Get the display name for each primitive type
+    #[allow(dead_code)]
     pub fn display_name(&self) -> &'static str {
         match self {
             PrimitiveType::Rectangle => "Rectangle",

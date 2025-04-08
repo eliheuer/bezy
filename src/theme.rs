@@ -6,6 +6,7 @@ pub const DEFAULT_FONT_PATH: &str = "fonts/bezy-grotesk-regular.ttf";
 pub const MONO_FONT_PATH: &str = "fonts/HasubiMono-Regular.ttf";
 
 // Font Sizes
+#[allow(dead_code)]
 pub const WIDGET_TITLE_FONT_SIZE: f32 = 24.0;
 pub const WIDGET_TEXT_FONT_SIZE: f32 = 24.0;
 
@@ -66,6 +67,7 @@ pub const OFF_CURVE_INNER_CIRCLE_RATIO: f32 = 0.5; // Inner circle size as a rat
 // Selection and Hover Styling
 pub const SELECTION_POINT_RADIUS: f32 = 4.0; // Changed back to 4.0 to match unselected points
 pub const SELECTED_CIRCLE_RADIUS_MULTIPLIER: f32 = 1.0; // Changed back to 1.0 for consistent sizing
+#[allow(dead_code)]
 pub const SELECTED_CROSS_SIZE_MULTIPLIER: f32 = 1.0; // Reduced to keep crosshairs within the circle/square
 pub const SELECTED_POINT_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0); // Changed back to yellow
 
@@ -74,6 +76,7 @@ pub const SELECTED_POINT_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0); // Cha
 pub const HOVER_CIRCLE_RADIUS_MULTIPLIER: f32 = 1.0; // Multiplier for hover point circle
 #[allow(dead_code)]
 pub const HOVER_POINT_COLOR: Color = Color::srgba(0.3, 0.8, 1.0, 0.7); // Light blue with alpha
+// #[allow(dead_code)]
 #[allow(dead_code)]
 pub const HOVER_ORANGE_COLOR: Color = Color::srgb(1.0, 0.4, 0.0); // Bright orange for hover indicators
 
@@ -131,7 +134,7 @@ pub const CAMERA_ZOOM_FACTOR: f32 = 0.5; // Factor used in zoom level calculatio
 pub const CAMERA_MIN_SCALE: f32 = 0.8; // Minimum camera scale to prevent excessive zooming
 
 /// Creates a consistent styled container for UI widgets/panes
-///
+/// 
 /// Returns a bundle of components that can be used to spawn a widget with
 /// consistent styling across the application.
 pub fn create_widget_style<T: Component + Default>(
@@ -158,8 +161,8 @@ pub fn create_widget_style<T: Component + Default>(
             height: Val::Auto,
             min_width: Val::Auto,
             min_height: Val::Auto,
-            max_width: Val::Px(256.0), // Reduced maximum width for more compact widgets
-            max_height: Val::Percent(50.0), // Limit height to prevent stretching to top of screen
+            max_width: Val::Px(256.0),  // Reduced maximum width for more compact widgets
+            max_height: Val::Percent(50.0),  // Limit height to prevent stretching to top of screen
             justify_content: JustifyContent::FlexStart,
             align_items: AlignItems::FlexStart,
             ..default()
@@ -173,6 +176,7 @@ pub fn create_widget_style<T: Component + Default>(
 }
 
 /// Creates a text component with the mono font and standard styling
+#[allow(dead_code)]
 pub fn create_widget_text(
     asset_server: &Res<AssetServer>,
     text: &str,
@@ -231,6 +235,7 @@ pub fn create_widget_label_value_pair(
     )
 }
 
+#[allow(dead_code)]
 pub fn get_default_text_style(asset_server: &Res<AssetServer>) -> TextFont {
     TextFont {
         font: asset_server.load(DEFAULT_FONT_PATH),

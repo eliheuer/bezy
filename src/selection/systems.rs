@@ -6,8 +6,6 @@ use crate::data::AppState;
 use crate::draw::AppStateChanged;
 use crate::edit_type::EditType;
 use crate::selection::nudge::{EditEvent, NudgeState};
-use crate::settings::SNAP_TO_GRID_ENABLED;
-use crate::settings::SNAP_TO_GRID_VALUE;
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
