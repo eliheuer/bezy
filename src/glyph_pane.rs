@@ -16,6 +16,8 @@ pub struct CurrentGlyphMetrics {
     pub advance: String,
     pub left_bearing: String,
     pub right_bearing: String,
+    pub left_group: String,
+    pub right_group: String,
 }
 
 /// Component marker for the glyph pane
@@ -41,6 +43,14 @@ pub struct GlyphLeftBearingText;
 /// Component marker for the glyph right bearing text
 #[derive(Component)]
 pub struct GlyphRightBearingText;
+
+/// Component marker for the glyph left kerning group text
+#[derive(Component)]
+pub struct GlyphLeftGroupText;
+
+/// Component marker for the glyph right kerning group text
+#[derive(Component)]
+pub struct GlyphRightGroupText;
 
 /// Plugin that adds the glyph pane functionality
 pub struct GlyphPanePlugin;
@@ -90,6 +100,18 @@ fn update_glyph_pane(world: &mut World) {
         metrics.right_bearing.clone()
     };
 
+    let left_group = if metrics.left_group.is_empty() {
+        "None".to_string()
+    } else {
+        metrics.left_group.clone()
+    };
+
+    let right_group = if metrics.right_group.is_empty() {
+        "None".to_string()
+    } else {
+        metrics.right_group.clone()
+    };
+
     // Update the texts in the UI
     let mut name_query =
         world.query_filtered::<&mut Text, With<GlyphNameText>>();
@@ -119,6 +141,18 @@ fn update_glyph_pane(world: &mut World) {
         world.query_filtered::<&mut Text, With<GlyphRightBearingText>>();
     for mut text in rsb_query.iter_mut(world) {
         *text = Text::new(rsb.clone());
+    }
+
+    let mut left_group_query =
+        world.query_filtered::<&mut Text, With<GlyphLeftGroupText>>();
+    for mut text in left_group_query.iter_mut(world) {
+        *text = Text::new(left_group.clone());
+    }
+
+    let mut right_group_query =
+        world.query_filtered::<&mut Text, With<GlyphRightGroupText>>();
+    for mut text in right_group_query.iter_mut(world) {
+        *text = Text::new(right_group.clone());
     }
 }
 
@@ -339,6 +373,84 @@ pub fn spawn_glyph_pane(
                         GlyphRightBearingText,
                     ));
                 });
+
+            // Left kerning group row
+            parent
+                .spawn((Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    width: Val::Auto,
+                    height: Val::Auto,
+                    ..default()
+                },))
+                .with_children(|row| {
+                    // Label
+                    row.spawn((
+                        Node {
+                            margin: UiRect::right(Val::Px(4.0)),
+                            width: Val::Auto,
+                            ..default()
+                        },
+                        Text::new("Kern1:"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                    ));
+
+                    // Value
+                    row.spawn((
+                        Text::new("Loading..."),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
+                        GlyphLeftGroupText,
+                    ));
+                });
+
+            // Right kerning group row
+            parent
+                .spawn((Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    width: Val::Auto,
+                    height: Val::Auto,
+                    ..default()
+                },))
+                .with_children(|row| {
+                    // Label
+                    row.spawn((
+                        Node {
+                            margin: UiRect::right(Val::Px(4.0)),
+                            width: Val::Auto,
+                            ..default()
+                        },
+                        Text::new("Kern2:"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                    ));
+
+                    // Value
+                    row.spawn((
+                        Text::new("Loading..."),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
+                        GlyphRightGroupText,
+                    ));
+                });
         });
 }
 
@@ -461,6 +573,38 @@ pub fn update_glyph_metrics(
                         "Using placeholder values for sidebearings"
                     );
                 }
+
+                // Get the kerning groups for this glyph
+                // First look for groups in the UFO
+                if let Some(groups) = app_state.workspace.font.ufo.groups.as_ref() {
+                    // Find kerning groups where this glyph is included
+                    let glyph_name_str = glyph_name.to_string();
+                    metrics.left_group = String::new();
+                    metrics.right_group = String::new();
+
+                    // Look for left kerning groups (public.kern1.*)
+                    for (group_name, members) in groups.iter() {
+                        if group_name.starts_with("public.kern1.") && members.iter().any(|m| m.as_ref() == glyph_name_str) {
+                            // Found a left kerning group for this glyph
+                            metrics.left_group = group_name.clone();
+                            break;
+                        }
+                    }
+
+                    // Look for right kerning groups (public.kern2.*)
+                    for (group_name, members) in groups.iter() {
+                        if group_name.starts_with("public.kern2.") && members.iter().any(|m| m.as_ref() == glyph_name_str) {
+                            // Found a right kerning group for this glyph
+                            metrics.right_group = group_name.clone();
+                            break;
+                        }
+                    }
+                } else {
+                    // No groups found
+                    metrics.left_group = String::new();
+                    metrics.right_group = String::new();
+                    bevy::log::info!("No kerning groups found in the font");
+                }
             } else {
                 bevy::log::warn!("Failed to get glyph from default layer");
             }
@@ -474,6 +618,8 @@ pub fn update_glyph_metrics(
         metrics.advance = "-".to_string();
         metrics.left_bearing = "-".to_string();
         metrics.right_bearing = "-".to_string();
+        metrics.left_group = String::new();
+        metrics.right_group = String::new();
 
         bevy::log::warn!("No glyph selected, cleared metrics");
     }
