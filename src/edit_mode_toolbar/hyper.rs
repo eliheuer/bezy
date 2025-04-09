@@ -106,9 +106,11 @@ pub fn reset_hyper_mode_when_inactive(
             && !hyper_state.points.is_empty()
             && hyper_state.points.len() >= 2
         {
-            if let Some(_contour) =
-                create_contour_from_points(&hyper_state.points, &hyper_state.is_smooth)
-            {
+            if let Some(contour) = create_contour_from_points_when_closing(
+                &hyper_state.points,
+                &hyper_state.is_smooth,
+                &hyper_state.control_points,
+            ) {
                 // Signal that we've made a change to the glyph
                 app_state_changed.send(crate::draw::AppStateChanged);
                 info!("Committing hyperbezier path on mode change");
@@ -227,15 +229,42 @@ pub fn handle_hyper_mouse_events(
                         if distance < hyper_state.close_path_threshold && hyper_state.points.len() > 1 {
                             info!("Closing hyperbezier path - clicked near start point");
 
+                            // We need to connect the last point to the first point with a proper curve
+                            // First get the first and last points
+                            let first_point = hyper_state.points[0];
+                            let last_point = *hyper_state.points.last().unwrap();
+                            
+                            // Calculate control points for the closing segment
+                            let direction = first_point - last_point;
+                            let distance = direction.length();
+                            let control_scale = distance * 0.33;
+                            let normalized_dir = direction.normalize_or_zero();
+                            
+                            // Create control points for the closing segment
+                            let control1 = last_point + normalized_dir * control_scale;
+                            let control2 = first_point - normalized_dir * control_scale;
+                            
+                            // Add these control points to the list
+                            hyper_state.control_points.push(control1);
+                            hyper_state.control_points.push(control2);
+                            
                             // Close the path in the BezPath
                             if let Some(ref mut path) = hyper_state.current_path {
+                                // Add the final curve segment first
+                                path.curve_to(
+                                    (control1.x as f64, control1.y as f64),
+                                    (control2.x as f64, control2.y as f64),
+                                    (first_point.x as f64, first_point.y as f64),
+                                );
+                                // Then close it
                                 path.close_path();
                             }
 
                             // Convert to contour and add to glyph
-                            if let Some(contour) = create_contour_from_points(
+                            if let Some(contour) = create_contour_from_points_when_closing(
                                 &hyper_state.points,
                                 &hyper_state.is_smooth,
+                                &hyper_state.control_points,
                             ) {
                                 // Add contour to the current glyph
                                 commit_contour_to_glyph(contour, &cli_args, &mut app_state, &mut app_state_changed);
@@ -257,11 +286,23 @@ pub fn handle_hyper_mouse_events(
                             let prev_point = *hyper_state.points.last().unwrap();
                             let is_smooth = !alt_pressed;
                             
-                            // Calculate control points
+                            // Calculate hyperbezier control points
+                            // For a smooth, G2 continuous curve, we want the control points
+                            // to be positioned to maintain curvature between segments
                             let direction = adjusted_pos - prev_point;
-                            let third = direction / 3.0;
-                            let control1 = prev_point + third;
-                            let control2 = adjusted_pos - third;
+                            let distance = direction.length();
+                            
+                            // In hyperbezier, the control points are positioned more 
+                            // intelligently than in regular beziers
+                            // For our MVP, use distance-based scaling for more natural curves
+                            let control_scale = distance * 0.33; // Use 1/3 distance for control points
+                            let normalized_dir = direction.normalize_or_zero();
+                            
+                            // First control point extends from previous point
+                            let control1 = prev_point + normalized_dir * control_scale;
+                            
+                            // Second control point comes back from current point
+                            let control2 = adjusted_pos - normalized_dir * control_scale;
                             
                             // Now borrow the path to add curve
                             if let Some(ref mut path) = hyper_state.current_path {
@@ -316,9 +357,10 @@ pub fn handle_hyper_mouse_events(
             info!("Finishing open hyperbezier path with right click");
 
             // Convert to contour and add to glyph
-            if let Some(contour) = create_contour_from_points(
+            if let Some(contour) = create_contour_from_points_when_closing(
                 &hyper_state.points,
                 &hyper_state.is_smooth,
+                &hyper_state.control_points,
             ) {
                 // Add contour to the current glyph
                 commit_contour_to_glyph(contour, &cli_args, &mut app_state, &mut app_state_changed);
@@ -346,37 +388,54 @@ fn update_hyperbezier_path(hyper_state: &mut HyperToolState) {
     // First calculate all control points without modifying the path
     let points = &hyper_state.points;
     let is_smooth = &hyper_state.is_smooth;
-    let control_points = &hyper_state.control_points;
     
     for i in 1..points.len() {
         let prev = points[i-1];
         let current = points[i];
         
+        // Get the direction and distance between these points
+        let direction = current - prev;
+        let distance = direction.length();
+        let control_scale = distance * 0.33;
+        
         // Calculate control points based on smoothness
-        let control1 = if i == 1 || !is_smooth[i-1] {
-            let third = (current - prev) / 3.0;
-            prev + third
+        if i == 1 || !is_smooth[i-1] {
+            // First segment or previous point is a corner - use standard control points
+            let normalized_dir = direction.normalize_or_zero();
+            let control1 = prev + normalized_dir * control_scale;
+            let control2 = current - normalized_dir * control_scale;
+            
+            temp_control_points.push(control1);
+            temp_control_points.push(control2);
         } else {
-            // Use reflection for smooth points
-            let prev_control = if i >= 2 && control_points.len() >= (i-2)*2 + 2 {
-                2.0 * prev - control_points[(i-2)*2 + 1]
+            // Previous point is smooth - need to maintain continuity
+            
+            // For the first control point, we need to reflect the previous segment's
+            // last control point through the shared on-curve point
+            let control1 = if i >= 2 && !temp_control_points.is_empty() {
+                // Get previous segment's last control point
+                let prev_control2 = temp_control_points[(i-2)*2 + 1];
+                
+                // Reflect it through prev point to maintain tangent continuity
+                let reflection_vector = prev - prev_control2;
+                prev + reflection_vector.normalize_or_zero() * control_scale
             } else {
-                prev + (current - prev) / 3.0
+                // No previous segment, use standard control
+                prev + direction.normalize_or_zero() * control_scale
             };
-            prev_control
-        };
-        
-        let control2 = if i >= is_smooth.len() || !is_smooth[i] {
-            let third = (current - prev) / 3.0;
-            current - third
-        } else {
-            // Simple control point for now
-            prev + 2.0 * (current - prev) / 3.0
-        };
-        
-        // Store in temporary vector
-        temp_control_points.push(control1);
-        temp_control_points.push(control2);
+            
+            // For the second control point, standard approach
+            let control2 = if !is_smooth[i] {
+                // Corner point ahead - use standard control
+                current - direction.normalize_or_zero() * control_scale
+            } else {
+                // Smooth point ahead 
+                current - direction.normalize_or_zero() * control_scale
+            };
+            
+            temp_control_points.push(control1);
+            temp_control_points.push(control2);
+        }
     }
     
     // Now recreate the path
@@ -558,52 +617,112 @@ fn create_contour_from_points(points: &[Vec2], is_smooth: &[bool]) -> Option<Con
         return None;
     }
 
-    // Convert points to ContourPoints
+    // Create a temporary structure to hold our calculated control points
+    let mut temp_control_points = Vec::with_capacity((points.len() - 1) * 2);
+    
+    // Calculate all control points for all segments
+    for i in 1..points.len() {
+        let prev = points[i-1];
+        let current = points[i];
+        
+        // Get the direction and distance between these points
+        let direction = current - prev;
+        let distance = direction.length();
+        let control_scale = distance * 0.33;
+        let normalized_dir = direction.normalize_or_zero();
+        
+        if i == 1 || !is_smooth[i-1] {
+            // First segment or previous point is a corner - use standard control points
+            let control1 = prev + normalized_dir * control_scale;
+            let control2 = current - normalized_dir * control_scale;
+            
+            temp_control_points.push(control1);
+            temp_control_points.push(control2);
+        } else {
+            // Previous point is smooth - need to maintain continuity
+            
+            // For the first control point, reflect previous control point through shared point
+            let control1 = if i >= 2 && !temp_control_points.is_empty() {
+                let prev_control2 = temp_control_points[(i-2)*2 + 1];
+                
+                // Reflect through prev point to maintain tangent continuity
+                let reflection_vector = prev - prev_control2;
+                let reflection_length = reflection_vector.length();
+                
+                // Use normalized reflection vector with proper scale
+                prev + reflection_vector.normalize_or_zero() * control_scale
+            } else {
+                // No previous segment, use standard control
+                prev + normalized_dir * control_scale
+            };
+            
+            // For the second control point, standard approach
+            let control2 = current - normalized_dir * control_scale;
+            
+            temp_control_points.push(control1);
+            temp_control_points.push(control2);
+        }
+    }
+    
+    // Now build final contour points with all necessary control points
     let mut contour_points = Vec::new();
     
-    // Add the first point as a move point
+    // Add the first point as a move point (always on-curve)
     contour_points.push(ContourPoint::new(
-        points[0].x, 
-        points[0].y, 
-        PointType::Move, 
-        false, // not smooth
-        None,  // no name
-        None,  // no identifier
-        None,  // no comments
+        points[0].x,
+        points[0].y,
+        PointType::Move,
+        is_smooth[0], // First point's smoothness
+        None, None, None
     ));
     
-    // Add remaining points with control points
+    // Now add all segments with their control points
     for i in 1..points.len() {
+        // Current on-curve point
+        let curr_point = points[i];
         let is_smooth_point = if i < is_smooth.len() { is_smooth[i] } else { true };
         
-        // For a simple MVP, we'll use line points if we don't have proper control points
-        if i == 1 || !is_smooth_point {
+        // Get control points for this segment
+        let control_idx = (i-1) * 2;
+        if control_idx + 1 < temp_control_points.len() {
+            // We have control points for this segment - use them to make a curve segment
+            let control1 = temp_control_points[control_idx];
+            let control2 = temp_control_points[control_idx + 1];
+            
+            // Add first control point
             contour_points.push(ContourPoint::new(
-                points[i].x, 
-                points[i].y, 
-                PointType::Line, 
+                control1.x,
+                control1.y,
+                PointType::OffCurve,
+                false, // Control points are never smooth
+                None, None, None
+            ));
+            
+            // Add second control point
+            contour_points.push(ContourPoint::new(
+                control2.x,
+                control2.y,
+                PointType::OffCurve,
+                false, // Control points are never smooth
+                None, None, None
+            ));
+            
+            // Add the on-curve point as a Curve type
+            contour_points.push(ContourPoint::new(
+                curr_point.x,
+                curr_point.y,
+                PointType::Curve, // This is a curve on-curve point
                 is_smooth_point,
                 None, None, None
             ));
         } else {
-            // In a full implementation, we'd calculate proper control points based on the hyperbezier algorithm
-            // For now, we'll use simple cubic Bezier control points
-            let prev = points[i-1];
-            let curr = points[i];
-            let control1 = prev + (curr - prev) / 3.0;
-            let control2 = prev + 2.0 * (curr - prev) / 3.0;
-            
-            // Add control points and the on-curve point
+            // Fallback to line segment if no control points (shouldn't happen normally)
             contour_points.push(ContourPoint::new(
-                control1.x, control1.y, PointType::OffCurve, false, None, None, None
-            ));
-            
-            contour_points.push(ContourPoint::new(
-                control2.x, control2.y, PointType::OffCurve, false, None, None, None
-            ));
-            
-            contour_points.push(ContourPoint::new(
-                curr.x, curr.y, PointType::Curve, is_smooth_point, None, None, None
+                curr_point.x,
+                curr_point.y,
+                PointType::Line,
+                is_smooth_point,
+                None, None, None
             ));
         }
     }
@@ -668,4 +787,95 @@ fn calculate_auto_control_point(points: &[Vec2], control_index: usize) -> Vec2 {
     } else {
         next_point - third
     }
+}
+
+/// Special function to create a contour from a list of points when closing a path
+fn create_contour_from_points_when_closing(
+    points: &[Vec2], 
+    is_smooth: &[bool],
+    control_points: &[Vec2]
+) -> Option<Contour> {
+    if points.len() < 2 || control_points.len() < 2 {
+        return None;
+    }
+
+    // We'll build the contour directly from the on-curve and control points
+    let mut contour_points = Vec::new();
+    
+    // Add the first point as a move point (always on-curve)
+    contour_points.push(ContourPoint::new(
+        points[0].x,
+        points[0].y,
+        PointType::Move,
+        is_smooth[0], // First point's smoothness
+        None, None, None
+    ));
+    
+    // For each segment, add both control points and the destination on-curve point
+    for i in 1..points.len() {
+        let control_idx = (i-1) * 2;
+        if control_idx + 1 < control_points.len() {
+            // Get the control points for this segment
+            let control1 = control_points[control_idx];
+            let control2 = control_points[control_idx + 1];
+            
+            // Add first control point
+            contour_points.push(ContourPoint::new(
+                control1.x,
+                control1.y,
+                PointType::OffCurve,
+                false, // Control points are never smooth
+                None, None, None
+            ));
+            
+            // Add second control point
+            contour_points.push(ContourPoint::new(
+                control2.x,
+                control2.y,
+                PointType::OffCurve,
+                false, // Control points are never smooth
+                None, None, None
+            ));
+            
+            // Add the on-curve point as a Curve type
+            contour_points.push(ContourPoint::new(
+                points[i].x,
+                points[i].y,
+                PointType::Curve, // This is a curve on-curve point
+                if i < is_smooth.len() { is_smooth[i] } else { true },
+                None, None, None
+            ));
+        }
+    }
+    
+    // If we have a closing segment (from last to first point), add it
+    if control_points.len() >= (points.len() - 1) * 2 + 2 {
+        // Get the control points for the closing segment
+        let control1 = control_points[(points.len() - 1) * 2];
+        let control2 = control_points[(points.len() - 1) * 2 + 1];
+        
+        // Add first control point
+        contour_points.push(ContourPoint::new(
+            control1.x,
+            control1.y,
+            PointType::OffCurve,
+            false, // Control points are never smooth
+            None, None, None
+        ));
+        
+        // Add second control point
+        contour_points.push(ContourPoint::new(
+            control2.x,
+            control2.y,
+            PointType::OffCurve,
+            false, // Control points are never smooth
+            None, None, None
+        ));
+        
+        // We don't need to add the first point again since it's already there,
+        // and the contour is marked as closed by default
+    }
+    
+    // Create the contour as closed
+    Some(Contour::new(contour_points, None, None))
 }
