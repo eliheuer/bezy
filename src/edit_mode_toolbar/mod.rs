@@ -12,6 +12,7 @@ mod text;
 mod ui;
 
 pub use hyper::HyperMode;
+pub use hyper::HyperModePlugin;
 pub use knife::KnifeMode;
 pub use measure::MeasureMode;
 pub use pan::PanMode;
@@ -85,6 +86,7 @@ impl Plugin for EditModeToolbarPlugin {
             .init_resource::<UiInteractionState>()
             .add_plugins(pen::PenModePlugin)
             .add_plugins(knife::KnifeModePlugin)
+            .add_plugins(hyper::HyperModePlugin)
             .add_systems(Startup, handle_primitive_selection)
             .add_systems(
                 Update,
