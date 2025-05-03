@@ -1,0 +1,56 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="hah-ar.init" format="2">
+  <advance width="668"/>
+  <anchor x="324" y="0" name="bottomDots"/>
+  <anchor x="326" y="574" name="top"/>
+  <anchor x="326" y="448" name="topDots"/>
+  <anchor x="324" y="32" name="bottom"/>
+  <outline>
+    <contour>
+      <point x="96" y="0" type="curve" smooth="yes"/>
+      <point x="0" y="0" type="line"/>
+      <point x="-16" y="16" type="line"/>
+      <point x="-16" y="92" type="line"/>
+      <point x="0" y="108" type="line"/>
+      <point x="96" y="108" type="line" smooth="yes"/>
+      <point x="232" y="108"/>
+      <point x="252" y="216"/>
+      <point x="412" y="216" type="curve" smooth="yes"/>
+      <point x="466" y="216" type="line" smooth="yes"/>
+      <point x="510" y="216"/>
+      <point x="540" y="244"/>
+      <point x="540" y="280" type="curve" smooth="yes"/>
+      <point x="540" y="316"/>
+      <point x="510" y="344"/>
+      <point x="466" y="344" type="curve" smooth="yes"/>
+      <point x="178" y="344" type="line" smooth="yes"/>
+      <point x="122" y="344"/>
+      <point x="98" y="320"/>
+      <point x="98" y="280" type="curve" smooth="yes"/>
+      <point x="98" y="264" type="line"/>
+      <point x="82" y="248" type="line"/>
+      <point x="18" y="248" type="line"/>
+      <point x="2" y="264" type="line"/>
+      <point x="2" y="300" type="line" smooth="yes"/>
+      <point x="2" y="404"/>
+      <point x="82" y="448"/>
+      <point x="186" y="448" type="curve" smooth="yes"/>
+      <point x="466" y="448" type="line" smooth="yes"/>
+      <point x="570" y="448"/>
+      <point x="636" y="384"/>
+      <point x="636" y="280" type="curve" smooth="yes"/>
+      <point x="636" y="176"/>
+      <point x="570" y="112"/>
+      <point x="466" y="112" type="curve" smooth="yes"/>
+      <point x="412" y="112" type="line" smooth="yes"/>
+      <point x="324" y="112"/>
+      <point x="276" y="0"/>
+    </contour>
+  </outline>
+  <lib>
+    <dict>
+      <key>com.schriftgestaltung.Glyphs.lastChange</key>
+      <string>2025-02-22 08:12:38 +0000</string>
+    </dict>
+  </lib>
+</glyph>

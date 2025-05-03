@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="E" format="2">
+  <advance width="664"/>
+  <unicode hex="0045"/>
+  <outline>
+    <contour>
+      <point x="80" y="0" type="line"/>
+      <point x="608" y="0" type="line"/>
+      <point x="624" y="16" type="line"/>
+      <point x="624" y="76" type="line"/>
+      <point x="608" y="92" type="line"/>
+      <point x="176" y="92" type="line"/>
+      <point x="168" y="100" type="line"/>
+      <point x="168" y="342" type="line"/>
+      <point x="176" y="350" type="line"/>
+      <point x="560" y="350" type="line"/>
+      <point x="576" y="366" type="line"/>
+      <point x="576" y="422" type="line"/>
+      <point x="560" y="438" type="line"/>
+      <point x="176" y="438" type="line"/>
+      <point x="168" y="446" type="line"/>
+      <point x="168" y="670" type="line"/>
+      <point x="176" y="678" type="line"/>
+      <point x="592" y="678" type="line"/>
+      <point x="608" y="694" type="line"/>
+      <point x="608" y="752" type="line"/>
+      <point x="592" y="768" type="line"/>
+      <point x="80" y="768" type="line"/>
+      <point x="64" y="752" type="line"/>
+      <point x="64" y="16" type="line"/>
+    </contour>
+  </outline>
+  <lib>
+    <dict>
+      <key>com.schriftgestaltung.Glyphs.lastChange</key>
+      <string>2025-05-02 22:32:16 +0000</string>
+    </dict>
+  </lib>
+</glyph>
