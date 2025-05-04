@@ -38,6 +38,10 @@
     <array>
       <string>apostrophemod</string>
     </array>
+    <key>public.kern1.comma</key>
+    <array>
+      <string>comma</string>
+    </array>
     <key>public.kern1.d</key>
     <array>
       <string>d</string>
@@ -204,6 +208,10 @@
     <key>public.kern2.apostrophemod</key>
     <array>
       <string>apostrophemod</string>
+    </array>
+    <key>public.kern2.comma</key>
+    <array>
+      <string>comma</string>
     </array>
     <key>public.kern2.eight</key>
     <array>

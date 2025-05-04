@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <glyph name="r" format="2">
-  <advance width="376"/>
+  <advance width="360"/>
   <unicode hex="0072"/>
   <outline>
     <contour>
@@ -30,7 +30,7 @@
   <lib>
     <dict>
       <key>com.schriftgestaltung.Glyphs.lastChange</key>
-      <string>2025-05-03 05:42:41 +0000</string>
+      <string>2025-05-04 00:36:50 +0000</string>
     </dict>
   </lib>
 </glyph>

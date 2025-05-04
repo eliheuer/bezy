@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <glyph name="m" format="2">
-  <advance width="928"/>
+  <advance width="936"/>
   <unicode hex="006D"/>
   <outline>
     <contour>
@@ -54,7 +54,7 @@
   <lib>
     <dict>
       <key>com.schriftgestaltung.Glyphs.lastChange</key>
-      <string>2025-05-03 04:59:58 +0000</string>
+      <string>2025-05-04 01:57:19 +0000</string>
       <key>public.markColor</key>
       <string>0.04,0.57,0.04,1</string>
     </dict>

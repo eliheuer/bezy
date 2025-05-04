@@ -19,8 +19,6 @@
     </dict>
     <key>l</key>
     <dict>
-      <key>public.kern2.o</key>
-      <integer>-8</integer>
       <key>public.kern2.y</key>
       <integer>-32</integer>
     </dict>
@@ -111,9 +109,14 @@
     <key>public.kern1.k</key>
     <dict>
       <key>public.kern2.o</key>
-      <integer>-48</integer>
+      <integer>-16</integer>
       <key>public.kern2.s</key>
       <integer>-16</integer>
+    </dict>
+    <key>public.kern1.l</key>
+    <dict>
+      <key>public.kern2.o</key>
+      <integer>-24</integer>
     </dict>
     <key>public.kern1.n</key>
     <dict>
@@ -182,6 +185,8 @@
     </dict>
     <key>public.kern1.v</key>
     <dict>
+      <key>public.kern2.a</key>
+      <integer>-32</integer>
       <key>public.kern2.o</key>
       <integer>-32</integer>
     </dict>
@@ -196,6 +201,11 @@
     <dict>
       <key>public.kern2.o</key>
       <integer>-64</integer>
+    </dict>
+    <key>public.kern1.y</key>
+    <dict>
+      <key>public.kern2.comma</key>
+      <integer>-128</integer>
     </dict>
     <key>s</key>
     <dict>

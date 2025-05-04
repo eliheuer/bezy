@@ -46,7 +46,9 @@
   <lib>
     <dict>
       <key>com.schriftgestaltung.Glyphs.lastChange</key>
-      <string>2025-05-03 05:42:20 +0000</string>
+      <string>2025-05-04 02:15:43 +0000</string>
+      <key>com.schriftgestaltung.Glyphs.rightMetricsKey</key>
+      <string>o</string>
       <key>public.markColor</key>
       <string>0.04,0.57,0.04,1</string>
     </dict>
