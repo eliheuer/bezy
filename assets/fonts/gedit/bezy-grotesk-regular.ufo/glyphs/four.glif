@@ -5,26 +5,26 @@
   <outline>
     <contour>
       <point x="420" y="0" type="line"/>
-      <point x="500" y="0" type="line"/>
-      <point x="516" y="16" type="line"/>
-      <point x="516" y="172" type="line"/>
-      <point x="528" y="184" type="line"/>
-      <point x="628" y="184" type="line"/>
-      <point x="644" y="200" type="line"/>
-      <point x="644" y="264" type="line"/>
-      <point x="628" y="280" type="line"/>
-      <point x="528" y="280" type="line"/>
-      <point x="516" y="292" type="line"/>
-      <point x="516" y="752" type="line"/>
-      <point x="500" y="768" type="line"/>
-      <point x="368" y="768" type="line"/>
-      <point x="352" y="752" type="line"/>
-      <point x="48" y="280" type="line"/>
-      <point x="48" y="264" type="line"/>
-      <point x="48" y="200" type="line"/>
-      <point x="64" y="184" type="line"/>
-      <point x="392" y="184" type="line"/>
-      <point x="404" y="172" type="line"/>
+      <point x="492" y="0" type="line"/>
+      <point x="508" y="16" type="line"/>
+      <point x="508" y="180" type="line"/>
+      <point x="520" y="192" type="line"/>
+      <point x="620" y="192" type="line"/>
+      <point x="636" y="208" type="line"/>
+      <point x="636" y="264" type="line"/>
+      <point x="620" y="280" type="line"/>
+      <point x="520" y="280" type="line"/>
+      <point x="508" y="292" type="line"/>
+      <point x="508" y="752" type="line"/>
+      <point x="492" y="768" type="line"/>
+      <point x="376" y="768" type="line"/>
+      <point x="360" y="752" type="line"/>
+      <point x="56" y="280" type="line"/>
+      <point x="56" y="264" type="line"/>
+      <point x="56" y="208" type="line"/>
+      <point x="72" y="192" type="line"/>
+      <point x="392" y="192" type="line"/>
+      <point x="404" y="180" type="line"/>
       <point x="404" y="16" type="line"/>
     </contour>
     <contour>
@@ -39,7 +39,7 @@
   <lib>
     <dict>
       <key>com.schriftgestaltung.Glyphs.lastChange</key>
-      <string>2025-05-04 01:55:10 +0000</string>
+      <string>2025-05-04 05:27:33 +0000</string>
       <key>public.markColor</key>
       <string>0.04,0.57,0.04,1</string>
     </dict>

@@ -4,7 +4,9 @@
   <dict>
     <key>com.schriftgestaltung.DisplayStrings</key>
     <array>
-      <string>Imagine two people in an economy, Alice and Bob. They both work about 40 hours per week. Alice creates 10 units of value, but captures 9, almost all the value created. Bob creates 100 units of value, but only captures 10. </string>
+      <string>Imagine two people in an economy, Alice and Bob. They both work about 40 hours per week. Alice creates 10 units of value, but captures 9, almost all the value created. Bob creates 100 units of value, but only captures 10. 
+
+CPU H</string>
     </array>
     <key>com.schriftgestaltung.appVersion</key>
     <string>3343</string>
