@@ -12,6 +12,7 @@ mod text;
 mod ui;
 
 pub use hyper::HyperMode;
+#[allow(unused_imports)]
 pub use hyper::HyperModePlugin;
 pub use knife::KnifeMode;
 pub use measure::MeasureMode;

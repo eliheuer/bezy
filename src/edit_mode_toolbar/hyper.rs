@@ -65,6 +65,7 @@ impl Default for HyperToolState {
 
 /// The state of the hyper pen tool
 #[derive(Debug, Clone, PartialEq, Default)]
+#[allow(dead_code)]
 pub(crate) enum HyperState {
     /// Ready to place a point
     #[default]
@@ -72,7 +73,7 @@ pub(crate) enum HyperState {
     /// Drawing a path with points
     Drawing,
     /// Dragging a control point
-    DraggingControl,
+    _DraggingControl,
 }
 
 /// Hyper Pen mode for drawing paths with smooth curves
@@ -106,7 +107,7 @@ pub fn reset_hyper_mode_when_inactive(
             && !hyper_state.points.is_empty()
             && hyper_state.points.len() >= 2
         {
-            if let Some(contour) = create_contour_from_points_when_closing(
+            if let Some(_contour) = create_contour_from_points_when_closing(
                 &hyper_state.points,
                 &hyper_state.is_smooth,
                 &hyper_state.control_points,
@@ -323,7 +324,7 @@ pub fn handle_hyper_mouse_events(
                         }
                     }
                 }
-                HyperState::DraggingControl => {
+                HyperState::_DraggingControl => {
                     // Finish dragging control point
                     hyper_state.state = HyperState::Drawing;
                 }
@@ -612,6 +613,7 @@ fn axis_lock_position(pos: Vec2, relative_to: Vec2) -> Vec2 {
 }
 
 /// Create a contour from a list of points
+#[allow(dead_code)]
 fn create_contour_from_points(points: &[Vec2], is_smooth: &[bool]) -> Option<Contour> {
     if points.len() < 2 {
         return None;
@@ -647,7 +649,7 @@ fn create_contour_from_points(points: &[Vec2], is_smooth: &[bool]) -> Option<Con
                 
                 // Reflect through prev point to maintain tangent continuity
                 let reflection_vector = prev - prev_control2;
-                let reflection_length = reflection_vector.length();
+                let _reflection_length = reflection_vector.length();
                 
                 // Use normalized reflection vector with proper scale
                 prev + reflection_vector.normalize_or_zero() * control_scale
@@ -768,6 +770,7 @@ fn commit_contour_to_glyph(
 }
 
 /// Calculate auto control points for a smooth curve
+#[allow(dead_code)]
 fn calculate_auto_control_point(points: &[Vec2], control_index: usize) -> Vec2 {
     if points.len() < 2 {
         return Vec2::ZERO;
