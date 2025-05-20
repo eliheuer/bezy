@@ -65,7 +65,7 @@
       <key>public.kern2.A</key>
       <integer>-128</integer>
       <key>public.kern2.a</key>
-      <integer>-96</integer>
+      <integer>-72</integer>
     </dict>
     <key>public.kern1.Z</key>
     <dict>
@@ -88,6 +88,8 @@
     <dict>
       <key>public.kern2.a</key>
       <integer>-48</integer>
+      <key>public.kern2.f</key>
+      <integer>-32</integer>
       <key>public.kern2.hyphen</key>
       <integer>-118</integer>
       <key>public.kern2.l</key>
@@ -116,7 +118,7 @@
     <key>public.kern1.l</key>
     <dict>
       <key>public.kern2.o</key>
-      <integer>-24</integer>
+      <integer>-8</integer>
     </dict>
     <key>public.kern1.n</key>
     <dict>
@@ -154,7 +156,7 @@
     <key>public.kern1.quoteright</key>
     <dict>
       <key>public.kern2.s</key>
-      <integer>-96</integer>
+      <integer>-104</integer>
     </dict>
     <key>public.kern1.s</key>
     <dict>

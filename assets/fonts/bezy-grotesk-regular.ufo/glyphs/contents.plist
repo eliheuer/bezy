@@ -632,5 +632,7 @@
 	<string>zero.glif</string>
 	<key>zero-ar</key>
 	<string>zero-ar.glif</string>
+	<key>quotedblleft</key>
+	<string>quotedblleft.glif</string>
 </dict>
 </plist>
