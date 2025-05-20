@@ -84,8 +84,8 @@ pub fn draw_metrics_system(
                         // Draw the metrics using the actual glyph
                         draw_metrics(
                             &mut gizmos,
-                            viewport,
-                            glyph,
+                            &viewport,
+                            &glyph,
                             &app_state.workspace.info.metrics,
                         );
                         debug!("Metrics drawn for glyph '{}' with advance width: {:?}", 
@@ -102,8 +102,8 @@ pub fn draw_metrics_system(
                         if let Some(glyph) = default_layer.get_glyph(&name) {
                             draw_metrics(
                                 &mut gizmos,
-                                viewport,
-                                glyph,
+                                &viewport,
+                                &glyph,
                                 &app_state.workspace.info.metrics,
                             );
                             debug!("Metrics drawn for glyph '{}' with advance width: {:?}", 
@@ -123,7 +123,7 @@ pub fn draw_metrics_system(
 
                         draw_metrics(
                             &mut gizmos,
-                            viewport,
+                            &viewport,
                             &placeholder,
                             &app_state.workspace.info.metrics,
                         );
@@ -149,7 +149,7 @@ pub fn draw_metrics_system(
 /// Draw font metrics lines (baseline, x-height, cap-height, ascender, descender, and bounding box)
 fn draw_metrics(
     gizmos: &mut Gizmos,
-    viewport: ViewPort,
+    viewport: &ViewPort,
     glyph: &Glyph,
     metrics: &FontMetrics,
 ) {
@@ -225,7 +225,7 @@ fn draw_metrics(
 /// Draw a line in design space
 fn draw_line(
     gizmos: &mut Gizmos,
-    viewport: ViewPort,
+    viewport: &ViewPort,
     start: (f32, f32),
     end: (f32, f32),
     color: Color,
@@ -238,7 +238,7 @@ fn draw_line(
 /// Draw a rectangle in design space
 fn draw_rect(
     gizmos: &mut Gizmos,
-    viewport: ViewPort,
+    viewport: &ViewPort,
     top_left: (f32, f32),
     bottom_right: (f32, f32),
     color: Color,
@@ -348,7 +348,7 @@ pub fn draw_glyph_points_system(
                 if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
                     draw_glyph_points(
                         &mut gizmos,
-                        viewport,
+                        &viewport,
                         glyph,
                         &selected_points,
                     );
@@ -368,7 +368,7 @@ pub fn draw_glyph_points_system(
                     if let Some(glyph) = default_layer.get_glyph(&name) {
                         draw_glyph_points(
                             &mut gizmos,
-                            viewport,
+                            &viewport,
                             glyph,
                             &selected_points,
                         );
@@ -402,7 +402,7 @@ pub fn draw_glyph_points_system(
                 // Draw "Codepoint not found" message at (0,0)
                 draw_codepoint_not_found_message(
                     &mut gizmos,
-                    viewport,
+                    &viewport,
                     &codepoint_string,
                 );
             } else if !glyph_found {
@@ -418,7 +418,7 @@ pub fn draw_glyph_points_system(
 /// Draw a message indicating that the codepoint was not found in the UFO source
 fn draw_codepoint_not_found_message(
     gizmos: &mut Gizmos,
-    viewport: ViewPort,
+    viewport: &ViewPort,
     codepoint: &str,
 ) {
     // Convert design space coordinates (0,0) to screen space
@@ -447,7 +447,7 @@ fn draw_codepoint_not_found_message(
 /// Draw points from a glyph
 fn draw_glyph_points(
     gizmos: &mut Gizmos,
-    viewport: ViewPort,
+    viewport: &ViewPort,
     glyph: &norad::Glyph,
     selected_points: &[(
         Entity,
@@ -558,7 +558,7 @@ fn draw_glyph_points(
 /// Draw the contour path with proper cubic curves
 fn draw_contour_path(
     gizmos: &mut Gizmos,
-    viewport: ViewPort,
+    viewport: &ViewPort,
     contour: &norad::Contour,
 ) {
     let points = &contour.points;
@@ -640,7 +640,7 @@ fn draw_contour_path(
 /// Draw control handles for off-curve points
 fn draw_control_handles(
     gizmos: &mut Gizmos,
-    viewport: ViewPort,
+    viewport: &ViewPort,
     contour: &norad::Contour,
 ) {
     let points = &contour.points;
@@ -771,7 +771,7 @@ fn draw_control_handles(
 /// Draw a curve segment based on the number of points
 fn draw_curve_segment(
     gizmos: &mut Gizmos,
-    viewport: ViewPort,
+    viewport: &ViewPort,
     points: &[&norad::ContourPoint],
     color: Color,
 ) {
@@ -1015,7 +1015,7 @@ pub fn spawn_glyph_point_entities(
                     );
                     spawn_entities_for_glyph(
                         &mut commands,
-                        glyph,
+                        &glyph,
                         &selected_points,
                         &mut selection_state,
                     );

@@ -3,7 +3,6 @@
 //! This component displays the current glyph, its name, unicode, advance width,
 //! and side bearings in the lower left corner of the window.
 
-use crate::cli;
 use crate::data;
 use crate::theme::*;
 use bevy::prelude::*;
@@ -457,7 +456,7 @@ pub fn spawn_glyph_pane(
 /// Updates the glyph metrics for the current glyph
 pub fn update_glyph_metrics(
     app_state: bevy::prelude::Res<data::AppState>,
-    cli_args: bevy::prelude::Res<cli::CliArgs>,
+    cli_args: bevy::prelude::Res<crate::cli::CliArgs>,
     mut metrics: bevy::prelude::ResMut<CurrentGlyphMetrics>,
 ) {
     // Extract information from the current state
