@@ -390,7 +390,7 @@ pub fn spawn_glyph_pane(
                             width: Val::Auto,
                             ..default()
                         },
-                        Text::new("Kern1:"),
+                        Text::new("Left Group:"),
                         TextFont {
                             font: asset_server.load(MONO_FONT_PATH),
                             font_size: WIDGET_TEXT_FONT_SIZE,
@@ -429,7 +429,7 @@ pub fn spawn_glyph_pane(
                             width: Val::Auto,
                             ..default()
                         },
-                        Text::new("Kern2:"),
+                        Text::new("Right Group:"),
                         TextFont {
                             font: asset_server.load(MONO_FONT_PATH),
                             font_size: WIDGET_TEXT_FONT_SIZE,
@@ -585,7 +585,12 @@ pub fn update_glyph_metrics(
                     for (group_name, members) in groups.iter() {
                         if group_name.starts_with("public.kern1.") && members.iter().any(|m| m.as_ref() == glyph_name_str) {
                             // Found a left kerning group for this glyph
-                            metrics.left_group = group_name.clone();
+                            // Strip the "public.kern1." prefix
+                            if let Some(short_name) = group_name.strip_prefix("public.kern1.") {
+                                metrics.left_group = short_name.to_string();
+                            } else {
+                                metrics.left_group = group_name.clone();
+                            }
                             break;
                         }
                     }
@@ -594,7 +599,12 @@ pub fn update_glyph_metrics(
                     for (group_name, members) in groups.iter() {
                         if group_name.starts_with("public.kern2.") && members.iter().any(|m| m.as_ref() == glyph_name_str) {
                             // Found a right kerning group for this glyph
-                            metrics.right_group = group_name.clone();
+                            // Strip the "public.kern2." prefix
+                            if let Some(short_name) = group_name.strip_prefix("public.kern2.") {
+                                metrics.right_group = short_name.to_string();
+                            } else {
+                                metrics.right_group = group_name.clone();
+                            }
                             break;
                         }
                     }
