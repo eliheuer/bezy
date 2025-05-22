@@ -1,78 +1,118 @@
+
+//! # Pen Tool
+//! 
+//! The pen tool allows users to draw vector paths by clicking points in sequence.
+//! Click to place points, click near the start point to close the path, or right-click 
+//! to finish an open path. Hold Shift for axis-aligned drawing, press Escape to cancel.
+//! 
+//! The tool converts placed points into UFO contours that are saved to the font file.
+
 use super::EditModeSystem;
 use crate::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
 use bevy::prelude::*;
 use kurbo::BezPath;
 use norad::{Contour, ContourPoint};
 
-/// Resource to track if pen mode is active
-#[derive(Resource, Default, PartialEq, Eq)]
-pub struct PenModeActive(pub bool);
+// ================================================================
+// CONSTANTS TODO: MOVE TO SETTINGS
+// ================================================================
 
-/// Plugin to register pen mode systems
+/// Distance threshold for closing a path by clicking near the start point
+const CLOSE_PATH_THRESHOLD: f32 = 16.0;
+/// Size of drawn points in the preview
+const POINT_PREVIEW_SIZE: f32 = 4.0;
+/// Size of the cursor indicator
+const CURSOR_INDICATOR_SIZE: f32 = 4.0;
+
+// ================================================================
+// PLUGIN SETUP
+// ================================================================
+
+/// Bevy plugin that sets up the pen tool
+/// 
+/// This plugin initializes the pen tool's state resources and registers
+/// all the systems needed for pen functionality:
+/// - Mouse input handling for placing points
+/// - Keyboard shortcuts (Escape to cancel)
+/// - Visual preview rendering of the current path
+/// - Cleanup when switching away from pen mode
 pub struct PenModePlugin;
 
 impl Plugin for PenModePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PenToolState>()
-            .init_resource::<PenModeActive>()
-            .add_systems(
-                Update,
-                (
-                    handle_pen_mouse_events,
-                    render_pen_preview,
-                    handle_pen_keyboard_events,
-                    reset_pen_mode_when_inactive,
-                ),
-            );
+           .init_resource::<PenModeActive>();
+        app.add_systems(Update, (
+            handle_pen_mouse_events,
+            handle_pen_keyboard_events,
+            render_pen_preview,
+            reset_pen_mode_when_inactive,
+        ));
     }
 }
 
-/// Resource to track the state of the pen tool
+// ================================================================
+// RESOURCES AND STATE
+// ================================================================
+
+/// Resource to track if pen mode is currently active
+#[derive(Resource, Default, PartialEq, Eq)]
+pub struct PenModeActive(pub bool);
+
+/// The main state manager for the pen tool
+/// 
+/// The pen tool works like this:
+/// 1. Start in Ready state - waiting for first click
+/// 2. First click starts a new path and moves to Drawing state
+/// 3. Subsequent clicks add points to the current path
+/// 4. Click near start point to close the path
+/// 5. Right-click to finish an open path
+/// 6. Escape cancels the current path
 #[derive(Resource)]
 pub struct PenToolState {
-    /// Whether the pen tool is active
+    /// Whether the pen tool is currently active
     pub active: bool,
-    /// The state of the pen tool
+    /// The current drawing state (Ready or Drawing)
     pub state: PenState,
-    /// The current path being drawn
+    /// The path being constructed (using kurbo for geometry)
     pub current_path: Option<BezPath>,
-    /// Points already placed in the current path
+    /// Points that have been placed in the current path
     pub points: Vec<Vec2>,
-    /// The current cursor position
+    /// Current mouse cursor position in world coordinates
     pub cursor_position: Option<Vec2>,
-    /// How close to the start point to close the path
-    pub close_path_threshold: f32,
 }
 
 impl Default for PenToolState {
     fn default() -> Self {
         Self {
             active: true,
-            state: PenState::default(),
+            state: PenState::Ready,
             current_path: None,
             points: Vec::new(),
             cursor_position: None,
-            close_path_threshold: 15.0,
         }
     }
 }
 
-/// The state of the pen tool
+/// The two states the pen tool can be in
 #[derive(Debug, Clone, PartialEq, Default)]
 pub(crate) enum PenState {
-    /// Ready to place a point
+    /// Ready to start a new path (no points placed yet)
     #[default]
     Ready,
-    /// Drawing a path with points
+    /// Currently drawing a path (at least one point placed)
     Drawing,
 }
 
-/// Pen mode for drawing paths
+// ================================================================
+// EDIT MODE IMPLEMENTATION
+// ================================================================
+
+/// Pen mode for drawing vector paths in glyphs
 pub struct PenMode;
 
 impl EditModeSystem for PenMode {
     fn update(&self, commands: &mut Commands) {
-        // Mark pen mode as active
         commands.insert_resource(PenModeActive(true));
     }
 
@@ -85,45 +125,48 @@ impl EditModeSystem for PenMode {
     }
 }
 
-/// System to handle deactivation of pen mode when another mode is selected
+// ================================================================
+// MODE MANAGEMENT
+// ================================================================
+
+/// Handles cleanup when switching away from pen mode
+/// 
+/// If the user was in the middle of drawing a path, this system
+/// will automatically commit it before switching modes.
 pub fn reset_pen_mode_when_inactive(
     current_mode: Res<crate::edit_mode_toolbar::CurrentEditMode>,
     mut commands: Commands,
     mut pen_state: ResMut<PenToolState>,
     mut app_state_changed: EventWriter<crate::draw::AppStateChanged>,
 ) {
+    // Only act if we're no longer in pen mode
     if current_mode.0 != crate::edit_mode_toolbar::EditMode::Pen {
-        // Commit any open path before deactivating
-        if pen_state.state == PenState::Drawing
-            && !pen_state.points.is_empty()
-            && pen_state.points.len() >= 2
-        {
-            if let Some(_contour) =
-                create_contour_from_points(&pen_state.points)
-            {
-                // Signal that we've made a change to the glyph
+        // If we have a path in progress, commit it before switching
+        if pen_state.state == PenState::Drawing && pen_state.points.len() >= 2 {
+            if let Some(_contour) = create_contour_from_points(&pen_state.points) {
                 app_state_changed.send(crate::draw::AppStateChanged);
-                info!("Committing path on mode change");
+                info!("Auto-committing path when switching modes");
             }
         }
 
-        // Clear state and mark inactive
+        // Reset state and mark as inactive
         *pen_state = PenToolState::default();
         pen_state.active = false;
         commands.insert_resource(PenModeActive(false));
     }
 }
 
-/// System to handle mouse events for the pen tool
+// ================================================================
+// MOUSE INPUT HANDLING
+// ================================================================
+
+/// Main system for handling mouse interactions with the pen tool
 #[allow(clippy::too_many_arguments)]
 pub fn handle_pen_mouse_events(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut cursor_moved_events: EventReader<CursorMoved>,
     windows: Query<&Window>,
-    camera_q: Query<
-        (&Camera, &GlobalTransform),
-        With<crate::cameras::DesignCamera>,
-    >,
+    camera_q: Query<(&Camera, &GlobalTransform), With<crate::cameras::DesignCamera>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut pen_state: ResMut<PenToolState>,
     pen_mode: Option<Res<PenModeActive>>,
@@ -132,354 +175,356 @@ pub fn handle_pen_mouse_events(
     mut app_state_changed: EventWriter<crate::draw::AppStateChanged>,
     ui_hover_state: Res<crate::ui_interaction::UiHoverState>,
 ) {
-    // Only handle events when in pen mode
-    if let Some(pen_mode) = pen_mode {
-        if !pen_mode.0 {
-            return;
-        }
-    }
-
-    // Don't process drawing events when hovering over UI
-    if ui_hover_state.is_hovering_ui {
+    // Early returns for invalid states
+    if !is_pen_mode_active(&pen_mode) || ui_hover_state.is_hovering_ui {
         return;
     }
 
-    // Early return if no window
-    let Ok(window) = windows.get_single() else {
-        return;
-    };
-
-    // Find the primary camera
-    let camera_entity = camera_q.iter().find(|(camera, _)| camera.is_active);
-
-    // Early return if no camera
-    let Some((camera, camera_transform)) = camera_entity else {
+    let Ok(window) = windows.get_single() else { return };
+    let Some((camera, camera_transform)) = find_active_camera(&camera_q) else {
         warn!("No active camera found for pen tool");
         return;
     };
 
-    // Handle cursor movement
+    // Update cursor position from mouse movement
+    update_cursor_position(&mut cursor_moved_events, &window, camera, camera_transform, &mut pen_state);
+
+    // Handle mouse clicks
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        handle_left_click(&keyboard, &mut pen_state, &cli_args, &mut app_state, &mut app_state_changed);
+    }
+
+    if mouse_button_input.just_pressed(MouseButton::Right) {
+        handle_right_click(&mut pen_state, &cli_args, &mut app_state, &mut app_state_changed);
+    }
+}
+
+/// Check if pen mode is currently active
+fn is_pen_mode_active(pen_mode: &Option<Res<PenModeActive>>) -> bool {
+    pen_mode.as_ref().map_or(false, |mode| mode.0)
+}
+
+/// Find the active camera for coordinate conversion
+fn find_active_camera<'a>(camera_q: &'a Query<(&Camera, &GlobalTransform), With<crate::cameras::DesignCamera>>) -> Option<(&'a Camera, &'a GlobalTransform)> {
+    camera_q.iter().find(|(camera, _)| camera.is_active)
+}
+
+/// Update the cursor position from mouse movement events
+fn update_cursor_position(
+    cursor_moved_events: &mut EventReader<CursorMoved>,
+    window: &Window,
+    camera: &Camera,
+    camera_transform: &GlobalTransform,
+    pen_state: &mut ResMut<PenToolState>,
+) {
     for _cursor_moved in cursor_moved_events.read() {
         if let Some(cursor_pos) = window.cursor_position() {
-            // Convert cursor position to world coordinates
-            match camera.viewport_to_world_2d(camera_transform, cursor_pos) {
-                Ok(world_position) => {
-                    pen_state.cursor_position = Some(world_position);
-                }
-                Err(_) => {}
+            if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_pos) {
+                pen_state.cursor_position = Some(world_position);
             }
-        }
-    }
-
-    // Handle mouse down
-    if mouse_button_input.just_pressed(MouseButton::Left) {
-        if let Some(world_pos) = pen_state.cursor_position {
-            // Get shift state for alignment
-            let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft)
-                || keyboard.pressed(KeyCode::ShiftRight);
-
-            // Apply snap to grid if enabled
-            let world_pos = if SNAP_TO_GRID_ENABLED {
-                Vec2::new(
-                    (world_pos.x / SNAP_TO_GRID_VALUE).round()
-                        * SNAP_TO_GRID_VALUE,
-                    (world_pos.y / SNAP_TO_GRID_VALUE).round()
-                        * SNAP_TO_GRID_VALUE,
-                )
-            } else {
-                world_pos
-            };
-
-            // Adjust position based on shift (for axis alignment)
-            let adjusted_pos = if shift_pressed && !pen_state.points.is_empty()
-            {
-                let last_point = pen_state.points.last().unwrap();
-                axis_lock_position(world_pos, *last_point)
-            } else {
-                world_pos
-            };
-
-            match pen_state.state {
-                PenState::Ready => {
-                    // Start a new path
-                    let mut path = BezPath::new();
-                    path.move_to((
-                        adjusted_pos.x as f64,
-                        adjusted_pos.y as f64,
-                    ));
-                    pen_state.current_path = Some(path);
-                    pen_state.points.push(adjusted_pos);
-                    pen_state.state = PenState::Drawing;
-
-                    info!("Started new path at: {:?}", adjusted_pos);
-                }
-                PenState::Drawing => {
-                    // Check if clicking on start point to close the path
-                    if !pen_state.points.is_empty() {
-                        let start_point = pen_state.points[0];
-                        let distance = start_point.distance(adjusted_pos);
-
-                        if distance < pen_state.close_path_threshold
-                            && pen_state.points.len() > 1
-                        {
-                            info!("Closing path - clicked near start point");
-
-                            // Close the path in the BezPath
-                            if let Some(ref mut path) = pen_state.current_path {
-                                path.close_path();
-                            }
-
-                            // Convert to contour and add to glyph
-                            if let Some(contour) =
-                                create_contour_from_points(&pen_state.points)
-                            {
-                                // Add contour to the current glyph
-                                if let Some(glyph_name) = cli_args
-                                    .find_glyph(&app_state.workspace.font.ufo)
-                                {
-                                    let glyph_name = glyph_name.clone();
-
-                                    // Get mutable access to the font
-                                    let font_obj =
-                                        app_state.workspace.font_mut();
-
-                                    // Get the current glyph
-                                    if let Some(default_layer) =
-                                        font_obj.ufo.get_default_layer_mut()
-                                    {
-                                        if let Some(glyph) = default_layer
-                                            .get_glyph_mut(&glyph_name)
-                                        {
-                                            // Get or create the outline
-                                            let outline = glyph
-                                                .outline
-                                                .get_or_insert_with(|| {
-                                                    norad::glyph::Outline {
-                                                        contours: Vec::new(),
-                                                        components: Vec::new(),
-                                                    }
-                                                });
-
-                                            // Add the new contour
-                                            outline.contours.push(contour);
-                                            info!(
-                                                "Added new contour to glyph {}",
-                                                glyph_name
-                                            );
-
-                                            // Notify that the app state has changed
-                                            app_state_changed.send(
-                                                crate::draw::AppStateChanged,
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Reset for next path
-                            pen_state.current_path = None;
-                            pen_state.points.clear();
-                            pen_state.state = PenState::Ready;
-                        } else {
-                            // Add line to existing path
-                            if let Some(ref mut path) = pen_state.current_path {
-                                path.line_to((
-                                    adjusted_pos.x as f64,
-                                    adjusted_pos.y as f64,
-                                ));
-                                pen_state.points.push(adjusted_pos);
-                                info!(
-                                    "Added point to path: {:?}",
-                                    adjusted_pos
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Handle right click to finish path without closing
-    if mouse_button_input.just_pressed(MouseButton::Right) {
-        if pen_state.state == PenState::Drawing && pen_state.points.len() >= 2 {
-            info!("Finishing open path with right click");
-
-            // Convert to contour and add to glyph
-            if let Some(contour) = create_contour_from_points(&pen_state.points)
-            {
-                // Add contour to the current glyph
-                if let Some(glyph_name) =
-                    cli_args.find_glyph(&app_state.workspace.font.ufo)
-                {
-                    let glyph_name = glyph_name.clone();
-
-                    // Get mutable access to the font
-                    let font_obj = app_state.workspace.font_mut();
-
-                    // Get the current glyph
-                    if let Some(default_layer) =
-                        font_obj.ufo.get_default_layer_mut()
-                    {
-                        if let Some(glyph) =
-                            default_layer.get_glyph_mut(&glyph_name)
-                        {
-                            // Get or create the outline
-                            let outline =
-                                glyph.outline.get_or_insert_with(|| {
-                                    norad::glyph::Outline {
-                                        contours: Vec::new(),
-                                        components: Vec::new(),
-                                    }
-                                });
-
-                            // Add the new contour
-                            outline.contours.push(contour);
-                            info!(
-                                "Added new open contour to glyph {}",
-                                glyph_name
-                            );
-
-                            // Notify that the app state has changed
-                            app_state_changed
-                                .send(crate::draw::AppStateChanged);
-                        }
-                    }
-                }
-            }
-
-            // Reset for next path
-            pen_state.current_path = None;
-            pen_state.points.clear();
-            pen_state.state = PenState::Ready;
         }
     }
 }
 
-/// System to render a preview of the pen tool's current path
+/// Handle left mouse button clicks
+fn handle_left_click(
+    keyboard: &Res<ButtonInput<KeyCode>>,
+    pen_state: &mut ResMut<PenToolState>,
+    cli_args: &Res<crate::cli::CliArgs>,
+    app_state: &mut ResMut<crate::data::AppState>,
+    app_state_changed: &mut EventWriter<crate::draw::AppStateChanged>,
+) {
+    let Some(cursor_pos) = pen_state.cursor_position else { return };
+    
+    // Apply snapping and axis locking
+    let final_pos = calculate_final_position(cursor_pos, keyboard, pen_state);
+
+    match pen_state.state {
+        PenState::Ready => {
+            start_new_path(pen_state, final_pos);
+        }
+        PenState::Drawing => {
+            if should_close_path(pen_state, final_pos) {
+                close_current_path(pen_state, cli_args, app_state, app_state_changed);
+            } else {
+                add_point_to_path(pen_state, final_pos);
+            }
+        }
+    }
+}
+
+/// Calculate the final position after applying snap-to-grid and axis locking
+fn calculate_final_position(
+    cursor_pos: Vec2,
+    keyboard: &Res<ButtonInput<KeyCode>>,
+    pen_state: &PenToolState,
+) -> Vec2 {
+    // Apply snap to grid first
+    let snapped_pos = if SNAP_TO_GRID_ENABLED {
+        Vec2::new(
+            (cursor_pos.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+            (cursor_pos.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+        )
+    } else {
+        cursor_pos
+    };
+
+    // Apply axis locking if shift is held and we have points
+    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
+    
+    if shift_pressed && !pen_state.points.is_empty() {
+        let last_point = pen_state.points.last().unwrap();
+        axis_lock_position(snapped_pos, *last_point)
+    } else {
+        snapped_pos
+    }
+}
+
+/// Start a new path with the first point
+fn start_new_path(pen_state: &mut ResMut<PenToolState>, position: Vec2) {
+    let mut path = BezPath::new();
+    path.move_to((position.x as f64, position.y as f64));
+    
+    pen_state.current_path = Some(path);
+    pen_state.points.push(position);
+    pen_state.state = PenState::Drawing;
+    
+    info!("Started new path at: {:?}", position);
+}
+
+/// Check if we should close the path (clicked near start point)
+fn should_close_path(pen_state: &PenToolState, position: Vec2) -> bool {
+    if pen_state.points.len() <= 1 {
+        return false;
+    }
+    
+    let start_point = pen_state.points[0];
+    let distance = start_point.distance(position);
+    distance < CLOSE_PATH_THRESHOLD
+}
+
+/// Close the current path and add it to the glyph
+fn close_current_path(
+    pen_state: &mut ResMut<PenToolState>,
+    cli_args: &Res<crate::cli::CliArgs>,
+    app_state: &mut ResMut<crate::data::AppState>,
+    app_state_changed: &mut EventWriter<crate::draw::AppStateChanged>,
+) {
+    info!("Closing path - clicked near start point");
+
+    // Close the path in kurbo
+    if let Some(ref mut path) = pen_state.current_path {
+        path.close_path();
+    }
+
+    // Add the closed path to the current glyph
+    if let Some(contour) = create_contour_from_points(&pen_state.points) {
+        add_contour_to_glyph(contour, cli_args, app_state, app_state_changed, true);
+    }
+
+    // Reset for next path
+    reset_pen_state(pen_state);
+}
+
+/// Add a point to the current path
+fn add_point_to_path(pen_state: &mut ResMut<PenToolState>, position: Vec2) {
+    if let Some(ref mut path) = pen_state.current_path {
+        path.line_to((position.x as f64, position.y as f64));
+        pen_state.points.push(position);
+        info!("Added point to path: {:?}", position);
+    }
+}
+
+/// Handle right mouse button clicks (finish open path)
+fn handle_right_click(
+    pen_state: &mut ResMut<PenToolState>,
+    cli_args: &Res<crate::cli::CliArgs>,
+    app_state: &mut ResMut<crate::data::AppState>,
+    app_state_changed: &mut EventWriter<crate::draw::AppStateChanged>,
+) {
+    if pen_state.state == PenState::Drawing && pen_state.points.len() >= 2 {
+        info!("Finishing open path with right click");
+
+        if let Some(contour) = create_contour_from_points(&pen_state.points) {
+            add_contour_to_glyph(contour, cli_args, app_state, app_state_changed, false);
+        }
+
+        reset_pen_state(pen_state);
+    }
+}
+
+/// Add a contour to the current glyph
+fn add_contour_to_glyph(
+    contour: Contour,
+    cli_args: &Res<crate::cli::CliArgs>,
+    app_state: &mut ResMut<crate::data::AppState>,
+    app_state_changed: &mut EventWriter<crate::draw::AppStateChanged>,
+    is_closed: bool,
+) {
+    let Some(glyph_name) = cli_args.find_glyph(&app_state.workspace.font.ufo) else { return };
+    let glyph_name = glyph_name.clone();
+
+    // Get mutable access to the font and glyph
+    let font_obj = app_state.workspace.font_mut();
+    let Some(default_layer) = font_obj.ufo.get_default_layer_mut() else { return };
+    let Some(glyph) = default_layer.get_glyph_mut(&glyph_name) else { return };
+
+    // Get or create the outline
+    let outline = glyph.outline.get_or_insert_with(|| norad::glyph::Outline {
+        contours: Vec::new(),
+        components: Vec::new(),
+    });
+
+    // Add the new contour
+    outline.contours.push(contour);
+    
+    let path_type = if is_closed { "closed" } else { "open" };
+    info!("Added new {} contour to glyph {}", path_type, glyph_name);
+
+    // Notify that the app state has changed
+    app_state_changed.send(crate::draw::AppStateChanged);
+}
+
+/// Reset pen state to ready for next path
+fn reset_pen_state(pen_state: &mut ResMut<PenToolState>) {
+    pen_state.current_path = None;
+    pen_state.points.clear();
+    pen_state.state = PenState::Ready;
+}
+
+// ================================================================
+// KEYBOARD INPUT HANDLING
+// ================================================================
+
+/// Handle keyboard shortcuts for the pen tool
+pub fn handle_pen_keyboard_events(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut pen_state: ResMut<PenToolState>,
+    pen_mode: Option<Res<PenModeActive>>,
+) {
+    if !is_pen_mode_active(&pen_mode) {
+        return;
+    }
+
+    // Escape key cancels the current path
+    if keyboard.just_pressed(KeyCode::Escape) {
+        reset_pen_state(&mut pen_state);
+        info!("Cancelled current path with Escape key");
+    }
+}
+
+// ================================================================
+// VISUAL PREVIEW RENDERING
+// ================================================================
+
+/// Render visual preview of the pen tool's current state
+/// 
+/// This shows:
+/// - Placed points (yellow circles, green for start point)
+/// - Lines connecting placed points (white)
+/// - Preview line from last point to cursor (translucent white)
+/// - Close indicator when near start point (green highlight)
+/// - Current cursor position (small white circle)
 pub fn render_pen_preview(
     mut gizmos: Gizmos,
     pen_state: Res<PenToolState>,
     pen_mode: Option<Res<PenModeActive>>,
 ) {
-    // Only render when in pen mode
-    if let Some(pen_mode) = pen_mode {
-        if !pen_mode.0 {
-            return;
-        }
+    if !is_pen_mode_active(&pen_mode) {
+        return;
     }
 
-    // Define colors
+    // Draw the placed points and connecting lines
+    draw_placed_points_and_lines(&mut gizmos, &pen_state);
+    
+    // Draw preview elements (cursor, preview line, close indicator)
+    draw_preview_elements(&mut gizmos, &pen_state);
+}
+
+/// Draw all the points that have been placed and lines between them
+fn draw_placed_points_and_lines(gizmos: &mut Gizmos, pen_state: &PenToolState) {
     let point_color = Color::srgb(1.0, 1.0, 0.0); // Yellow
+    let start_point_color = Color::srgb(0.0, 1.0, 0.5); // Green
     let line_color = Color::srgba(1.0, 1.0, 1.0, 0.9); // White
-    let preview_color = Color::srgba(0.8, 0.8, 0.8, 0.5); // Translucent white
-    let close_highlight_color = Color::srgb(0.2, 1.0, 0.3); // Green for close indicator
 
-    // Visualization parameters
-    let point_size = 5.0;
-
-    // Draw points and lines between them
     for (i, point) in pen_state.points.iter().enumerate() {
-        // Draw point
-        gizmos.circle_2d(
-            *point,
-            point_size,
-            if i == 0 {
-                // Highlight start point
-                Color::srgb(0.0, 1.0, 0.5)
-            } else {
-                point_color
-            },
-        );
+        // Draw point (start point gets special color)
+        let color = if i == 0 { start_point_color } else { point_color };
+        gizmos.circle_2d(*point, POINT_PREVIEW_SIZE, color);
 
         // Draw line to next point
         if i < pen_state.points.len() - 1 {
             gizmos.line_2d(*point, pen_state.points[i + 1], line_color);
         }
     }
+}
 
+/// Draw preview elements: cursor, preview line, and close indicator
+fn draw_preview_elements(gizmos: &mut Gizmos, pen_state: &PenToolState) {
+    let Some(cursor_pos) = pen_state.cursor_position else { return };
+    
+    // Apply snap to grid for preview
+    let snapped_cursor = apply_snap_to_grid(cursor_pos);
+    
+    // Draw cursor indicator
+    gizmos.circle_2d(snapped_cursor, CURSOR_INDICATOR_SIZE, Color::srgba(1.0, 1.0, 1.0, 0.7));
+    
+    if pen_state.points.is_empty() {
+        return;
+    }
+    
+    let last_point = *pen_state.points.last().unwrap();
+    
     // Draw preview line from last point to cursor
-    if let (Some(cursor_pos), true) =
-        (pen_state.cursor_position, !pen_state.points.is_empty())
-    {
-        let last_point = *pen_state.points.last().unwrap();
-
-        // Apply snap to grid for preview if enabled
-        let preview_cursor_pos = if SNAP_TO_GRID_ENABLED {
-            Vec2::new(
-                (cursor_pos.x / SNAP_TO_GRID_VALUE).round()
-                    * SNAP_TO_GRID_VALUE,
-                (cursor_pos.y / SNAP_TO_GRID_VALUE).round()
-                    * SNAP_TO_GRID_VALUE,
-            )
-        } else {
-            cursor_pos
-        };
-
-        gizmos.line_2d(last_point, preview_cursor_pos, preview_color);
-
-        // Check if cursor is near start point (for closing path)
-        if pen_state.points.len() > 1 {
-            let start_point = pen_state.points[0];
-            let distance = start_point.distance(preview_cursor_pos);
-
-            if distance < pen_state.close_path_threshold {
-                // Draw highlight to indicate path can be closed
-                gizmos.circle_2d(
-                    start_point,
-                    pen_state.close_path_threshold,
-                    Color::srgba(0.2, 1.0, 0.3, 0.3),
-                );
-                gizmos.line_2d(last_point, start_point, close_highlight_color);
-            }
-        }
-    }
-
-    // Draw cursor position
-    if let Some(cursor_pos) = pen_state.cursor_position {
-        // Apply snap to grid for cursor display if enabled
-        let display_cursor_pos = if SNAP_TO_GRID_ENABLED {
-            Vec2::new(
-                (cursor_pos.x / SNAP_TO_GRID_VALUE).round()
-                    * SNAP_TO_GRID_VALUE,
-                (cursor_pos.y / SNAP_TO_GRID_VALUE).round()
-                    * SNAP_TO_GRID_VALUE,
-            )
-        } else {
-            cursor_pos
-        };
-
-        gizmos.circle_2d(
-            display_cursor_pos,
-            3.0,
-            Color::srgba(1.0, 1.0, 1.0, 0.7),
-        );
+    gizmos.line_2d(last_point, snapped_cursor, Color::srgba(1.0, 1.0, 1.0, 0.5));
+    
+    // Draw close indicator if near start point
+    if pen_state.points.len() > 1 {
+        draw_close_indicator_if_needed(gizmos, pen_state, snapped_cursor, last_point);
     }
 }
 
-/// System to handle keyboard events for the pen tool
-pub fn handle_pen_keyboard_events(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut pen_state: ResMut<PenToolState>,
-    pen_mode: Option<Res<PenModeActive>>,
+/// Draw the close path indicator when cursor is near start point
+fn draw_close_indicator_if_needed(
+    gizmos: &mut Gizmos,
+    pen_state: &PenToolState,
+    cursor_pos: Vec2,
+    last_point: Vec2,
 ) {
-    // Only handle events when in pen mode
-    if let Some(pen_mode) = pen_mode {
-        if !pen_mode.0 {
-            return;
-        }
-    }
+    let start_point = pen_state.points[0];
+    let distance = start_point.distance(cursor_pos);
 
-    // Handle Escape key to cancel current path
-    if keyboard.just_pressed(KeyCode::Escape) {
-        pen_state.current_path = None;
-        pen_state.points.clear();
-        pen_state.state = PenState::Ready;
-        info!("Cancelled current path with Escape key");
+    if distance < CLOSE_PATH_THRESHOLD {
+        // Draw highlight circle around start point
+        gizmos.circle_2d(
+            start_point,
+            CLOSE_PATH_THRESHOLD,
+            Color::srgba(0.2, 1.0, 0.3, 0.3),
+        );
+        
+        // Draw line from last point to start point in green
+        gizmos.line_2d(last_point, start_point, Color::srgb(0.2, 1.0, 0.3));
     }
 }
 
-/// Helper function to lock a position to the horizontal or vertical axis relative to another point
+// ================================================================
+// UTILITY FUNCTIONS
+// ================================================================
+
+/// Apply snap-to-grid if enabled
+fn apply_snap_to_grid(pos: Vec2) -> Vec2 {
+    if SNAP_TO_GRID_ENABLED {
+        Vec2::new(
+            (pos.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+            (pos.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+        )
+    } else {
+        pos
+    }
+}
+
+/// Lock a position to horizontal or vertical axis relative to another point
+/// (used when shift is held to constrain movement)
 fn axis_lock_position(pos: Vec2, relative_to: Vec2) -> Vec2 {
     let dx = (pos.x - relative_to.x).abs();
     let dy = (pos.y - relative_to.y).abs();
@@ -493,25 +538,28 @@ fn axis_lock_position(pos: Vec2, relative_to: Vec2) -> Vec2 {
     }
 }
 
-/// Create a contour from a list of points
+/// Convert a list of points into a UFO Contour for font storage
+/// 
+/// This creates the actual geometry that gets saved in the font file.
+/// The first point becomes a "move" operation, subsequent points are "line" operations.
 fn create_contour_from_points(points: &[Vec2]) -> Option<Contour> {
     if points.len() < 2 {
         return None;
     }
 
-    // Convert points to ContourPoints
     let contour_points: Vec<ContourPoint> = points
         .iter()
         .enumerate()
         .map(|(i, p)| {
             let point_type = if i == 0 {
-                norad::PointType::Move
+                norad::PointType::Move  // First point starts the path
             } else {
-                norad::PointType::Line
+                norad::PointType::Line  // Subsequent points are line segments
             };
 
             ContourPoint::new(
-                p.x, p.y, point_type, false, // not smooth
+                p.x, p.y, point_type, 
+                false, // not smooth
                 None,  // no name
                 None,  // no identifier
                 None,  // no comments
@@ -519,6 +567,5 @@ fn create_contour_from_points(points: &[Vec2]) -> Option<Contour> {
         })
         .collect();
 
-    // Create the contour
     Some(Contour::new(contour_points, None, None))
 }
