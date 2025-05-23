@@ -1,4 +1,3 @@
-
 //! # Pen Tool
 //! 
 //! The pen tool allows users to draw vector paths by clicking points in sequence.
@@ -142,7 +141,7 @@ pub fn reset_pen_mode_when_inactive(
     // Only act if we're no longer in pen mode
     if current_mode.0 != crate::edit_mode_toolbar::EditMode::Pen {
         // If we have a path in progress, commit it before switching
-        if pen_state.state == PenState::Drawing && pen_state.points.len() >= 2 {
+        if has_drawable_path(&pen_state) {
             if let Some(_contour) = create_contour_from_points(&pen_state.points) {
                 app_state_changed.send(crate::draw::AppStateChanged);
                 info!("Auto-committing path when switching modes");
@@ -156,6 +155,11 @@ pub fn reset_pen_mode_when_inactive(
     }
 }
 
+/// Check if the pen state has a drawable path (at least 2 points)
+fn has_drawable_path(pen_state: &PenToolState) -> bool {
+    pen_state.state == PenState::Drawing && pen_state.points.len() >= 2
+}
+
 // ================================================================
 // MOUSE INPUT HANDLING
 // ================================================================
@@ -163,17 +167,24 @@ pub fn reset_pen_mode_when_inactive(
 /// Main system for handling mouse interactions with the pen tool
 #[allow(clippy::too_many_arguments)]
 pub fn handle_pen_mouse_events(
+    // Input resources
     mouse_button_input: Res<ButtonInput<MouseButton>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     mut cursor_moved_events: EventReader<CursorMoved>,
+    ui_hover_state: Res<crate::ui_interaction::UiHoverState>,
+    
+    // World queries
     windows: Query<&Window>,
     camera_q: Query<(&Camera, &GlobalTransform), With<crate::cameras::DesignCamera>>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    
+    // Pen tool state
     mut pen_state: ResMut<PenToolState>,
     pen_mode: Option<Res<PenModeActive>>,
+    
+    // App state management
     cli_args: Res<crate::cli::CliArgs>,
     mut app_state: ResMut<crate::data::AppState>,
     mut app_state_changed: EventWriter<crate::draw::AppStateChanged>,
-    ui_hover_state: Res<crate::ui_interaction::UiHoverState>,
 ) {
     // Early returns for invalid states
     if !is_pen_mode_active(&pen_mode) || ui_hover_state.is_hovering_ui {
@@ -260,17 +271,11 @@ fn calculate_final_position(
     pen_state: &PenToolState,
 ) -> Vec2 {
     // Apply snap to grid first
-    let snapped_pos = if SNAP_TO_GRID_ENABLED {
-        Vec2::new(
-            (cursor_pos.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
-            (cursor_pos.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
-        )
-    } else {
-        cursor_pos
-    };
+    let snapped_pos = apply_snap_to_grid(cursor_pos);
 
     // Apply axis locking if shift is held and we have points
-    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
+    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft) 
+                     || keyboard.pressed(KeyCode::ShiftRight);
     
     if shift_pressed && !pen_state.points.is_empty() {
         let last_point = pen_state.points.last().unwrap();
@@ -342,7 +347,7 @@ fn handle_right_click(
     app_state: &mut ResMut<crate::data::AppState>,
     app_state_changed: &mut EventWriter<crate::draw::AppStateChanged>,
 ) {
-    if pen_state.state == PenState::Drawing && pen_state.points.len() >= 2 {
+    if has_drawable_path(pen_state) {
         info!("Finishing open path with right click");
 
         if let Some(contour) = create_contour_from_points(&pen_state.points) {
