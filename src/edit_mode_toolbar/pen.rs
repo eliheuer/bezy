@@ -20,7 +20,6 @@ use norad::{Contour, ContourPoint};
 const CLOSE_PATH_THRESHOLD: f32 = 16.0;
 /// Size of drawn points in the preview
 const POINT_PREVIEW_SIZE: f32 = 4.0;
-/// Size of the cursor indicator
 const CURSOR_INDICATOR_SIZE: f32 = 4.0;
 
 // ================================================================
@@ -138,26 +137,46 @@ pub fn reset_pen_mode_when_inactive(
     mut pen_state: ResMut<PenToolState>,
     mut app_state_changed: EventWriter<crate::draw::AppStateChanged>,
 ) {
-    // Only act if we're no longer in pen mode
-    if current_mode.0 != crate::edit_mode_toolbar::EditMode::Pen {
-        // If we have a path in progress, commit it before switching
-        if has_drawable_path(&pen_state) {
-            if let Some(_contour) = create_contour_from_points(&pen_state.points) {
-                app_state_changed.send(crate::draw::AppStateChanged);
-                info!("Auto-committing path when switching modes");
-            }
-        }
+    // Early return if still in pen mode
+    if current_mode.0 == crate::edit_mode_toolbar::EditMode::Pen {
+        return;
+    }
 
-        // Reset state and mark as inactive
-        *pen_state = PenToolState::default();
-        pen_state.active = false;
-        commands.insert_resource(PenModeActive(false));
+    // Save any work in progress before switching modes
+    try_commit_current_path(&pen_state, &mut app_state_changed);
+
+    // Clean up and deactivate pen mode
+    deactivate_pen_mode(&mut pen_state, &mut commands);
+}
+
+/// Attempts to commit the current path if it has enough points to be drawable
+fn try_commit_current_path(
+    pen_state: &PenToolState,
+    app_state_changed: &mut EventWriter<crate::draw::AppStateChanged>,
+) {
+    if !is_path_drawable(pen_state) {
+        return;
+    }
+
+    if let Some(_contour) = create_contour_from_points(&pen_state.points) {
+        app_state_changed.send(crate::draw::AppStateChanged);
+        info!("Auto-committing path when switching modes");
     }
 }
 
-/// Check if the pen state has a drawable path (at least 2 points)
-fn has_drawable_path(pen_state: &PenToolState) -> bool {
+/// Checks if the current path has enough points to create a drawable contour
+fn is_path_drawable(pen_state: &PenToolState) -> bool {
     pen_state.state == PenState::Drawing && pen_state.points.len() >= 2
+}
+
+/// Resets pen state and marks pen mode as inactive
+fn deactivate_pen_mode(
+    pen_state: &mut ResMut<PenToolState>,
+    commands: &mut Commands,
+) {
+    **pen_state = PenToolState::default();
+    pen_state.active = false;
+    commands.insert_resource(PenModeActive(false));
 }
 
 // ================================================================
@@ -167,24 +186,17 @@ fn has_drawable_path(pen_state: &PenToolState) -> bool {
 /// Main system for handling mouse interactions with the pen tool
 #[allow(clippy::too_many_arguments)]
 pub fn handle_pen_mouse_events(
-    // Input resources
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    keyboard: Res<ButtonInput<KeyCode>>,
     mut cursor_moved_events: EventReader<CursorMoved>,
-    ui_hover_state: Res<crate::ui_interaction::UiHoverState>,
-    
-    // World queries
     windows: Query<&Window>,
     camera_q: Query<(&Camera, &GlobalTransform), With<crate::cameras::DesignCamera>>,
-    
-    // Pen tool state
+    keyboard: Res<ButtonInput<KeyCode>>,
     mut pen_state: ResMut<PenToolState>,
     pen_mode: Option<Res<PenModeActive>>,
-    
-    // App state management
     cli_args: Res<crate::cli::CliArgs>,
     mut app_state: ResMut<crate::data::AppState>,
     mut app_state_changed: EventWriter<crate::draw::AppStateChanged>,
+    ui_hover_state: Res<crate::ui_interaction::UiHoverState>,
 ) {
     // Early returns for invalid states
     if !is_pen_mode_active(&pen_mode) || ui_hover_state.is_hovering_ui {
@@ -271,11 +283,17 @@ fn calculate_final_position(
     pen_state: &PenToolState,
 ) -> Vec2 {
     // Apply snap to grid first
-    let snapped_pos = apply_snap_to_grid(cursor_pos);
+    let snapped_pos = if SNAP_TO_GRID_ENABLED {
+        Vec2::new(
+            (cursor_pos.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+            (cursor_pos.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+        )
+    } else {
+        cursor_pos
+    };
 
     // Apply axis locking if shift is held and we have points
-    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft) 
-                     || keyboard.pressed(KeyCode::ShiftRight);
+    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
     
     if shift_pressed && !pen_state.points.is_empty() {
         let last_point = pen_state.points.last().unwrap();
@@ -347,7 +365,7 @@ fn handle_right_click(
     app_state: &mut ResMut<crate::data::AppState>,
     app_state_changed: &mut EventWriter<crate::draw::AppStateChanged>,
 ) {
-    if has_drawable_path(pen_state) {
+    if pen_state.state == PenState::Drawing && pen_state.points.len() >= 2 {
         info!("Finishing open path with right click");
 
         if let Some(contour) = create_contour_from_points(&pen_state.points) {
