@@ -117,31 +117,10 @@ pub fn toggle_camera_controls(
     mut camera_query: Query<&mut OrthographicProjection, With<DesignCamera>>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    handle_panning_keys(&mut query, &keys);
+    // Note: Spacebar handling for temporary pan mode is now handled by 
+    // the edit_mode_toolbar::temporary_mode system for better UX
     handle_zoom_to_cursor_toggle(&mut query, &keys);
     handle_zoom_hotkeys(&mut camera_query, &keys);
-}
-
-/// Handles space key for temporary panning
-fn handle_panning_keys(
-    query: &mut Query<&mut PanCam>,
-    keys: &Res<ButtonInput<KeyCode>>,
-) {
-    // When pressed, enable panning
-    if keys.just_pressed(KeyCode::Space) {
-        for mut pancam in query.iter_mut() {
-            pancam.enabled = true;
-            info!("Camera panning enabled (spacebar held)");
-        }
-    }
-
-    // When released, disable panning
-    if keys.just_released(KeyCode::Space) {
-        for mut pancam in query.iter_mut() {
-            pancam.enabled = false;
-            info!("Camera panning disabled (spacebar released)");
-        }
-    }
 }
 
 /// Handles T key for toggling zoom-to-cursor behavior

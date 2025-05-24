@@ -11,6 +11,9 @@ pub mod select;
 mod text;
 mod ui;
 
+// Add the temporary mode switching module
+mod temporary_mode;
+
 pub use hyper::HyperMode;
 #[allow(unused_imports)]
 pub use hyper::HyperModePlugin;
@@ -38,6 +41,9 @@ pub use ui::{
     handle_toolbar_mode_selection, spawn_edit_mode_toolbar,
     update_current_edit_mode, CurrentEditMode, EditMode,
 };
+
+// Export the temporary mode switching functionality
+pub use temporary_mode::{handle_temporary_mode_switching, TemporaryModeState};
 
 /// Trait that defines the behavior of an edit mode in the application.
 ///
@@ -85,6 +91,7 @@ impl Plugin for EditModeToolbarPlugin {
             .init_resource::<ActivePrimitiveDrawing>()
             .init_resource::<CurrentCornerRadius>()
             .init_resource::<UiInteractionState>()
+            .init_resource::<TemporaryModeState>()
             .add_plugins(pen::PenModePlugin)
             .add_plugins(knife::KnifeModePlugin)
             .add_plugins(hyper::HyperModePlugin)
@@ -92,20 +99,28 @@ impl Plugin for EditModeToolbarPlugin {
             .add_systems(
                 Update,
                 (
+                    // Temporary mode switching (should run first to potentially change current mode)
+                    handle_temporary_mode_switching,
+                    
                     // UI systems
                     handle_toolbar_mode_selection,
                     update_current_edit_mode,
+                    
                     // Primitives sub-menu systems
                     handle_primitive_selection,
                     toggle_primitive_submenu_visibility,
                     handle_active_primitive_tool,
+                    
                     // Rounded rectangle radius control - runs BEFORE mouse event handling
                     update_primitive_ui_visibility,
                     handle_radius_input,
+                    
                     // Mouse event handling for drawing shapes - runs AFTER UI systems
                     handle_primitive_mouse_events,
+                    
                     // Render the active primitive shape while drawing
                     render_active_primitive_drawing,
+                    
                     // Camera panning control based on edit mode
                     pan::toggle_pancam_on_mode_change,
                 ),
