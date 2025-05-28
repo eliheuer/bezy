@@ -15,4 +15,4 @@ pub mod undo_plugin;
 // Re-export commonly used items
 pub use edit_session::EditSessionPlugin;
 pub use selection::SelectionPlugin;
-pub use undo_plugin::UndoPlugin; 
+pub use undo_plugin::UndoPlugin;

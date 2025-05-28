@@ -14,6 +14,4 @@ pub mod theme;
 pub mod toolbars;
 
 // Re-export commonly used items
-pub use theme::BACKGROUND_COLOR;
-pub use hud::*;
-pub use text_editor::TextEditorPlugin; 
+pub use text_editor::TextEditorPlugin;

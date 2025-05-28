@@ -11,7 +11,8 @@ mod rendering;
 mod systems;
 mod ui;
 mod utils;
-use core::{create_app, CliArgs};
+use core::app::create_app;
+use core::cli::CliArgs;
 
 fn main() {
     let cli_args = CliArgs::parse_args();

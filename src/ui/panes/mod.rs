@@ -11,4 +11,4 @@ pub mod design_space;
 pub mod glyph_pane;
 
 // Re-export plugins for easy access
-pub use design_space::DesignSpacePlugin; 
+pub use design_space::DesignSpacePlugin;

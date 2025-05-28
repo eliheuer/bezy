@@ -1,7 +1,7 @@
 //! Shared helpers.
 
-use std::convert::TryFrom;
 use bevy::prelude::Vec2 as BevyVec2;
+use std::convert::TryFrom;
 
 /// Unwrap an optional, printing a message and returning if it is missing.
 ///
@@ -64,4 +64,4 @@ pub fn create_blank_font() -> norad::Ufo {
         })
         .for_each(|glyph| layer.insert_glyph(glyph));
     ufo
-} 
+}

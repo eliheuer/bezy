@@ -6,7 +6,3 @@
 
 pub mod access_toolbar;
 pub mod edit_mode_toolbar;
-
-// Re-export commonly used items
-pub use edit_mode_toolbar::{CurrentEditMode, EditModeToolbarPlugin};
-pub use edit_mode_toolbar::select::SelectModePlugin; 

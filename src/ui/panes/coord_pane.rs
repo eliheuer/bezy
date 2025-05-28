@@ -32,8 +32,8 @@
 //! The pane automatically positions itself in the bottom-right corner of the window
 //! and can be toggled with Ctrl+P. TODO: Remove the Ctrl+P shortcut.
 
-use crate::geometry::quadrant::Quadrant;
 use crate::editing::selection::SelectionState;
+use crate::geometry::quadrant::Quadrant;
 use crate::ui::theme::*;
 use bevy::prelude::*;
 use bevy::reflect::Reflect;
@@ -587,7 +587,9 @@ fn spawn_quadrant_button(parent: &mut ChildBuilder, quadrant: Quadrant) {
 /// - Determine the width and height of the selection
 pub fn display_selected_coordinates(
     mut coord_selection: ResMut<CoordinateSelection>,
-    selection_state: Option<Res<crate::editing::selection::components::SelectionState>>,
+    selection_state: Option<
+        Res<crate::editing::selection::components::SelectionState>,
+    >,
     transforms: Query<&GlobalTransform>,
 ) {
     // Log selection state for debugging
@@ -635,7 +637,9 @@ pub fn display_selected_coordinates(
 /// 2. Calculates a bounding rectangle that contains all positions
 /// 3. Updates the coordinate selection resource with new data
 fn process_selected_entities(
-    selection_state: &Option<Res<crate::editing::selection::components::SelectionState>>,
+    selection_state: &Option<
+        Res<crate::editing::selection::components::SelectionState>,
+    >,
     transforms: &Query<&GlobalTransform>,
     coord_selection: &mut CoordinateSelection,
 ) {
@@ -854,7 +858,10 @@ fn get_quadrant_point(frame: &Rect, quadrant: Quadrant) -> Vec2 {
 fn update_coordinate_display(
     mut text_query: Query<(&mut Text, &mut TextColor, &CoordinateValue)>,
     selection_state: Res<SelectionState>,
-    position_query: Query<&Transform, With<crate::editing::selection::Selected>>,
+    position_query: Query<
+        &Transform,
+        With<crate::editing::selection::Selected>,
+    >,
 ) {
     let is_selected = !selection_state.selected.is_empty();
 
@@ -884,7 +891,10 @@ fn update_coordinate_display(
 
 /// Calculates coordinates for the current selection
 fn calculate_selection_coordinates(
-    position_query: &Query<&Transform, With<crate::editing::selection::Selected>>,
+    position_query: &Query<
+        &Transform,
+        With<crate::editing::selection::Selected>,
+    >,
 ) -> (f32, f32, f32, f32) {
     // Get positions of all selected entities
     let positions: Vec<Vec2> = position_query

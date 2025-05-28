@@ -1,5 +1,7 @@
-use crate::ui::toolbars::edit_mode_toolbar::{CurrentPrimitiveType, PrimitiveType};
 use crate::ui::theme::*;
+use crate::ui::toolbars::edit_mode_toolbar::{
+    CurrentPrimitiveType, PrimitiveType,
+};
 use bevy::prelude::*;
 
 /// Component for the panel containing rounded rectangle specific settings
@@ -156,7 +158,9 @@ pub fn update_primitive_ui_visibility(
     >,
 ) {
     // Only show panels when in primitives mode
-    if current_mode.0 != crate::ui::toolbars::edit_mode_toolbar::EditMode::Primitives {
+    if current_mode.0
+        != crate::ui::toolbars::edit_mode_toolbar::EditMode::Primitives
+    {
         for mut visibility in rounded_rect_panel.iter_mut() {
             *visibility = Visibility::Hidden;
         }

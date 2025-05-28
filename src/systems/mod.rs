@@ -11,5 +11,4 @@ pub mod ui_interaction;
 
 // Re-export commonly used items
 pub use commands::CommandsPlugin;
-pub use plugins::*;
-pub use ui_interaction::UiInteractionPlugin; 
+pub use ui_interaction::UiInteractionPlugin;

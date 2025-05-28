@@ -1,5 +1,5 @@
-use crate::ui::toolbars::edit_mode_toolbar::*;
 use crate::ui::theme::*;
+use crate::ui::toolbars::edit_mode_toolbar::*;
 
 #[derive(Component)]
 pub struct EditModeToolbarButton;
@@ -101,7 +101,10 @@ pub fn spawn_edit_mode_toolbar(
         });
 
     // Also spawn the primitives sub-menu (it will start hidden)
-    crate::ui::toolbars::edit_mode_toolbar::spawn_primitives_submenu(commands, asset_server);
+    crate::ui::toolbars::edit_mode_toolbar::spawn_primitives_submenu(
+        commands,
+        asset_server,
+    );
 }
 
 /// Helper function to spawn a single mode button

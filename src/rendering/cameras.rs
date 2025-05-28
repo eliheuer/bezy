@@ -117,7 +117,7 @@ pub fn toggle_camera_controls(
     mut camera_query: Query<&mut OrthographicProjection, With<DesignCamera>>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    // Note: Spacebar handling for temporary pan mode is now handled by 
+    // Note: Spacebar handling for temporary pan mode is now handled by
     // the edit_mode_toolbar::temporary_mode system for better UX
     handle_zoom_to_cursor_toggle(&mut query, &keys);
     handle_zoom_hotkeys(&mut camera_query, &keys);

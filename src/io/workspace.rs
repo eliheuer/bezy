@@ -45,4 +45,4 @@ impl Workspace {
     pub fn get_display_name(&self) -> String {
         self.info.get_display_name()
     }
-} 
+}

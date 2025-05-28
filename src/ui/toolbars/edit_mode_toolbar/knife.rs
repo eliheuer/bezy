@@ -114,7 +114,8 @@ pub fn reset_knife_mode_when_inactive(
     mut commands: Commands,
     mut knife_state: ResMut<KnifeToolState>,
 ) {
-    if current_mode.0 != crate::ui::toolbars::edit_mode_toolbar::EditMode::Knife {
+    if current_mode.0 != crate::ui::toolbars::edit_mode_toolbar::EditMode::Knife
+    {
         // Clear state and mark inactive
         *knife_state = KnifeToolState::default();
         knife_state.active = false;

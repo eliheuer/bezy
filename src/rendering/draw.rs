@@ -1,8 +1,8 @@
 //! Drawing algorithms and helpers
 
 use crate::core::data::{AppState, FontMetrics};
-use crate::ui::panes::design_space::{DPoint, ViewPort};
 use crate::editing::selection::Selectable;
+use crate::ui::panes::design_space::{DPoint, ViewPort};
 use crate::ui::theme::{
     DEBUG_SHOW_ORIGIN_CROSS, HANDLE_LINE_COLOR, METRICS_GUIDE_COLOR,
     OFF_CURVE_INNER_CIRCLE_RATIO, OFF_CURVE_POINT_COLOR,
@@ -314,7 +314,10 @@ pub fn draw_glyph_points_system(
     >,
     window_query: Query<&Window>,
     selected_points_query: Query<
-        (Entity, &crate::editing::selection::components::GlyphPointReference),
+        (
+            Entity,
+            &crate::editing::selection::components::GlyphPointReference,
+        ),
         With<crate::editing::selection::components::Selected>,
     >,
 ) {
@@ -907,7 +910,9 @@ pub fn spawn_glyph_point_entities(
         With<Selectable>,
     >,
     cli_args: Res<crate::core::cli::CliArgs>,
-    mut selection_state: ResMut<crate::editing::selection::components::SelectionState>,
+    mut selection_state: ResMut<
+        crate::editing::selection::components::SelectionState,
+    >,
 ) {
     // Get the codepoint string
     let codepoint_string = cli_args.get_codepoint_string();
@@ -1101,7 +1106,9 @@ fn spawn_entities_for_glyph(
                 // If the point was selected before, restore selection state
                 if was_selected {
                     let entity = entity_cmds.id();
-                    entity_cmds.insert(crate::editing::selection::components::Selected);
+                    entity_cmds.insert(
+                        crate::editing::selection::components::Selected,
+                    );
                     selection_state.selected.insert(entity);
                     info!(
                         "Restored selection for point at ({}, {})",

@@ -190,12 +190,14 @@ fn handle_cycle_codepoint(
         // Check for a debug environment variable to minimize log output in normal use
         if std::env::var("BEZY_DEBUG").ok().is_some() {
             // Dump all glyph names in the font to help identify naming conventions
-            let _glyph_names =
-                crate::io::ufo::dump_all_glyph_names(&app_state.workspace.font.ufo);
+            let _glyph_names = crate::io::ufo::dump_all_glyph_names(
+                &app_state.workspace.font.ufo,
+            );
 
             // Dump all available codepoints in the font (only for debugging)
-            let all_codepoints =
-                crate::io::ufo::get_all_codepoints(&app_state.workspace.font.ufo);
+            let all_codepoints = crate::io::ufo::get_all_codepoints(
+                &app_state.workspace.font.ufo,
+            );
             info!("Found {} codepoints in the font", all_codepoints.len());
 
             if !all_codepoints.is_empty() {
@@ -366,7 +368,8 @@ fn handle_create_contour(
                     info!("Added new contour to glyph {}", glyph_name);
 
                     // Notify that the app state has changed
-                    app_state_changed.send(crate::rendering::draw::AppStateChanged);
+                    app_state_changed
+                        .send(crate::rendering::draw::AppStateChanged);
                 } else {
                     warn!("Could not find glyph for contour creation");
                 }

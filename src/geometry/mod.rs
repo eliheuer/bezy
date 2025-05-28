@@ -11,7 +11,3 @@ pub mod path;
 pub mod point;
 pub mod point_list;
 pub mod quadrant;
-
-// Re-export commonly used items
-pub use point::EditPoint;
-pub use point_list::PointList; 

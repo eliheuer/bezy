@@ -21,15 +21,16 @@ use bevy_pancam::PanCamPlugin;
 // Internal modules - grouped by functionality
 
 // Core app functionality
-use crate::core::{CliArgs, AppState};
+use crate::core::cli::CliArgs;
+use crate::core::data::AppState;
 use crate::ui::theme::BACKGROUND_COLOR;
 
 // Plugins
-use crate::rendering::{CheckerboardPlugin, DrawPlugin};
-use crate::systems::{CommandsPlugin, UiInteractionPlugin};
-use crate::systems::plugins::*;
-use crate::ui::panes::DesignSpacePlugin;
 use crate::editing::{EditSessionPlugin, SelectionPlugin, UndoPlugin};
+use crate::rendering::{CheckerboardPlugin, DrawPlugin};
+use crate::systems::plugins::*;
+use crate::systems::{CommandsPlugin, UiInteractionPlugin};
+use crate::ui::panes::DesignSpacePlugin;
 use crate::ui::TextEditorPlugin;
 
 // Toolbars, widgets, and gizmos

@@ -2,13 +2,13 @@ use bevy::prelude::*;
 
 use crate::rendering::cameras::toggle_camera_controls;
 // Use the bezy namespace for the coord_pane module
-use crate::ui::toolbars::access_toolbar::AccessToolbarPlugin;
-use crate::ui::panes::coord_pane::CoordinatePanePlugin;
-use crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode;
-use crate::ui::panes::glyph_pane::GlyphPanePlugin;
-use crate::utils::setup::setup;
-use crate::ui::theme::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::io::ufo::{initialize_font_state, print_font_info_to_terminal};
+use crate::ui::panes::coord_pane::CoordinatePanePlugin;
+use crate::ui::panes::glyph_pane::GlyphPanePlugin;
+use crate::ui::theme::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
+use crate::ui::toolbars::access_toolbar::AccessToolbarPlugin;
+use crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode;
+use crate::utils::setup::setup;
 
 /// Configure the default Bevy plugins with custom settings
 pub fn configure_default_plugins() -> bevy::app::PluginGroupBuilder {

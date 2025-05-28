@@ -1,9 +1,9 @@
 //! # Pen Tool
-//! 
+//!
 //! The pen tool allows users to draw vector paths by clicking points in sequence.
-//! Click to place points, click near the start point to close the path, or right-click 
+//! Click to place points, click near the start point to close the path, or right-click
 //! to finish an open path. Hold Shift for axis-aligned drawing, press Escape to cancel.
-//! 
+//!
 //! The tool converts placed points into UFO contours that are saved to the font file.
 
 use super::EditModeSystem;
@@ -27,7 +27,7 @@ const CURSOR_INDICATOR_SIZE: f32 = 4.0;
 // ================================================================
 
 /// Bevy plugin that sets up the pen tool
-/// 
+///
 /// This plugin initializes the pen tool's state resources and registers
 /// all the systems needed for pen functionality:
 /// - Mouse input handling for placing points
@@ -39,13 +39,16 @@ pub struct PenModePlugin;
 impl Plugin for PenModePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PenToolState>()
-           .init_resource::<PenModeActive>();
-        app.add_systems(Update, (
-            handle_pen_mouse_events,
-            handle_pen_keyboard_events,
-            render_pen_preview,
-            reset_pen_mode_when_inactive,
-        ));
+            .init_resource::<PenModeActive>();
+        app.add_systems(
+            Update,
+            (
+                handle_pen_mouse_events,
+                handle_pen_keyboard_events,
+                render_pen_preview,
+                reset_pen_mode_when_inactive,
+            ),
+        );
     }
 }
 
@@ -58,7 +61,7 @@ impl Plugin for PenModePlugin {
 pub struct PenModeActive(pub bool);
 
 /// The main state manager for the pen tool
-/// 
+///
 /// The pen tool works like this:
 /// 1. Start in Ready state - waiting for first click
 /// 2. First click starts a new path and moves to Drawing state
@@ -128,7 +131,7 @@ impl EditModeSystem for PenMode {
 // ================================================================
 
 /// Handles cleanup when switching away from pen mode
-/// 
+///
 /// If the user was in the middle of drawing a path, this system
 /// will automatically commit it before switching modes.
 pub fn reset_pen_mode_when_inactive(
@@ -152,7 +155,9 @@ pub fn reset_pen_mode_when_inactive(
 /// Attempts to commit the current path if it has enough points to be drawable
 fn try_commit_current_path(
     pen_state: &PenToolState,
-    app_state_changed: &mut EventWriter<crate::rendering::draw::AppStateChanged>,
+    app_state_changed: &mut EventWriter<
+        crate::rendering::draw::AppStateChanged,
+    >,
 ) {
     if !is_path_drawable(pen_state) {
         return;
@@ -189,7 +194,10 @@ pub fn handle_pen_mouse_events(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut cursor_moved_events: EventReader<CursorMoved>,
     windows: Query<&Window>,
-    camera_q: Query<(&Camera, &GlobalTransform), With<crate::rendering::cameras::DesignCamera>>,
+    camera_q: Query<
+        (&Camera, &GlobalTransform),
+        With<crate::rendering::cameras::DesignCamera>,
+    >,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut pen_state: ResMut<PenToolState>,
     pen_mode: Option<Res<PenModeActive>>,
@@ -203,22 +211,41 @@ pub fn handle_pen_mouse_events(
         return;
     }
 
-    let Ok(window) = windows.get_single() else { return };
+    let Ok(window) = windows.get_single() else {
+        return;
+    };
     let Some((camera, camera_transform)) = find_active_camera(&camera_q) else {
         warn!("No active camera found for pen tool");
         return;
     };
 
     // Update cursor position from mouse movement
-    update_cursor_position(&mut cursor_moved_events, &window, camera, camera_transform, &mut pen_state);
+    update_cursor_position(
+        &mut cursor_moved_events,
+        &window,
+        camera,
+        camera_transform,
+        &mut pen_state,
+    );
 
     // Handle mouse clicks
     if mouse_button_input.just_pressed(MouseButton::Left) {
-        handle_left_click(&keyboard, &mut pen_state, &cli_args, &mut app_state, &mut app_state_changed);
+        handle_left_click(
+            &keyboard,
+            &mut pen_state,
+            &cli_args,
+            &mut app_state,
+            &mut app_state_changed,
+        );
     }
 
     if mouse_button_input.just_pressed(MouseButton::Right) {
-        handle_right_click(&mut pen_state, &cli_args, &mut app_state, &mut app_state_changed);
+        handle_right_click(
+            &mut pen_state,
+            &cli_args,
+            &mut app_state,
+            &mut app_state_changed,
+        );
     }
 }
 
@@ -228,7 +255,12 @@ fn is_pen_mode_active(pen_mode: &Option<Res<PenModeActive>>) -> bool {
 }
 
 /// Find the active camera for coordinate conversion
-fn find_active_camera<'a>(camera_q: &'a Query<(&Camera, &GlobalTransform), With<crate::rendering::cameras::DesignCamera>>) -> Option<(&'a Camera, &'a GlobalTransform)> {
+fn find_active_camera<'a>(
+    camera_q: &'a Query<
+        (&Camera, &GlobalTransform),
+        With<crate::rendering::cameras::DesignCamera>,
+    >,
+) -> Option<(&'a Camera, &'a GlobalTransform)> {
     camera_q.iter().find(|(camera, _)| camera.is_active)
 }
 
@@ -242,7 +274,9 @@ fn update_cursor_position(
 ) {
     for _cursor_moved in cursor_moved_events.read() {
         if let Some(cursor_pos) = window.cursor_position() {
-            if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_pos) {
+            if let Ok(world_position) =
+                camera.viewport_to_world_2d(camera_transform, cursor_pos)
+            {
                 pen_state.cursor_position = Some(world_position);
             }
         }
@@ -255,10 +289,14 @@ fn handle_left_click(
     pen_state: &mut ResMut<PenToolState>,
     cli_args: &Res<crate::core::cli::CliArgs>,
     app_state: &mut ResMut<crate::core::data::AppState>,
-    app_state_changed: &mut EventWriter<crate::rendering::draw::AppStateChanged>,
+    app_state_changed: &mut EventWriter<
+        crate::rendering::draw::AppStateChanged,
+    >,
 ) {
-    let Some(cursor_pos) = pen_state.cursor_position else { return };
-    
+    let Some(cursor_pos) = pen_state.cursor_position else {
+        return;
+    };
+
     // Apply snapping and axis locking
     let final_pos = calculate_final_position(cursor_pos, keyboard, pen_state);
 
@@ -268,7 +306,12 @@ fn handle_left_click(
         }
         PenState::Drawing => {
             if should_close_path(pen_state, final_pos) {
-                close_current_path(pen_state, cli_args, app_state, app_state_changed);
+                close_current_path(
+                    pen_state,
+                    cli_args,
+                    app_state,
+                    app_state_changed,
+                );
             } else {
                 add_point_to_path(pen_state, final_pos);
             }
@@ -293,8 +336,9 @@ fn calculate_final_position(
     };
 
     // Apply axis locking if shift is held and we have points
-    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
-    
+    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft)
+        || keyboard.pressed(KeyCode::ShiftRight);
+
     if shift_pressed && !pen_state.points.is_empty() {
         let last_point = pen_state.points.last().unwrap();
         axis_lock_position(snapped_pos, *last_point)
@@ -307,11 +351,11 @@ fn calculate_final_position(
 fn start_new_path(pen_state: &mut ResMut<PenToolState>, position: Vec2) {
     let mut path = BezPath::new();
     path.move_to((position.x as f64, position.y as f64));
-    
+
     pen_state.current_path = Some(path);
     pen_state.points.push(position);
     pen_state.state = PenState::Drawing;
-    
+
     info!("Started new path at: {:?}", position);
 }
 
@@ -320,7 +364,7 @@ fn should_close_path(pen_state: &PenToolState, position: Vec2) -> bool {
     if pen_state.points.len() <= 1 {
         return false;
     }
-    
+
     let start_point = pen_state.points[0];
     let distance = start_point.distance(position);
     distance < CLOSE_PATH_THRESHOLD
@@ -331,7 +375,9 @@ fn close_current_path(
     pen_state: &mut ResMut<PenToolState>,
     cli_args: &Res<crate::core::cli::CliArgs>,
     app_state: &mut ResMut<crate::core::data::AppState>,
-    app_state_changed: &mut EventWriter<crate::rendering::draw::AppStateChanged>,
+    app_state_changed: &mut EventWriter<
+        crate::rendering::draw::AppStateChanged,
+    >,
 ) {
     info!("Closing path - clicked near start point");
 
@@ -342,7 +388,13 @@ fn close_current_path(
 
     // Add the closed path to the current glyph
     if let Some(contour) = create_contour_from_points(&pen_state.points) {
-        add_contour_to_glyph(contour, cli_args, app_state, app_state_changed, true);
+        add_contour_to_glyph(
+            contour,
+            cli_args,
+            app_state,
+            app_state_changed,
+            true,
+        );
     }
 
     // Reset for next path
@@ -363,13 +415,21 @@ fn handle_right_click(
     pen_state: &mut ResMut<PenToolState>,
     cli_args: &Res<crate::core::cli::CliArgs>,
     app_state: &mut ResMut<crate::core::data::AppState>,
-    app_state_changed: &mut EventWriter<crate::rendering::draw::AppStateChanged>,
+    app_state_changed: &mut EventWriter<
+        crate::rendering::draw::AppStateChanged,
+    >,
 ) {
     if pen_state.state == PenState::Drawing && pen_state.points.len() >= 2 {
         info!("Finishing open path with right click");
 
         if let Some(contour) = create_contour_from_points(&pen_state.points) {
-            add_contour_to_glyph(contour, cli_args, app_state, app_state_changed, false);
+            add_contour_to_glyph(
+                contour,
+                cli_args,
+                app_state,
+                app_state_changed,
+                false,
+            );
         }
 
         reset_pen_state(pen_state);
@@ -381,16 +441,25 @@ fn add_contour_to_glyph(
     contour: Contour,
     cli_args: &Res<crate::core::cli::CliArgs>,
     app_state: &mut ResMut<crate::core::data::AppState>,
-    app_state_changed: &mut EventWriter<crate::rendering::draw::AppStateChanged>,
+    app_state_changed: &mut EventWriter<
+        crate::rendering::draw::AppStateChanged,
+    >,
     is_closed: bool,
 ) {
-    let Some(glyph_name) = cli_args.find_glyph(&app_state.workspace.font.ufo) else { return };
+    let Some(glyph_name) = cli_args.find_glyph(&app_state.workspace.font.ufo)
+    else {
+        return;
+    };
     let glyph_name = glyph_name.clone();
 
     // Get mutable access to the font and glyph
     let font_obj = app_state.workspace.font_mut();
-    let Some(default_layer) = font_obj.ufo.get_default_layer_mut() else { return };
-    let Some(glyph) = default_layer.get_glyph_mut(&glyph_name) else { return };
+    let Some(default_layer) = font_obj.ufo.get_default_layer_mut() else {
+        return;
+    };
+    let Some(glyph) = default_layer.get_glyph_mut(&glyph_name) else {
+        return;
+    };
 
     // Get or create the outline
     let outline = glyph.outline.get_or_insert_with(|| norad::glyph::Outline {
@@ -400,7 +469,7 @@ fn add_contour_to_glyph(
 
     // Add the new contour
     outline.contours.push(contour);
-    
+
     let path_type = if is_closed { "closed" } else { "open" };
     info!("Added new {} contour to glyph {}", path_type, glyph_name);
 
@@ -441,7 +510,7 @@ pub fn handle_pen_keyboard_events(
 // ================================================================
 
 /// Render visual preview of the pen tool's current state
-/// 
+///
 /// This shows:
 /// - Placed points (yellow circles, green for start point)
 /// - Lines connecting placed points (white)
@@ -459,7 +528,7 @@ pub fn render_pen_preview(
 
     // Draw the placed points and connecting lines
     draw_placed_points_and_lines(&mut gizmos, &pen_state);
-    
+
     // Draw preview elements (cursor, preview line, close indicator)
     draw_preview_elements(&mut gizmos, &pen_state);
 }
@@ -472,7 +541,11 @@ fn draw_placed_points_and_lines(gizmos: &mut Gizmos, pen_state: &PenToolState) {
 
     for (i, point) in pen_state.points.iter().enumerate() {
         // Draw point (start point gets special color)
-        let color = if i == 0 { start_point_color } else { point_color };
+        let color = if i == 0 {
+            start_point_color
+        } else {
+            point_color
+        };
         gizmos.circle_2d(*point, POINT_PREVIEW_SIZE, color);
 
         // Draw line to next point
@@ -484,26 +557,41 @@ fn draw_placed_points_and_lines(gizmos: &mut Gizmos, pen_state: &PenToolState) {
 
 /// Draw preview elements: cursor, preview line, and close indicator
 fn draw_preview_elements(gizmos: &mut Gizmos, pen_state: &PenToolState) {
-    let Some(cursor_pos) = pen_state.cursor_position else { return };
-    
+    let Some(cursor_pos) = pen_state.cursor_position else {
+        return;
+    };
+
     // Apply snap to grid for preview
     let snapped_cursor = apply_snap_to_grid(cursor_pos);
-    
+
     // Draw cursor indicator
-    gizmos.circle_2d(snapped_cursor, CURSOR_INDICATOR_SIZE, Color::srgba(1.0, 1.0, 1.0, 0.7));
-    
+    gizmos.circle_2d(
+        snapped_cursor,
+        CURSOR_INDICATOR_SIZE,
+        Color::srgba(1.0, 1.0, 1.0, 0.7),
+    );
+
     if pen_state.points.is_empty() {
         return;
     }
-    
+
     let last_point = *pen_state.points.last().unwrap();
-    
+
     // Draw preview line from last point to cursor
-    gizmos.line_2d(last_point, snapped_cursor, Color::srgba(1.0, 1.0, 1.0, 0.5));
-    
+    gizmos.line_2d(
+        last_point,
+        snapped_cursor,
+        Color::srgba(1.0, 1.0, 1.0, 0.5),
+    );
+
     // Draw close indicator if near start point
     if pen_state.points.len() > 1 {
-        draw_close_indicator_if_needed(gizmos, pen_state, snapped_cursor, last_point);
+        draw_close_indicator_if_needed(
+            gizmos,
+            pen_state,
+            snapped_cursor,
+            last_point,
+        );
     }
 }
 
@@ -524,7 +612,7 @@ fn draw_close_indicator_if_needed(
             CLOSE_PATH_THRESHOLD,
             Color::srgba(0.2, 1.0, 0.3, 0.3),
         );
-        
+
         // Draw line from last point to start point in green
         gizmos.line_2d(last_point, start_point, Color::srgb(0.2, 1.0, 0.3));
     }
@@ -562,7 +650,7 @@ fn axis_lock_position(pos: Vec2, relative_to: Vec2) -> Vec2 {
 }
 
 /// Convert a list of points into a UFO Contour for font storage
-/// 
+///
 /// This creates the actual geometry that gets saved in the font file.
 /// The first point becomes a "move" operation, subsequent points are "line" operations.
 fn create_contour_from_points(points: &[Vec2]) -> Option<Contour> {
@@ -575,14 +663,13 @@ fn create_contour_from_points(points: &[Vec2]) -> Option<Contour> {
         .enumerate()
         .map(|(i, p)| {
             let point_type = if i == 0 {
-                norad::PointType::Move  // First point starts the path
+                norad::PointType::Move // First point starts the path
             } else {
-                norad::PointType::Line  // Subsequent points are line segments
+                norad::PointType::Line // Subsequent points are line segments
             };
 
             ContourPoint::new(
-                p.x, p.y, point_type, 
-                false, // not smooth
+                p.x, p.y, point_type, false, // not smooth
                 None,  // no name
                 None,  // no identifier
                 None,  // no comments

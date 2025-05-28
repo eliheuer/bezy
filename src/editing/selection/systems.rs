@@ -1,11 +1,11 @@
 use super::components::*;
 use super::DragPointState;
 use super::DragSelectionState;
-use crate::rendering::cameras::DesignCamera;
 use crate::core::data::AppState;
-use crate::rendering::draw::AppStateChanged;
 use crate::editing::edit_type::EditType;
 use crate::editing::selection::nudge::{EditEvent, NudgeState};
+use crate::rendering::cameras::DesignCamera;
+use crate::rendering::draw::AppStateChanged;
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -34,7 +34,9 @@ pub fn handle_mouse_input(
     select_mode: Option<
         Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>,
     >,
-    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
+    knife_mode: Option<
+        Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>,
+    >,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
 ) {
     // Log at the beginning of each frame
@@ -413,7 +415,9 @@ pub fn handle_selection_shortcuts(
     select_mode: Option<
         Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>,
     >,
-    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
+    knife_mode: Option<
+        Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>,
+    >,
 ) {
     // Skip processing shortcuts if knife mode is active
     if let Some(knife_mode) = knife_mode {
@@ -485,7 +489,9 @@ pub fn render_selection_rect(
     select_mode: Option<
         Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>,
     >,
-    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
+    knife_mode: Option<
+        Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>,
+    >,
 ) {
     // Skip rendering the selection rectangle if knife mode is active
     if let Some(knife_mode) = knife_mode {
@@ -591,14 +597,19 @@ fn draw_dashed_line(
 pub fn render_selected_entities(
     mut gizmos: Gizmos,
     selected_query: Query<
-        (&GlobalTransform, &crate::editing::selection::components::PointType),
+        (
+            &GlobalTransform,
+            &crate::editing::selection::components::PointType,
+        ),
         With<Selected>,
     >,
     drag_point_state: Res<DragPointState>,
     select_mode: Option<
         Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>,
     >,
-    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
+    knife_mode: Option<
+        Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>,
+    >,
 ) {
     // Skip rendering selection indicators if knife mode is active
     if let Some(knife_mode) = knife_mode {
@@ -755,7 +766,10 @@ pub fn render_selected_entities(
 pub fn render_hovered_entities(
     mut _gizmos: Gizmos,
     _hovered_query: Query<
-        (&GlobalTransform, &crate::editing::selection::components::PointType),
+        (
+            &GlobalTransform,
+            &crate::editing::selection::components::PointType,
+        ),
         With<Hovered>,
     >,
     _select_mode: Option<
@@ -795,7 +809,9 @@ pub fn update_glyph_data_from_selection(
     mut app_state: ResMut<AppState>,
     // Track if we're in a nudging operation
     _nudge_state: Res<crate::editing::selection::nudge::NudgeState>,
-    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
+    knife_mode: Option<
+        Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>,
+    >,
 ) {
     // Skip processing if knife mode is active
     if let Some(knife_mode) = knife_mode {
@@ -968,12 +984,15 @@ pub fn handle_point_drag(
                     };
 
                     if should_snap {
-                        let grid_value = crate::core::settings::SNAP_TO_GRID_VALUE;
+                        let grid_value =
+                            crate::core::settings::SNAP_TO_GRID_VALUE;
                         // Snap to the nearest multiple of SNAP_TO_GRID_VALUE
-                        transform.translation.x = 
-                            (transform.translation.x / grid_value).round() * grid_value;
-                        transform.translation.y = 
-                            (transform.translation.y / grid_value).round() * grid_value;
+                        transform.translation.x =
+                            (transform.translation.x / grid_value).round()
+                                * grid_value;
+                        transform.translation.y =
+                            (transform.translation.y / grid_value).round()
+                                * grid_value;
 
                         info!(
                             "Snapped point to grid: ({:.1}, {:.1})",

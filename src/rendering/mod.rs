@@ -13,4 +13,4 @@ pub mod draw;
 
 // Re-export commonly used items
 pub use checkerboard::CheckerboardPlugin;
-pub use draw::DrawPlugin; 
+pub use draw::DrawPlugin;

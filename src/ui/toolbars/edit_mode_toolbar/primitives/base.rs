@@ -91,7 +91,9 @@ pub fn handle_primitive_mouse_events(
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
 ) {
     // Only handle events when in primitives mode
-    if current_mode.0 != crate::ui::toolbars::edit_mode_toolbar::EditMode::Primitives {
+    if current_mode.0
+        != crate::ui::toolbars::edit_mode_toolbar::EditMode::Primitives
+    {
         return;
     }
 
@@ -520,8 +522,9 @@ pub fn handle_primitive_mouse_events(
                                 }
 
                                 // Notify that the app state has changed
-                                app_state_changed
-                                    .send(crate::rendering::draw::AppStateChanged);
+                                app_state_changed.send(
+                                    crate::rendering::draw::AppStateChanged,
+                                );
                             } else {
                                 warn!(
                                     "Could not find glyph for contour creation"
@@ -586,7 +589,9 @@ pub fn render_active_primitive_drawing(
     current_mode: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode>,
 ) {
     // Only render when in primitives mode
-    if current_mode.0 != crate::ui::toolbars::edit_mode_toolbar::EditMode::Primitives {
+    if current_mode.0
+        != crate::ui::toolbars::edit_mode_toolbar::EditMode::Primitives
+    {
         return;
     }
 

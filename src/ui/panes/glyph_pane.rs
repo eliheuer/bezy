@@ -575,7 +575,9 @@ pub fn update_glyph_metrics(
 
                 // Get the kerning groups for this glyph
                 // First look for groups in the UFO
-                if let Some(groups) = app_state.workspace.font.ufo.groups.as_ref() {
+                if let Some(groups) =
+                    app_state.workspace.font.ufo.groups.as_ref()
+                {
                     // Find kerning groups where this glyph is included
                     let glyph_name_str = glyph_name.to_string();
                     metrics.left_group = String::new();
@@ -583,10 +585,16 @@ pub fn update_glyph_metrics(
 
                     // Look for left kerning groups (public.kern1.*)
                     for (group_name, members) in groups.iter() {
-                        if group_name.starts_with("public.kern1.") && members.iter().any(|m| m.as_ref() == glyph_name_str) {
+                        if group_name.starts_with("public.kern1.")
+                            && members
+                                .iter()
+                                .any(|m| m.as_ref() == glyph_name_str)
+                        {
                             // Found a left kerning group for this glyph
                             // Strip the "public.kern1." prefix
-                            if let Some(short_name) = group_name.strip_prefix("public.kern1.") {
+                            if let Some(short_name) =
+                                group_name.strip_prefix("public.kern1.")
+                            {
                                 metrics.left_group = short_name.to_string();
                             } else {
                                 metrics.left_group = group_name.clone();
@@ -597,10 +605,16 @@ pub fn update_glyph_metrics(
 
                     // Look for right kerning groups (public.kern2.*)
                     for (group_name, members) in groups.iter() {
-                        if group_name.starts_with("public.kern2.") && members.iter().any(|m| m.as_ref() == glyph_name_str) {
+                        if group_name.starts_with("public.kern2.")
+                            && members
+                                .iter()
+                                .any(|m| m.as_ref() == glyph_name_str)
+                        {
                             // Found a right kerning group for this glyph
                             // Strip the "public.kern2." prefix
-                            if let Some(short_name) = group_name.strip_prefix("public.kern2.") {
+                            if let Some(short_name) =
+                                group_name.strip_prefix("public.kern2.")
+                            {
                                 metrics.right_group = short_name.to_string();
                             } else {
                                 metrics.right_group = group_name.clone();

@@ -101,26 +101,20 @@ impl Plugin for EditModeToolbarPlugin {
                 (
                     // Temporary mode switching (should run first to potentially change current mode)
                     handle_temporary_mode_switching,
-                    
                     // UI systems
                     handle_toolbar_mode_selection,
                     update_current_edit_mode,
-                    
                     // Primitives sub-menu systems
                     handle_primitive_selection,
                     toggle_primitive_submenu_visibility,
                     handle_active_primitive_tool,
-                    
                     // Rounded rectangle radius control - runs BEFORE mouse event handling
                     update_primitive_ui_visibility,
                     handle_radius_input,
-                    
                     // Mouse event handling for drawing shapes - runs AFTER UI systems
                     handle_primitive_mouse_events,
-                    
                     // Render the active primitive shape while drawing
                     render_active_primitive_drawing,
-                    
                     // Camera panning control based on edit mode
                     pan::toggle_pancam_on_mode_change,
                 ),

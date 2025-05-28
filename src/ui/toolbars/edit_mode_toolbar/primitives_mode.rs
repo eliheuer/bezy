@@ -1,5 +1,5 @@
-use crate::ui::toolbars::edit_mode_toolbar::EditModeSystem;
 use crate::ui::theme::*;
+use crate::ui::toolbars::edit_mode_toolbar::EditModeSystem;
 use bevy::ecs::system::ParamSet;
 use bevy::prelude::*;
 
@@ -56,7 +56,9 @@ impl EditModeSystem for PrimitivesMode {
     fn update(&self, commands: &mut Commands) {
         // Disable selection mode while in primitives mode
         commands.insert_resource(
-            crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive(false),
+            crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive(
+                false,
+            ),
         );
 
         // The actual implementation will need to access the current primitive type through a system parameter
@@ -83,7 +85,9 @@ pub fn handle_active_primitive_tool(
     mut commands: Commands,
 ) {
     // Only update when in primitives mode
-    if current_mode.0 == crate::ui::toolbars::edit_mode_toolbar::EditMode::Primitives {
+    if current_mode.0
+        == crate::ui::toolbars::edit_mode_toolbar::EditMode::Primitives
+    {
         let tool = base::get_primitive_tool(current_primitive_type.0);
         tool.update(&mut commands);
     }
@@ -273,7 +277,9 @@ pub fn handle_primitive_selection(
 
 // System to show/hide the primitive sub-menu based on the current edit mode
 pub fn toggle_primitive_submenu_visibility(
-    current_edit_mode: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode>,
+    current_edit_mode: Res<
+        crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode,
+    >,
     mut submenu_query: Query<(&mut Visibility, &Name)>,
 ) {
     // Find the primitives submenu by name

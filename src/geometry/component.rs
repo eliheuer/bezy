@@ -30,18 +30,18 @@
 // Components are a key part of the UFO (Unified Font Object) format that Bezy works with,
 // making this module essential for correctly importing, displaying, editing, and exporting
 // composite glyphs.
-use bevy::prelude::*;
 use bevy::math::Vec2 as BevyVec2;
+use bevy::prelude::*;
 // use kurbo::{Affine, BezPath};
 use norad::Component as NoradComponent;
 use std::sync::Arc;
 
 /// A Bevy component representing a composite glyph component
-/// 
+///
 /// Composite glyphs (also called component glyphs) are glyphs that are composed of
 /// other glyphs with transformations applied. This is commonly used in font design
 /// for creating compound characters or reusing components (like accents).
-/// 
+///
 /// Fields:
 /// - `base`: The name of the base glyph that this component references
 /// - `transform`: The transformation matrix applied to the base glyph
@@ -53,17 +53,29 @@ pub struct GlyphComponent {
 
 impl GlyphComponent {
     /// Converts a Norad component (from the norad UFO library) to a Bevy-compatible GlyphComponent
-    /// 
+    ///
     /// This function maps the Norad AffineTransform (used in UFO format) to Bevy's Transform system
     /// by building a 4x4 transformation matrix.
     pub fn from_norad(comp: &NoradComponent) -> Self {
         // Create a Bevy Transform from Norad's AffineTransform
         // Norad uses a 2x3 matrix while Bevy uses a 4x4 homogeneous transformation matrix
         let transform = Transform::from_matrix(Mat4::from_cols_array(&[
-            comp.transform.x_scale as f32, comp.transform.yx_scale as f32, 0.0, 0.0,
-            comp.transform.xy_scale as f32, comp.transform.y_scale as f32, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            comp.transform.x_offset as f32, comp.transform.y_offset as f32, 0.0, 1.0,
+            comp.transform.x_scale as f32,
+            comp.transform.yx_scale as f32,
+            0.0,
+            0.0,
+            comp.transform.xy_scale as f32,
+            comp.transform.y_scale as f32,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            comp.transform.x_offset as f32,
+            comp.transform.y_offset as f32,
+            0.0,
+            1.0,
         ]));
 
         GlyphComponent {
@@ -73,14 +85,15 @@ impl GlyphComponent {
     }
 
     /// Converts a Bevy GlyphComponent back to a Norad Component
-    /// 
+    ///
     /// This is the inverse operation of from_norad, extracting the relevant
     /// transformation values from Bevy's 4x4 matrix to construct Norad's AffineTransform.
     pub fn to_norad(&self) -> NoradComponent {
         // Extract the full 4x4 matrix from Bevy's Transform
         let matrix = self.transform.compute_matrix();
         // Unpack the matrix into individual elements (only using the ones we need for 2D transformation)
-        let [m00, m01, _m02, _m03, m10, m11, _m12, _m13, _m20, _m21, _m22, _m23, m30, m31, _m32, _m33] = matrix.to_cols_array();
+        let [m00, m01, _m02, _m03, m10, m11, _m12, _m13, _m20, _m21, _m22, _m23, m30, m31, _m32, _m33] =
+            matrix.to_cols_array();
 
         // Create a new Norad Component using the constructor
         // Only using the relevant parts of the 4x4 matrix for the 2D transformation
@@ -94,13 +107,13 @@ impl GlyphComponent {
                 x_offset: m30, // X-translation
                 y_offset: m31, // Y-translation
             },
-            None,  // identifier
-            None,  // lib
+            None, // identifier
+            None, // lib
         )
     }
 
     /// Moves the component by the specified delta in 2D space
-    /// 
+    ///
     /// This is a convenience method for modifying the translation part of
     /// the transformation without affecting rotation or scale.
     pub fn nudge(&mut self, delta: BevyVec2) {
@@ -108,4 +121,4 @@ impl GlyphComponent {
         // The z-component remains unchanged (0.0)
         self.transform.translation += Vec3::new(delta.x, delta.y, 0.0);
     }
-} 
+}
