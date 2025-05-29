@@ -52,30 +52,30 @@ fn add_all_plugins(app: &mut App) {
 /// Adds plugins for rendering and visual display
 fn add_rendering_plugins(app: &mut App) {
     app.add_plugins((
-        PanCamPlugin,          // Camera controls
-        CheckerboardPlugin,    // Background grid
-        DrawPlugin,            // Glyph rendering
+        PanCamPlugin,        // Camera controls
+        CheckerboardPlugin,  // Background grid
+        DrawPlugin,          // Glyph rendering
     ));
 }
 
 /// Adds plugins for editor UI and interaction
 fn add_editor_plugins(app: &mut App) {
     app.add_plugins((
-        DesignSpacePlugin,        // Main design area
-        EditModeToolbarPlugin,    // Mode switching toolbar
-        SelectModePlugin,         // Selection tool
-        EditSessionPlugin,        // Edit session management
-        SelectionPlugin,          // Selection handling
-        TextEditorPlugin,         // Text input
-        UiInteractionPlugin,      // UI event handling
+        DesignSpacePlugin,      // Main design area
+        EditModeToolbarPlugin,  // Mode switching toolbar
+        SelectModePlugin,       // Selection tool
+        EditSessionPlugin,      // Edit session management
+        SelectionPlugin,        // Selection handling
+        TextEditorPlugin,       // Text input
+        UiInteractionPlugin,    // UI event handling
     ));
 }
 
 /// Adds core application logic plugins
 fn add_core_plugins(app: &mut App) {
     app.add_plugins((
-        BezySystems,      // Main app systems
-        CommandsPlugin,   // Command handling
-        UndoPlugin,       // Undo/redo system
+        BezySystems,     // Main app systems
+        CommandsPlugin,  // Command handling
+        UndoPlugin,      // Undo/redo system
     ));
 }
