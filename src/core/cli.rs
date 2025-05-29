@@ -6,16 +6,16 @@ use std::path::PathBuf;
 #[derive(Parser, Debug, Resource)]
 #[command(author, version, about, long_about = None)]
 pub struct CliArgs {
-    /// Path to a UFO font file to load
+    /// Path to a UFO font file to load with a default source file
     #[arg(
         long = "load-ufo",
         default_value = "assets/fonts/bezy-grotesk-regular.ufo"
     )]
     pub ufo_path: Option<PathBuf>,
 
-    /// Unicode codepoint to display for testing (in hexadecimal, e.g., 0048 for 'H')
-    #[arg(long = "test-unicode", default_value = "0061")]
-    pub test_unicode: Option<String>,
+    /// What unicode codepoint to start the editor viewing 
+    #[arg(long = "load-unicode", default_value = "0061")]
+    pub load_unicode: Option<String>,
 
     /// Display debug information
     #[arg(long, default_value_t = false)]
@@ -37,7 +37,7 @@ impl CliArgs {
     /// This returns a string following standard glyph naming conventions.
     /// The actual lookup in the font is done by the ufo::find_glyph_by_unicode function.
     pub fn get_test_glyph(&self) -> String {
-        match &self.test_unicode {
+        match &self.load_unicode {
             Some(unicode_str) => {
                 match u32::from_str_radix(
                     unicode_str.trim_start_matches("0x"),
@@ -89,7 +89,7 @@ impl CliArgs {
         let default_layer = ufo.get_default_layer()?;
 
         // Try to find the glyph by directly searching for Unicode value
-        if let Some(codepoint) = &self.test_unicode {
+        if let Some(codepoint) = &self.load_unicode {
             if let Some(glyph_name) =
                 crate::io::ufo::find_glyph_by_unicode(ufo, codepoint)
             {
@@ -113,15 +113,12 @@ impl CliArgs {
 
     /// Get the original codepoint string for display purposes
     pub fn get_codepoint_string(&self) -> String {
-        match &self.test_unicode {
-            Some(unicode_str) => unicode_str.clone(),
-            None => "".to_string(),
-        }
+        self.load_unicode.clone().unwrap_or_default()
     }
 
     /// Set the unicode codepoint to a new value
     pub fn set_codepoint(&mut self, new_codepoint: String) {
-        self.test_unicode = Some(new_codepoint);
+        self.load_unicode = Some(new_codepoint);
         self.codepoint_found = false; // Reset so the glyph can be checked
     }
 }

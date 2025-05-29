@@ -475,7 +475,7 @@ pub fn update_glyph_metrics(
         metrics.glyph_name = glyph_name_str.clone();
 
         // Set the Unicode information
-        if let Some(codepoint) = &cli_args.test_unicode {
+        if let Some(codepoint) = &cli_args.load_unicode {
             metrics.unicode = codepoint.clone();
         } else {
             metrics.unicode = String::new();

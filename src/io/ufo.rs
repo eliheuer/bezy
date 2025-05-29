@@ -26,7 +26,7 @@ pub fn print_font_info_to_terminal(
     mut last_printed: ResMut<LastCodepointPrinted>,
 ) {
     let font_info = get_basic_font_info_from_state(&app_state);
-    let current_codepoint = cli_args.test_unicode.clone();
+    let current_codepoint = cli_args.load_unicode.clone();
 
     // Check if we need to print (startup or codepoint changed)
     let should_print = last_printed.codepoint != current_codepoint;
@@ -36,7 +36,7 @@ pub fn print_font_info_to_terminal(
         info!("{}", font_info);
 
         // Add codepoint info if present
-        if let Some(codepoint) = &cli_args.test_unicode {
+        if let Some(codepoint) = &cli_args.load_unicode {
             if !codepoint.is_empty() {
                 // Try to get a readable character representation
                 let cp_value = match u32::from_str_radix(
