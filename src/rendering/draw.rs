@@ -64,8 +64,7 @@ pub fn draw_metrics_system(
         debug!("Ascender: {:?}", metrics.ascender);
         debug!("Descender: {:?}", metrics.descender);
 
-        // Get the test glyph name from CLI args
-        let _test_glyph = cli_args.get_test_glyph();
+        // Get the codepoint string for checking if it was found
         let codepoint_string = cli_args.get_codepoint_string();
 
         // If we're testing a specific codepoint and it wasn't found, don't draw metrics
@@ -327,7 +326,7 @@ pub fn draw_glyph_points_system(
         Err(_) => ViewPort::default(),
     };
 
-    // Get the test glyph name from CLI args and codepoint string
+    // Get the codepoint string
     let codepoint_string = cli_args.get_codepoint_string();
 
     // If no font is loaded, return early
