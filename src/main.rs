@@ -1,4 +1,4 @@
-//! A font editor made with Rust, the Bevy game engine, and some Linebender crates.
+//! A font editor built with Rust, the Bevy game engine, and Linebender crates.
 
 // "The enjoyment of one's tools is an essential ingredient of successful work."
 // — Donald Knuth
@@ -11,10 +11,9 @@ mod rendering;
 mod systems;
 mod ui;
 mod utils;
-use core::app::create_app;
-use core::cli::CliArgs;
 
 fn main() {
-    let cli_args = CliArgs::parse_args();
-    create_app(cli_args).run();
+    let cli_args = core::cli::CliArgs::parse_args();
+    core::app::create_app(cli_args).run();
 }
+

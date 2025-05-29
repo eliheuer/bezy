@@ -1,117 +1,81 @@
-//! Application initialization and configuration module
+//! Application initialization and configuration
 //!
-//! This module is responsible for creating and configuring the Bevy application.
-//! It sets up all resources, plugins, and initial state for the Bezy font editor.
-//! For customization and styling, see theme.rs, settings.rs, and plugins.rs.
-//!
-//! The main function to use from this module is `create_app()`, which takes command line
-//! arguments and returns a configured Bevy application ready to be run.
-//!
-//! # Architecture
-//! This file follows a modular design pattern where:
-//! - Application creation is handled by `create_app()`
-//! - Resource configuration is handled by `configure_app_settings()`
-//! - Plugin registration is handled by `add_plugins()`
+//! This module creates and configures the main Bevy application for the Bezy font editor.
+//! The main entry point is `create_app()` which takes CLI arguments and returns a configured app.
 
-// External crates
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use bevy_pancam::PanCamPlugin;
 
-// Internal modules - grouped by functionality
-
-// Core app functionality
+// Internal imports
 use crate::core::cli::CliArgs;
 use crate::core::data::AppState;
 use crate::ui::theme::BACKGROUND_COLOR;
 
-// Plugins
+// Editor plugins
 use crate::editing::{EditSessionPlugin, SelectionPlugin, UndoPlugin};
 use crate::rendering::{CheckerboardPlugin, DrawPlugin};
 use crate::systems::plugins::*;
 use crate::systems::{CommandsPlugin, UiInteractionPlugin};
 use crate::ui::panes::DesignSpacePlugin;
 use crate::ui::TextEditorPlugin;
-
-// Toolbars, widgets, and gizmos
 use crate::ui::toolbars::edit_mode_toolbar::{
     select::SelectModePlugin, CurrentEditMode, EditModeToolbarPlugin,
 };
 
-/// Creates and configures a new Bevy application with all required plugins and settings.
-/// This is the main entry point for the Bezy font editor application.
-/// Returns a configured Bevy `App` ready to be run.
+/// Creates a fully configured Bevy application ready to run
 pub fn create_app(cli_args: CliArgs) -> App {
-    // Initialize a custom logger, see logger.rs for details
     crate::utils::logger::init_custom_logger();
-    // Create a new Bevy app instance
     let mut app = App::new();
-    // Configure app with default settings and CLI arguments
     configure_app_settings(&mut app, cli_args);
-    // Adds all plugins to the application
-    add_plugins(&mut app);
-    // Return the fully configured app from the create_app function
+    add_all_plugins(&mut app);
     app
 }
 
-/// Helper function to configure app settings and resources
-/// This includes setting up:
-/// - Application state (see data.rs for AppState implementation)
-/// - CLI arguments for command-line control
-/// - Window settings for interaction behavior
-/// - Default clear color for the background
-/// - Edit mode for the current editing context
+/// Sets up application resources and configuration
 fn configure_app_settings(app: &mut App, cli_args: CliArgs) {
-    // Initialize the application state - this contains the workspace, selection state, etc.
     app.init_resource::<AppState>()
-        // Make CLI arguments available to all systems
         .insert_resource(cli_args)
-        // Configure window system to work well for desktop app usage
         .insert_resource(WinitSettings::desktop_app())
-        // Set the background color from our theme settings
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        // Initialize with default edit mode (usually "select" mode)
         .insert_resource(CurrentEditMode::default());
 }
 
-/// Add all necessary plugins to the application
-/// Bevy uses a plugin-based architecture where each plugin adds specific functionality.
-/// Plugins are grouped logically to make it clear what each section does.
-fn add_plugins(app: &mut App) {
-    app.add_plugins(crate::systems::plugins::configure_default_plugins())
-        // ---- Rendering and View Plugins ----
-        .add_plugins((
-            // Camera panning and zooming functionality
-            PanCamPlugin,
-            // Background grid pattern for the design view
-            CheckerboardPlugin,
-            // Glyph drawing and visualization
-            DrawPlugin,
-        ))
-        // ---- Editor UI Plugins ----
-        .add_plugins((
-            // Design space visualization and manipulation
-            DesignSpacePlugin,
-            // Toolbar for switching between editing modes
-            EditModeToolbarPlugin,
-            // Selection mode implementation
-            SelectModePlugin,
-            // Edit session management
-            EditSessionPlugin,
-            // Selection management (handling selected points, paths, etc.)
-            SelectionPlugin,
-            // Text input and editing functionality
-            TextEditorPlugin,
-            // UI interaction detection
-            UiInteractionPlugin,
-        ))
-        // ---- Core Application Logic ----
-        .add_plugins((
-            // Main application systems bundle (defined in plugins.rs)
-            BezySystems,
-            // Command handling for user actions
-            CommandsPlugin,
-            // Undo/redo system
-            UndoPlugin,
-        ));
+/// Adds all plugins to the application in logical groups
+fn add_all_plugins(app: &mut App) {
+    app.add_plugins(crate::systems::plugins::configure_default_plugins());
+    add_rendering_plugins(app);
+    add_editor_plugins(app);
+    add_core_plugins(app);
+}
+
+/// Adds plugins for rendering and visual display
+fn add_rendering_plugins(app: &mut App) {
+    app.add_plugins((
+        PanCamPlugin,          // Camera controls
+        CheckerboardPlugin,    // Background grid
+        DrawPlugin,            // Glyph rendering
+    ));
+}
+
+/// Adds plugins for editor UI and interaction
+fn add_editor_plugins(app: &mut App) {
+    app.add_plugins((
+        DesignSpacePlugin,        // Main design area
+        EditModeToolbarPlugin,    // Mode switching toolbar
+        SelectModePlugin,         // Selection tool
+        EditSessionPlugin,        // Edit session management
+        SelectionPlugin,          // Selection handling
+        TextEditorPlugin,         // Text input
+        UiInteractionPlugin,      // UI event handling
+    ));
+}
+
+/// Adds core application logic plugins
+fn add_core_plugins(app: &mut App) {
+    app.add_plugins((
+        BezySystems,      // Main app systems
+        CommandsPlugin,   // Command handling
+        UndoPlugin,       // Undo/redo system
+    ));
 }
