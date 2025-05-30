@@ -139,7 +139,7 @@ pub fn handle_hyper_mouse_events(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut hyper_state: ResMut<HyperToolState>,
     hyper_mode: Option<Res<HyperModeActive>>,
-    cli_args: Res<crate::core::cli::CliArgs>,
+    glyph_navigation: Res<crate::core::data::GlyphNavigation>,
     mut app_state: ResMut<crate::core::data::AppState>,
     mut app_state_changed: EventWriter<crate::rendering::draw::AppStateChanged>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
@@ -291,7 +291,7 @@ pub fn handle_hyper_mouse_events(
                                 // Add contour to the current glyph
                                 commit_contour_to_glyph(
                                     contour,
-                                    &cli_args,
+                                    &glyph_navigation,
                                     &mut app_state,
                                     &mut app_state_changed,
                                 );
@@ -408,7 +408,7 @@ pub fn handle_hyper_mouse_events(
                 // Add contour to the current glyph
                 commit_contour_to_glyph(
                     contour,
-                    &cli_args,
+                    &glyph_navigation,
                     &mut app_state,
                     &mut app_state_changed,
                 );
@@ -807,14 +807,14 @@ fn create_contour_from_points(
 /// Helper function to commit a contour to the current glyph
 fn commit_contour_to_glyph(
     contour: Contour,
-    cli_args: &crate::core::cli::CliArgs,
+    glyph_navigation: &crate::core::data::GlyphNavigation,
     app_state: &mut crate::core::data::AppState,
     app_state_changed: &mut EventWriter<
         crate::rendering::draw::AppStateChanged,
     >,
 ) {
     // Add contour to the current glyph
-    if let Some(glyph_name) = cli_args.find_glyph(&app_state.workspace.font.ufo)
+    if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
     {
         let glyph_name = glyph_name.clone();
 

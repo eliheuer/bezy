@@ -36,7 +36,7 @@ pub fn draw_metrics_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
     viewports: Query<&ViewPort>,
-    cli_args: Res<crate::core::cli::CliArgs>,
+    glyph_navigation: Res<crate::core::data::GlyphNavigation>,
 ) {
     // Debug metrics info
     debug!("=== Font Metrics Debug ===");
@@ -65,10 +65,10 @@ pub fn draw_metrics_system(
         debug!("Descender: {:?}", metrics.descender);
 
         // Get the codepoint string for checking if it was found
-        let codepoint_string = cli_args.get_codepoint_string();
+        let codepoint_string = glyph_navigation.get_codepoint_string();
 
         // If we're testing a specific codepoint and it wasn't found, don't draw metrics
-        if !codepoint_string.is_empty() && !cli_args.codepoint_found {
+        if !codepoint_string.is_empty() && !glyph_navigation.codepoint_found {
             // Skip drawing metrics for non-existent codepoints
             return;
         }
@@ -77,7 +77,7 @@ pub fn draw_metrics_system(
             Some(default_layer) => {
                 // Try to get the glyph using the new helper method
                 if let Some(glyph_name) =
-                    cli_args.find_glyph(&app_state.workspace.font.ufo)
+                    glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
                 {
                     if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
                         // Draw the metrics using the actual glyph
@@ -306,7 +306,7 @@ pub fn draw_glyph_points_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
     viewports: Query<&ViewPort>,
-    mut cli_args: ResMut<crate::core::cli::CliArgs>,
+    mut glyph_navigation: ResMut<crate::core::data::GlyphNavigation>,
     mut camera_query: Query<
         (&mut Transform, &mut OrthographicProjection),
         With<crate::rendering::cameras::DesignCamera>,
@@ -327,7 +327,7 @@ pub fn draw_glyph_points_system(
     };
 
     // Get the codepoint string
-    let codepoint_string = cli_args.get_codepoint_string();
+    let codepoint_string = glyph_navigation.get_codepoint_string();
 
     // If no font is loaded, return early
     if app_state.workspace.font.ufo.font_info.is_none() {
@@ -345,7 +345,7 @@ pub fn draw_glyph_points_system(
 
             // Try to find the glyph using the new helper method
             if let Some(glyph_name) =
-                cli_args.find_glyph(&app_state.workspace.font.ufo)
+                glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
             {
                 if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
                     draw_glyph_points(
@@ -354,7 +354,7 @@ pub fn draw_glyph_points_system(
                         glyph,
                         &selected_points,
                     );
-                    cli_args.codepoint_found = true;
+                    glyph_navigation.codepoint_found = true;
                     glyph_found = true;
                     found_glyph = Some(glyph);
                 }
@@ -374,7 +374,7 @@ pub fn draw_glyph_points_system(
                             glyph,
                             &selected_points,
                         );
-                        cli_args.codepoint_found = true;
+                        glyph_navigation.codepoint_found = true;
                         glyph_found = true;
                         found_glyph = Some(glyph);
                         break;
@@ -908,13 +908,13 @@ pub fn spawn_glyph_point_entities(
         ),
         With<Selectable>,
     >,
-    cli_args: Res<crate::core::cli::CliArgs>,
+    glyph_navigation: Res<crate::core::data::GlyphNavigation>,
     mut selection_state: ResMut<
         crate::editing::selection::components::SelectionState,
     >,
 ) {
     // Get the codepoint string
-    let codepoint_string = cli_args.get_codepoint_string();
+    let codepoint_string = glyph_navigation.get_codepoint_string();
     let glyph_name = norad::GlyphName::from(&*codepoint_string);
 
     // If no font is loaded, return early
@@ -973,7 +973,7 @@ pub fn spawn_glyph_point_entities(
     }
 
     // If a specific codepoint was requested and not found, don't spawn any entities
-    if !codepoint_string.is_empty() && !cli_args.codepoint_found {
+    if !codepoint_string.is_empty() && !glyph_navigation.codepoint_found {
         info!(
             "Not spawning point entities for missing codepoint: U+{}",
             codepoint_string
@@ -989,7 +989,7 @@ pub fn spawn_glyph_point_entities(
             let mut found_glyph = None;
 
             // Try to find the glyph using the new helper method
-            if let Some(glyph_name) = cli_args.find_glyph(ufo) {
+            if let Some(glyph_name) = glyph_navigation.find_glyph(ufo) {
                 if let Some(g) = default_layer.get_glyph(&glyph_name) {
                     found_glyph = Some(g);
                 }

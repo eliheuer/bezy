@@ -83,7 +83,7 @@ pub fn handle_primitive_mouse_events(
     camera_q: Query<(&Camera, &GlobalTransform)>,
     mut app_state_changed: EventWriter<crate::rendering::draw::AppStateChanged>,
     mut app_state: ResMut<crate::core::data::AppState>,
-    cli_args: Res<crate::core::cli::CliArgs>,
+    glyph_navigation: Res<crate::core::data::GlyphNavigation>,
     corner_radius: Res<
         crate::ui::toolbars::edit_mode_toolbar::primitives::ui::CurrentCornerRadius,
     >,
@@ -197,7 +197,7 @@ pub fn handle_primitive_mouse_events(
                 if let Some(rect) = active_drawing.get_rect() {
                     // Get the glyph name first
                     if let Some(glyph_name) =
-                        cli_args.find_glyph(&app_state.workspace.font.ufo)
+                        glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
                     {
                         let glyph_name = glyph_name.clone(); // Clone the glyph name
 

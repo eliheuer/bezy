@@ -25,6 +25,51 @@ use norad::{FontInfo, Ufo};
 /// Default units per em value used when creating new fonts or when this value is missing
 const DEFAULT_UNITS_PER_EM: f64 = 1024.;
 
+/// Runtime glyph navigation state
+///
+/// This handles the currently selected glyph during app usage, separate from initial CLI configuration.
+/// It allows users to navigate between different glyphs in the font dynamically.
+#[derive(Resource, Default, Clone)]
+pub struct GlyphNavigation {
+    /// The current Unicode codepoint being viewed (as hex string, e.g. "0061")
+    pub current_codepoint: Option<String>,
+    /// Whether the current codepoint was found in the loaded font
+    pub codepoint_found: bool,
+}
+
+impl GlyphNavigation {
+    /// Create a new GlyphNavigation with an initial codepoint
+    pub fn new(initial_codepoint: Option<String>) -> Self {
+        Self {
+            current_codepoint: initial_codepoint,
+            codepoint_found: false,
+        }
+    }
+    
+    /// Set the current codepoint to a new value
+    pub fn set_codepoint(&mut self, new_codepoint: String) {
+        self.current_codepoint = Some(new_codepoint);
+        self.codepoint_found = false; // Reset so the glyph can be checked
+    }
+    
+    /// Get the current codepoint string for display purposes
+    pub fn get_codepoint_string(&self) -> String {
+        self.current_codepoint.clone().unwrap_or_default()
+    }
+
+    /// Find a glyph in the UFO by the current codepoint
+    /// 
+    /// This uses the sophisticated lookup in ufo.rs that handles all Unicode scripts
+    pub fn find_glyph<'a>(&self, ufo: &'a norad::Ufo) -> Option<norad::GlyphName> {
+        if let Some(codepoint) = &self.current_codepoint {
+            if let Some(glyph_name) = crate::io::ufo::find_glyph_by_unicode(ufo, codepoint) {
+                return Some(norad::GlyphName::from(glyph_name));
+            }
+        }
+        None
+    }
+}
+
 /// The top level application state.
 ///
 /// This is the main state container for the application, stored as a Bevy Resource.

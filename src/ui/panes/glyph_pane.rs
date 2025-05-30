@@ -456,7 +456,7 @@ pub fn spawn_glyph_pane(
 /// Updates the glyph metrics for the current glyph
 pub fn update_glyph_metrics(
     app_state: bevy::prelude::Res<data::AppState>,
-    cli_args: bevy::prelude::Res<crate::core::cli::CliArgs>,
+    glyph_navigation: bevy::prelude::Res<data::GlyphNavigation>,
     mut metrics: bevy::prelude::ResMut<CurrentGlyphMetrics>,
 ) {
     // Extract information from the current state
@@ -468,14 +468,14 @@ pub fn update_glyph_metrics(
     }
 
     // Get information about the current glyph
-    if let Some(glyph_name) = cli_args.find_glyph(&app_state.workspace.font.ufo)
+    if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
     {
         // Found a glyph, get its details
         let glyph_name_str = glyph_name.to_string();
         metrics.glyph_name = glyph_name_str.clone();
 
         // Set the Unicode information
-        if let Some(codepoint) = &cli_args.load_unicode {
+        if let Some(codepoint) = &glyph_navigation.current_codepoint {
             metrics.unicode = codepoint.clone();
         } else {
             metrics.unicode = String::new();

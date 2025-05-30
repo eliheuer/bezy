@@ -34,8 +34,12 @@ pub fn create_app(cli_args: CliArgs) -> App {
 
 /// Sets up application resources and configuration
 fn configure_app_settings(app: &mut App, cli_args: CliArgs) {
+    // Initialize glyph navigation with the CLI codepoint value
+    let glyph_navigation = crate::core::data::GlyphNavigation::new(cli_args.load_unicode.clone());
+    
     app.init_resource::<AppState>()
         .insert_resource(cli_args)
+        .insert_resource(glyph_navigation)
         .insert_resource(WinitSettings::desktop_app())
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(CurrentEditMode::default());

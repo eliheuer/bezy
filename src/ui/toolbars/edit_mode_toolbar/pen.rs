@@ -201,7 +201,7 @@ pub fn handle_pen_mouse_events(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut pen_state: ResMut<PenToolState>,
     pen_mode: Option<Res<PenModeActive>>,
-    cli_args: Res<crate::core::cli::CliArgs>,
+    glyph_navigation: Res<crate::core::data::GlyphNavigation>,
     mut app_state: ResMut<crate::core::data::AppState>,
     mut app_state_changed: EventWriter<crate::rendering::draw::AppStateChanged>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
@@ -233,7 +233,7 @@ pub fn handle_pen_mouse_events(
         handle_left_click(
             &keyboard,
             &mut pen_state,
-            &cli_args,
+            &glyph_navigation,
             &mut app_state,
             &mut app_state_changed,
         );
@@ -242,7 +242,7 @@ pub fn handle_pen_mouse_events(
     if mouse_button_input.just_pressed(MouseButton::Right) {
         handle_right_click(
             &mut pen_state,
-            &cli_args,
+            &glyph_navigation,
             &mut app_state,
             &mut app_state_changed,
         );
@@ -287,7 +287,7 @@ fn update_cursor_position(
 fn handle_left_click(
     keyboard: &Res<ButtonInput<KeyCode>>,
     pen_state: &mut ResMut<PenToolState>,
-    cli_args: &Res<crate::core::cli::CliArgs>,
+    glyph_navigation: &Res<crate::core::data::GlyphNavigation>,
     app_state: &mut ResMut<crate::core::data::AppState>,
     app_state_changed: &mut EventWriter<
         crate::rendering::draw::AppStateChanged,
@@ -308,7 +308,7 @@ fn handle_left_click(
             if should_close_path(pen_state, final_pos) {
                 close_current_path(
                     pen_state,
-                    cli_args,
+                    glyph_navigation,
                     app_state,
                     app_state_changed,
                 );
@@ -373,7 +373,7 @@ fn should_close_path(pen_state: &PenToolState, position: Vec2) -> bool {
 /// Close the current path and add it to the glyph
 fn close_current_path(
     pen_state: &mut ResMut<PenToolState>,
-    cli_args: &Res<crate::core::cli::CliArgs>,
+    glyph_navigation: &Res<crate::core::data::GlyphNavigation>,
     app_state: &mut ResMut<crate::core::data::AppState>,
     app_state_changed: &mut EventWriter<
         crate::rendering::draw::AppStateChanged,
@@ -390,7 +390,7 @@ fn close_current_path(
     if let Some(contour) = create_contour_from_points(&pen_state.points) {
         add_contour_to_glyph(
             contour,
-            cli_args,
+            glyph_navigation,
             app_state,
             app_state_changed,
             true,
@@ -413,7 +413,7 @@ fn add_point_to_path(pen_state: &mut ResMut<PenToolState>, position: Vec2) {
 /// Handle right mouse button clicks (finish open path)
 fn handle_right_click(
     pen_state: &mut ResMut<PenToolState>,
-    cli_args: &Res<crate::core::cli::CliArgs>,
+    glyph_navigation: &Res<crate::core::data::GlyphNavigation>,
     app_state: &mut ResMut<crate::core::data::AppState>,
     app_state_changed: &mut EventWriter<
         crate::rendering::draw::AppStateChanged,
@@ -425,7 +425,7 @@ fn handle_right_click(
         if let Some(contour) = create_contour_from_points(&pen_state.points) {
             add_contour_to_glyph(
                 contour,
-                cli_args,
+                glyph_navigation,
                 app_state,
                 app_state_changed,
                 false,
@@ -439,14 +439,14 @@ fn handle_right_click(
 /// Add a contour to the current glyph
 fn add_contour_to_glyph(
     contour: Contour,
-    cli_args: &Res<crate::core::cli::CliArgs>,
+    glyph_navigation: &Res<crate::core::data::GlyphNavigation>,
     app_state: &mut ResMut<crate::core::data::AppState>,
     app_state_changed: &mut EventWriter<
         crate::rendering::draw::AppStateChanged,
     >,
     is_closed: bool,
 ) {
-    let Some(glyph_name) = cli_args.find_glyph(&app_state.workspace.font.ufo)
+    let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
     else {
         return;
     };

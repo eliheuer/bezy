@@ -175,7 +175,7 @@ fn handle_open_glyph_editor(
 fn handle_cycle_codepoint(
     mut events: EventReader<CycleCodepointEvent>,
     app_state: Res<AppState>,
-    mut cli_args: ResMut<crate::core::cli::CliArgs>,
+    mut glyph_navigation: ResMut<crate::core::data::GlyphNavigation>,
     mut camera_query: Query<
         (&mut Transform, &mut OrthographicProjection),
         With<crate::rendering::cameras::DesignCamera>,
@@ -198,27 +198,27 @@ fn handle_cycle_codepoint(
             let all_codepoints = crate::io::ufo::get_all_codepoints(
                 &app_state.workspace.font.ufo,
             );
-            info!("Found {} codepoints in the font", all_codepoints.len());
 
             if !all_codepoints.is_empty() {
-                // Show a sample of codepoints for debugging
-                let sample_size = std::cmp::min(all_codepoints.len(), 20);
-                let mut sample = String::new();
-                for i in 0..sample_size {
-                    sample.push_str(&format!("U+{} ", all_codepoints[i]));
-                    if i % 5 == 4 {
-                        sample.push('\n');
-                    }
-                }
+                let sample_size = std::cmp::min(20, all_codepoints.len());
+                let sample = all_codepoints[..sample_size]
+                    .iter()
+                    .map(|cp| format!("U+{}", cp))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
                 if all_codepoints.len() > sample_size {
-                    sample.push_str("\n...");
+                    let remaining = all_codepoints.len() - sample_size;
+                    info!("Codepoint sample: {} ... and {} more", sample, remaining);
+                } else {
+                    info!("All codepoints: {}", sample);
                 }
                 info!("Codepoint sample:\n{}", sample);
             }
         }
 
         // Get the current codepoint
-        let current_codepoint = cli_args.get_codepoint_string();
+        let current_codepoint = glyph_navigation.get_codepoint_string();
         info!(
             "Handling cycle codepoint event, current codepoint: {}",
             current_codepoint
@@ -250,8 +250,8 @@ fn handle_cycle_codepoint(
 
         // Update the codepoint if found
         if let Some(cp) = new_codepoint {
-            cli_args.set_codepoint(cp);
-            info!("Switched to codepoint: {}", cli_args.get_codepoint_string());
+            glyph_navigation.set_codepoint(cp);
+            info!("Switched to codepoint: {}", glyph_navigation.get_codepoint_string());
 
             // Get the glyph for the new codepoint
             if let Some(default_layer) =
@@ -259,7 +259,7 @@ fn handle_cycle_codepoint(
             {
                 // Use the new helper method that combines both approaches
                 if let Some(glyph_name) =
-                    cli_args.find_glyph(&app_state.workspace.font.ufo)
+                    glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
                 {
                     if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
                         // Center the camera on the glyph
@@ -269,7 +269,7 @@ fn handle_cycle_codepoint(
                             &mut camera_query,
                             &window_query,
                         );
-                        cli_args.codepoint_found = true;
+                        glyph_navigation.codepoint_found = true;
                     }
                 }
             }
@@ -337,7 +337,7 @@ pub fn handle_save_shortcuts(
 fn handle_create_contour(
     mut events: EventReader<CreateContourEvent>,
     mut app_state: ResMut<AppState>,
-    cli_args: Res<crate::core::cli::CliArgs>,
+    glyph_navigation: Res<crate::core::data::GlyphNavigation>,
     mut app_state_changed: EventWriter<crate::rendering::draw::AppStateChanged>,
 ) {
     for event in events.read() {
@@ -345,7 +345,7 @@ fn handle_create_contour(
 
         // Get the glyph name first
         if let Some(glyph_name) =
-            cli_args.find_glyph(&app_state.workspace.font.ufo)
+            glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
         {
             let glyph_name = glyph_name.clone(); // Clone the glyph name
 
