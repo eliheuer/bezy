@@ -15,16 +15,9 @@ pub struct CliArgs {
 
     /// What unicode codepoint to start the editor viewing 
     #[arg(long = "load-unicode", default_value = "0061")]
-    pub load_unicode: Option<String>,
+    pub load_unicode: String,
 
     /// Display debug information
     #[arg(long, default_value_t = false)]
     pub debug: bool,
-}
-
-impl CliArgs {
-    /// Parse command line arguments
-    pub fn parse_args() -> Self {
-        Self::parse()
-    }
 }

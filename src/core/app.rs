@@ -34,8 +34,8 @@ pub fn create_app(cli_args: CliArgs) -> App {
 
 /// Sets up application resources and configuration
 fn configure_app_settings(app: &mut App, cli_args: CliArgs) {
-    // Initialize glyph navigation with the CLI codepoint value
-    let glyph_navigation = crate::core::data::GlyphNavigation::new(cli_args.load_unicode.clone());
+    // Create GlyphNavigation with the codepoint from CLI args (defaults to "0061")
+    let glyph_navigation = crate::core::data::GlyphNavigation::new(Some(cli_args.load_unicode.clone()));
     
     app.init_resource::<AppState>()
         .insert_resource(cli_args)
