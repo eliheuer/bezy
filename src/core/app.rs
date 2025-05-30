@@ -1,27 +1,36 @@
 //! Application initialization and configuration
 //!
-//! This module creates and configures the main Bevy application for the Bezy font editor.
-//! The main entry point is `create_app()` which takes CLI arguments and returns a configured app.
+//! This module creates and configures the main Bevy application
+//! The main entry point is `create_app()` which takes CLI arguments
 
+// External dependencies - libraries we use from other crates
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use bevy_pancam::PanCamPlugin;
 
-// Internal imports
+// Core application modules - fundamental app structure
 use crate::core::cli::CliArgs;
-use crate::core::data::AppState;
-use crate::ui::theme::BACKGROUND_COLOR;
+use crate::core::data::{AppState, GlyphNavigation};
 
-// Editor plugins
-use crate::editing::{EditSessionPlugin, SelectionPlugin, UndoPlugin};
-use crate::rendering::{CheckerboardPlugin, DrawPlugin};
-use crate::systems::plugins::*;
-use crate::systems::{CommandsPlugin, UiInteractionPlugin};
+// UI and theming - visual appearance and user interface
+use crate::ui::theme::BACKGROUND_COLOR;
 use crate::ui::panes::DesignSpacePlugin;
 use crate::ui::TextEditorPlugin;
 use crate::ui::toolbars::edit_mode_toolbar::{
-    select::SelectModePlugin, CurrentEditMode, EditModeToolbarPlugin,
+    select::SelectModePlugin, 
+    CurrentEditMode, 
+    EditModeToolbarPlugin,
 };
+
+// Editing functionality - tools for modifying fonts
+use crate::editing::{EditSessionPlugin, SelectionPlugin, UndoPlugin};
+
+// Rendering - drawing glyphs and visual elements
+use crate::rendering::{CheckerboardPlugin, DrawPlugin};
+
+// System plugins - core app behavior and event handling
+use crate::systems::plugins::*;
+use crate::systems::{CommandsPlugin, UiInteractionPlugin};
 
 /// Creates a fully configured Bevy application ready to run
 pub fn create_app(cli_args: CliArgs) -> App {
@@ -34,9 +43,8 @@ pub fn create_app(cli_args: CliArgs) -> App {
 
 /// Sets up application resources and configuration
 fn configure_app_settings(app: &mut App, cli_args: CliArgs) {
-    // Create GlyphNavigation with the codepoint from CLI args (defaults to "0061")
-    let glyph_navigation = crate::core::data::GlyphNavigation::new(Some(cli_args.load_unicode.clone()));
-    
+    // Create GlyphNavigation with the codepoint from CLI args
+    let glyph_navigation = GlyphNavigation::new(Some(cli_args.load_unicode.clone()));
     app.init_resource::<AppState>()
         .insert_resource(cli_args)
         .insert_resource(glyph_navigation)
