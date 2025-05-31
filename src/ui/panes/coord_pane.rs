@@ -233,7 +233,7 @@ impl Plugin for CoordinatePanePlugin {
 ///     └── Grid of 9 circular buttons
 /// ```
 fn spawn_coord_pane(mut commands: Commands, asset_server: Res<AssetServer>) {
-    info!("Spawning coordinate pane");
+    debug!("Spawning coordinate pane");
 
     // Position the coordinate pane in the bottom-right corner
     // Using Auto for top/left prevents the pane from stretching
@@ -592,22 +592,22 @@ pub fn display_selected_coordinates(
     >,
     transforms: Query<&GlobalTransform>,
 ) {
-    // Log selection state for debugging
+    // Log selection state for debugging (debug level to reduce noise)
     if let Some(state) = &selection_state {
-        info!(
+        debug!(
             "CoordPane: SelectionState is available with {} selected entities",
             state.selected.len()
         );
 
         if !state.selected.is_empty() {
             let entities: Vec<_> = state.selected.iter().collect();
-            info!(
+            debug!(
                 "CoordPane: Selected entities in SelectionState: {:?}",
                 entities
             );
         }
     } else {
-        info!("CoordPane: SelectionState resource is NOT available");
+        debug!("CoordPane: SelectionState resource is NOT available");
     }
 
     // Get number of selected entities
@@ -615,7 +615,7 @@ pub fn display_selected_coordinates(
         .as_ref()
         .map_or(0, |state| state.selected.len());
 
-    info!("CoordPane: Selection system running with {selected_count} selected entities");
+    debug!("CoordPane: Selection system running with {selected_count} selected entities");
 
     if selected_count > 0 {
         // Process selection if we have selected entities
@@ -650,13 +650,13 @@ fn process_selected_entities(
         for &entity in &state.selected {
             if let Ok(transform) = transforms.get(entity) {
                 let pos = transform.translation().truncate();
-                info!(
+                debug!(
                     "CoordPane: Found position for entity {entity:?}: {:?}",
                     pos
                 );
                 positions.push(pos);
             } else {
-                info!("CoordPane: Selected entity {entity:?} has no transform");
+                debug!("CoordPane: Selected entity {entity:?} has no transform");
             }
         }
     }
@@ -671,7 +671,7 @@ fn process_selected_entities(
             .map_or(0, |state| state.selected.len());
         coord_selection.frame = frame;
 
-        info!(
+        debug!(
             "Updating coordinate pane UI: count={}, quadrant={:?}, frame={:?}",
             coord_selection.count, coord_selection.quadrant, frame
         );
@@ -706,10 +706,10 @@ fn calculate_bounding_rect(positions: &[Vec2]) -> Rect {
 ///
 /// Called when no entities are selected to reset the display
 fn clear_coordinate_selection(coord_selection: &mut CoordinateSelection) {
-    info!("CoordPane: No selection - clearing coordinate display");
+    debug!("CoordPane: No selection - clearing coordinate display");
     coord_selection.count = 0;
     coord_selection.frame = Rect::from_corners(Vec2::ZERO, Vec2::ZERO);
-    info!(
+    debug!(
         "Updating coordinate pane UI: count=0, quadrant={:?}, frame={:?}",
         coord_selection.quadrant, coord_selection.frame
     );
@@ -738,7 +738,7 @@ fn update_coord_pane_ui(
         Option<&QuadrantSelector>,
     )>,
 ) {
-    info!(
+    debug!(
         "Updating coordinate pane UI: count={}, quadrant={:?}, frame={:?}",
         coord_selection.count, coord_selection.quadrant, coord_selection.frame
     );
@@ -796,25 +796,25 @@ fn update_coordinate_values(
     // Update each coordinate value
     if let Ok(mut text) = text_queries.p0().get_single_mut() {
         let formatted = format_coord_value(point.x);
-        info!("Setting X value to: {}", formatted);
+        debug!("Setting X value to: {}", formatted);
         *text = Text::new(formatted);
     }
 
     if let Ok(mut text) = text_queries.p1().get_single_mut() {
         let formatted = format_coord_value(point.y);
-        info!("Setting Y value to: {}", formatted);
+        debug!("Setting Y value to: {}", formatted);
         *text = Text::new(formatted);
     }
 
     if let Ok(mut text) = text_queries.p2().get_single_mut() {
         let formatted = format_coord_value(frame.width());
-        info!("Setting Width value to: {}", formatted);
+        debug!("Setting Width value to: {}", formatted);
         *text = Text::new(formatted);
     }
 
     if let Ok(mut text) = text_queries.p3().get_single_mut() {
         let formatted = format_coord_value(frame.height());
-        info!("Setting Height value to: {}", formatted);
+        debug!("Setting Height value to: {}", formatted);
         *text = Text::new(formatted);
     }
 }
@@ -1041,25 +1041,21 @@ pub fn toggle_coord_pane_visibility(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut coord_pane_query: Query<&mut Visibility, With<CoordPane>>,
 ) {
-    // Check for Ctrl+P combination
     let ctrl_pressed = keyboard_input.pressed(KeyCode::ControlLeft)
-        || keyboard_input.pressed(KeyCode::ControlRight)
-        || keyboard_input.pressed(KeyCode::SuperLeft)
-        || keyboard_input.pressed(KeyCode::SuperRight);
+        || keyboard_input.pressed(KeyCode::ControlRight);
 
     if ctrl_pressed && keyboard_input.just_pressed(KeyCode::KeyP) {
         for mut visibility in coord_pane_query.iter_mut() {
-            // Toggle between visible and hidden
-            *visibility = match *visibility {
-                Visibility::Visible => {
-                    info!("Hiding coordinate pane");
-                    Visibility::Hidden
+            match *visibility {
+                Visibility::Hidden => {
+                    *visibility = Visibility::Visible;
+                    debug!("Showing coordinate pane");
                 }
                 _ => {
-                    info!("Showing coordinate pane");
-                    Visibility::Visible
+                    *visibility = Visibility::Hidden;
+                    debug!("Hiding coordinate pane");
                 }
-            };
+            }
         }
     }
 }

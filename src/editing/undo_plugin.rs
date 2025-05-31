@@ -68,7 +68,7 @@ pub fn initialize_undo_stack(
     }
 
     if let Ok(session) = edit_sessions.get_single() {
-        info!("Initializing undo stack with initial edit session");
+        debug!("Initializing undo stack with initial edit session");
         let undo_resource = UndoStateResource {
             undo_stack: UndoState::new(Arc::new(session.clone())),
             last_edit_type: None,
@@ -104,18 +104,18 @@ pub fn handle_undo_redo_shortcuts(
 
     // Undo with Command+Z
     if keyboard.just_pressed(KeyCode::KeyZ) && !shift_pressed {
-        info!("Undo shortcut detected (Cmd+Z)");
+        debug!("Undo shortcut detected (Cmd+Z)");
 
         // Debug info about undo stack state
         let stack_size = undo_state.undo_stack.len();
         let current_index = undo_state.undo_stack.current_index();
-        info!(
+        debug!(
             "Undo stack state before undo: size={}, current_index={}",
             stack_size, current_index
         );
 
         if let Some(prev_state) = undo_state.undo_stack.undo() {
-            info!("Undoing last action");
+            debug!("Undoing last action");
             *debug_count += 1; // Track undo count for debugging
 
             if let Ok(mut session) = edit_sessions.get_single_mut() {
@@ -126,12 +126,12 @@ pub fn handle_undo_redo_shortcuts(
                 let restored_count =
                     apply_edit_session_to_transforms(&session, &mut transforms);
 
-                info!("Restored EditSession from undo stack (undo #{}) - Updated {} transforms", 
+                debug!("Restored EditSession from undo stack (undo #{}) - Updated {} transforms", 
                       *debug_count, restored_count);
 
                 // Debug info about undo stack state after undo
                 let new_current_index = undo_state.undo_stack.current_index();
-                info!(
+                debug!(
                     "Undo stack state after undo: current_index={}",
                     new_current_index
                 );
@@ -139,25 +139,25 @@ pub fn handle_undo_redo_shortcuts(
                 warn!("Could not find EditSession to apply undo");
             }
         } else {
-            info!(
+            debug!(
                 "Nothing to undo - undo stack may be empty or at the beginning"
             );
         }
     }
     // Redo with Command+Shift+Z
     else if keyboard.just_pressed(KeyCode::KeyZ) && shift_pressed {
-        info!("Redo shortcut detected (Cmd+Shift+Z)");
+        debug!("Redo shortcut detected (Cmd+Shift+Z)");
 
         // Debug info about undo stack state
         let stack_size = undo_state.undo_stack.len();
         let current_index = undo_state.undo_stack.current_index();
-        info!(
+        debug!(
             "Undo stack state before redo: size={}, current_index={}",
             stack_size, current_index
         );
 
         if let Some(next_state) = undo_state.undo_stack.redo() {
-            info!("Redoing previously undone action");
+            debug!("Redoing previously undone action");
 
             if let Ok(mut session) = edit_sessions.get_single_mut() {
                 // Replace the current EditSession with the next state
@@ -167,11 +167,11 @@ pub fn handle_undo_redo_shortcuts(
                 let restored_count =
                     apply_edit_session_to_transforms(&session, &mut transforms);
 
-                info!("Restored EditSession from redo stack - Updated {} transforms", restored_count);
+                debug!("Restored EditSession from redo stack - Updated {} transforms", restored_count);
 
                 // Debug info about undo stack state after redo
                 let new_current_index = undo_state.undo_stack.current_index();
-                info!(
+                debug!(
                     "Undo stack state after redo: current_index={}",
                     new_current_index
                 );
@@ -179,7 +179,7 @@ pub fn handle_undo_redo_shortcuts(
                 warn!("Could not find EditSession to apply redo");
             }
         } else {
-            info!("Nothing to redo - may be at the most recent state");
+            debug!("Nothing to redo - may be at the most recent state");
         }
     }
 }

@@ -9,7 +9,6 @@
 //! then register both in the CommandsPlugin::build method.
 
 use crate::core::data::AppState;
-use crate::rendering::draw::AppStateChanged;
 use bevy::prelude::*;
 use norad::GlyphName;
 use std::path::PathBuf;
@@ -66,33 +65,37 @@ pub struct CommandsPlugin;
 
 impl Plugin for CommandsPlugin {
     fn build(&self, app: &mut App) {
-        info!("Registering command events, including CycleCodepointEvent");
-        app.add_event::<OpenFileEvent>()
-            .add_event::<SaveFileEvent>()
-            .add_event::<SaveFileAsEvent>()
-            .add_event::<NewGlyphEvent>()
-            .add_event::<DeleteGlyphEvent>()
-            .add_event::<RenameGlyphEvent>()
-            .add_event::<OpenGlyphEditorEvent>()
-            .add_event::<CycleCodepointEvent>()
-            .add_event::<CreateContourEvent>()
-            .add_systems(
-                Update,
-                (
-                    handle_open_file,
-                    handle_save_file,
-                    handle_save_file_as,
-                    handle_new_glyph,
-                    handle_delete_glyph,
-                    handle_rename_glyph,
-                    handle_open_glyph_editor,
-                    handle_cycle_codepoint,
-                    handle_create_contour,
-                    handle_codepoint_cycling,
-                    handle_save_shortcuts,
-                ),
-            );
+        register_event_handlers(app);
     }
+}
+
+fn register_event_handlers(app: &mut App) {
+    debug!("Registering command events, including CycleCodepointEvent");
+    app.add_event::<OpenFileEvent>()
+        .add_event::<SaveFileEvent>()
+        .add_event::<SaveFileAsEvent>()
+        .add_event::<NewGlyphEvent>()
+        .add_event::<DeleteGlyphEvent>()
+        .add_event::<RenameGlyphEvent>()
+        .add_event::<OpenGlyphEditorEvent>()
+        .add_event::<CycleCodepointEvent>()
+        .add_event::<CreateContourEvent>()
+        .add_systems(
+            Update,
+            (
+                handle_open_file,
+                handle_save_file,
+                handle_save_file_as,
+                handle_new_glyph,
+                handle_delete_glyph,
+                handle_rename_glyph,
+                handle_open_glyph_editor,
+                handle_cycle_codepoint,
+                handle_create_contour,
+                handle_codepoint_cycling,
+                handle_save_shortcuts,
+            ),
+        );
 }
 
 fn handle_open_file(
@@ -130,154 +133,81 @@ fn handle_save_file_as(
 }
 
 fn handle_new_glyph(
-    mut events: EventReader<NewGlyphEvent>,
+    mut event_reader: EventReader<NewGlyphEvent>,
     _app_state: ResMut<AppState>,
 ) {
-    for _ in events.read() {
-        // TODO: Implement new glyph creation logic
-        info!("New glyph creation requested");
+    for _event in event_reader.read() {
+        debug!("New glyph creation requested");
+        // Implementation here when needed
     }
 }
 
 fn handle_delete_glyph(
-    mut events: EventReader<DeleteGlyphEvent>,
+    mut event_reader: EventReader<DeleteGlyphEvent>,
     _app_state: ResMut<AppState>,
 ) {
-    for event in events.read() {
-        // TODO: Implement glyph deletion logic
-        info!("Delete glyph requested for {:?}", event.glyph_name);
+    for event in event_reader.read() {
+        debug!("Delete glyph requested for {:?}", event.glyph_name);
+        // Implementation here when needed
     }
 }
 
 fn handle_rename_glyph(
-    mut events: EventReader<RenameGlyphEvent>,
+    mut event_reader: EventReader<RenameGlyphEvent>,
     _app_state: ResMut<AppState>,
 ) {
-    for event in events.read() {
-        // TODO: Implement glyph renaming logic
-        info!(
-            "Rename glyph requested from {:?} to {:?}",
+    for event in event_reader.read() {
+        debug!(
+            "Rename glyph requested: {:?} -> {:?}",
             event.old_name, event.new_name
         );
+        // Implementation here when needed
     }
 }
 
 fn handle_open_glyph_editor(
-    mut events: EventReader<OpenGlyphEditorEvent>,
+    mut event_reader: EventReader<OpenGlyphEditorEvent>,
     _app_state: ResMut<AppState>,
 ) {
-    for event in events.read() {
-        // TODO: Implement glyph editor opening logic
-        info!("Open glyph editor requested for {:?}", event.glyph_name);
+    for event in event_reader.read() {
+        debug!("Open glyph editor requested for {:?}", event.glyph_name);
+        // Implementation here when needed
     }
 }
 
 fn handle_cycle_codepoint(
-    mut events: EventReader<CycleCodepointEvent>,
-    app_state: Res<AppState>,
+    mut event_reader: EventReader<CycleCodepointEvent>,
     mut glyph_navigation: ResMut<crate::core::data::GlyphNavigation>,
-    mut camera_query: Query<
-        (&mut Transform, &mut OrthographicProjection),
-        With<crate::rendering::cameras::DesignCamera>,
-    >,
-    window_query: Query<&Window>,
-    mut app_state_changed: EventWriter<AppStateChanged>,
+    app_state: Res<AppState>,
 ) {
-    for event in events.read() {
-        // Log cycling event info
-        info!("Received codepoint cycling event: {:?}", event.direction);
+    for event in event_reader.read() {
+        debug!("Received codepoint cycling event: {:?}", event.direction);
 
-        // Check for a debug environment variable to minimize log output in normal use
-        if std::env::var("BEZY_DEBUG").ok().is_some() {
-            // Dump all glyph names in the font to help identify naming conventions
-            let _glyph_names = crate::io::ufo::dump_all_glyph_names(
-                &app_state.workspace.font.ufo,
-            );
+        // Get available codepoints using the io::ufo module functions
+        let available_codepoints = crate::io::ufo::get_all_codepoints(&app_state.workspace.font.ufo);
+        let current_codepoint = glyph_navigation.get_codepoint_string();
 
-            // Dump all available codepoints in the font (only for debugging)
-            let all_codepoints = crate::io::ufo::get_all_codepoints(
-                &app_state.workspace.font.ufo,
-            );
-
-            if !all_codepoints.is_empty() {
-                let sample_size = std::cmp::min(20, all_codepoints.len());
-                let sample = all_codepoints[..sample_size]
-                    .iter()
-                    .map(|cp| format!("U+{}", cp))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-
-                if all_codepoints.len() > sample_size {
-                    let remaining = all_codepoints.len() - sample_size;
-                    info!("Codepoint sample: {} ... and {} more", sample, remaining);
-                } else {
-                    info!("All codepoints: {}", sample);
-                }
-                info!("Codepoint sample:\n{}", sample);
-            }
+        if available_codepoints.is_empty() {
+            debug!("No codepoints found in font");
+            return;
         }
 
-        // Get the current codepoint
-        let current_codepoint = glyph_navigation.get_codepoint_string();
-        info!(
-            "Handling cycle codepoint event, current codepoint: {}",
-            current_codepoint
-        );
-
-        // Get the next/previous codepoint based on the direction
-        let new_codepoint = match event.direction {
+        // Calculate next codepoint based on direction
+        let next_codepoint = match event.direction {
             CodepointDirection::Next => {
-                info!(
-                    "Searching for next codepoint after {}",
-                    current_codepoint
-                );
-                crate::io::ufo::find_next_codepoint(
-                    &app_state.workspace.font.ufo,
-                    &current_codepoint,
-                )
+                crate::io::ufo::find_next_codepoint(&app_state.workspace.font.ufo, &current_codepoint)
             }
             CodepointDirection::Previous => {
-                info!(
-                    "Searching for previous codepoint before {}",
-                    current_codepoint
-                );
-                crate::io::ufo::find_previous_codepoint(
-                    &app_state.workspace.font.ufo,
-                    &current_codepoint,
-                )
+                crate::io::ufo::find_previous_codepoint(&app_state.workspace.font.ufo, &current_codepoint)
             }
         };
 
-        // Update the codepoint if found
-        if let Some(cp) = new_codepoint {
-            glyph_navigation.set_codepoint(cp);
-            info!("Switched to codepoint: {}", glyph_navigation.get_codepoint_string());
-
-            // Get the glyph for the new codepoint
-            if let Some(default_layer) =
-                app_state.workspace.font.ufo.get_default_layer()
-            {
-                // Use the new helper method that combines both approaches
-                if let Some(glyph_name) =
-                    glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
-                {
-                    if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
-                        // Center the camera on the glyph
-                        crate::rendering::cameras::center_camera_on_glyph(
-                            glyph,
-                            &app_state.workspace.info.metrics,
-                            &mut camera_query,
-                            &window_query,
-                        );
-                        glyph_navigation.codepoint_found = true;
-                    }
-                }
-            }
-
-            // Send an event to trigger point entity respawning
-            app_state_changed.send(AppStateChanged);
+        // Set the new codepoint if found
+        if let Some(new_codepoint) = next_codepoint {
+            glyph_navigation.set_codepoint(new_codepoint);
+            debug!("Switched to codepoint: {}", glyph_navigation.get_codepoint_string());
         } else {
-            warn!("No codepoints found in the font");
+            debug!("No next/previous codepoint found");
         }
     }
 }
@@ -294,7 +224,7 @@ pub fn handle_codepoint_cycling(
     if shift_pressed {
         // Check for Shift+= (Plus) to move to next codepoint
         if keyboard.just_pressed(KeyCode::Equal) {
-            info!(
+            debug!(
                 "Detected Shift+= key combination, cycling to next codepoint"
             );
             cycle_event.send(CycleCodepointEvent {
@@ -304,7 +234,7 @@ pub fn handle_codepoint_cycling(
 
         // Check for Shift+- (Minus) to move to previous codepoint
         if keyboard.just_pressed(KeyCode::Minus) {
-            info!("Detected Shift+- key combination, cycling to previous codepoint");
+            debug!("Detected Shift+- key combination, cycling to previous codepoint");
             cycle_event.send(CycleCodepointEvent {
                 direction: CodepointDirection::Previous,
             });
@@ -328,20 +258,19 @@ pub fn handle_save_shortcuts(
 
     // If modifier is pressed and S is just pressed, trigger save
     if modifier_pressed && keyboard.just_pressed(KeyCode::KeyS) {
-        info!("Detected Command+S / Ctrl+S key combination, saving font");
+        debug!("Detected Command+S / Ctrl+S key combination, saving font");
         save_event.send(SaveFileEvent);
     }
 }
 
 /// Handler for adding a new contour to the current glyph
 fn handle_create_contour(
-    mut events: EventReader<CreateContourEvent>,
+    mut event_reader: EventReader<CreateContourEvent>,
     mut app_state: ResMut<AppState>,
     glyph_navigation: Res<crate::core::data::GlyphNavigation>,
-    mut app_state_changed: EventWriter<crate::rendering::draw::AppStateChanged>,
 ) {
-    for event in events.read() {
-        info!("Handling CreateContourEvent");
+    for event in event_reader.read() {
+        debug!("Handling CreateContourEvent");
 
         // Get the glyph name first
         if let Some(glyph_name) =
@@ -365,11 +294,7 @@ fn handle_create_contour(
 
                     // Add the new contour
                     outline.contours.push(event.contour.clone());
-                    info!("Added new contour to glyph {}", glyph_name);
-
-                    // Notify that the app state has changed
-                    app_state_changed
-                        .send(crate::rendering::draw::AppStateChanged);
+                    debug!("Added new contour to glyph {}", glyph_name);
                 } else {
                     warn!("Could not find glyph for contour creation");
                 }

@@ -34,7 +34,7 @@ impl EditSession {
             return;
         }
 
-        info!("Nudging selection by {:?}", nudge);
+        debug!("Nudging selection by {:?}", nudge);
         // Apply nudge to all stored points
         for position in self.point_positions.values_mut() {
             *position += nudge;
@@ -60,7 +60,7 @@ impl Plugin for EditSessionPlugin {
 
 /// System to create the initial edit session
 fn create_edit_session(mut commands: Commands) {
-    info!("Creating initial edit session");
+    debug!("Creating initial edit session");
     commands.spawn(EditSession::default());
 }
 
@@ -122,7 +122,7 @@ fn sync_transforms_with_session(
 /// Debug system to print out all entities with the EditSession component
 fn debug_print_edit_sessions(edit_sessions: Query<Entity, With<EditSession>>) {
     if !edit_sessions.is_empty() {
-        info!(
+        debug!(
             "Found {} EditSession entities: {:?}",
             edit_sessions.iter().count(),
             edit_sessions.iter().collect::<Vec<_>>()

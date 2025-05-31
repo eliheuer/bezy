@@ -121,7 +121,7 @@ pub fn get_all_codepoints(ufo: &Ufo) -> Vec<String> {
     });
     codepoints.dedup();
     
-    info!("Found {} codepoints in font", codepoints.len());
+    debug!("Found {} codepoints in font", codepoints.len());
     codepoints
 }
 
@@ -282,6 +282,7 @@ pub fn initialize_font_state(
 
 /// Directly scan the font for all available glyph names
 /// This is useful for debugging to understand the naming conventions used in the font
+#[allow(dead_code)]
 pub fn dump_all_glyph_names(ufo: &Ufo) -> Vec<String> {
     let mut glyph_names = Vec::new();
 
