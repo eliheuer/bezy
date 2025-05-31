@@ -1,10 +1,4 @@
-//! Core data structures for the Bezy font editor
-//!
-//! This module contains the main data types that represent the application state:
-//! - `AppState`: The main application state
-//! - `GlyphNavigation`: Tracks which glyph we're currently viewing
-//! - `Workspace`: Represents a font editing session
-//! - `FontObject`: A font file and its path
+//! Core data structures that represent the application state
 
 use std::path::PathBuf;
 use bevy::prelude::*;
@@ -15,8 +9,8 @@ use norad::glyph::ContourPoint;
 
 /// Tracks which glyph the user is currently viewing
 ///
-/// This is separate from the CLI args - it changes as the user navigates
-/// between different glyphs in the font.
+/// This is separate from the CLI args.
+/// It changes as the user navigates between different glyphs in the font.
 #[derive(Resource, Default, Clone)]
 pub struct GlyphNavigation {
     /// The current Unicode codepoint being viewed (like "0061" for 'a')
@@ -33,7 +27,7 @@ impl GlyphNavigation {
             codepoint_found: false,
         }
     }
-    
+ 
     /// Change to a different codepoint
     pub fn set_codepoint(&mut self, new_codepoint: String) {
         self.current_codepoint = Some(new_codepoint);
@@ -78,25 +72,19 @@ impl AppState {
     pub fn get_point_mut(&mut self, point_ref: &GlyphPointReference) -> Option<&mut ContourPoint> {
         let glyph_name = GlyphName::from(&*point_ref.glyph_name);
 
-        if let Some(default_layer) = self.workspace.font.ufo.get_default_layer_mut() {
-            if let Some(glyph) = default_layer.get_glyph_mut(&glyph_name) {
-                if let Some(outline) = glyph.outline.as_mut() {
-                    if point_ref.contour_index < outline.contours.len() {
-                        let contour = &mut outline.contours[point_ref.contour_index];
-                        if point_ref.point_index < contour.points.len() {
-                            return Some(&mut contour.points[point_ref.point_index]);
-                        }
-                    }
-                }
-            }
-        }
-        None
+        self.workspace.font.ufo
+            .get_default_layer_mut()?
+            .get_glyph_mut(&glyph_name)?
+            .outline.as_mut()?
+            .contours.get_mut(point_ref.contour_index)?
+            .points.get_mut(point_ref.point_index)
     }
 }
 
 /// Represents a font editing session
 ///
-/// A workspace contains one font and all the information about how we're editing it.
+/// A workspace contains one font and all the information
+/// about how we're editing it.
 #[derive(Clone)]
 pub struct Workspace {
     /// The font we're editing
@@ -126,29 +114,33 @@ impl Workspace {
 
     /// Get a display name for the font
     pub fn get_font_name(&self) -> String {
-        if self.info.family_name.is_empty() && self.info.style_name.is_empty() {
+        let parts: Vec<&str> = [&self.info.family_name, &self.info.style_name]
+            .iter()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.as_str())
+            .collect();
+            
+        if parts.is_empty() {
             "Untitled Font".to_string()
         } else {
-            format!("{} {}", self.info.family_name, self.info.style_name).trim().to_string()
+            parts.join(" ")
         }
     }
 
     /// Save the font to its file path
     pub fn save(&mut self) -> Result<(), String> {
-        // Clone the path to avoid borrowing issues
-        let path = self.font.path.clone();
+        let path = self.font.path.clone()
+            .ok_or("No file path set - use Save As first")?;
         
-        if let Some(path) = path {
-            // Update the UFO with current info before saving
-            self.update_ufo_info();
-            
-            // Save the UFO
-            self.font.ufo.save(&path).map_err(|e| format!("Failed to save: {}", e))?;
-            info!("Saved font to {:?}", path);
-            Ok(())
-        } else {
-            Err("No file path set - use Save As first".to_string())
-        }
+        // Update the UFO with current info before saving
+        self.update_ufo_info();
+        
+        // Save the UFO
+        self.font.ufo.save(&path)
+            .map_err(|e| format!("Failed to save: {}", e))?;
+        
+        info!("Saved font to {:?}", path);
+        Ok(())
     }
 
     /// Update the UFO's info from our FontInfo
@@ -211,14 +203,8 @@ impl FontInfo {
         let font_info = ufo.font_info.as_ref();
         
         Self {
-            family_name: font_info
-                .and_then(|info| info.family_name.as_ref())
-                .cloned()
-                .unwrap_or_else(|| "Untitled".to_string()),
-            style_name: font_info
-                .and_then(|info| info.style_name.as_ref())
-                .cloned()
-                .unwrap_or_else(|| "Regular".to_string()),
+            family_name: Self::extract_string_field(font_info, |info| &info.family_name, "Untitled"),
+            style_name: Self::extract_string_field(font_info, |info| &info.style_name, "Regular"),
             units_per_em: font_info
                 .and_then(|info| info.units_per_em.map(|v| v.get() as f64))
                 .unwrap_or(1024.0),
@@ -226,12 +212,33 @@ impl FontInfo {
         }
     }
 
+    /// Helper to extract string fields with defaults
+    fn extract_string_field<F>(
+        font_info: Option<&norad::FontInfo>,
+        getter: F,
+        default: &str,
+    ) -> String
+    where
+        F: Fn(&norad::FontInfo) -> &Option<String>,
+    {
+        font_info
+            .and_then(|info| getter(info).as_ref())
+            .cloned()
+            .unwrap_or_else(|| default.to_string())
+    }
+
     /// Get a display name combining family and style names
     pub fn get_display_name(&self) -> String {
-        if self.family_name.is_empty() && self.style_name.is_empty() {
+        let parts: Vec<&str> = [&self.family_name, &self.style_name]
+            .iter()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.as_str())
+            .collect();
+            
+        if parts.is_empty() {
             "Untitled Font".to_string()
         } else {
-            format!("{} {}", self.family_name, self.style_name).trim().to_string()
+            parts.join(" ")
         }
     }
 }
@@ -257,13 +264,10 @@ impl FontMetrics {
             font_info.and_then(|info| getter(info).map(|v| v.get() as f64))
         };
         
-        // Handle units_per_em separately due to different type
-        let units_per_em = font_info
-            .and_then(|info| info.units_per_em.map(|v| v.get() as f64))
-            .unwrap_or(1024.0);
-        
         Self {
-            units_per_em,
+            units_per_em: font_info
+                .and_then(|info| info.units_per_em.map(|v| v.get() as f64))
+                .unwrap_or(1024.0),
             descender: extract_metric(|info| info.descender),
             x_height: extract_metric(|info| info.x_height),
             cap_height: extract_metric(|info| info.cap_height),
