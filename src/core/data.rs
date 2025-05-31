@@ -252,13 +252,18 @@ impl FontMetrics {
     pub fn from_ufo(ufo: &Ufo) -> Self {
         let font_info = ufo.font_info.as_ref();
         
-        // Helper closure to extract optional f64 values
+        // Helper closure to extract optional f64 values for regular metrics
         let extract_metric = |getter: fn(&norad::FontInfo) -> Option<norad::IntegerOrFloat>| {
             font_info.and_then(|info| getter(info).map(|v| v.get() as f64))
         };
         
+        // Handle units_per_em separately due to different type
+        let units_per_em = font_info
+            .and_then(|info| info.units_per_em.map(|v| v.get() as f64))
+            .unwrap_or(1024.0);
+        
         Self {
-            units_per_em: extract_metric(|info| info.units_per_em).unwrap_or(1024.0),
+            units_per_em,
             descender: extract_metric(|info| info.descender),
             x_height: extract_metric(|info| info.x_height),
             cap_height: extract_metric(|info| info.cap_height),

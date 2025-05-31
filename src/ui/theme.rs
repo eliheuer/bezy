@@ -19,6 +19,14 @@ pub const WIDGET_PADDING: f32 = 16.0;
 pub const WIDGET_MARGIN: f32 = 24.0;
 pub const WIDGET_ROW_GAP: f32 = 0.0;
 
+// Gizmo Configuration
+// Change this value to customize the thickness of all visual drawing helpers:
+// - 1.0 = thin, subtle lines (original Bevy default)
+// - 2.0 = medium thickness 
+// - 3.0 = thick, bold lines (current default for better visibility)
+// - 4.0+ = very thick lines
+pub const GIZMO_LINE_WIDTH: f32 = 4.0;
+
 // Toolbar Visual Style Constants
 pub const TOOLBAR_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
 pub const TOOLBAR_ICON_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
