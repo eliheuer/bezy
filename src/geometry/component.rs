@@ -1,124 +1,134 @@
-// Module for handling glyph components in the Bezy font editor
-// This file provides conversion utilities between Bevy's transform system and Norad's font data structures
-//
-// === GLYPH COMPONENTS IN FONT DESIGN ===
-// In typography and font design, a "component" refers to a reusable part of a glyph that can be
-// referenced by other glyphs. This is a fundamental concept in modern font design that enables:
-//
-// 1. CONSISTENCY: By reusing the same component (like an accent mark or a radical in CJK characters),
-//    designers ensure consistent appearance across the font.
-//
-// 2. EFFICIENCY: Instead of redrawing the same elements repeatedly, designers can define them once
-//    and reuse them with transformations (scaling, rotation, translation).
-//
-// 3. MAINTAINABILITY: When a component is updated, all glyphs using that component are automatically
-//    updated, saving significant time during font development and refinement.
-//
-// === BEZY'S IMPLEMENTATION ===
-// In the Bezy font editor, glyph components are managed through this module, which provides:
-//
-// - An abstraction over the raw UFO component format (from the Norad library)
-// - Integration with Bevy's ECS (Entity Component System)
-// - Transformation utilities that allow components to be positioned, scaled, and oriented
-//
-// The editor allows designers to:
-// - Insert components from existing glyphs
-// - Position components with precise transformations
-// - Edit component references across multiple glyphs simultaneously
-// - Visualize and manipulate components in the editor viewport
-//
-// Components are a key part of the UFO (Unified Font Object) format that Bezy works with,
-// making this module essential for correctly importing, displaying, editing, and exporting
-// composite glyphs.
+//! Handling glyph components
+//!
+//! Glyph components are references to other glyphs that can be transformed 
+//! (moved, scaled, rotated) and placed within a glyph. This is useful for 
+//! creating composite characters like accented letters.
+//! 
+//! # Example
+//! If you have a letter "e" and want to create "é", you can use the "e" 
+//! glyph as a base and add an acute accent component positioned above it.
+
 use bevy::math::Vec2 as BevyVec2;
 use bevy::prelude::*;
 // use kurbo::{Affine, BezPath};
 use norad::Component as NoradComponent;
 use std::sync::Arc;
 
+/// A simple 2D transformation that's easy to understand
+/// 
+/// This groups all the transformation values together so we don't need
+/// to pass around 6 separate parameters.
+/// 
+/// Scale values: 1.0 = normal size, <1.0 = smaller, >1.0 = larger
+/// Skew values: 0.0 = no slanting, positive = slant right/up
+#[derive(Debug, Clone, Copy)]
+struct Transform2D {
+    scale_x: f32,     // Horizontal stretch/shrink
+    scale_y: f32,     // Vertical stretch/shrink
+    skew_x: f32,      // Horizontal slant
+    skew_y: f32,      // Vertical slant
+    translate_x: f32, // Horizontal movement
+    translate_y: f32, // Vertical movement
+}
+
+impl Transform2D {
+    /// Creates a new transformation from UFO affine transform data
+    fn from_affine(affine: &norad::AffineTransform) -> Self {
+        Self {
+            scale_x: affine.x_scale as f32,
+            scale_y: affine.y_scale as f32,
+            skew_x: affine.xy_scale as f32,
+            skew_y: affine.yx_scale as f32,
+            translate_x: affine.x_offset as f32,
+            translate_y: affine.y_offset as f32,
+        }
+    }
+
+    /// Converts this transformation to UFO affine transform data
+    fn to_affine(self) -> norad::AffineTransform {
+        norad::AffineTransform {
+            x_scale: self.scale_x,
+            y_scale: self.scale_y,
+            xy_scale: self.skew_x,
+            yx_scale: self.skew_y,
+            x_offset: self.translate_x,
+            y_offset: self.translate_y,
+        }
+    }
+
+    /// Converts this to a Bevy Transform for rendering
+    fn to_bevy_transform(self) -> Transform {
+        // Build a 2D transformation matrix
+        // Each column represents how that axis gets transformed
+        let matrix = Mat4::from_cols(
+            // X-axis: scale and skew
+            Vec4::new(self.scale_x, self.skew_y, 0.0, 0.0),    
+            // Y-axis: skew and scale
+            Vec4::new(self.skew_x, self.scale_y, 0.0, 0.0),    
+            // Z-axis: not used in 2D
+            Vec4::new(0.0, 0.0, 1.0, 0.0),                     
+            // Translation
+            Vec4::new(self.translate_x, self.translate_y, 0.0, 1.0), 
+        );
+
+        Transform::from_matrix(matrix)
+    }
+
+    /// Extracts transformation values from a Bevy Transform
+    fn from_bevy_transform(transform: &Transform) -> Self {
+        let matrix = transform.compute_matrix();
+        
+        Self {
+            scale_x: matrix.x_axis.x,
+            scale_y: matrix.y_axis.y,
+            skew_x: matrix.y_axis.x,
+            skew_y: matrix.x_axis.y,
+            translate_x: matrix.w_axis.x,
+            translate_y: matrix.w_axis.y,
+        }
+    }
+}
+
 /// A Bevy component representing a composite glyph component
-///
-/// Composite glyphs (also called component glyphs) are glyphs that are composed of
-/// other glyphs with transformations applied. This is commonly used in font design
-/// for creating compound characters or reusing components (like accents).
-///
-/// Fields:
-/// - `base`: The name of the base glyph that this component references
-/// - `transform`: The transformation matrix applied to the base glyph
 #[derive(Component, Debug, Clone)]
 pub struct GlyphComponent {
+    /// The name of the glyph this component references
     pub base: Arc<str>,
+    /// How this component is positioned/scaled/rotated
     pub transform: Transform,
 }
 
 impl GlyphComponent {
-    /// Converts a Norad component (from the norad UFO library) to a Bevy-compatible GlyphComponent
-    ///
-    /// This function maps the Norad AffineTransform (used in UFO format) to Bevy's Transform system
-    /// by building a 4x4 transformation matrix.
-    pub fn from_norad(comp: &NoradComponent) -> Self {
-        // Create a Bevy Transform from Norad's AffineTransform
-        // Norad uses a 2x3 matrix while Bevy uses a 4x4 homogeneous transformation matrix
-        let transform = Transform::from_matrix(Mat4::from_cols_array(&[
-            comp.transform.x_scale as f32,
-            comp.transform.yx_scale as f32,
-            0.0,
-            0.0,
-            comp.transform.xy_scale as f32,
-            comp.transform.y_scale as f32,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            0.0,
-            comp.transform.x_offset as f32,
-            comp.transform.y_offset as f32,
-            0.0,
-            1.0,
-        ]));
-
-        GlyphComponent {
-            base: comp.base.clone(),
-            transform,
+    /// Creates a GlyphComponent from UFO font data
+    /// 
+    /// UFO files store transformations as "affine transforms" which 
+    /// describe how to move, scale, rotate, and skew the referenced glyph.
+    pub fn from_norad(component: &NoradComponent) -> Self {
+        let transform_2d = Transform2D::from_affine(&component.transform);
+        
+        Self {
+            base: component.base.clone(),
+            transform: transform_2d.to_bevy_transform(),
         }
     }
 
-    /// Converts a Bevy GlyphComponent back to a Norad Component
-    ///
-    /// This is the inverse operation of from_norad, extracting the relevant
-    /// transformation values from Bevy's 4x4 matrix to construct Norad's AffineTransform.
+    /// Converts this component back to UFO font data format
     pub fn to_norad(&self) -> NoradComponent {
-        // Extract the full 4x4 matrix from Bevy's Transform
-        let matrix = self.transform.compute_matrix();
-        // Unpack the matrix into individual elements (only using the ones we need for 2D transformation)
-        let [m00, m01, _m02, _m03, m10, m11, _m12, _m13, _m20, _m21, _m22, _m23, m30, m31, _m32, _m33] =
-            matrix.to_cols_array();
-
-        // Create a new Norad Component using the constructor
-        // Only using the relevant parts of the 4x4 matrix for the 2D transformation
+        let transform_2d = Transform2D::from_bevy_transform(&self.transform);
+        
         NoradComponent::new(
             self.base.clone(),
-            norad::AffineTransform {
-                x_scale: m00,  // Horizontal scaling
-                yx_scale: m01, // Y-shearing
-                xy_scale: m10, // X-shearing
-                y_scale: m11,  // Vertical scaling
-                x_offset: m30, // X-translation
-                y_offset: m31, // Y-translation
-            },
-            None, // identifier
-            None, // lib
+            transform_2d.to_affine(),
+            None, // identifier (optional name)
+            None, // lib (optional metadata)
         )
     }
 
-    /// Moves the component by the specified delta in 2D space
-    ///
-    /// This is a convenience method for modifying the translation part of
-    /// the transformation without affecting rotation or scale.
+    /// Moves the component by the given amount
+    /// 
+    /// This is a simple translation - the component keeps its size and 
+    /// rotation but moves to a new position.
     pub fn nudge(&mut self, delta: BevyVec2) {
-        // Add the delta to the translation component of the transform
-        // The z-component remains unchanged (0.0)
         self.transform.translation += Vec3::new(delta.x, delta.y, 0.0);
     }
 }
