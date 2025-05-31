@@ -31,6 +31,7 @@ macro_rules! bail {
 }
 
 /// Compute scale between two sizes, returning a Vec2
+#[allow(dead_code)]
 pub fn compute_scale(pre: (f32, f32), post: (f32, f32)) -> BevyVec2 {
     let ensure_finite = |f: f32| if f.is_finite() { f } else { 1.0 };
     let x = ensure_finite(post.0 / pre.0);
@@ -39,6 +40,7 @@ pub fn compute_scale(pre: (f32, f32), post: (f32, f32)) -> BevyVec2 {
 }
 
 /// Creates a new blank font with some placeholder glyphs.
+#[allow(dead_code)]
 pub fn create_blank_font() -> norad::Ufo {
     let mut ufo = norad::Ufo::new();
     ufo.font_info = norad::FontInfo {

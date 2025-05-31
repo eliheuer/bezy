@@ -13,6 +13,7 @@ pub struct EditPoint {
 
 impl EditPoint {
     /// Create a new point with the given position and type
+    #[allow(dead_code)]
     pub fn new(position: Point, point_type: PointType) -> Self {
         Self {
             position,
@@ -54,6 +55,7 @@ pub enum EntityKind {
 
 impl EntityId {
     /// Create a new entity ID for a point
+    #[allow(dead_code)]
     pub fn point(parent: u32, index: u16) -> Self {
         Self {
             parent,
@@ -63,6 +65,7 @@ impl EntityId {
     }
 
     /// Create a new entity ID for a guide
+    #[allow(dead_code)]
     pub fn guide(index: u16) -> Self {
         Self {
             parent: 0,
@@ -72,11 +75,13 @@ impl EntityId {
     }
 
     /// Get the parent ID
+    #[allow(dead_code)]
     pub fn parent(&self) -> u32 {
         self.parent
     }
 
     /// Check if this is a guide
+    #[allow(dead_code)]
     pub fn is_guide(&self) -> bool {
         self.kind == EntityKind::Guide
     }

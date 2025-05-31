@@ -22,6 +22,7 @@ use std::sync::Arc;
 /// Scale values: 1.0 = normal size, <1.0 = smaller, >1.0 = larger
 /// Skew values: 0.0 = no slanting, positive = slant right/up
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 struct Transform2D {
     scale_x: f32,     // Horizontal stretch/shrink
     scale_y: f32,     // Vertical stretch/shrink
@@ -31,6 +32,7 @@ struct Transform2D {
     translate_y: f32, // Vertical movement
 }
 
+#[allow(dead_code)]
 impl Transform2D {
     /// Creates a new transformation from UFO affine transform data
     fn from_affine(affine: &norad::AffineTransform) -> Self {
@@ -91,6 +93,7 @@ impl Transform2D {
 
 /// A Bevy component representing a composite glyph component
 #[derive(Component, Debug, Clone)]
+#[allow(dead_code)]
 pub struct GlyphComponent {
     /// The name of the glyph this component references
     pub base: Arc<str>,
@@ -98,6 +101,7 @@ pub struct GlyphComponent {
     pub transform: Transform,
 }
 
+#[allow(dead_code)]
 impl GlyphComponent {
     /// Creates a GlyphComponent from UFO font data
     /// 

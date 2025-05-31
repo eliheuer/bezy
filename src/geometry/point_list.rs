@@ -15,6 +15,7 @@ pub struct PointList {
 
 impl PointList {
     /// Create a new empty point list
+    #[allow(dead_code)]
     pub fn new() -> Self {
         PointList {
             points: Vec::new(),
@@ -23,6 +24,7 @@ impl PointList {
     }
 
     /// Create a point list from a norad Contour
+    #[allow(dead_code)]
     pub fn from_contour(contour: &Contour) -> Self {
         let points = contour.points.iter().map(EditPoint::from).collect();
 
@@ -33,6 +35,7 @@ impl PointList {
     }
 
     /// Get the points in this contour
+    #[allow(dead_code)]
     pub fn points(&self) -> &[EditPoint] {
         &self.points
     }

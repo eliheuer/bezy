@@ -19,6 +19,7 @@ use norad::{Contour, ContourPoint, PointType};
 /// 
 /// This function takes a vector path (like you'd draw in a graphics program)
 /// and converts it to the point format that UFO font files understand.
+#[allow(dead_code)]
 pub fn bezpath_to_contour(path: &kurbo::BezPath) -> Result<Contour, &'static str> {
     use kurbo::PathEl;
 
@@ -45,13 +46,13 @@ pub fn bezpath_to_contour(path: &kurbo::BezPath) -> Result<Contour, &'static str
             PathEl::QuadTo(control, end) => {
                 let start = current_pos
                     .ok_or("Cannot draw curve without starting point")?;
-                add_quadratic_curve(&mut points, start, control, end)?;
+                add_quadratic_curve(&mut points, *start, *control, *end)?;
                 current_pos = Some(end);
             },
             
             // Draw a cubic curve (UFO's native curve type)
             PathEl::CurveTo(control1, control2, end) => {
-                add_cubic_curve(&mut points, control1, control2, end);
+                add_cubic_curve(&mut points, *control1, *control2, *end);
                 current_pos = Some(end);
             },
             
@@ -70,6 +71,7 @@ pub fn bezpath_to_contour(path: &kurbo::BezPath) -> Result<Contour, &'static str
 /// 
 /// UFO fonts use cubic curves, so we need to convert quadratic curves.
 /// This uses the standard mathematical conversion formula.
+#[allow(dead_code)]
 fn add_quadratic_curve(
     points: &mut Vec<ContourPoint>,
     start: kurbo::Point,
@@ -101,6 +103,7 @@ fn add_quadratic_curve(
 }
 
 /// Adds a cubic curve to the points list
+#[allow(dead_code)]
 fn add_cubic_curve(
     points: &mut Vec<ContourPoint>,
     control1: kurbo::Point,
@@ -115,6 +118,7 @@ fn add_cubic_curve(
 }
 
 /// Creates a contour point from a kurbo point
+#[allow(dead_code)]
 fn make_point(point: &kurbo::Point, point_type: PointType, smooth: bool) -> ContourPoint {
     ContourPoint::new(
         point.x as f32,

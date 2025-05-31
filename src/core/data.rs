@@ -193,6 +193,7 @@ impl Default for FontObject {
 pub struct FontInfo {
     pub family_name: String,
     pub style_name: String,
+    #[allow(dead_code)]
     pub units_per_em: f64,
     pub metrics: FontMetrics,
 }
@@ -228,6 +229,7 @@ impl FontInfo {
     }
 
     /// Get a display name combining family and style names
+    #[allow(dead_code)]
     pub fn get_display_name(&self) -> String {
         let parts: Vec<&str> = [&self.family_name, &self.style_name]
             .iter()
@@ -251,6 +253,7 @@ pub struct FontMetrics {
     pub x_height: Option<f64>,
     pub cap_height: Option<f64>,
     pub ascender: Option<f64>,
+    #[allow(dead_code)]
     pub italic_angle: Option<f64>,
 }
 
