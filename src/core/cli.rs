@@ -1,3 +1,5 @@
+//! Command line arguments for the application
+
 use bevy::prelude::*;
 use clap::Parser;
 use std::path::PathBuf;
