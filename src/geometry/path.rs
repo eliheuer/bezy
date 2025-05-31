@@ -1,105 +1,128 @@
+//! Path conversion utilities
+//!
+//! This module handles converting between different path formats used in font
+//! development. Specifically, it converts from kurbo paths (used for vector 
+//! graphics) to norad contours (used in UFO font files).
+//!
+//! # What are paths and contours?
+//! - A **path** is like drawing with a pen - it has moves, lines, and curves
+//! - A **contour** is how font files store those shapes as a series of points
+//!
+//! # Why convert?
+//! Different libraries use different formats to represent the same shapes.
+//! This module bridges that gap so we can work with paths from graphics
+//! libraries and save them in standard font file formats.
+
 use norad::{Contour, ContourPoint, PointType};
 
-/// Convert a kurbo::BezPath to a norad::Contour
-pub fn bezpath_to_contour(
-    path: &kurbo::BezPath,
-) -> Result<norad::Contour, &'static str> {
+/// Converts a kurbo path to a norad contour for UFO font files
+/// 
+/// This function takes a vector path (like you'd draw in a graphics program)
+/// and converts it to the point format that UFO font files understand.
+pub fn bezpath_to_contour(path: &kurbo::BezPath) -> Result<Contour, &'static str> {
     use kurbo::PathEl;
 
-    let mut points = Vec::new();
-    let mut current_point = None;
+    // Set up our data structures for the conversion
+    let mut points = Vec::new();    // Will store all the converted points
+    let mut current_pos = None;     // Track where our "pen" is currently located
 
-    for el in path.elements() {
-        match el {
-            PathEl::MoveTo(p) => {
-                current_point = Some(p);
-                points.push(create_point(
-                    p.x as f32,
-                    p.y as f32,
-                    PointType::Move,
-                    false,
-                ));
-            }
-            PathEl::LineTo(p) => {
-                current_point = Some(p);
-                points.push(create_point(
-                    p.x as f32,
-                    p.y as f32,
-                    PointType::Line,
-                    false,
-                ));
-            }
-            PathEl::QuadTo(p1, p2) => {
-                // Convert quadratic bezier to cubic (not ideal but works for now)
-                if let Some(p0) = current_point {
-                    let cp1 = kurbo::Point::new(
-                        p0.x + 2.0 / 3.0 * (p1.x - p0.x),
-                        p0.y + 2.0 / 3.0 * (p1.y - p0.y),
-                    );
-                    let cp2 = kurbo::Point::new(
-                        p2.x + 2.0 / 3.0 * (p1.x - p2.x),
-                        p2.y + 2.0 / 3.0 * (p1.y - p2.y),
-                    );
-
-                    points.push(create_point(
-                        cp1.x as f32,
-                        cp1.y as f32,
-                        PointType::OffCurve,
-                        false,
-                    ));
-                    points.push(create_point(
-                        cp2.x as f32,
-                        cp2.y as f32,
-                        PointType::OffCurve,
-                        false,
-                    ));
-                    points.push(create_point(
-                        p2.x as f32,
-                        p2.y as f32,
-                        PointType::Curve,
-                        true,
-                    ));
-
-                    current_point = Some(p2);
-                } else {
-                    return Err("QuadTo without a current point");
-                }
-            }
-            PathEl::CurveTo(p1, p2, p3) => {
-                points.push(create_point(
-                    p1.x as f32,
-                    p1.y as f32,
-                    PointType::OffCurve,
-                    false,
-                ));
-                points.push(create_point(
-                    p2.x as f32,
-                    p2.y as f32,
-                    PointType::OffCurve,
-                    false,
-                ));
-                points.push(create_point(
-                    p3.x as f32,
-                    p3.y as f32,
-                    PointType::Curve,
-                    true,
-                ));
-
-                current_point = Some(p3);
-            }
+    // Process each drawing command in the path
+    for element in path.elements() {
+        match element {
+            // Move to a new position without drawing a line
+            PathEl::MoveTo(point) => {
+                current_pos = Some(point);
+                points.push(make_point(point, PointType::Move, false));
+            },
+            
+            // Draw a straight line from current position to new point
+            PathEl::LineTo(point) => {
+                current_pos = Some(point);
+                points.push(make_point(point, PointType::Line, false));
+            },
+            
+            // Draw a quadratic curve (needs conversion to cubic for UFO)
+            PathEl::QuadTo(control, end) => {
+                let start = current_pos
+                    .ok_or("Cannot draw curve without starting point")?;
+                add_quadratic_curve(&mut points, start, control, end)?;
+                current_pos = Some(end);
+            },
+            
+            // Draw a cubic curve (UFO's native curve type)
+            PathEl::CurveTo(control1, control2, end) => {
+                add_cubic_curve(&mut points, control1, control2, end);
+                current_pos = Some(end);
+            },
+            
+            // Close the path by connecting back to the start
             PathEl::ClosePath => {
-                // No need to add a point for close path
-            }
+                // UFO format handles path closing automatically
+            },
         }
     }
 
-    // Create the contour with the points
-    let contour = Contour::new(points, None, None);
-
-    Ok(contour)
+    // Create and return the final contour with all our converted points
+    Ok(Contour::new(points, None, None))
 }
 
-/// Helper function to create a ContourPoint
-fn create_point(x: f32, y: f32, typ: PointType, smooth: bool) -> ContourPoint {
-    ContourPoint::new(x, y, typ, smooth, None, None, None)
+/// Converts a quadratic curve to cubic curve points
+/// 
+/// UFO fonts use cubic curves, so we need to convert quadratic curves.
+/// This uses the standard mathematical conversion formula.
+fn add_quadratic_curve(
+    points: &mut Vec<ContourPoint>,
+    start: kurbo::Point,
+    control: kurbo::Point,
+    end: kurbo::Point,
+) -> Result<(), &'static str> {
+    // Convert quadratic to cubic using the 2/3 rule:
+    // - First control point is 2/3 of the way from start to quad control
+    // - Second control point is 2/3 of the way from end to quad control
+    
+    let control1 = kurbo::Point::new(
+        start.x + 2.0 / 3.0 * (control.x - start.x),
+        start.y + 2.0 / 3.0 * (control.y - start.y),
+    );
+    
+    let control2 = kurbo::Point::new(
+        end.x + 2.0 / 3.0 * (control.x - end.x),
+        end.y + 2.0 / 3.0 * (control.y - end.y),
+    );
+
+    // Add the three points that make up a cubic curve
+    points.extend([
+        make_point(&control1, PointType::OffCurve, false),
+        make_point(&control2, PointType::OffCurve, false),
+        make_point(&end, PointType::Curve, true),
+    ]);
+
+    Ok(())
+}
+
+/// Adds a cubic curve to the points list
+fn add_cubic_curve(
+    points: &mut Vec<ContourPoint>,
+    control1: kurbo::Point,
+    control2: kurbo::Point,
+    end: kurbo::Point,
+) {
+    points.extend([
+        make_point(&control1, PointType::OffCurve, false),
+        make_point(&control2, PointType::OffCurve, false),
+        make_point(&end, PointType::Curve, true),
+    ]);
+}
+
+/// Creates a contour point from a kurbo point
+fn make_point(point: &kurbo::Point, point_type: PointType, smooth: bool) -> ContourPoint {
+    ContourPoint::new(
+        point.x as f32,
+        point.y as f32,
+        point_type,
+        smooth,
+        None, // name (optional)
+        None, // identifier (optional)
+        None, // lib (optional metadata)
+    )
 }
