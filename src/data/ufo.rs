@@ -10,6 +10,24 @@ use std::path::PathBuf;
 
 use crate::core::state::AppState;
 
+// Constants for Unicode ranges to scan
+const BASIC_LATIN_START: u32 = 0x0020;
+const BASIC_LATIN_END: u32 = 0x007F;
+const LATIN_1_SUPPLEMENT_START: u32 = 0x00A0;
+const LATIN_1_SUPPLEMENT_END: u32 = 0x00FF;
+const LATIN_EXTENDED_A_START: u32 = 0x0100;
+const LATIN_EXTENDED_A_END: u32 = 0x017F;
+const LATIN_EXTENDED_B_START: u32 = 0x0180;
+const LATIN_EXTENDED_B_END: u32 = 0x024F;
+const CYRILLIC_START: u32 = 0x0400;
+const CYRILLIC_END: u32 = 0x04FF;
+const ARABIC_START: u32 = 0x0600;
+const ARABIC_END: u32 = 0x06FF;
+
+// Common fallback glyphs to try when looking for test glyphs
+const COMMON_TEST_GLYPHS: &[&str] = 
+    &["H", "h", "A", "a", "n", "space", ".notdef"];
+
 /// System resource to track the last printed codepoint for change detection
 #[derive(Resource, Default)]
 pub struct LastCodepointPrinted {
@@ -18,179 +36,244 @@ pub struct LastCodepointPrinted {
 
 /// Find a glyph by Unicode codepoint using norad's built-in codepoints field
 ///
-/// This is much simpler than the previous approach - norad already handles
-/// the Unicode mapping for us through the <unicode hex="..."/> elements in the UFO.
+/// This function searches for a glyph that contains the specified Unicode
+/// codepoint. It first tries common glyph names, then standard naming patterns.
 pub fn find_glyph_by_unicode(ufo: &Ufo, codepoint_hex: &str) -> Option<String> {
-    // Parse the hex codepoint string to a char
-    let codepoint =
-        u32::from_str_radix(codepoint_hex.trim_start_matches("0x"), 16)
-            .ok()
-            .and_then(char::from_u32)?;
-
-    // Get the default layer and search through all glyphs
+    let target_char = parse_codepoint(codepoint_hex)?;
     let default_layer = ufo.get_default_layer()?;
 
-    // Try common glyph names first as a fallback
-    let common_glyphs = ["H", "h", "A", "a", "n", "space", ".notdef"];
-    for glyph_name_str in common_glyphs.iter() {
+    // Try common glyphs first (faster than searching all possibilities)
+    if let Some(glyph_name) = 
+        search_common_glyphs(&default_layer, target_char) 
+    {
+        return Some(glyph_name);
+    }
+
+    // Try standard naming patterns
+    search_standard_glyph_names(&default_layer, target_char)
+}
+
+/// Parse a hex codepoint string to a Unicode character
+fn parse_codepoint(codepoint_hex: &str) -> Option<char> {
+    u32::from_str_radix(codepoint_hex.trim_start_matches("0x"), 16)
+        .ok()
+        .and_then(char::from_u32)
+}
+
+/// Search for the target character in common glyph names
+fn search_common_glyphs(
+    default_layer: &norad::Layer, 
+    target_char: char
+) -> Option<String> {
+    for glyph_name_str in COMMON_TEST_GLYPHS {
         let name = norad::GlyphName::from(*glyph_name_str);
+        
         if let Some(glyph) = default_layer.get_glyph(&name) {
-            // Check if this glyph contains our target codepoint
-            if let Some(ref codepoints) = glyph.codepoints {
-                if codepoints.contains(&codepoint) {
-                    return Some(glyph.name.to_string());
-                }
+            if glyph_contains_codepoint(&glyph, target_char) {
+                return Some(glyph.name.to_string());
             }
         }
     }
+    None
+}
 
-    // Try the standard naming patterns
+/// Search for the target character using standard glyph naming patterns
+fn search_standard_glyph_names(
+    default_layer: &norad::Layer, 
+    target_char: char
+) -> Option<String> {
+    let codepoint_value = target_char as u32;
     let test_names = [
-        codepoint.to_string(),
-        format!("uni{:04X}", codepoint as u32),
-        format!("u{:04X}", codepoint as u32),
+        target_char.to_string(),
+        format!("uni{:04X}", codepoint_value),
+        format!("u{:04X}", codepoint_value),
     ];
 
     for name_str in test_names.iter() {
         let glyph_name = norad::GlyphName::from(name_str.clone());
+        
         if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
-            // Check if this glyph contains our target codepoint
-            if let Some(ref codepoints) = glyph.codepoints {
-                if codepoints.contains(&codepoint) {
-                    return Some(glyph.name.to_string());
-                }
+            if glyph_contains_codepoint(&glyph, target_char) {
+                return Some(glyph.name.to_string());
             }
         }
     }
-
     None
+}
+
+/// Check if a glyph contains the specified Unicode codepoint
+fn glyph_contains_codepoint(glyph: &norad::Glyph, target_char: char) -> bool {
+    glyph.codepoints
+        .as_ref()
+        .map(|codepoints| codepoints.contains(&target_char))
+        .unwrap_or(false)
 }
 
 /// Get all Unicode codepoints available in the font
 ///
-/// This replaces the complex scanning logic with a simple approach using norad's codepoints.
-/// Note: This is a simplified version due to norad 0.3.1 API limitations.
+/// This scans common Unicode ranges to find which codepoints have glyphs.
+/// Note: Limited by norad 0.3.1's API - we can't iterate all glyphs directly.
 pub fn get_all_codepoints(ufo: &Ufo) -> Vec<String> {
-    let mut codepoints = Vec::new();
+    let Some(default_layer) = ufo.get_default_layer() else {
+        return Vec::new();
+    };
 
-    if let Some(default_layer) = ufo.get_default_layer() {
-        // Try common glyphs to see what's available
-        // This is limited by norad 0.3.1's API - we can't iterate all glyphs
-        let ranges = [
-            (0x0020, 0x007F), // Basic Latin
-            (0x00A0, 0x00FF), // Latin-1 Supplement
-            (0x0100, 0x017F), // Latin Extended-A
-            (0x0180, 0x024F), // Latin Extended-B
-            (0x0400, 0x04FF), // Cyrillic
-            (0x0600, 0x06FF), // Arabic
-        ];
+    let unicode_ranges = get_unicode_ranges_to_scan();
+    let mut found_codepoints = Vec::new();
 
-        for (start, end) in ranges.iter() {
-            for code in *start..=*end {
-                if let Some(target_char) = char::from_u32(code) {
-                    // Check a few common naming patterns
-                    let test_names = [
-                        target_char.to_string(),
-                        format!("uni{:04X}", code),
-                        format!("u{:04X}", code),
-                    ];
+    for (start, end) in unicode_ranges {
+        scan_unicode_range(default_layer, start, end, &mut found_codepoints);
+    }
 
-                    for name_str in test_names.iter() {
-                        let glyph_name =
-                            norad::GlyphName::from(name_str.clone());
-                        if let Some(glyph) =
-                            default_layer.get_glyph(&glyph_name)
-                        {
-                            if let Some(ref glyph_codepoints) = glyph.codepoints
-                            {
-                                if glyph_codepoints.contains(&target_char) {
-                                    let cp_hex = format!("{:04X}", code);
-                                    if !codepoints.contains(&cp_hex) {
-                                        codepoints.push(cp_hex);
-                                    }
-                                    break;
-                                }
-                            }
-                        }
-                    }
+    sort_and_deduplicate_codepoints(&mut found_codepoints);
+    
+    debug!("Found {} codepoints in font", found_codepoints.len());
+    found_codepoints
+}
+
+/// Get the list of Unicode ranges to scan for available glyphs
+fn get_unicode_ranges_to_scan() -> Vec<(u32, u32)> {
+    vec![
+        (BASIC_LATIN_START, BASIC_LATIN_END),
+        (LATIN_1_SUPPLEMENT_START, LATIN_1_SUPPLEMENT_END),
+        (LATIN_EXTENDED_A_START, LATIN_EXTENDED_A_END),
+        (LATIN_EXTENDED_B_START, LATIN_EXTENDED_B_END),
+        (CYRILLIC_START, CYRILLIC_END),
+        (ARABIC_START, ARABIC_END),
+    ]
+}
+
+/// Scan a specific Unicode range for available glyphs
+fn scan_unicode_range(
+    default_layer: &norad::Layer,
+    start: u32,
+    end: u32,
+    found_codepoints: &mut Vec<String>,
+) {
+    for code in start..=end {
+        if let Some(target_char) = char::from_u32(code) {
+            if check_glyph_exists_for_codepoint(default_layer, target_char) {
+                let codepoint_hex = format!("{:04X}", code);
+                if !found_codepoints.contains(&codepoint_hex) {
+                    found_codepoints.push(codepoint_hex);
                 }
             }
         }
     }
+}
 
-    // Sort and deduplicate
+/// Check if any glyph exists for the given Unicode codepoint
+fn check_glyph_exists_for_codepoint(
+    default_layer: &norad::Layer, 
+    target_char: char
+) -> bool {
+    let test_names = generate_glyph_name_variants(target_char);
+
+    for name_str in test_names.iter() {
+        let glyph_name = norad::GlyphName::from(name_str.clone());
+        
+        if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
+            if glyph_contains_codepoint(&glyph, target_char) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Generate common glyph name variants for a Unicode character
+fn generate_glyph_name_variants(target_char: char) -> [String; 3] {
+    let code = target_char as u32;
+    [
+        target_char.to_string(),
+        format!("uni{:04X}", code),
+        format!("u{:04X}", code),
+    ]
+}
+
+/// Sort codepoints numerically and remove duplicates
+fn sort_and_deduplicate_codepoints(codepoints: &mut Vec<String>) {
     codepoints.sort_by(|a, b| {
         let a_val = u32::from_str_radix(a, 16).unwrap_or(0);
         let b_val = u32::from_str_radix(b, 16).unwrap_or(0);
         a_val.cmp(&b_val)
     });
     codepoints.dedup();
-
-    debug!("Found {} codepoints in font", codepoints.len());
-    codepoints
 }
 
 /// Find the next codepoint in the font (in ascending order)
 pub fn find_next_codepoint(ufo: &Ufo, current_hex: &str) -> Option<String> {
     let codepoints = get_all_codepoints(ufo);
-
-    if codepoints.is_empty() {
-        return None;
-    }
-
-    if current_hex.is_empty() {
-        return Some(codepoints[0].clone());
-    }
-
-    let current_idx = codepoints.iter().position(|cp| cp == current_hex);
-
-    match current_idx {
-        Some(idx) if idx < codepoints.len() - 1 => {
-            Some(codepoints[idx + 1].clone())
-        }
-        Some(_) => Some(codepoints[0].clone()), // wrap around
-        None => Some(codepoints[0].clone()), // not found, start from beginning
-    }
+    find_adjacent_codepoint(&codepoints, current_hex, Direction::Next)
 }
 
 /// Find the previous codepoint in the font (in descending order)
 pub fn find_previous_codepoint(ufo: &Ufo, current_hex: &str) -> Option<String> {
     let codepoints = get_all_codepoints(ufo);
+    find_adjacent_codepoint(&codepoints, current_hex, Direction::Previous)
+}
 
+/// Direction for finding adjacent codepoints
+enum Direction {
+    Next,
+    Previous,
+}
+
+/// Find the next or previous codepoint in a sorted list
+fn find_adjacent_codepoint(
+    codepoints: &[String], 
+    current_hex: &str, 
+    direction: Direction
+) -> Option<String> {
     if codepoints.is_empty() {
         return None;
     }
 
     if current_hex.is_empty() {
-        return Some(codepoints[codepoints.len() - 1].clone());
+        return match direction {
+            Direction::Next => Some(codepoints[0].clone()),
+            Direction::Previous => Some(codepoints[codepoints.len() - 1].clone()),
+        };
     }
 
     let current_idx = codepoints.iter().position(|cp| cp == current_hex);
 
-    match current_idx {
-        Some(0) => Some(codepoints[codepoints.len() - 1].clone()), // wrap around to end
-        Some(idx) => Some(codepoints[idx - 1].clone()),
-        None => Some(codepoints[codepoints.len() - 1].clone()), // not found, start from end
+    match (current_idx, direction) {
+        (Some(idx), Direction::Next) if idx < codepoints.len() - 1 => {
+            Some(codepoints[idx + 1].clone())
+        }
+        (Some(_), Direction::Next) => {
+            Some(codepoints[0].clone()) // wrap around
+        }
+        (Some(0), Direction::Previous) => {
+            Some(codepoints[codepoints.len() - 1].clone()) // wrap to end
+        }
+        (Some(idx), Direction::Previous) => {
+            Some(codepoints[idx - 1].clone())
+        }
+        (None, Direction::Next) => {
+            Some(codepoints[0].clone()) // not found, start from beginning
+        }
+        (None, Direction::Previous) => {
+            Some(codepoints[codepoints.len() - 1].clone()) // not found, start from end
+        }
     }
 }
 
 /// Get basic font information as a formatted string
 pub fn get_basic_font_info_from_ufo(ufo: &Ufo) -> String {
-    let font_info = match &ufo.font_info {
-        Some(info) => info,
-        None => return "No font info available".to_string(),
+    let Some(font_info) = &ufo.font_info else {
+        return "No font info available".to_string();
     };
 
     let family_name = font_info
         .family_name
-        .as_ref()
-        .map(|s| s.as_str())
+        .as_deref()
         .unwrap_or("Unknown");
 
     let style_name = font_info
         .style_name
-        .as_ref()
-        .map(|s| s.as_str())
+        .as_deref()
         .unwrap_or("Regular");
 
     let units_per_em = font_info
@@ -212,56 +295,80 @@ pub fn print_font_info_to_terminal(
     glyph_navigation: Res<crate::core::state::GlyphNavigation>,
     mut last_printed: ResMut<LastCodepointPrinted>,
 ) {
-    let font_info = get_basic_font_info_from_state(&app_state);
     let current_codepoint = glyph_navigation.current_codepoint.clone();
 
-    // Check if we need to print (startup or codepoint changed)
-    let should_print = last_printed.codepoint != current_codepoint;
+    // Only print if the codepoint has changed
+    if last_printed.codepoint == current_codepoint {
+        return;
+    }
 
-    if should_print {
-        // Log the basic font info
-        info!("{}", font_info);
+    print_font_information(&app_state);
+    print_codepoint_information(&glyph_navigation);
 
-        // Add codepoint info if present
-        if let Some(codepoint) = &glyph_navigation.current_codepoint {
-            if !codepoint.is_empty() {
-                // Try to get a readable character representation
-                if let Ok(code_val) = u32::from_str_radix(codepoint, 16) {
-                    if let Some(character) = char::from_u32(code_val) {
-                        if character.is_control() {
-                            info!(
-                                "Current codepoint: U+{} (control character)",
-                                codepoint
-                            );
-                        } else {
-                            info!(
-                                "Current codepoint: U+{} ('{}')",
-                                codepoint, character
-                            );
-                        }
-                    } else {
-                        info!(
-                            "Current codepoint: U+{} (invalid Unicode)",
-                            codepoint
-                        );
-                    }
-                } else {
-                    info!("Current codepoint: {} (invalid hex)", codepoint);
-                }
-            }
-        } else {
-            info!("No specific codepoint selected");
+    // Update the last printed state
+    last_printed.codepoint = current_codepoint;
+}
+
+/// Print basic font information to the console
+fn print_font_information(app_state: &AppState) {
+    let font_info = get_basic_font_info_from_state(app_state);
+    info!("{}", font_info);
+}
+
+/// Print current codepoint information to the console
+fn print_codepoint_information(glyph_navigation: &crate::core::state::GlyphNavigation) {
+    let Some(codepoint) = &glyph_navigation.current_codepoint else {
+        info!("No specific codepoint selected");
+        return;
+    };
+
+    if codepoint.is_empty() {
+        info!("No specific codepoint selected");
+        return;
+    }
+
+    match parse_codepoint_for_display(codepoint) {
+        Ok((code_val, character)) => {
+            print_character_info(codepoint, code_val, character);
         }
-
-        // Update the last printed state
-        last_printed.codepoint = current_codepoint;
+        Err(_) => {
+            info!("Current codepoint: {} (invalid hex)", codepoint);
+        }
     }
 }
 
-pub fn load_ufo_from_path(
-    path: &str,
-) -> Result<Ufo, Box<dyn std::error::Error>> {
+/// Parse a codepoint string for display purposes
+fn parse_codepoint_for_display(codepoint: &str) -> Result<(u32, Option<char>), std::num::ParseIntError> {
+    let code_val = u32::from_str_radix(codepoint, 16)?;
+    let character = char::from_u32(code_val);
+    Ok((code_val, character))
+}
+
+/// Print information about a Unicode character
+fn print_character_info(codepoint: &str, code_val: u32, character: Option<char>) {
+    match character {
+        Some(ch) if ch.is_control() => {
+            info!(
+                "Current codepoint: U+{} (control character)",
+                codepoint
+            );
+        }
+        Some(ch) => {
+            info!("Current codepoint: U+{} ('{}')", codepoint, ch);
+        }
+        None => {
+            info!(
+                "Current codepoint: U+{} (invalid Unicode)",
+                codepoint
+            );
+        }
+    }
+}
+
+/// Load a UFO file from the specified path
+pub fn load_ufo_from_path(path: &str) -> Result<Ufo, Box<dyn std::error::Error>> {
     let font_path = PathBuf::from(path);
+    
     if !font_path.exists() {
         return Err(format!("File not found: {}", font_path.display()).into());
     }
@@ -269,101 +376,125 @@ pub fn load_ufo_from_path(
     Ok(Ufo::load(font_path)?)
 }
 
-// System that initializes the font state
+/// System that initializes the font state from CLI arguments
 pub fn initialize_font_state(
     mut commands: Commands,
     cli_args: Res<crate::core::cli::CliArgs>,
 ) {
-    // Check if a UFO path was provided via CLI
     if let Some(ufo_path) = &cli_args.ufo_path {
-        // Load UFO file from the path provided via CLI
-        match load_ufo_from_path(ufo_path.to_str().unwrap_or_default()) {
-            Ok(ufo) => {
-                let mut state = AppState::default();
-                state.set_font(ufo, Some(ufo_path.clone()));
-                let display_name = state.get_font_display_name();
-                commands.insert_resource(state);
-                info!("Loaded font: {}", display_name);
-            }
-            Err(e) => {
-                error!("Failed to load UFO file: {}", e);
-                commands.init_resource::<AppState>();
-            }
-        }
+        load_font_from_cli_path(&mut commands, ufo_path);
     } else {
-        // No CLI argument provided, just initialize an empty state
+        // No CLI argument provided, initialize empty state
         commands.init_resource::<AppState>();
     }
 }
 
-/// Directly scan the font for all available glyph names
-/// This is useful for debugging to understand the naming conventions used in the font
-#[allow(dead_code)]
-pub fn dump_all_glyph_names(ufo: &Ufo) -> Vec<String> {
-    let mut glyph_names = Vec::new();
-
-    if let Some(default_layer) = ufo.get_default_layer() {
-        // Since we don't have Layer::iter(), use the knowledge of the UFO format
-        // UFO glyphs are stored in a map/dictionary, but we can't directly iterate it
-        // Try common glyphs to see what naming pattern the font uses
-
-        // Try basic Latin ranges - these are almost always present
-        for cp in 0x0041..=0x005A {
-            // A-Z
-            let char_name = char::from_u32(cp).unwrap().to_string();
-            let glyph_name = norad::GlyphName::from(char_name);
-            if default_layer.get_glyph(&glyph_name).is_some() {
-                glyph_names.push(glyph_name.to_string());
-            }
+/// Load a font from the CLI-provided path
+fn load_font_from_cli_path(commands: &mut Commands, ufo_path: &PathBuf) {
+    let path_str = ufo_path.to_str().unwrap_or_default();
+    
+    match load_ufo_from_path(path_str) {
+        Ok(ufo) => {
+            let mut state = AppState::default();
+            state.set_font(ufo, Some(ufo_path.clone()));
+            let display_name = state.get_font_display_name();
+            commands.insert_resource(state);
+            info!("Loaded font: {}", display_name);
         }
-
-        for cp in 0x0061..=0x007A {
-            // a-z
-            let char_name = char::from_u32(cp).unwrap().to_string();
-            let glyph_name = norad::GlyphName::from(char_name);
-            if default_layer.get_glyph(&glyph_name).is_some() {
-                glyph_names.push(glyph_name.to_string());
-            }
-        }
-
-        // Try Arabic range
-        for cp in 0x0600..=0x0650 {
-            // Sample of Arabic
-            // Try uni format
-            let uni_name = format!("uni{:04X}", cp);
-            let glyph_name = norad::GlyphName::from(uni_name);
-            if default_layer.get_glyph(&glyph_name).is_some() {
-                glyph_names.push(glyph_name.to_string());
-            }
-        }
-
-        // Sort names for easier reading
-        glyph_names.sort();
-
-        // Log the names
-        info!("Found {} glyph names in font", glyph_names.len());
-
-        // Look for Arabic-related names
-        let mut arabic_names = Vec::new();
-        for name in &glyph_names {
-            if name.contains("arab")
-                || name.contains("alef")
-                || name.contains("beh")
-                || name.starts_with("uni06")
-            {
-                arabic_names.push(name.clone());
-            }
-        }
-
-        if !arabic_names.is_empty() {
-            info!("Found {} Arabic-related glyph names:", arabic_names.len());
-            for name in &arabic_names {
-                info!("  - {}", name);
-            }
-        } else {
-            info!("No Arabic-related glyph names found in font");
+        Err(e) => {
+            error!("Failed to load UFO file: {}", e);
+            commands.init_resource::<AppState>();
         }
     }
+}
+
+/// Scan the font for all available glyph names (for debugging)
+/// 
+/// This function helps understand the naming conventions used in a font
+/// by trying to find glyphs in common Unicode ranges.
+#[allow(dead_code)]
+pub fn dump_all_glyph_names(ufo: &Ufo) -> Vec<String> {
+    let Some(default_layer) = ufo.get_default_layer() else {
+        return Vec::new();
+    };
+
+    let mut glyph_names = Vec::new();
+
+    // Scan basic Latin ranges (most commonly present)
+    scan_latin_glyphs(default_layer, &mut glyph_names);
+    
+    // Scan Arabic range with uni naming pattern
+    scan_arabic_glyphs(default_layer, &mut glyph_names);
+
+    // Sort and analyze the results
+    glyph_names.sort();
+    log_glyph_analysis(&glyph_names);
 
     glyph_names
+}
+
+/// Scan for Latin alphabet glyphs (A-Z, a-z)
+fn scan_latin_glyphs(default_layer: &norad::Layer, glyph_names: &mut Vec<String>) {
+    // Uppercase A-Z
+    for cp in 0x0041..=0x005A {
+        check_and_add_glyph(default_layer, cp, glyph_names);
+    }
+
+    // Lowercase a-z  
+    for cp in 0x0061..=0x007A {
+        check_and_add_glyph(default_layer, cp, glyph_names);
+    }
+}
+
+/// Scan for Arabic glyphs using uni naming pattern
+fn scan_arabic_glyphs(default_layer: &norad::Layer, glyph_names: &mut Vec<String>) {
+    for cp in 0x0600..=0x0650 {
+        let uni_name = format!("uni{:04X}", cp);
+        let glyph_name = norad::GlyphName::from(uni_name);
+        
+        if default_layer.get_glyph(&glyph_name).is_some() {
+            glyph_names.push(glyph_name.to_string());
+        }
+    }
+}
+
+/// Check if a glyph exists for a codepoint and add it to the list
+fn check_and_add_glyph(
+    default_layer: &norad::Layer, 
+    codepoint: u32, 
+    glyph_names: &mut Vec<String>
+) {
+    if let Some(character) = char::from_u32(codepoint) {
+        let char_name = character.to_string();
+        let glyph_name = norad::GlyphName::from(char_name);
+        
+        if default_layer.get_glyph(&glyph_name).is_some() {
+            glyph_names.push(glyph_name.to_string());
+        }
+    }
+}
+
+/// Log analysis of found glyph names
+fn log_glyph_analysis(glyph_names: &[String]) {
+    info!("Found {} glyph names in font", glyph_names.len());
+
+    // Look for Arabic-related names
+    let arabic_names: Vec<_> = glyph_names
+        .iter()
+        .filter(|name| {
+            name.contains("arab") 
+                || name.contains("alef") 
+                || name.contains("beh")
+                || name.starts_with("uni06")
+        })
+        .collect();
+
+    if arabic_names.is_empty() {
+        info!("No Arabic-related glyph names found in font");
+    } else {
+        info!("Found {} Arabic-related glyph names:", arabic_names.len());
+        for name in arabic_names {
+            info!("  - {}", name);
+        }
+    }
 }
