@@ -183,25 +183,28 @@ fn handle_cycle_codepoint(
     for event in event_reader.read() {
         debug!("Received codepoint cycling event: {:?}", event.direction);
 
-        // Get available codepoints using the io::ufo module functions
+        // Get available codepoints once (no more redundant scanning!)
         let available_codepoints =
             crate::data::ufo::get_all_codepoints(&app_state.workspace.font.ufo);
-        let current_codepoint = glyph_navigation.get_codepoint_string();
-
+        
         if available_codepoints.is_empty() {
             debug!("No codepoints found in font");
             return;
         }
 
-        // Calculate next codepoint based on direction
+        let current_codepoint = glyph_navigation.get_codepoint_string();
+
+        // Calculate next codepoint using pre-computed list
         let next_codepoint = match event.direction {
-            CodepointDirection::Next => crate::data::ufo::find_next_codepoint(
-                &app_state.workspace.font.ufo,
-                &current_codepoint,
-            ),
+            CodepointDirection::Next => {
+                crate::data::ufo::find_next_codepoint_in_list(
+                    &available_codepoints,
+                    &current_codepoint,
+                )
+            }
             CodepointDirection::Previous => {
-                crate::data::ufo::find_previous_codepoint(
-                    &app_state.workspace.font.ufo,
+                crate::data::ufo::find_previous_codepoint_in_list(
+                    &available_codepoints,
                     &current_codepoint,
                 )
             }

@@ -2,8 +2,7 @@ use bevy::gizmos::{config::DefaultGizmoConfigGroup, config::GizmoConfigStore};
 use bevy::prelude::*;
 
 use crate::rendering::cameras::toggle_camera_controls;
-// Use the bezy namespace for the coord_pane module
-use crate::data::ufo::{initialize_font_state, print_font_info_to_terminal};
+use crate::data::ufo::initialize_font_state;
 use crate::ui::panes::coord_pane::CoordinatePanePlugin;
 use crate::ui::panes::glyph_pane::GlyphPanePlugin;
 use crate::ui::theme::{
@@ -38,22 +37,6 @@ fn configure_gizmos(mut gizmo_store: ResMut<GizmoConfigStore>) {
     let (config, _) = gizmo_store.config_mut::<DefaultGizmoConfigGroup>();
     config.line_width = GIZMO_LINE_WIDTH;
     info!("Configured gizmo line width to {}px", GIZMO_LINE_WIDTH);
-}
-
-/// Plugin to organize debug-related systems
-pub struct DebugPlugin;
-
-impl Plugin for DebugPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<crate::data::ufo::LastCodepointPrinted>()
-            .add_systems(
-                Update,
-                (
-                    // Print UFO and codepoint info to terminal
-                    print_font_info_to_terminal,
-                ),
-            );
-    }
 }
 
 /// Plugin to organize camera-related systems
@@ -94,7 +77,6 @@ impl Plugin for BezySystems {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             SetupPlugin,
-            DebugPlugin,
             CameraPlugin,
             ToolbarPlugin,
             CoordinatePanePlugin,

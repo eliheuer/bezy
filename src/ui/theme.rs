@@ -40,8 +40,8 @@ pub const TOOLBAR_ITEM_SPACING: f32 = 4.0;
 
 // Window Configuration
 pub const WINDOW_TITLE: &str = "Bezy";
-pub const WINDOW_WIDTH: f32 = 1280.0;
-pub const WINDOW_HEIGHT: f32 = 896.0;
+pub const WINDOW_WIDTH: f32 = 1024.0;
+pub const WINDOW_HEIGHT: f32 = 768.0;
 
 // Button Colors
 pub const NORMAL_BUTTON: Color = Color::srgb(0.1, 0.1, 0.1);

@@ -16,8 +16,3 @@ pub const CMD_NUDGE_AMOUNT: f32 = 32.0;
 pub const KEYBOARD_ZOOM_STEP: f32 = 0.8;
 pub const MIN_ALLOWED_ZOOM_SCALE: f32 = 0.01;
 pub const MAX_ALLOWED_ZOOM_SCALE: f32 = 10.0;
-
-// Font Defaults
-pub const DEFAULT_FAMILY_NAME: &str = "Untitled";
-pub const DEFAULT_STYLE_NAME: &str = "Regular";
-pub const DEFAULT_UNITS_PER_EM: f64 = 1024.0;
