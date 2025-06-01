@@ -1,11 +1,11 @@
 //! Handling glyph components
 //!
-//! Glyph components are references to other glyphs that can be transformed 
-//! (moved, scaled, rotated) and placed within a glyph. This is useful for 
+//! Glyph components are references to other glyphs that can be transformed
+//! (moved, scaled, rotated) and placed within a glyph. This is useful for
 //! creating composite characters like accented letters.
-//! 
+//!
 //! # Example
-//! If you have a letter "e" and want to create "é", you can use the "e" 
+//! If you have a letter "e" and want to create "é", you can use the "e"
 //! glyph as a base and add an acute accent component positioned above it.
 
 use bevy::math::Vec2 as BevyVec2;
@@ -15,10 +15,10 @@ use norad::Component as NoradComponent;
 use std::sync::Arc;
 
 /// A simple 2D transformation that's easy to understand
-/// 
+///
 /// This groups all the transformation values together so we don't need
 /// to pass around 6 separate parameters.
-/// 
+///
 /// Scale values: 1.0 = normal size, <1.0 = smaller, >1.0 = larger
 /// Skew values: 0.0 = no slanting, positive = slant right/up
 #[derive(Debug, Clone, Copy)]
@@ -64,13 +64,13 @@ impl Transform2D {
         // Each column represents how that axis gets transformed
         let matrix = Mat4::from_cols(
             // X-axis: scale and skew
-            Vec4::new(self.scale_x, self.skew_y, 0.0, 0.0),    
+            Vec4::new(self.scale_x, self.skew_y, 0.0, 0.0),
             // Y-axis: skew and scale
-            Vec4::new(self.skew_x, self.scale_y, 0.0, 0.0),    
+            Vec4::new(self.skew_x, self.scale_y, 0.0, 0.0),
             // Z-axis: not used in 2D
-            Vec4::new(0.0, 0.0, 1.0, 0.0),                     
+            Vec4::new(0.0, 0.0, 1.0, 0.0),
             // Translation
-            Vec4::new(self.translate_x, self.translate_y, 0.0, 1.0), 
+            Vec4::new(self.translate_x, self.translate_y, 0.0, 1.0),
         );
 
         Transform::from_matrix(matrix)
@@ -79,7 +79,7 @@ impl Transform2D {
     /// Extracts transformation values from a Bevy Transform
     fn from_bevy_transform(transform: &Transform) -> Self {
         let matrix = transform.compute_matrix();
-        
+
         Self {
             scale_x: matrix.x_axis.x,
             scale_y: matrix.y_axis.y,
@@ -104,12 +104,12 @@ pub struct GlyphComponent {
 #[allow(dead_code)]
 impl GlyphComponent {
     /// Creates a GlyphComponent from UFO font data
-    /// 
-    /// UFO files store transformations as "affine transforms" which 
+    ///
+    /// UFO files store transformations as "affine transforms" which
     /// describe how to move, scale, rotate, and skew the referenced glyph.
     pub fn from_norad(component: &NoradComponent) -> Self {
         let transform_2d = Transform2D::from_affine(&component.transform);
-        
+
         Self {
             base: component.base.clone(),
             transform: transform_2d.to_bevy_transform(),
@@ -119,7 +119,7 @@ impl GlyphComponent {
     /// Converts this component back to UFO font data format
     pub fn to_norad(&self) -> NoradComponent {
         let transform_2d = Transform2D::from_bevy_transform(&self.transform);
-        
+
         NoradComponent::new(
             self.base.clone(),
             transform_2d.to_affine(),
@@ -129,8 +129,8 @@ impl GlyphComponent {
     }
 
     /// Moves the component by the given amount
-    /// 
-    /// This is a simple translation - the component keeps its size and 
+    ///
+    /// This is a simple translation - the component keeps its size and
     /// rotation but moves to a new position.
     pub fn nudge(&mut self, delta: BevyVec2) {
         self.transform.translation += Vec3::new(delta.x, delta.y, 0.0);

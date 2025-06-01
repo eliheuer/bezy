@@ -10,7 +10,7 @@ use norad::glyph::{ContourPoint, PointType};
 /// A point in a glyph's outline that can be edited
 #[derive(Component, Debug, Clone, PartialEq)]
 pub struct EditPoint {
-    pub position: Point,       // Position in glyph coordinate space
+    pub position: Point, // Position in glyph coordinate space
     pub point_type: PointType, // Point type (move, line, curve, etc.)
 }
 
@@ -36,8 +36,7 @@ impl From<&ContourPoint> for EditPoint {
 }
 
 /// Unique identifier for entities in a glyph (points, guides, components)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Reflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
 pub struct EntityId {
     parent: u32,      // The parent path or component ID
     index: u16,       // The index within the parent
@@ -45,8 +44,7 @@ pub struct EntityId {
 }
 
 /// The different types of entities that can exist in a glyph
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Reflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
 pub enum EntityKind {
     Point,     // A point in a contour path
     Guide,     // A guide line for alignment

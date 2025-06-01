@@ -184,7 +184,8 @@ fn handle_cycle_codepoint(
         debug!("Received codepoint cycling event: {:?}", event.direction);
 
         // Get available codepoints using the io::ufo module functions
-        let available_codepoints = crate::data::ufo::get_all_codepoints(&app_state.workspace.font.ufo);
+        let available_codepoints =
+            crate::data::ufo::get_all_codepoints(&app_state.workspace.font.ufo);
         let current_codepoint = glyph_navigation.get_codepoint_string();
 
         if available_codepoints.is_empty() {
@@ -194,18 +195,25 @@ fn handle_cycle_codepoint(
 
         // Calculate next codepoint based on direction
         let next_codepoint = match event.direction {
-            CodepointDirection::Next => {
-                crate::data::ufo::find_next_codepoint(&app_state.workspace.font.ufo, &current_codepoint)
-            }
+            CodepointDirection::Next => crate::data::ufo::find_next_codepoint(
+                &app_state.workspace.font.ufo,
+                &current_codepoint,
+            ),
             CodepointDirection::Previous => {
-                crate::data::ufo::find_previous_codepoint(&app_state.workspace.font.ufo, &current_codepoint)
+                crate::data::ufo::find_previous_codepoint(
+                    &app_state.workspace.font.ufo,
+                    &current_codepoint,
+                )
             }
         };
 
         // Set the new codepoint if found
         if let Some(new_codepoint) = next_codepoint {
             glyph_navigation.set_codepoint(new_codepoint);
-            debug!("Switched to codepoint: {}", glyph_navigation.get_codepoint_string());
+            debug!(
+                "Switched to codepoint: {}",
+                glyph_navigation.get_codepoint_string()
+            );
         } else {
             debug!("No next/previous codepoint found");
         }

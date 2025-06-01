@@ -4,12 +4,12 @@
 //! is currently working on - which font is loaded, which glyph is selected,
 //! and the overall editing session state.
 
-use std::path::PathBuf;
-use bevy::prelude::*;
-use norad::{Ufo, GlyphName};
-use crate::editing::selection::components::GlyphPointReference;
 use crate::data::ufo::find_glyph_by_unicode;
+use crate::editing::selection::components::GlyphPointReference;
+use bevy::prelude::*;
 use norad::glyph::ContourPoint;
+use norad::{GlyphName, Ufo};
+use std::path::PathBuf;
 
 /// Tracks which glyph the user is currently viewing
 ///
@@ -31,13 +31,13 @@ impl GlyphNavigation {
             codepoint_found: false,
         }
     }
- 
+
     /// Change to a different codepoint
     pub fn set_codepoint(&mut self, new_codepoint: String) {
         self.current_codepoint = Some(new_codepoint);
         self.codepoint_found = false; // We'll need to check if this exists
     }
-    
+
     /// Get the current codepoint as a string for display
     pub fn get_codepoint_string(&self) -> String {
         self.current_codepoint.clone().unwrap_or_default()
@@ -73,15 +73,23 @@ impl AppState {
     }
 
     /// Get a mutable reference to a point in the font data
-    pub fn get_point_mut(&mut self, point_ref: &GlyphPointReference) -> Option<&mut ContourPoint> {
+    pub fn get_point_mut(
+        &mut self,
+        point_ref: &GlyphPointReference,
+    ) -> Option<&mut ContourPoint> {
         let glyph_name = GlyphName::from(&*point_ref.glyph_name);
 
-        self.workspace.font.ufo
+        self.workspace
+            .font
+            .ufo
             .get_default_layer_mut()?
             .get_glyph_mut(&glyph_name)?
-            .outline.as_mut()?
-            .contours.get_mut(point_ref.contour_index)?
-            .points.get_mut(point_ref.point_index)
+            .outline
+            .as_mut()?
+            .contours
+            .get_mut(point_ref.contour_index)?
+            .points
+            .get_mut(point_ref.point_index)
     }
 }
 
@@ -123,7 +131,7 @@ impl Workspace {
             .filter(|s| !s.is_empty())
             .map(|s| s.as_str())
             .collect();
-            
+
         if parts.is_empty() {
             "Untitled Font".to_string()
         } else {
@@ -133,24 +141,30 @@ impl Workspace {
 
     /// Save the font to its file path
     pub fn save(&mut self) -> Result<(), String> {
-        let path = self.font.path.clone()
+        let path = self
+            .font
+            .path
+            .clone()
             .ok_or("No file path set - use Save As first")?;
-        
+
         // Update the UFO with current info before saving
         self.update_ufo_info();
-        
+
         // Save the UFO
-        self.font.ufo.save(&path)
+        self.font
+            .ufo
+            .save(&path)
             .map_err(|e| format!("Failed to save: {}", e))?;
-        
+
         info!("Saved font to {:?}", path);
         Ok(())
     }
 
     /// Update the UFO's info from our FontInfo
     fn update_ufo_info(&mut self) {
-        let font_info = self.font.ufo.font_info.get_or_insert_with(Default::default);
-        
+        let font_info =
+            self.font.ufo.font_info.get_or_insert_with(Default::default);
+
         if !self.info.family_name.is_empty() {
             font_info.family_name = Some(self.info.family_name.clone());
         }
@@ -182,11 +196,8 @@ impl Default for FontObject {
         font_info.family_name = Some("Untitled".to_string());
         font_info.style_name = Some("Regular".to_string());
         ufo.font_info = Some(font_info);
-        
-        Self {
-            ufo,
-            path: None,
-        }
+
+        Self { ufo, path: None }
     }
 }
 
@@ -206,10 +217,18 @@ impl FontInfo {
     /// Extract font info from a UFO
     pub fn from_ufo(ufo: &Ufo) -> Self {
         let font_info = ufo.font_info.as_ref();
-        
+
         Self {
-            family_name: Self::extract_string_field(font_info, |info| &info.family_name, "Untitled"),
-            style_name: Self::extract_string_field(font_info, |info| &info.style_name, "Regular"),
+            family_name: Self::extract_string_field(
+                font_info,
+                |info| &info.family_name,
+                "Untitled",
+            ),
+            style_name: Self::extract_string_field(
+                font_info,
+                |info| &info.style_name,
+                "Regular",
+            ),
             units_per_em: font_info
                 .and_then(|info| info.units_per_em.map(|v| v.get() as f64))
                 .unwrap_or(1024.0),
@@ -240,7 +259,7 @@ impl FontInfo {
             .filter(|s| !s.is_empty())
             .map(|s| s.as_str())
             .collect();
-            
+
         if parts.is_empty() {
             "Untitled Font".to_string()
         } else {
@@ -265,12 +284,13 @@ impl FontMetrics {
     /// Extract metrics from a UFO
     pub fn from_ufo(ufo: &Ufo) -> Self {
         let font_info = ufo.font_info.as_ref();
-        
+
         // Helper closure to extract optional f64 values for regular metrics
-        let extract_metric = |getter: fn(&norad::FontInfo) -> Option<norad::IntegerOrFloat>| {
-            font_info.and_then(|info| getter(info).map(|v| v.get() as f64))
-        };
-        
+        let extract_metric =
+            |getter: fn(&norad::FontInfo) -> Option<norad::IntegerOrFloat>| {
+                font_info.and_then(|info| getter(info).map(|v| v.get() as f64))
+            };
+
         Self {
             units_per_em: font_info
                 .and_then(|info| info.units_per_em.map(|v| v.get() as f64))

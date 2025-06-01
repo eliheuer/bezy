@@ -446,7 +446,8 @@ fn add_contour_to_glyph(
     >,
     is_closed: bool,
 ) {
-    let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
+    let Some(glyph_name) =
+        glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
     else {
         return;
     };

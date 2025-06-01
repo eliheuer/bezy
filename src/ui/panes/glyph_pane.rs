@@ -3,9 +3,9 @@
 //! Shows glyph name, Unicode codepoint, advance width, side bearings,
 //! and side bearings in the lower left corner of the window.
 
-use bevy::prelude::*;
-use crate::ui::theme::*;
 use crate::core::state::{AppState, GlyphNavigation};
+use crate::ui::theme::*;
+use bevy::prelude::*;
 
 /// Resource to store current glyph metrics for display
 #[derive(Resource, Default)]
@@ -468,7 +468,8 @@ pub fn update_glyph_metrics(
     }
 
     // Get information about the current glyph
-    if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
+    if let Some(glyph_name) =
+        glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
     {
         // Found a glyph, get its details
         let glyph_name_str = glyph_name.to_string();

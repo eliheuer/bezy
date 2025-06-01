@@ -656,7 +656,9 @@ fn process_selected_entities(
                 );
                 positions.push(pos);
             } else {
-                debug!("CoordPane: Selected entity {entity:?} has no transform");
+                debug!(
+                    "CoordPane: Selected entity {entity:?} has no transform"
+                );
             }
         }
     }

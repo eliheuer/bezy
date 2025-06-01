@@ -1,12 +1,14 @@
+use bevy::gizmos::{config::DefaultGizmoConfigGroup, config::GizmoConfigStore};
 use bevy::prelude::*;
-use bevy::gizmos::{config::GizmoConfigStore, config::DefaultGizmoConfigGroup};
 
 use crate::rendering::cameras::toggle_camera_controls;
 // Use the bezy namespace for the coord_pane module
 use crate::data::ufo::{initialize_font_state, print_font_info_to_terminal};
 use crate::ui::panes::coord_pane::CoordinatePanePlugin;
 use crate::ui::panes::glyph_pane::GlyphPanePlugin;
-use crate::ui::theme::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH, GIZMO_LINE_WIDTH};
+use crate::ui::theme::{
+    GIZMO_LINE_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH,
+};
 use crate::ui::toolbars::access_toolbar::AccessToolbarPlugin;
 use crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode;
 use crate::utils::setup::setup;
@@ -78,7 +80,10 @@ pub struct SetupPlugin;
 
 impl Plugin for SetupPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (initialize_font_state, setup, configure_gizmos));
+        app.add_systems(
+            Startup,
+            (initialize_font_state, setup, configure_gizmos),
+        );
     }
 }
 

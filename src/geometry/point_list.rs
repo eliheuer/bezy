@@ -31,11 +31,8 @@ impl PointList {
     /// Creates a point list from UFO contour data
     #[allow(dead_code)]
     pub fn from_contour(contour: &Contour) -> Self {
-        let points: Vec<EditPoint> = contour
-            .points
-            .iter()
-            .map(EditPoint::from)
-            .collect();
+        let points: Vec<EditPoint> =
+            contour.points.iter().map(EditPoint::from).collect();
 
         Self {
             points,

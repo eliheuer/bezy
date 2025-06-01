@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use clap::Parser;
 use std::path::PathBuf;
 
-/// command line arguments for font loading and unicode default setting 
+/// command line arguments for font loading and unicode default setting
 #[derive(Parser, Debug, Resource)]
 #[command(author, version, about, long_about = None)]
 pub struct CliArgs {
@@ -15,7 +15,7 @@ pub struct CliArgs {
     )]
     pub ufo_path: Option<PathBuf>,
 
-    /// what unicode codepoint to start the editor viewing 
+    /// what unicode codepoint to start the editor viewing
     #[arg(long = "load-unicode", default_value = "0061")]
     pub load_unicode: String,
 

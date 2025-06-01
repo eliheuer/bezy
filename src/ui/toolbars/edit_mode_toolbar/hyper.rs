@@ -814,7 +814,8 @@ fn commit_contour_to_glyph(
     >,
 ) {
     // Add contour to the current glyph
-    if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
+    if let Some(glyph_name) =
+        glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
     {
         let glyph_name = glyph_name.clone();
 

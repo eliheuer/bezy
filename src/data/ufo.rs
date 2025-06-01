@@ -17,18 +17,19 @@ pub struct LastCodepointPrinted {
 }
 
 /// Find a glyph by Unicode codepoint using norad's built-in codepoints field
-/// 
+///
 /// This is much simpler than the previous approach - norad already handles
 /// the Unicode mapping for us through the <unicode hex="..."/> elements in the UFO.
 pub fn find_glyph_by_unicode(ufo: &Ufo, codepoint_hex: &str) -> Option<String> {
     // Parse the hex codepoint string to a char
-    let codepoint = u32::from_str_radix(codepoint_hex.trim_start_matches("0x"), 16)
-        .ok()
-        .and_then(char::from_u32)?;
+    let codepoint =
+        u32::from_str_radix(codepoint_hex.trim_start_matches("0x"), 16)
+            .ok()
+            .and_then(char::from_u32)?;
 
     // Get the default layer and search through all glyphs
     let default_layer = ufo.get_default_layer()?;
-    
+
     // Try common glyph names first as a fallback
     let common_glyphs = ["H", "h", "A", "a", "n", "space", ".notdef"];
     for glyph_name_str in common_glyphs.iter() {
@@ -42,14 +43,14 @@ pub fn find_glyph_by_unicode(ufo: &Ufo, codepoint_hex: &str) -> Option<String> {
             }
         }
     }
-    
+
     // Try the standard naming patterns
     let test_names = [
         codepoint.to_string(),
         format!("uni{:04X}", codepoint as u32),
         format!("u{:04X}", codepoint as u32),
     ];
-    
+
     for name_str in test_names.iter() {
         let glyph_name = norad::GlyphName::from(name_str.clone());
         if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
@@ -61,17 +62,17 @@ pub fn find_glyph_by_unicode(ufo: &Ufo, codepoint_hex: &str) -> Option<String> {
             }
         }
     }
-    
+
     None
 }
 
 /// Get all Unicode codepoints available in the font
-/// 
+///
 /// This replaces the complex scanning logic with a simple approach using norad's codepoints.
 /// Note: This is a simplified version due to norad 0.3.1 API limitations.
 pub fn get_all_codepoints(ufo: &Ufo) -> Vec<String> {
     let mut codepoints = Vec::new();
-    
+
     if let Some(default_layer) = ufo.get_default_layer() {
         // Try common glyphs to see what's available
         // This is limited by norad 0.3.1's API - we can't iterate all glyphs
@@ -83,7 +84,7 @@ pub fn get_all_codepoints(ufo: &Ufo) -> Vec<String> {
             (0x0400, 0x04FF), // Cyrillic
             (0x0600, 0x06FF), // Arabic
         ];
-        
+
         for (start, end) in ranges.iter() {
             for code in *start..=*end {
                 if let Some(target_char) = char::from_u32(code) {
@@ -93,11 +94,15 @@ pub fn get_all_codepoints(ufo: &Ufo) -> Vec<String> {
                         format!("uni{:04X}", code),
                         format!("u{:04X}", code),
                     ];
-                    
+
                     for name_str in test_names.iter() {
-                        let glyph_name = norad::GlyphName::from(name_str.clone());
-                        if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
-                            if let Some(ref glyph_codepoints) = glyph.codepoints {
+                        let glyph_name =
+                            norad::GlyphName::from(name_str.clone());
+                        if let Some(glyph) =
+                            default_layer.get_glyph(&glyph_name)
+                        {
+                            if let Some(ref glyph_codepoints) = glyph.codepoints
+                            {
                                 if glyph_codepoints.contains(&target_char) {
                                     let cp_hex = format!("{:04X}", code);
                                     if !codepoints.contains(&cp_hex) {
@@ -112,7 +117,7 @@ pub fn get_all_codepoints(ufo: &Ufo) -> Vec<String> {
             }
         }
     }
-    
+
     // Sort and deduplicate
     codepoints.sort_by(|a, b| {
         let a_val = u32::from_str_radix(a, 16).unwrap_or(0);
@@ -120,7 +125,7 @@ pub fn get_all_codepoints(ufo: &Ufo) -> Vec<String> {
         a_val.cmp(&b_val)
     });
     codepoints.dedup();
-    
+
     debug!("Found {} codepoints in font", codepoints.len());
     codepoints
 }
@@ -128,42 +133,44 @@ pub fn get_all_codepoints(ufo: &Ufo) -> Vec<String> {
 /// Find the next codepoint in the font (in ascending order)
 pub fn find_next_codepoint(ufo: &Ufo, current_hex: &str) -> Option<String> {
     let codepoints = get_all_codepoints(ufo);
-    
+
     if codepoints.is_empty() {
         return None;
     }
-    
+
     if current_hex.is_empty() {
         return Some(codepoints[0].clone());
     }
-    
+
     let current_idx = codepoints.iter().position(|cp| cp == current_hex);
-    
+
     match current_idx {
-        Some(idx) if idx < codepoints.len() - 1 => Some(codepoints[idx + 1].clone()),
+        Some(idx) if idx < codepoints.len() - 1 => {
+            Some(codepoints[idx + 1].clone())
+        }
         Some(_) => Some(codepoints[0].clone()), // wrap around
-        None => Some(codepoints[0].clone()),    // not found, start from beginning
+        None => Some(codepoints[0].clone()), // not found, start from beginning
     }
 }
 
 /// Find the previous codepoint in the font (in descending order)
 pub fn find_previous_codepoint(ufo: &Ufo, current_hex: &str) -> Option<String> {
     let codepoints = get_all_codepoints(ufo);
-    
+
     if codepoints.is_empty() {
         return None;
     }
-    
+
     if current_hex.is_empty() {
         return Some(codepoints[codepoints.len() - 1].clone());
     }
-    
+
     let current_idx = codepoints.iter().position(|cp| cp == current_hex);
-    
+
     match current_idx {
         Some(0) => Some(codepoints[codepoints.len() - 1].clone()), // wrap around to end
         Some(idx) => Some(codepoints[idx - 1].clone()),
-        None => Some(codepoints[codepoints.len() - 1].clone()),    // not found, start from end
+        None => Some(codepoints[codepoints.len() - 1].clone()), // not found, start from end
     }
 }
 
@@ -222,12 +229,21 @@ pub fn print_font_info_to_terminal(
                 if let Ok(code_val) = u32::from_str_radix(codepoint, 16) {
                     if let Some(character) = char::from_u32(code_val) {
                         if character.is_control() {
-                            info!("Current codepoint: U+{} (control character)", codepoint);
+                            info!(
+                                "Current codepoint: U+{} (control character)",
+                                codepoint
+                            );
                         } else {
-                            info!("Current codepoint: U+{} ('{}')", codepoint, character);
+                            info!(
+                                "Current codepoint: U+{} ('{}')",
+                                codepoint, character
+                            );
                         }
                     } else {
-                        info!("Current codepoint: U+{} (invalid Unicode)", codepoint);
+                        info!(
+                            "Current codepoint: U+{} (invalid Unicode)",
+                            codepoint
+                        );
                     }
                 } else {
                     info!("Current codepoint: {} (invalid hex)", codepoint);

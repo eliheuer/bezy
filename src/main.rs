@@ -4,13 +4,13 @@
 //! — Donald Knuth
 
 mod core;
-mod editing;
-mod rendering;
-mod ui;
-mod geometry;
-mod systems;
-mod utils;
 mod data;
+mod editing;
+mod geometry;
+mod rendering;
+mod systems;
+mod ui;
+mod utils;
 use clap::Parser;
 
 fn main() {

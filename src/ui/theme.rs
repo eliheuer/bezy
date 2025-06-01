@@ -22,7 +22,7 @@ pub const WIDGET_ROW_GAP: f32 = 0.0;
 // Gizmo Configuration
 // Change this value to customize the thickness of all visual drawing helpers:
 // - 1.0 = thin, subtle lines (original Bevy default)
-// - 2.0 = medium thickness 
+// - 2.0 = medium thickness
 // - 3.0 = thick, bold lines (current default for better visibility)
 // - 4.0+ = very thick lines
 pub const GIZMO_LINE_WIDTH: f32 = 4.0;

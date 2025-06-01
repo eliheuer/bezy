@@ -13,14 +13,12 @@ use crate::core::cli::CliArgs;
 use crate::core::state::{AppState, GlyphNavigation};
 
 // UI and theming - visual appearance and user interface
-use crate::ui::theme::BACKGROUND_COLOR;
 use crate::ui::panes::DesignSpacePlugin;
-use crate::ui::TextEditorPlugin;
+use crate::ui::theme::BACKGROUND_COLOR;
 use crate::ui::toolbars::edit_mode_toolbar::{
-    select::SelectModePlugin, 
-    CurrentEditMode, 
-    EditModeToolbarPlugin,
+    select::SelectModePlugin, CurrentEditMode, EditModeToolbarPlugin,
 };
+use crate::ui::TextEditorPlugin;
 
 // Editing functionality - tools for modifying fonts
 use crate::editing::{EditSessionPlugin, SelectionPlugin, UndoPlugin};
@@ -44,7 +42,8 @@ pub fn create_app(cli_args: CliArgs) -> App {
 /// Sets up application resources and configuration
 fn configure_app_settings(app: &mut App, cli_args: CliArgs) {
     // Create GlyphNavigation with the codepoint from CLI args
-    let glyph_navigation = GlyphNavigation::new(Some(cli_args.load_unicode.clone()));
+    let glyph_navigation =
+        GlyphNavigation::new(Some(cli_args.load_unicode.clone()));
     app.init_resource::<AppState>()
         .insert_resource(cli_args)
         .insert_resource(glyph_navigation)
@@ -64,30 +63,30 @@ fn add_all_plugins(app: &mut App) {
 /// Adds plugins for rendering and visual display
 fn add_rendering_plugins(app: &mut App) {
     app.add_plugins((
-        PanCamPlugin,        // Camera controls
-        CheckerboardPlugin,  // Background grid
-        DrawPlugin,          // Glyph rendering
+        PanCamPlugin,       // Camera controls
+        CheckerboardPlugin, // Background grid
+        DrawPlugin,         // Glyph rendering
     ));
 }
 
 /// Adds plugins for editor UI and interaction
 fn add_editor_plugins(app: &mut App) {
     app.add_plugins((
-        DesignSpacePlugin,      // Main design area
-        EditModeToolbarPlugin,  // Mode switching toolbar
-        SelectModePlugin,       // Selection tool
-        EditSessionPlugin,      // Edit session management
-        SelectionPlugin,        // Selection handling
-        TextEditorPlugin,       // Text input
-        UiInteractionPlugin,    // UI event handling
+        DesignSpacePlugin,     // Main design area
+        EditModeToolbarPlugin, // Mode switching toolbar
+        SelectModePlugin,      // Selection tool
+        EditSessionPlugin,     // Edit session management
+        SelectionPlugin,       // Selection handling
+        TextEditorPlugin,      // Text input
+        UiInteractionPlugin,   // UI event handling
     ));
 }
 
 /// Adds core application logic plugins
 fn add_core_plugins(app: &mut App) {
     app.add_plugins((
-        BezySystems,     // Main app systems
-        CommandsPlugin,  // Command handling
-        UndoPlugin,      // Undo/redo system
+        BezySystems,    // Main app systems
+        CommandsPlugin, // Command handling
+        UndoPlugin,     // Undo/redo system
     ));
 }

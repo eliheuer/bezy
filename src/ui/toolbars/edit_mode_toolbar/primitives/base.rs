@@ -196,8 +196,8 @@ pub fn handle_primitive_mouse_events(
                 // Create and add contour based on the tool type
                 if let Some(rect) = active_drawing.get_rect() {
                     // Get the glyph name first
-                    if let Some(glyph_name) =
-                        glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
+                    if let Some(glyph_name) = glyph_navigation
+                        .find_glyph(&app_state.workspace.font.ufo)
                     {
                         let glyph_name = glyph_name.clone(); // Clone the glyph name
 

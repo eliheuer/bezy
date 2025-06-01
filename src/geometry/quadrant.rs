@@ -102,7 +102,7 @@ impl Quadrant {
         // Divide the rectangle into 3x3 zones
         let zone_x = size.x / 3.0;
         let zone_y = size.y / 3.0;
-        
+
         // Determine which column (0, 1, or 2)
         let mouse_x = match pt.x {
             x if x < zone_x => 0,
@@ -175,7 +175,7 @@ impl Quadrant {
 
         let start_point = self.point_in_design_space_rect(rect);
         let anchor_point = self.inverse().point_in_design_space_rect(rect);
-        
+
         let original_delta = anchor_point - start_point;
         let new_delta = anchor_point - (start_point + drag);
 
@@ -194,7 +194,7 @@ impl Quadrant {
         match self {
             // Vertical edges: only Y movement
             Quadrant::Top | Quadrant::Bottom => Vec2::new(0.0, delta.y),
-            // Horizontal edges: only X movement  
+            // Horizontal edges: only X movement
             Quadrant::Left | Quadrant::Right => Vec2::new(delta.x, 0.0),
             // Corners: allow both X and Y movement
             _ => delta,
@@ -225,10 +225,8 @@ mod tests {
 
     #[test]
     fn quadrant_positioning() {
-        let rect = Rect::from_corners(
-            Vec2::new(10.0, 10.0), 
-            Vec2::new(100.0, 100.0)
-        );
+        let rect =
+            Rect::from_corners(Vec2::new(10.0, 10.0), Vec2::new(100.0, 100.0));
 
         assert_eq!(
             Quadrant::BottomLeft.point_in_design_space_rect(rect),
