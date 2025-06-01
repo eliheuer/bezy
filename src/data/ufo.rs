@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use norad::Ufo;
 use std::path::PathBuf;
 
-use crate::core::data::AppState;
+use crate::core::state::AppState;
 
 /// System resource to track the last printed codepoint for change detection
 #[derive(Resource, Default)]
@@ -202,7 +202,7 @@ pub fn get_basic_font_info_from_state(app_state: &AppState) -> String {
 /// System to print font info and current codepoint to terminal when it changes
 pub fn print_font_info_to_terminal(
     app_state: Res<AppState>,
-    glyph_navigation: Res<crate::core::data::GlyphNavigation>,
+    glyph_navigation: Res<crate::core::state::GlyphNavigation>,
     mut last_printed: ResMut<LastCodepointPrinted>,
 ) {
     let font_info = get_basic_font_info_from_state(&app_state);

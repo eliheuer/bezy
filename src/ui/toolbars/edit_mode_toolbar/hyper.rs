@@ -139,8 +139,8 @@ pub fn handle_hyper_mouse_events(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut hyper_state: ResMut<HyperToolState>,
     hyper_mode: Option<Res<HyperModeActive>>,
-    glyph_navigation: Res<crate::core::data::GlyphNavigation>,
-    mut app_state: ResMut<crate::core::data::AppState>,
+    glyph_navigation: Res<crate::core::state::GlyphNavigation>,
+    mut app_state: ResMut<crate::core::state::AppState>,
     mut app_state_changed: EventWriter<crate::rendering::draw::AppStateChanged>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
 ) {
@@ -807,8 +807,8 @@ fn create_contour_from_points(
 /// Helper function to commit a contour to the current glyph
 fn commit_contour_to_glyph(
     contour: Contour,
-    glyph_navigation: &crate::core::data::GlyphNavigation,
-    app_state: &mut crate::core::data::AppState,
+    glyph_navigation: &crate::core::state::GlyphNavigation,
+    app_state: &mut crate::core::state::AppState,
     app_state_changed: &mut EventWriter<
         crate::rendering::draw::AppStateChanged,
     >,

@@ -3,7 +3,7 @@ use bevy::gizmos::{config::GizmoConfigStore, config::DefaultGizmoConfigGroup};
 
 use crate::rendering::cameras::toggle_camera_controls;
 // Use the bezy namespace for the coord_pane module
-use crate::io::ufo::{initialize_font_state, print_font_info_to_terminal};
+use crate::data::ufo::{initialize_font_state, print_font_info_to_terminal};
 use crate::ui::panes::coord_pane::CoordinatePanePlugin;
 use crate::ui::panes::glyph_pane::GlyphPanePlugin;
 use crate::ui::theme::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH, GIZMO_LINE_WIDTH};
@@ -43,7 +43,7 @@ pub struct DebugPlugin;
 
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<crate::io::ufo::LastCodepointPrinted>()
+        app.init_resource::<crate::data::ufo::LastCodepointPrinted>()
             .add_systems(
                 Update,
                 (

@@ -133,7 +133,7 @@ pub fn handle_knife_mouse_events(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut knife_state: ResMut<KnifeToolState>,
     knife_mode: Option<Res<KnifeModeActive>>,
-    mut app_state: ResMut<crate::core::data::AppState>,
+    mut app_state: ResMut<crate::core::state::AppState>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
     mut app_state_changed: EventWriter<crate::rendering::draw::AppStateChanged>,
 ) {
@@ -334,7 +334,7 @@ pub fn handle_knife_keyboard_events(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut knife_state: ResMut<KnifeToolState>,
     knife_mode: Option<Res<KnifeModeActive>>,
-    app_state: Res<crate::core::data::AppState>,
+    app_state: Res<crate::core::state::AppState>,
 ) {
     // Only handle events when in knife mode
     if let Some(knife_mode) = knife_mode {
@@ -372,7 +372,7 @@ pub fn handle_knife_keyboard_events(
 /// Update the intersection points for the knife tool
 fn update_intersections(
     knife_state: &mut KnifeToolState,
-    app_state: &crate::core::data::AppState,
+    app_state: &crate::core::state::AppState,
 ) {
     info!("Updating intersections for knife tool");
 
@@ -527,7 +527,7 @@ fn perform_cut(
     start: &Vec2,
     end: &Vec2,
     shift_locked: bool,
-    app_state: &mut crate::core::data::AppState,
+    app_state: &mut crate::core::state::AppState,
 ) {
     // Get the actual endpoint, adjusted for shift locking if needed
     let actual_end = if shift_locked {

@@ -1,10 +1,14 @@
-//! Core data structures that represent the application state
+//! Application state management
+//!
+//! This module contains the core state structures that track what the user
+//! is currently working on - which font is loaded, which glyph is selected,
+//! and the overall editing session state.
 
 use std::path::PathBuf;
 use bevy::prelude::*;
 use norad::{Ufo, GlyphName};
 use crate::editing::selection::components::GlyphPointReference;
-use crate::io::ufo::find_glyph_by_unicode;
+use crate::data::ufo::find_glyph_by_unicode;
 use norad::glyph::ContourPoint;
 
 /// Tracks which glyph the user is currently viewing

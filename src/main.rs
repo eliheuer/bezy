@@ -5,12 +5,12 @@
 
 mod core;
 mod editing;
-mod geometry;
-mod io;
 mod rendering;
-mod systems;
 mod ui;
+mod geometry;
+mod systems;
 mod utils;
+mod data;
 use clap::Parser;
 
 fn main() {

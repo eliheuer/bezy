@@ -201,8 +201,8 @@ pub fn handle_pen_mouse_events(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut pen_state: ResMut<PenToolState>,
     pen_mode: Option<Res<PenModeActive>>,
-    glyph_navigation: Res<crate::core::data::GlyphNavigation>,
-    mut app_state: ResMut<crate::core::data::AppState>,
+    glyph_navigation: Res<crate::core::state::GlyphNavigation>,
+    mut app_state: ResMut<crate::core::state::AppState>,
     mut app_state_changed: EventWriter<crate::rendering::draw::AppStateChanged>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
 ) {
@@ -287,8 +287,8 @@ fn update_cursor_position(
 fn handle_left_click(
     keyboard: &Res<ButtonInput<KeyCode>>,
     pen_state: &mut ResMut<PenToolState>,
-    glyph_navigation: &Res<crate::core::data::GlyphNavigation>,
-    app_state: &mut ResMut<crate::core::data::AppState>,
+    glyph_navigation: &Res<crate::core::state::GlyphNavigation>,
+    app_state: &mut ResMut<crate::core::state::AppState>,
     app_state_changed: &mut EventWriter<
         crate::rendering::draw::AppStateChanged,
     >,
@@ -373,8 +373,8 @@ fn should_close_path(pen_state: &PenToolState, position: Vec2) -> bool {
 /// Close the current path and add it to the glyph
 fn close_current_path(
     pen_state: &mut ResMut<PenToolState>,
-    glyph_navigation: &Res<crate::core::data::GlyphNavigation>,
-    app_state: &mut ResMut<crate::core::data::AppState>,
+    glyph_navigation: &Res<crate::core::state::GlyphNavigation>,
+    app_state: &mut ResMut<crate::core::state::AppState>,
     app_state_changed: &mut EventWriter<
         crate::rendering::draw::AppStateChanged,
     >,
@@ -413,8 +413,8 @@ fn add_point_to_path(pen_state: &mut ResMut<PenToolState>, position: Vec2) {
 /// Handle right mouse button clicks (finish open path)
 fn handle_right_click(
     pen_state: &mut ResMut<PenToolState>,
-    glyph_navigation: &Res<crate::core::data::GlyphNavigation>,
-    app_state: &mut ResMut<crate::core::data::AppState>,
+    glyph_navigation: &Res<crate::core::state::GlyphNavigation>,
+    app_state: &mut ResMut<crate::core::state::AppState>,
     app_state_changed: &mut EventWriter<
         crate::rendering::draw::AppStateChanged,
     >,
@@ -439,8 +439,8 @@ fn handle_right_click(
 /// Add a contour to the current glyph
 fn add_contour_to_glyph(
     contour: Contour,
-    glyph_navigation: &Res<crate::core::data::GlyphNavigation>,
-    app_state: &mut ResMut<crate::core::data::AppState>,
+    glyph_navigation: &Res<crate::core::state::GlyphNavigation>,
+    app_state: &mut ResMut<crate::core::state::AppState>,
     app_state_changed: &mut EventWriter<
         crate::rendering::draw::AppStateChanged,
     >,

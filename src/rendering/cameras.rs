@@ -212,7 +212,7 @@ fn zoom_camera(
 /// bounding box and the window size.
 pub fn center_camera_on_glyph(
     glyph: &norad::Glyph,
-    metrics: &crate::core::data::FontMetrics,
+    metrics: &crate::core::state::FontMetrics,
     camera_query: &mut Query<
         (&mut Transform, &mut OrthographicProjection),
         With<DesignCamera>,
@@ -309,7 +309,7 @@ impl BoundingBox {
 /// Calculates the bounding box of a glyph, including metrics and padding
 fn calculate_glyph_bounding_box(
     glyph: &norad::Glyph,
-    metrics: &crate::core::data::FontMetrics,
+    metrics: &crate::core::state::FontMetrics,
     outline: &norad::Outline,
 ) -> BoundingBox {
     let mut bbox = BoundingBox::new();

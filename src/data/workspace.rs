@@ -1,10 +1,12 @@
+//! Virtual workspace management
+
 use bevy::prelude::*;
 use norad::{Glyph, GlyphName, Ufo};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::core::data::{FontMetrics, SimpleFontInfo};
+use crate::core::state::{FontMetrics, SimpleFontInfo};
 
 #[derive(Resource, Default)]
 pub struct Workspace {

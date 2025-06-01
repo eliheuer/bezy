@@ -1,11 +1,11 @@
-//! The panel that displays glyph metrics information
+//! UI pane to display information about the current glyph
 //!
-//! This component displays the current glyph, its name, unicode, advance width,
+//! Shows glyph name, Unicode codepoint, advance width, side bearings,
 //! and side bearings in the lower left corner of the window.
 
-use crate::core::data;
-use crate::ui::theme::*;
 use bevy::prelude::*;
+use crate::ui::theme::*;
+use crate::core::state::{AppState, GlyphNavigation};
 
 /// Resource to store current glyph metrics for display
 #[derive(Resource, Default)]
@@ -455,8 +455,8 @@ pub fn spawn_glyph_pane(
 
 /// Updates the glyph metrics for the current glyph
 pub fn update_glyph_metrics(
-    app_state: bevy::prelude::Res<data::AppState>,
-    glyph_navigation: bevy::prelude::Res<data::GlyphNavigation>,
+    app_state: bevy::prelude::Res<AppState>,
+    glyph_navigation: bevy::prelude::Res<GlyphNavigation>,
     mut metrics: bevy::prelude::ResMut<CurrentGlyphMetrics>,
 ) {
     // Extract information from the current state

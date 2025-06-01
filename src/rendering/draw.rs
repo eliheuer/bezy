@@ -1,6 +1,6 @@
 //! Drawing algorithms and helpers
 
-use crate::core::data::{AppState, FontMetrics};
+use crate::core::state::{AppState, FontMetrics};
 use crate::editing::selection::Selectable;
 use crate::ui::panes::design_space::{DPoint, ViewPort};
 use crate::ui::theme::{
@@ -36,7 +36,7 @@ pub fn draw_metrics_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
     viewports: Query<&ViewPort>,
-    glyph_navigation: Res<crate::core::data::GlyphNavigation>,
+    glyph_navigation: Res<crate::core::state::GlyphNavigation>,
 ) {
     // Debug metrics info
     debug!("=== Font Metrics Debug ===");
@@ -306,7 +306,7 @@ pub fn draw_glyph_points_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
     viewports: Query<&ViewPort>,
-    mut glyph_navigation: ResMut<crate::core::data::GlyphNavigation>,
+    mut glyph_navigation: ResMut<crate::core::state::GlyphNavigation>,
     mut camera_query: Query<
         (&mut Transform, &mut OrthographicProjection),
         With<crate::rendering::cameras::DesignCamera>,
@@ -791,7 +791,7 @@ fn draw_curve_segment(
         return;
     }
 
-    // For cubic curve (4 points: on-curve, off-curve, off-curve, on-curve)
+    // Check if we have a cubic Bezier curve pattern: on-curve, off-curve, off-curve, on-curve
     if points.len() == 4
         && is_on_curve(points[0])
         && !is_on_curve(points[1])
@@ -908,7 +908,7 @@ pub fn spawn_glyph_point_entities(
         ),
         With<Selectable>,
     >,
-    glyph_navigation: Res<crate::core::data::GlyphNavigation>,
+    glyph_navigation: Res<crate::core::state::GlyphNavigation>,
     mut selection_state: ResMut<
         crate::editing::selection::components::SelectionState,
     >,

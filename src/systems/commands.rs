@@ -8,7 +8,7 @@
 //! To add new functionality, define a new event struct and corresponding handler,
 //! then register both in the CommandsPlugin::build method.
 
-use crate::core::data::AppState;
+use crate::core::state::AppState;
 use bevy::prelude::*;
 use norad::GlyphName;
 use std::path::PathBuf;
@@ -177,14 +177,14 @@ fn handle_open_glyph_editor(
 
 fn handle_cycle_codepoint(
     mut event_reader: EventReader<CycleCodepointEvent>,
-    mut glyph_navigation: ResMut<crate::core::data::GlyphNavigation>,
+    mut glyph_navigation: ResMut<crate::core::state::GlyphNavigation>,
     app_state: Res<AppState>,
 ) {
     for event in event_reader.read() {
         debug!("Received codepoint cycling event: {:?}", event.direction);
 
         // Get available codepoints using the io::ufo module functions
-        let available_codepoints = crate::io::ufo::get_all_codepoints(&app_state.workspace.font.ufo);
+        let available_codepoints = crate::data::ufo::get_all_codepoints(&app_state.workspace.font.ufo);
         let current_codepoint = glyph_navigation.get_codepoint_string();
 
         if available_codepoints.is_empty() {
@@ -195,10 +195,10 @@ fn handle_cycle_codepoint(
         // Calculate next codepoint based on direction
         let next_codepoint = match event.direction {
             CodepointDirection::Next => {
-                crate::io::ufo::find_next_codepoint(&app_state.workspace.font.ufo, &current_codepoint)
+                crate::data::ufo::find_next_codepoint(&app_state.workspace.font.ufo, &current_codepoint)
             }
             CodepointDirection::Previous => {
-                crate::io::ufo::find_previous_codepoint(&app_state.workspace.font.ufo, &current_codepoint)
+                crate::data::ufo::find_previous_codepoint(&app_state.workspace.font.ufo, &current_codepoint)
             }
         };
 
@@ -267,7 +267,7 @@ pub fn handle_save_shortcuts(
 fn handle_create_contour(
     mut event_reader: EventReader<CreateContourEvent>,
     mut app_state: ResMut<AppState>,
-    glyph_navigation: Res<crate::core::data::GlyphNavigation>,
+    glyph_navigation: Res<crate::core::state::GlyphNavigation>,
 ) {
     for event in event_reader.read() {
         debug!("Handling CreateContourEvent");

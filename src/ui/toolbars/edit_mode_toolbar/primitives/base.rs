@@ -82,8 +82,8 @@ pub fn handle_primitive_mouse_events(
     keyboard: Res<ButtonInput<KeyCode>>,
     camera_q: Query<(&Camera, &GlobalTransform)>,
     mut app_state_changed: EventWriter<crate::rendering::draw::AppStateChanged>,
-    mut app_state: ResMut<crate::core::data::AppState>,
-    glyph_navigation: Res<crate::core::data::GlyphNavigation>,
+    mut app_state: ResMut<crate::core::state::AppState>,
+    glyph_navigation: Res<crate::core::state::GlyphNavigation>,
     corner_radius: Res<
         crate::ui::toolbars::edit_mode_toolbar::primitives::ui::CurrentCornerRadius,
     >,

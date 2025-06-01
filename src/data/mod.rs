@@ -1,9 +1,9 @@
-//! Input/Output Operations
+//! Font data management and loading
 //!
-//! This module handles all file I/O and data persistence:
+//! This module handles all font-related data operations:
 //! - UFO (Unified Font Object) file format support
 //! - Virtual font management for in-memory operations
-//! - Workspace management for project organization
+//! - Workspace management for font projects
 
 pub mod ufo;
 pub mod virtual_font;

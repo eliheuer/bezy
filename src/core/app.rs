@@ -10,7 +10,7 @@ use bevy_pancam::PanCamPlugin;
 
 // Core application modules - fundamental app structure
 use crate::core::cli::CliArgs;
-use crate::core::data::{AppState, GlyphNavigation};
+use crate::core::state::{AppState, GlyphNavigation};
 
 // UI and theming - visual appearance and user interface
 use crate::ui::theme::BACKGROUND_COLOR;
