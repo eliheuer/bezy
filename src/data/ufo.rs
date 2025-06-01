@@ -1,7 +1,7 @@
 //! UFO file I/O operations
 //!
-//! This module provides functions for working with UFO files and glyphs,
-//! with a focus on Unicode codepoint mapping and font information display.
+//! This module handles reading UFO font files and finding glyphs by their Unicode values.
+//! UFO fonts store glyphs with names like "A", "uni0041", or "u0041" for the same character.
 
 use anyhow::Result;
 use bevy::prelude::*;
@@ -10,128 +10,124 @@ use std::path::PathBuf;
 
 use crate::core::state::AppState;
 use crate::data::unicode::{
-    get_common_unicode_ranges, 
     parse_codepoint, 
     generate_glyph_name_variants, 
     sort_and_deduplicate_codepoints
 };
 
-// Glyph Finding Functions ------------------------------------
-
-/// Find a glyph by Unicode codepoint
+/// Find a glyph by its Unicode codepoint (like "0041" for letter A)
 pub fn find_glyph_by_unicode(ufo: &Ufo, codepoint_hex: &str) -> Option<String> {
-    let target_char = parse_codepoint(codepoint_hex)?;
-    let default_layer = ufo.get_default_layer()?;
+    // Convert hex string like "0041" to actual character 'A'
+    let character = parse_codepoint(codepoint_hex)?;
+    let layer = ufo.get_default_layer()?;
 
-    // Search using standard glyph naming patterns
-    let test_names = generate_glyph_name_variants(target_char);
+    // Try different naming patterns: "A", "uni0041", "u0041", etc.
+    let possible_names = generate_glyph_name_variants(character);
 
-    for name_str in test_names.iter() {
-        let glyph_name = norad::GlyphName::from(name_str.clone());
-        
-        if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
-            if let Some(codepoints) = &glyph.codepoints {
-                if codepoints.contains(&target_char) {
-                    return Some(glyph.name.to_string());
-                }
+    for glyph_name in possible_names {
+        if let Some(glyph) = layer.get_glyph(&norad::GlyphName::from(glyph_name)) {
+            if glyph_has_unicode_value(glyph, character) {
+                return Some(glyph.name.to_string());
             }
         }
     }
+    
     None
 }
 
-/// Get all available Unicode codepoints in the font
+/// Get all Unicode codepoints that have glyphs in this font
+/// 
+/// This function efficiently finds codepoints by iterating through existing glyphs
+/// instead of scanning Unicode ranges. This is much faster because:
+/// - Only checks glyphs that actually exist in the font
+/// - No need to scan thousands of potential Unicode codepoints
+/// - Direct access to glyph codepoint data
 pub fn get_all_codepoints(ufo: &Ufo) -> Vec<String> {
-    let Some(default_layer) = ufo.get_default_layer() else {
+    let Some(layer) = ufo.get_default_layer() else {
         return Vec::new();
     };
 
-    let unicode_ranges = get_common_unicode_ranges();
     let mut found_codepoints = Vec::new();
 
-    for (start, end) in unicode_ranges {
-        for code in start..=end {
-            if let Some(target_char) = char::from_u32(code) {
-                let test_names = generate_glyph_name_variants(target_char);
-
-                // Check if any glyph exists for this codepoint
-                let exists = test_names.iter().any(|name_str| {
-                    let glyph_name = norad::GlyphName::from(name_str.clone());
-                    if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
-                        if let Some(codepoints) = &glyph.codepoints {
-                            return codepoints.contains(&target_char);
-                        }
-                    }
-                    false
-                });
-
-                if exists {
-                    let codepoint_hex = format!("{:04X}", code);
-                    if !found_codepoints.contains(&codepoint_hex) {
-                        found_codepoints.push(codepoint_hex);
-                    }
-                }
+    // Iterate through actual glyphs in the font (much more efficient!)
+    for glyph in layer.iter_contents() {
+        if let Some(unicode_values) = &glyph.codepoints {
+            for &unicode_char in unicode_values {
+                let unicode_number = unicode_char as u32;
+                let codepoint_hex = format!("{:04X}", unicode_number);
+                found_codepoints.push(codepoint_hex);
             }
         }
     }
 
+    // Remove duplicates and sort the list
     sort_and_deduplicate_codepoints(&mut found_codepoints);
     
     debug!("Found {} codepoints in font", found_codepoints.len());
     found_codepoints
 }
 
-/// Find the next codepoint in a pre-computed list (wraps around to beginning)
+/// Move to the next codepoint in the font (wraps to beginning if at end)
 pub fn find_next_codepoint_in_list(
-    codepoints: &[String], 
-    current_hex: &str
+    available_codepoints: &[String], 
+    current_codepoint: &str
 ) -> Option<String> {
-    if codepoints.is_empty() {
+    if available_codepoints.is_empty() {
         return None;
     }
 
-    if current_hex.is_empty() {
-        return Some(codepoints.first()?.clone());
+    // If no current codepoint, start at the beginning
+    if current_codepoint.is_empty() {
+        return available_codepoints.first().cloned();
     }
 
-    if let Some(current_idx) = codepoints.iter().position(|cp| cp == current_hex) {
-        if current_idx < codepoints.len() - 1 {
-            Some(codepoints[current_idx + 1].clone())
+    // Find where we are in the list
+    if let Some(current_position) = find_codepoint_position(available_codepoints, current_codepoint) {
+        let next_position = current_position + 1;
+        
+        if next_position < available_codepoints.len() {
+            // Move to next item
+            Some(available_codepoints[next_position].clone())
         } else {
-            Some(codepoints.first()?.clone()) // wrap around
+            // Wrap around to beginning
+            available_codepoints.first().cloned()
         }
     } else {
-        Some(codepoints.first()?.clone()) // not found, start from beginning
+        // Current codepoint not found, start from beginning
+        available_codepoints.first().cloned()
     }
 }
 
-/// Find the previous codepoint in a pre-computed list (wraps around to end)
+/// Move to the previous codepoint in the font (wraps to end if at beginning)
 pub fn find_previous_codepoint_in_list(
-    codepoints: &[String], 
-    current_hex: &str
+    available_codepoints: &[String], 
+    current_codepoint: &str
 ) -> Option<String> {
-    if codepoints.is_empty() {
+    if available_codepoints.is_empty() {
         return None;
     }
 
-    if current_hex.is_empty() {
-        return Some(codepoints.last()?.clone());
+    // If no current codepoint, start at the end
+    if current_codepoint.is_empty() {
+        return available_codepoints.last().cloned();
     }
 
-    if let Some(current_idx) = codepoints.iter().position(|cp| cp == current_hex) {
-        if current_idx > 0 {
-            Some(codepoints[current_idx - 1].clone())
+    // Find where we are in the list
+    if let Some(current_position) = find_codepoint_position(available_codepoints, current_codepoint) {
+        if current_position > 0 {
+            // Move to previous item
+            Some(available_codepoints[current_position - 1].clone())
         } else {
-            Some(codepoints.last()?.clone()) // wrap around
+            // Wrap around to end
+            available_codepoints.last().cloned()
         }
     } else {
-        Some(codepoints.last()?.clone()) // not found, start from end
+        // Current codepoint not found, start from end
+        available_codepoints.last().cloned()
     }
 }
 
-// File Loading Functions -------------------------------------
-
-/// Load a UFO file from the specified path
+/// Load a UFO font file from disk
 pub fn load_ufo_from_path(path: &str) -> Result<Ufo, Box<dyn std::error::Error>> {
     let font_path = PathBuf::from(path);
     
@@ -144,29 +140,52 @@ pub fn load_ufo_from_path(path: &str) -> Result<Ufo, Box<dyn std::error::Error>>
     Ok(ufo)
 }
 
-/// System that initializes the font state from CLI arguments
+/// Set up the font when the app starts (called by Bevy)
 pub fn initialize_font_state(
     mut commands: Commands,
     cli_args: Res<crate::core::cli::CliArgs>,
 ) {
-    if let Some(ufo_path) = &cli_args.ufo_path {
-        let path_str = ufo_path.to_str().unwrap_or_default();
-        
-        match load_ufo_from_path(path_str) {
-            Ok(ufo) => {
-                let mut state = AppState::default();
-                state.set_font(ufo, Some(ufo_path.clone()));
-                let display_name = state.get_font_display_name();
-                commands.insert_resource(state);
-                info!("Loaded font: {}", display_name);
-            }
-            Err(e) => {
-                error!("Failed to load UFO file: {}", e);
-                commands.init_resource::<AppState>();
-            }
-        }
+    if let Some(font_path) = &cli_args.ufo_path {
+        load_font_at_startup(&mut commands, font_path);
     } else {
+        // No font specified, start with empty state
         commands.init_resource::<AppState>();
+    }
+}
+
+// Helper Functions (the building blocks used above) ---------------
+
+/// Check if a glyph contains a specific Unicode character
+fn glyph_has_unicode_value(glyph: &norad::Glyph, character: char) -> bool {
+    match &glyph.codepoints {
+        Some(unicode_values) => unicode_values.contains(&character),
+        None => false,
+    }
+}
+
+/// Find the position of a codepoint in the list
+fn find_codepoint_position(codepoints: &[String], target: &str) -> Option<usize> {
+    codepoints.iter().position(|codepoint| codepoint == target)
+}
+
+/// Load and set up a font when the app starts
+fn load_font_at_startup(commands: &mut Commands, font_path: &PathBuf) {
+    let path_string = font_path.to_str().unwrap_or_default();
+    
+    match load_ufo_from_path(path_string) {
+        Ok(ufo) => {
+            // Successfully loaded font
+            let mut app_state = AppState::default();
+            app_state.set_font(ufo, Some(font_path.clone()));
+            let font_name = app_state.get_font_display_name();
+            commands.insert_resource(app_state);
+            info!("Loaded font: {}", font_name);
+        }
+        Err(error) => {
+            // Failed to load font
+            error!("Failed to load UFO file: {}", error);
+            commands.init_resource::<AppState>();
+        }
     }
 }
 
