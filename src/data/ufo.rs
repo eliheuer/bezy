@@ -8,6 +8,7 @@ use bevy::prelude::*;
 use norad::Ufo;
 use std::path::PathBuf;
 
+use crate::core::settings::{DEFAULT_FAMILY_NAME, DEFAULT_STYLE_NAME, DEFAULT_UNITS_PER_EM};
 use crate::core::state::AppState;
 use crate::data::unicode::{
     get_common_unicode_ranges, 
@@ -15,15 +16,6 @@ use crate::data::unicode::{
     generate_glyph_name_variants, 
     sort_and_deduplicate_codepoints
 };
-
-// Default font information values
-const DEFAULT_FAMILY_NAME: &str = "Untitled";
-const DEFAULT_STYLE_NAME: &str = "Regular";
-const DEFAULT_UNITS_PER_EM: f64 = 1024.0;
-
-// Common fallback glyphs to try when looking for test glyphs
-const COMMON_TEST_GLYPHS: &[&str] = 
-    &["H", "h", "A", "a", "n", "space", ".notdef"];
 
 /// System resource to track the last printed codepoint for change detection
 #[derive(Resource, Default)]
@@ -43,12 +35,6 @@ enum Direction {
 pub fn find_glyph_by_unicode(ufo: &Ufo, codepoint_hex: &str) -> Option<String> {
     let target_char = parse_codepoint(codepoint_hex)?;
     let default_layer = ufo.get_default_layer()?;
-
-    if let Some(glyph_name) = 
-        search_common_glyphs(&default_layer, target_char) 
-    {
-        return Some(glyph_name);
-    }
 
     search_standard_glyph_names(&default_layer, target_char)
 }
@@ -157,23 +143,6 @@ pub fn print_font_info_to_terminal(
 }
 
 // Helper Functions
-
-/// Search for the target character in common glyph names
-fn search_common_glyphs(
-    default_layer: &norad::Layer, 
-    target_char: char
-) -> Option<String> {
-    for glyph_name_str in COMMON_TEST_GLYPHS {
-        let name = norad::GlyphName::from(*glyph_name_str);
-        
-        if let Some(glyph) = default_layer.get_glyph(&name) {
-            if glyph_contains_codepoint(&glyph, target_char) {
-                return Some(glyph.name.to_string());
-            }
-        }
-    }
-    None
-}
 
 /// Search for the target character using standard glyph naming patterns
 fn search_standard_glyph_names(
