@@ -9,6 +9,26 @@ use std::collections::HashMap;
 use crate::core::state::AppState;
 use crate::data::unicode::sort_and_deduplicate_codepoints;
 
+/// Convert a Unicode character to its hex codepoint string (like 'A' -> "0041")
+fn char_to_hex_codepoint(unicode_char: char) -> String {
+    format!("{:04X}", unicode_char as u32)
+}
+
+/// Add all codepoints from a glyph to the mapping
+fn add_glyph_codepoints_to_map(
+    map: &mut HashMap<String, String>, 
+    glyph: &std::sync::Arc<norad::Glyph>
+) {
+    let Some(unicode_values) = &glyph.codepoints else {
+        return;
+    };
+
+    for &unicode_char in unicode_values {
+        let codepoint_hex = char_to_hex_codepoint(unicode_char);
+        map.insert(codepoint_hex, glyph.name.to_string());
+    }
+}
+
 /// Build a map of Unicode codepoints to glyph names for efficient lookups
 fn build_codepoint_glyph_map(ufo: &Ufo) -> HashMap<String, String> {
     let mut codepoint_to_glyph = HashMap::new();
@@ -18,33 +38,23 @@ fn build_codepoint_glyph_map(ufo: &Ufo) -> HashMap<String, String> {
     };
 
     for glyph in layer.iter_contents() {
-        let Some(unicode_values) = &glyph.codepoints else {
-            continue;
-        };
-
-        for &unicode_char in unicode_values {
-            let codepoint_hex = format!("{:04X}", unicode_char as u32);
-            codepoint_to_glyph.insert(codepoint_hex, glyph.name.to_string());
-        }
+        add_glyph_codepoints_to_map(&mut codepoint_to_glyph, &glyph);
     }
-    
     codepoint_to_glyph
 }
 
 /// Find a glyph by its Unicode codepoint (like "0041" for letter A)
-pub fn find_glyph_by_unicode(ufo: &Ufo, codepoint_hex: &str) -> Option<String> {
+pub fn find_glyph_by_unicode(
+    ufo: &Ufo, 
+    codepoint_hex: &str
+) -> Option<String> {
     build_codepoint_glyph_map(ufo).get(codepoint_hex).cloned()
 }
 
 /// Get all Unicode codepoints that have glyphs in this font
-/// 
-/// This function efficiently finds codepoints by iterating through existing glyphs
-/// instead of scanning Unicode ranges. This is much faster because:
-/// - Only checks glyphs that actually exist in the font
-/// - No need to scan thousands of potential Unicode codepoints
-/// - Direct access to glyph codepoint data
 pub fn get_all_codepoints(ufo: &Ufo) -> Vec<String> {
-    let mut codepoints: Vec<String> = build_codepoint_glyph_map(ufo).keys().cloned().collect();
+    let map = build_codepoint_glyph_map(ufo);
+    let mut codepoints: Vec<String> = map.keys().cloned().collect();
     sort_and_deduplicate_codepoints(&mut codepoints);
     
     debug!("Found {} codepoints in font", codepoints.len());
@@ -59,7 +69,10 @@ pub enum CycleDirection {
 }
 
 /// Get the appropriate starting position based on direction
-fn get_direction_default(codepoints: &[String], direction: CycleDirection) -> Option<String> {
+fn get_direction_default(
+    codepoints: &[String], 
+    direction: CycleDirection
+) -> Option<String> {
     match direction {
         CycleDirection::Next => codepoints.first().cloned(),
         CycleDirection::Previous => codepoints.last().cloned(),
@@ -82,7 +95,12 @@ pub fn cycle_codepoint_in_list(
     }
 
     // Find where we are in the list
-    let Some(current_position) = find_codepoint_position(available_codepoints, current_codepoint) else {
+    let current_position = find_codepoint_position(
+        available_codepoints, 
+        current_codepoint
+    );
+    
+    let Some(current_position) = current_position else {
         // Current codepoint not found, start from appropriate end based on direction
         return get_direction_default(available_codepoints, direction);
     };
@@ -113,7 +131,11 @@ pub fn find_next_codepoint_in_list(
     available_codepoints: &[String], 
     current_codepoint: &str
 ) -> Option<String> {
-    cycle_codepoint_in_list(available_codepoints, current_codepoint, CycleDirection::Next)
+    cycle_codepoint_in_list(
+        available_codepoints, 
+        current_codepoint, 
+        CycleDirection::Next
+    )
 }
 
 /// Move to the previous codepoint in the font (wraps to end if at beginning)
@@ -121,11 +143,17 @@ pub fn find_previous_codepoint_in_list(
     available_codepoints: &[String], 
     current_codepoint: &str
 ) -> Option<String> {
-    cycle_codepoint_in_list(available_codepoints, current_codepoint, CycleDirection::Previous)
+    cycle_codepoint_in_list(
+        available_codepoints, 
+        current_codepoint, 
+        CycleDirection::Previous
+    )
 }
 
 /// Load a UFO font file from disk
-pub fn load_ufo_from_path(path: &str) -> Result<Ufo, Box<dyn std::error::Error>> {
+pub fn load_ufo_from_path(
+    path: &str
+) -> Result<Ufo, Box<dyn std::error::Error>> {
     let font_path = PathBuf::from(path);
     
     if !font_path.exists() {
@@ -151,7 +179,10 @@ pub fn initialize_font_state(
 }
 
 /// Find the position of a codepoint in the list
-fn find_codepoint_position(codepoints: &[String], target: &str) -> Option<usize> {
+fn find_codepoint_position(
+    codepoints: &[String], 
+    target: &str
+) -> Option<usize> {
     codepoints.iter().position(|codepoint| codepoint == target)
 }
 
