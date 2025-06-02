@@ -2,7 +2,7 @@
 //!
 //! This module handles all font-related data operations:
 //! - UFO (Unified Font Object) file format support
-//! - Virtual font management for in-memory operations
+//! - Virtual font management for in-memory operations  
 //! - Workspace management for font projects
 //! - Unicode utilities and character range definitions
 
