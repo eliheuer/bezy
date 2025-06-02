@@ -17,9 +17,12 @@ const CHECKERBOARD_Z_LEVEL: f32 = -0.1;
 /// Padding around visible area to prevent squares popping in/out
 const VISIBILITY_PADDING: f32 = 128.0;
 
-/// Minimum zoom level where checkerboard is visible
-const MIN_VISIBILITY_ZOOM: f32 = 0.1;
+/// Minimum zoom level where checkerboard is visible (very zoomed out)
+/// Lower values = more zoomed out before hiding checkerboard
+const MIN_VISIBILITY_ZOOM: f32 = 0.01;
 
+///#[allow(dead_code)]
+#[allow(dead_code)]
 /// Maximum zoom level where checkerboard is visible  
 const MAX_VISIBILITY_ZOOM: f32 = 8.0;
 
@@ -79,8 +82,11 @@ pub fn update_checkerboard(
 }
 
 /// Checks if checkerboard should be visible at the current zoom level
+///
+/// Only hides checkerboard when zoomed out too far to avoid visual noise
+/// and performance issues. Always visible when zoomed in for alignment.
 fn is_checkerboard_visible(zoom_scale: f32) -> bool {
-    zoom_scale >= MIN_VISIBILITY_ZOOM && zoom_scale <= MAX_VISIBILITY_ZOOM
+    zoom_scale >= MIN_VISIBILITY_ZOOM
 }
 
 /// Updates which squares are visible based on camera position
@@ -127,10 +133,18 @@ fn calculate_visible_area(
     projection: &OrthographicProjection,
 ) -> Rect {
     let camera_pos = camera_transform.translation.truncate();
-    let half_width =
-        projection.area.width() * projection.scale / 2.0 + VISIBILITY_PADDING;
-    let half_height =
-        projection.area.height() * projection.scale / 2.0 + VISIBILITY_PADDING;
+    
+    // Calculate half dimensions of the visible area
+    // Note: smaller scale = more zoomed in, larger scale = more zoomed out
+    let half_width = projection.area.width() * projection.scale / 2.0 
+        + VISIBILITY_PADDING;
+    let half_height = projection.area.height() * projection.scale / 2.0 
+        + VISIBILITY_PADDING;
+    
+    // Ensure minimum visible area even when extremely zoomed in
+    let min_half_size = CHECKERBOARD_UNIT_SIZE * 2.0; // Show at least 4x4 grid
+    let half_width = half_width.max(min_half_size);
+    let half_height = half_height.max(min_half_size);
 
     Rect::from_center_half_size(camera_pos, Vec2::new(half_width, half_height))
 }
