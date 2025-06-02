@@ -25,7 +25,7 @@ pub const WIDGET_ROW_GAP: f32 = 0.0;
 // - 2.0 = medium thickness
 // - 3.0 = thick, bold lines (current default for better visibility)
 // - 4.0+ = very thick lines
-pub const GIZMO_LINE_WIDTH: f32 = 4.0;
+pub const GIZMO_LINE_WIDTH: f32 = 3.0;
 
 // Toolbar Visual Style Constants
 pub const TOOLBAR_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
@@ -124,7 +124,7 @@ pub const BACKGROUND_COLOR: Color = Color::srgb(0.05, 0.05, 0.05);
 
 // Checkerboard Configuration
 pub const CHECKERBOARD_UNIT_SIZE: f32 = 16.0; // Width and height of each square in pixels
-pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.1, 0.1, 0.1); // Single color for checkerboard squares
+pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.15, 0.15, 0.15); // Single color for checkerboard squares
 
 // Button Styling
 // pub const BUTTON_BORDER_RADIUS: f32 = 8.0;
