@@ -67,35 +67,69 @@ pub fn get_all_codepoints(ufo: &Ufo) -> Vec<String> {
     found_codepoints
 }
 
-/// Move to the next codepoint in the font (wraps to beginning if at end)
-pub fn find_next_codepoint_in_list(
+/// Direction for cycling through codepoints
+#[derive(Debug, Clone, Copy)]
+pub enum CycleDirection {
+    Next,
+    Previous,
+}
+
+/// Cycle to the next or previous codepoint in the font (wraps around at boundaries)
+pub fn cycle_codepoint_in_list(
     available_codepoints: &[String], 
-    current_codepoint: &str
+    current_codepoint: &str,
+    direction: CycleDirection,
 ) -> Option<String> {
     if available_codepoints.is_empty() {
         return None;
     }
 
-    // If no current codepoint, start at the beginning
+    // If no current codepoint, start at appropriate end based on direction
     if current_codepoint.is_empty() {
-        return available_codepoints.first().cloned();
+        return match direction {
+            CycleDirection::Next => available_codepoints.first().cloned(),
+            CycleDirection::Previous => available_codepoints.last().cloned(),
+        };
     }
 
     // Find where we are in the list
     if let Some(current_position) = find_codepoint_position(available_codepoints, current_codepoint) {
-        let next_position = current_position + 1;
-        
-        if next_position < available_codepoints.len() {
-            // Move to next item
-            Some(available_codepoints[next_position].clone())
-        } else {
-            // Wrap around to beginning
-            available_codepoints.first().cloned()
+        match direction {
+            CycleDirection::Next => {
+                let next_position = current_position + 1;
+                if next_position < available_codepoints.len() {
+                    // Move to next item
+                    Some(available_codepoints[next_position].clone())
+                } else {
+                    // Wrap around to beginning
+                    available_codepoints.first().cloned()
+                }
+            }
+            CycleDirection::Previous => {
+                if current_position > 0 {
+                    // Move to previous item
+                    Some(available_codepoints[current_position - 1].clone())
+                } else {
+                    // Wrap around to end
+                    available_codepoints.last().cloned()
+                }
+            }
         }
     } else {
-        // Current codepoint not found, start from beginning
-        available_codepoints.first().cloned()
+        // Current codepoint not found, start from appropriate end based on direction
+        match direction {
+            CycleDirection::Next => available_codepoints.first().cloned(),
+            CycleDirection::Previous => available_codepoints.last().cloned(),
+        }
     }
+}
+
+/// Move to the next codepoint in the font (wraps to beginning if at end)
+pub fn find_next_codepoint_in_list(
+    available_codepoints: &[String], 
+    current_codepoint: &str
+) -> Option<String> {
+    cycle_codepoint_in_list(available_codepoints, current_codepoint, CycleDirection::Next)
 }
 
 /// Move to the previous codepoint in the font (wraps to end if at beginning)
@@ -103,28 +137,7 @@ pub fn find_previous_codepoint_in_list(
     available_codepoints: &[String], 
     current_codepoint: &str
 ) -> Option<String> {
-    if available_codepoints.is_empty() {
-        return None;
-    }
-
-    // If no current codepoint, start at the end
-    if current_codepoint.is_empty() {
-        return available_codepoints.last().cloned();
-    }
-
-    // Find where we are in the list
-    if let Some(current_position) = find_codepoint_position(available_codepoints, current_codepoint) {
-        if current_position > 0 {
-            // Move to previous item
-            Some(available_codepoints[current_position - 1].clone())
-        } else {
-            // Wrap around to end
-            available_codepoints.last().cloned()
-        }
-    } else {
-        // Current codepoint not found, start from end
-        available_codepoints.last().cloned()
-    }
+    cycle_codepoint_in_list(available_codepoints, current_codepoint, CycleDirection::Previous)
 }
 
 /// Load a UFO font file from disk
@@ -188,4 +201,3 @@ fn load_font_at_startup(commands: &mut Commands, font_path: &PathBuf) {
         }
     }
 }
-
