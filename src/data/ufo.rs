@@ -9,7 +9,9 @@ use std::collections::HashMap;
 use crate::core::state::AppState;
 use crate::data::unicode::sort_and_deduplicate_codepoints;
 
-/// Convert a Unicode character to its hex codepoint string (like 'A' -> "0041")
+// Unicode Codepoint Mapping --------------------------------------------------
+
+/// Convert a Unicode character to its hex codepoint string
 fn char_to_hex_codepoint(unicode_char: char) -> String {
     format!("{:04X}", unicode_char as u32)
 }
@@ -43,6 +45,8 @@ fn build_codepoint_glyph_map(ufo: &Ufo) -> HashMap<String, String> {
     codepoint_to_glyph
 }
 
+// Public Glyph Lookup API ---------------------------------------------------
+
 /// Find a glyph by its Unicode codepoint (like "0041" for letter A)
 pub fn find_glyph_by_unicode(
     ufo: &Ufo, 
@@ -60,6 +64,8 @@ pub fn get_all_codepoints(ufo: &Ufo) -> Vec<String> {
     debug!("Found {} codepoints in font", codepoints.len());
     codepoints
 }
+
+// Codepoint Navigation ------------------------------------------------------
 
 /// Direction for cycling through codepoints
 #[derive(Debug, Clone, Copy)]
@@ -79,7 +85,15 @@ fn get_direction_default(
     }
 }
 
-/// Cycle to the next or previous codepoint in the font (wraps around at boundaries)
+/// Find the position of a codepoint in the list
+fn find_codepoint_position(
+    codepoints: &[String], 
+    target: &str
+) -> Option<usize> {
+    codepoints.iter().position(|codepoint| codepoint == target)
+}
+
+/// Cycle to the next or previous codepoint in the font
 pub fn cycle_codepoint_in_list(
     available_codepoints: &[String], 
     current_codepoint: &str,
@@ -101,7 +115,7 @@ pub fn cycle_codepoint_in_list(
     );
     
     let Some(current_position) = current_position else {
-        // Current codepoint not found, start from appropriate end based on direction
+        // Current codepoint not found, start from the end based on direction
         return get_direction_default(available_codepoints, direction);
     };
 
@@ -126,7 +140,7 @@ pub fn cycle_codepoint_in_list(
     }
 }
 
-/// Move to the next codepoint in the font (wraps to beginning if at end)
+/// Move to the next codepoint in the font
 pub fn find_next_codepoint_in_list(
     available_codepoints: &[String], 
     current_codepoint: &str
@@ -138,7 +152,7 @@ pub fn find_next_codepoint_in_list(
     )
 }
 
-/// Move to the previous codepoint in the font (wraps to end if at beginning)
+/// Move to the previous codepoint in the font
 pub fn find_previous_codepoint_in_list(
     available_codepoints: &[String], 
     current_codepoint: &str
@@ -149,6 +163,8 @@ pub fn find_previous_codepoint_in_list(
         CycleDirection::Previous
     )
 }
+
+// File Loading and Initialization --------------------------------------------
 
 /// Load a UFO font file from disk
 pub fn load_ufo_from_path(
@@ -176,14 +192,6 @@ pub fn initialize_font_state(
         // No font specified, start with empty state
         commands.init_resource::<AppState>();
     }
-}
-
-/// Find the position of a codepoint in the list
-fn find_codepoint_position(
-    codepoints: &[String], 
-    target: &str
-) -> Option<usize> {
-    codepoints.iter().position(|codepoint| codepoint == target)
 }
 
 /// Load and set up a font when the app starts
