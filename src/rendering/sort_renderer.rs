@@ -4,7 +4,7 @@
 //! Inactive sorts show as metrics boxes (similar to existing metrics display).
 //! Active sorts show the actual glyph outlines for editing.
 
-use crate::core::sort::{Sort, ActiveSort, InactiveSort};
+use crate::editing::sort::{Sort, ActiveSort, InactiveSort};
 use crate::core::state::{AppState, FontMetrics};
 use crate::ui::panes::design_space::{DPoint, ViewPort};
 use crate::ui::theme::{METRICS_GUIDE_COLOR, PATH_LINE_COLOR, ON_CURVE_POINT_COLOR};

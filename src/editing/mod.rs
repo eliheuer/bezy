@@ -5,10 +5,13 @@
 //! - Edit types and mode definitions
 //! - Selection management for points, paths, and objects
 //! - Undo/redo system for reversible operations
+//! - Sort system for movable type placement and editing
 
 pub mod edit_session;
 pub mod edit_type;
 pub mod selection;
+pub mod sort;
+pub mod sort_plugin;
 pub mod undo;
 pub mod undo_plugin;
 

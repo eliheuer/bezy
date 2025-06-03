@@ -4,7 +4,7 @@
 //! Sorts snap to grid when placed and show a metrics box preview while placing.
 
 use super::EditModeSystem;
-use crate::core::sort::{SortEvent};
+use crate::editing::sort::{SortEvent};
 use crate::core::state::{AppState, GlyphNavigation};
 use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
 use crate::ui::panes::design_space::ViewPort;
@@ -179,7 +179,7 @@ pub fn render_sort_preview(
         if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
             if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
                 // Create a temporary sort to get its bounds
-                let temp_sort = crate::core::sort::Sort::new((**glyph).clone(), cursor_pos);
+                let temp_sort = crate::editing::sort::Sort::new((**glyph).clone(), cursor_pos);
                 let bounds = temp_sort.get_metrics_bounds(&app_state.workspace.info.metrics);
 
                 // Draw preview metrics box
@@ -193,7 +193,7 @@ pub fn render_sort_preview(
 fn render_preview_metrics_box(
     gizmos: &mut Gizmos,
     viewport: &ViewPort,
-    bounds: &crate::core::sort::SortBounds,
+    bounds: &crate::editing::sort::SortBounds,
 ) {
     use crate::ui::panes::design_space::DPoint;
 

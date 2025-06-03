@@ -3,7 +3,7 @@
 //! Handles the creation, activation, deactivation, and lifecycle of sorts.
 //! Ensures only one sort can be active at a time and manages the state transitions.
 
-use crate::core::sort::{Sort, SortEvent, ActiveSort, InactiveSort, ActiveSortState};
+use crate::editing::sort::{Sort, SortEvent, ActiveSort, InactiveSort, ActiveSortState};
 use crate::core::state::AppState;
 use bevy::prelude::*;
 

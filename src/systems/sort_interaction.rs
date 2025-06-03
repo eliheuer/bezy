@@ -2,7 +2,7 @@
 //!
 //! Handles mouse interactions with sorts, such as clicking to activate them.
 
-use crate::core::sort::{Sort, SortEvent, InactiveSort};
+use crate::editing::sort::{Sort, SortEvent, InactiveSort};
 use crate::core::state::AppState;
 use crate::rendering::cameras::DesignCamera;
 use bevy::prelude::*;

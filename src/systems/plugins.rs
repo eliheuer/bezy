@@ -1,7 +1,7 @@
 use bevy::gizmos::{config::DefaultGizmoConfigGroup, config::GizmoConfigStore};
 use bevy::prelude::*;
 
-use crate::core::sort_plugin::SortPlugin;
+use crate::editing::sort_plugin::SortPlugin;
 use crate::rendering::cameras::toggle_camera_controls;
 use crate::rendering::draw::{
     draw_origin_cross, draw_glyph_points_system, draw_metrics_system,

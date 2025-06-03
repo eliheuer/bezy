@@ -2,7 +2,7 @@
 //!
 //! Bevy plugin that registers all sort-related systems, resources, and events.
 
-use crate::core::sort::{SortEvent, ActiveSortState};
+use crate::editing::sort::{SortEvent, ActiveSortState};
 use crate::rendering::sort_renderer::render_sorts_system;
 use crate::systems::sort_interaction::handle_sort_clicks;
 use crate::systems::sort_manager::{handle_sort_events, sync_sort_transforms, enforce_single_active_sort};
