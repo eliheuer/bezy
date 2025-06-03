@@ -7,6 +7,8 @@
 
 pub mod commands;
 pub mod plugins;
+pub mod sort_interaction;
+pub mod sort_manager;
 pub mod ui_interaction;
 
 // Re-export commonly used items

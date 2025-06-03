@@ -8,7 +8,7 @@ mod pen;
 mod primitives;
 mod primitives_mode;
 pub mod select;
-mod text;
+pub mod text;
 mod ui;
 
 // Add the temporary mode switching module
