@@ -4,18 +4,11 @@ use crate::core::state::{AppState, FontMetrics, GlyphNavigation};
 use crate::editing::selection::Selectable;
 use crate::ui::panes::design_space::{DPoint, ViewPort};
 use crate::ui::theme::{
-    DEBUG_SHOW_ORIGIN_CROSS,
-    HANDLE_LINE_COLOR,
-    METRICS_GUIDE_COLOR,
-    OFF_CURVE_INNER_CIRCLE_RATIO,
-    OFF_CURVE_POINT_COLOR,
-    OFF_CURVE_POINT_RADIUS,
+    ON_CURVE_POINT_COLOR, ON_CURVE_POINT_RADIUS, OFF_CURVE_POINT_COLOR,
+    OFF_CURVE_POINT_RADIUS, PATH_LINE_COLOR, HANDLE_LINE_COLOR,
+    ON_CURVE_SQUARE_ADJUSTMENT, USE_SQUARE_FOR_ON_CURVE,
+    DEBUG_SHOW_ORIGIN_CROSS, OFF_CURVE_INNER_CIRCLE_RATIO,
     ON_CURVE_INNER_CIRCLE_RATIO,
-    ON_CURVE_POINT_COLOR,
-    ON_CURVE_POINT_RADIUS,
-    ON_CURVE_SQUARE_ADJUSTMENT,
-    PATH_LINE_COLOR,
-    USE_SQUARE_FOR_ON_CURVE,
 };
 use bevy::prelude::*;
 use norad::Glyph;
@@ -135,91 +128,8 @@ fn draw_metrics(
     glyph: &Glyph,
     metrics: &FontMetrics,
 ) {
-    let upm = metrics.units_per_em;
-    let x_height = metrics.x_height.unwrap_or_else(|| (upm * 0.5).round());
-    let cap_height = metrics.cap_height.unwrap_or_else(|| (upm * 0.7).round());
-    let ascender = metrics.ascender.unwrap_or_else(|| (upm * 0.8).round());
-    let descender = metrics.descender.unwrap_or_else(|| -(upm * 0.2).round());
-    let width = glyph
-        .advance
-        .as_ref()
-        .map(|a| a.width as f64)
-        .unwrap_or_else(|| (upm * 0.5).round());
-
-    // Use the constant from theme.rs instead of hardcoding the color
-    let metrics_color = METRICS_GUIDE_COLOR;
-
-    // Draw the standard metrics bounding box (descender to ascender)
-    draw_rect(
-        gizmos,
-        viewport,
-        (0.0, descender as f32),
-        (width as f32, ascender as f32),
-        metrics_color,
-    );
-
-    // Draw the full UPM bounding box (from 0 to UPM height)
-    draw_rect(
-        gizmos,
-        viewport,
-        (0.0, 0.0),
-        (width as f32, upm as f32),
-        metrics_color,
-    );
-
-    // Draw baseline
-    draw_line(
-        gizmos,
-        viewport,
-        (0.0, 0.0),
-        (width as f32, 0.0),
-        metrics_color,
-    );
-
-    // Draw x-height line
-    draw_line(
-        gizmos,
-        viewport,
-        (0.0, x_height as f32),
-        (width as f32, x_height as f32),
-        metrics_color,
-    );
-
-    // Draw cap-height line
-    draw_line(
-        gizmos,
-        viewport,
-        (0.0, cap_height as f32),
-        (width as f32, cap_height as f32),
-        metrics_color,
-    );
-
-    // Draw ascender line
-    draw_line(
-        gizmos,
-        viewport,
-        (0.0, ascender as f32),
-        (width as f32, ascender as f32),
-        metrics_color,
-    );
-
-    // Draw descender line
-    draw_line(
-        gizmos,
-        viewport,
-        (0.0, descender as f32),
-        (width as f32, descender as f32),
-        metrics_color,
-    );
-
-    // Draw UPM top line
-    draw_line(
-        gizmos,
-        viewport,
-        (0.0, upm as f32),
-        (width as f32, upm as f32),
-        metrics_color,
-    );
+    // Use the shared metrics rendering function
+    crate::rendering::metrics::draw_metrics_at_origin(gizmos, viewport, glyph, metrics);
 }
 
 /// Draw a line in design space

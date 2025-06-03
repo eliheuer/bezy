@@ -7,7 +7,7 @@
 use crate::editing::sort::{Sort, ActiveSort, InactiveSort};
 use crate::core::state::{AppState, FontMetrics};
 use crate::ui::panes::design_space::{DPoint, ViewPort};
-use crate::ui::theme::{METRICS_GUIDE_COLOR, PATH_LINE_COLOR, ON_CURVE_POINT_COLOR};
+use crate::ui::theme::{PATH_LINE_COLOR, ON_CURVE_POINT_COLOR};
 use bevy::prelude::*;
 
 /// System to render all sorts in the design space
@@ -45,41 +45,14 @@ fn render_sort_metrics_box(
     sort: &Sort,
     font_metrics: &FontMetrics,
 ) {
-    let bounds = sort.get_metrics_bounds(font_metrics);
-    
-    // Draw the metrics box outline
-    draw_rect_outline(
+    // Use the shared metrics rendering function to ensure consistency
+    crate::rendering::metrics::draw_metrics_at_position(
         gizmos,
         viewport,
-        bounds.min,
-        bounds.max,
-        METRICS_GUIDE_COLOR,
+        &sort.glyph,
+        font_metrics,
+        sort.position,
     );
-
-    // Draw baseline within the sort
-    let baseline_start = Vec2::new(bounds.min.x, sort.position.y);
-    let baseline_end = Vec2::new(bounds.max.x, sort.position.y);
-    draw_line(
-        gizmos,
-        viewport,
-        baseline_start,
-        baseline_end,
-        METRICS_GUIDE_COLOR,
-    );
-
-    // Draw x-height line if it exists
-    if let Some(x_height) = font_metrics.x_height {
-        let x_height_y = sort.position.y + x_height as f32;
-        let x_height_start = Vec2::new(bounds.min.x, x_height_y);
-        let x_height_end = Vec2::new(bounds.max.x, x_height_y);
-        draw_line(
-            gizmos,
-            viewport,
-            x_height_start,
-            x_height_end,
-            METRICS_GUIDE_COLOR,
-        );
-    }
 }
 
 /// Render an active sort with full glyph outline
@@ -89,7 +62,7 @@ fn render_active_sort(
     sort: &Sort,
     font_metrics: &FontMetrics,
 ) {
-    // First render the metrics box
+    // First render the metrics box using the shared function
     render_sort_metrics_box(gizmos, viewport, sort, font_metrics);
     
     // Then render the actual glyph outline if it exists
@@ -141,24 +114,4 @@ fn draw_line(
     let start_screen = viewport.to_screen(DPoint::from((start.x, start.y)));
     let end_screen = viewport.to_screen(DPoint::from((end.x, end.y)));
     gizmos.line_2d(start_screen, end_screen, color);
-}
-
-/// Draw a rectangle outline in design space
-fn draw_rect_outline(
-    gizmos: &mut Gizmos,
-    viewport: &ViewPort,
-    min: Vec2,
-    max: Vec2,
-    color: Color,
-) {
-    let tl_screen = viewport.to_screen(DPoint::from((min.x, max.y)));
-    let tr_screen = viewport.to_screen(DPoint::from((max.x, max.y)));
-    let bl_screen = viewport.to_screen(DPoint::from((min.x, min.y)));
-    let br_screen = viewport.to_screen(DPoint::from((max.x, min.y)));
-
-    // Draw the four sides
-    gizmos.line_2d(tl_screen, tr_screen, color); // top
-    gizmos.line_2d(tr_screen, br_screen, color); // right
-    gizmos.line_2d(br_screen, bl_screen, color); // bottom
-    gizmos.line_2d(bl_screen, tl_screen, color); // left
 } 

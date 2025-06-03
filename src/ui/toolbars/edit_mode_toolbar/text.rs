@@ -8,7 +8,6 @@ use crate::editing::sort::{SortEvent};
 use crate::core::state::{AppState, GlyphNavigation};
 use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
 use crate::ui::panes::design_space::ViewPort;
-use crate::ui::theme::METRICS_GUIDE_COLOR;
 use crate::rendering::cameras::DesignCamera;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -178,25 +177,25 @@ pub fn render_sort_preview(
     if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo) {
         if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
             if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
-                // Create a temporary sort to get its bounds
-                let temp_sort = crate::editing::sort::Sort::new((**glyph).clone(), cursor_pos);
-                let bounds = temp_sort.get_metrics_bounds(&app_state.workspace.info.metrics);
-
-                // Draw preview metrics box
-                render_preview_metrics_box(&mut gizmos, &viewport, &bounds);
+                // Use the shared metrics rendering function with semi-transparent color
+                render_preview_metrics(&mut gizmos, &viewport, glyph, &app_state.workspace.info.metrics, cursor_pos);
             }
         }
     }
 }
 
-/// Render a preview metrics box
-fn render_preview_metrics_box(
+/// Render a preview metrics box with semi-transparent appearance
+fn render_preview_metrics(
     gizmos: &mut Gizmos,
     viewport: &ViewPort,
-    bounds: &crate::editing::sort::SortBounds,
+    glyph: &norad::Glyph,
+    metrics: &crate::core::state::FontMetrics,
+    position: Vec2,
 ) {
     use crate::ui::panes::design_space::DPoint;
+    use crate::ui::theme::METRICS_GUIDE_COLOR;
 
+    // Create a semi-transparent version of the metrics color for preview
     let preview_color = Color::srgba(
         METRICS_GUIDE_COLOR.to_srgba().red,
         METRICS_GUIDE_COLOR.to_srgba().green,
@@ -204,17 +203,141 @@ fn render_preview_metrics_box(
         0.5, // Semi-transparent for preview
     );
 
-    // Convert bounds to screen coordinates
-    let tl_screen = viewport.to_screen(DPoint::from((bounds.min.x, bounds.max.y)));
-    let tr_screen = viewport.to_screen(DPoint::from((bounds.max.x, bounds.max.y)));
-    let bl_screen = viewport.to_screen(DPoint::from((bounds.min.x, bounds.min.y)));
-    let br_screen = viewport.to_screen(DPoint::from((bounds.max.x, bounds.min.y)));
+    let upm = metrics.units_per_em;
+    let x_height = metrics.x_height.unwrap_or_else(|| (upm * 0.5).round());
+    let cap_height = metrics.cap_height.unwrap_or_else(|| (upm * 0.7).round());
+    let ascender = metrics.ascender.unwrap_or_else(|| (upm * 0.8).round());
+    let descender = metrics.descender.unwrap_or_else(|| -(upm * 0.2).round());
+    let width = glyph
+        .advance
+        .as_ref()
+        .map(|a| a.width as f64)
+        .unwrap_or_else(|| (upm * 0.5).round());
 
-    // Draw the preview rectangle outline
-    gizmos.line_2d(tl_screen, tr_screen, preview_color); // top
-    gizmos.line_2d(tr_screen, br_screen, preview_color); // right
-    gizmos.line_2d(br_screen, bl_screen, preview_color); // bottom
-    gizmos.line_2d(bl_screen, tl_screen, preview_color); // left
+    // All coordinates are offset by the position
+    let offset_x = position.x;
+    let offset_y = position.y;
+
+    // Draw the standard metrics bounding box (descender to ascender)
+    draw_preview_rect(
+        gizmos,
+        viewport,
+        (offset_x, offset_y + descender as f32),
+        (offset_x + width as f32, offset_y + ascender as f32),
+        preview_color,
+    );
+
+    // Draw the full UPM bounding box (from 0 to UPM height)
+    draw_preview_rect(
+        gizmos,
+        viewport,
+        (offset_x, offset_y),
+        (offset_x + width as f32, offset_y + upm as f32),
+        preview_color,
+    );
+
+    // Draw baseline
+    draw_preview_line(
+        gizmos,
+        viewport,
+        (offset_x, offset_y),
+        (offset_x + width as f32, offset_y),
+        preview_color,
+    );
+
+    // Draw x-height line
+    draw_preview_line(
+        gizmos,
+        viewport,
+        (offset_x, offset_y + x_height as f32),
+        (offset_x + width as f32, offset_y + x_height as f32),
+        preview_color,
+    );
+
+    // Draw cap-height line
+    draw_preview_line(
+        gizmos,
+        viewport,
+        (offset_x, offset_y + cap_height as f32),
+        (offset_x + width as f32, offset_y + cap_height as f32),
+        preview_color,
+    );
+
+    // Draw ascender line
+    draw_preview_line(
+        gizmos,
+        viewport,
+        (offset_x, offset_y + ascender as f32),
+        (offset_x + width as f32, offset_y + ascender as f32),
+        preview_color,
+    );
+
+    // Draw descender line
+    draw_preview_line(
+        gizmos,
+        viewport,
+        (offset_x, offset_y + descender as f32),
+        (offset_x + width as f32, offset_y + descender as f32),
+        preview_color,
+    );
+
+    // Draw UPM top line
+    draw_preview_line(
+        gizmos,
+        viewport,
+        (offset_x, offset_y + upm as f32),
+        (offset_x + width as f32, offset_y + upm as f32),
+        preview_color,
+    );
+}
+
+/// Draw a line in design space for preview
+fn draw_preview_line(
+    gizmos: &mut Gizmos,
+    viewport: &ViewPort,
+    start: (f32, f32),
+    end: (f32, f32),
+    color: Color,
+) {
+    use crate::ui::panes::design_space::DPoint;
+    let start_screen = viewport.to_screen(DPoint::from(start));
+    let end_screen = viewport.to_screen(DPoint::from(end));
+    gizmos.line_2d(start_screen, end_screen, color);
+}
+
+/// Draw a rectangle outline in design space for preview
+fn draw_preview_rect(
+    gizmos: &mut Gizmos,
+    viewport: &ViewPort,
+    top_left: (f32, f32),
+    bottom_right: (f32, f32),
+    color: Color,
+) {
+    use crate::ui::panes::design_space::DPoint;
+    let tl_screen = viewport.to_screen(DPoint::from(top_left));
+    let br_screen = viewport.to_screen(DPoint::from(bottom_right));
+
+    // Draw the rectangle outline (four lines)
+    gizmos.line_2d(
+        Vec2::new(tl_screen.x, tl_screen.y),
+        Vec2::new(br_screen.x, tl_screen.y),
+        color,
+    );
+    gizmos.line_2d(
+        Vec2::new(br_screen.x, tl_screen.y),
+        Vec2::new(br_screen.x, br_screen.y),
+        color,
+    );
+    gizmos.line_2d(
+        Vec2::new(br_screen.x, br_screen.y),
+        Vec2::new(tl_screen.x, br_screen.y),
+        color,
+    );
+    gizmos.line_2d(
+        Vec2::new(tl_screen.x, br_screen.y),
+        Vec2::new(tl_screen.x, tl_screen.y),
+        color,
+    );
 }
 
 /// System to reset text mode state when not active

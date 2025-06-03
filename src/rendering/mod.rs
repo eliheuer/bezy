@@ -10,6 +10,7 @@ pub mod cameras;
 pub mod checkerboard;
 pub mod debug;
 pub mod draw;
+pub mod metrics;
 pub mod sort_renderer;
 
 // Re-export commonly used items
