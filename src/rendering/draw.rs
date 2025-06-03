@@ -35,94 +35,92 @@ pub fn draw_test_elements(mut gizmos: Gizmos) {
             Vec2::new(0.0, 64.0),
             Color::srgb(1.0, 0.0, 0.0),
         );
+
+        // Draw a 32x32 red square centered at origin
+        gizmos.rect_2d(
+            Vec2::ZERO, // position
+            Vec2::new(32.0, 32.0), // size
+            Color::srgb(1.0, 0.0, 0.0), // color
+        );
     }
 }
 
-/// System that draws font metrics
+/// System that draws font metrics lines (baseline, x-height, cap-height, etc.)
 pub fn draw_metrics_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
     viewports: Query<&ViewPort>,
     glyph_navigation: Res<crate::core::state::GlyphNavigation>,
 ) {
-    // Get the primary viewport or create a default one if none exists
+    // Early exit if no font is loaded
+    if app_state.workspace.font.ufo.font_info.is_none() {
+        return;
+    }
+
+    // Get viewport for coordinate transformations
     let viewport = match viewports.get_single() {
         Ok(viewport) => *viewport,
         Err(_) => ViewPort::default(),
     };
 
-    // We need a glyph to draw metrics for
-    if app_state.workspace.font.ufo.font_info.is_some() {
-        let metrics = &app_state.workspace.info.metrics;
+    // Skip drawing if we're looking for a specific codepoint that wasn't found
+    let codepoint_string = glyph_navigation.get_codepoint_string();
+    if !codepoint_string.is_empty() && !glyph_navigation.codepoint_found {
+        return;
+    }
 
-        // Get the codepoint string for checking if it was found
-        let codepoint_string = glyph_navigation.get_codepoint_string();
+    // Get the default layer to search for glyphs
+    let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() else {
+        println!("WARNING: No default layer found in the font");
+        return;
+    };
 
-        // If we're testing a specific codepoint and it wasn't found, don't draw metrics
-        if !codepoint_string.is_empty() && !glyph_navigation.codepoint_found {
-            // Skip drawing metrics for non-existent codepoints
-            return;
-        }
+    // Find a glyph to use for metrics display
+    let glyph = find_glyph_for_metrics(&glyph_navigation, &app_state, default_layer);
+    
+    // Draw the metrics using the found or placeholder glyph
+    draw_metrics(
+        &mut gizmos,
+        &viewport,
+        &glyph,
+        &app_state.workspace.info.metrics,
+    );
+}
 
-        match app_state.workspace.font.ufo.get_default_layer() {
-            Some(default_layer) => {
-                // Try to get the glyph using the new helper method
-                if let Some(glyph_name) =
-                    glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
-                {
-                    if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
-                        // Draw the metrics using the actual glyph
-                        draw_metrics(
-                            &mut gizmos,
-                            &viewport,
-                            &glyph,
-                            &app_state.workspace.info.metrics,
-                        );
-                    }
-                } else {
-                    // Try with some common glyphs
-                    let common_glyphs =
-                        ["H", "h", "A", "a", "O", "o", "space", ".notdef"];
-                    let mut found = false;
-
-                    for glyph_name_str in common_glyphs.iter() {
-                        let name = norad::GlyphName::from(*glyph_name_str);
-                        if let Some(glyph) = default_layer.get_glyph(&name) {
-                            draw_metrics(
-                                &mut gizmos,
-                                &viewport,
-                                &glyph,
-                                &app_state.workspace.info.metrics,
-                            );
-                            found = true;
-                            break;
-                        }
-                    }
-
-                    if !found {
-                        // If no glyph found, use a placeholder with a warning
-                        let mut placeholder = Glyph::new_named("placeholder");
-                        placeholder.advance = Some(norad::Advance {
-                            width: metrics.units_per_em as f32,
-                            height: 0.0,
-                        });
-
-                        draw_metrics(
-                            &mut gizmos,
-                            &viewport,
-                            &placeholder,
-                            &app_state.workspace.info.metrics,
-                        );
-
-                        println!("WARNING: Could not find any glyphs for metrics. Using units_per_em as placeholder width.");
-                    }
-                }
-            }
-            None => {
-                println!("WARNING: No default layer found in the font");
-            }
+/// Find an appropriate glyph to display metrics for
+fn find_glyph_for_metrics(
+    glyph_navigation: &crate::core::state::GlyphNavigation,
+    app_state: &AppState,
+    default_layer: &norad::Layer,
+) -> Glyph {
+    // Try to get the specifically requested glyph first
+    if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo) {
+        if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
+            return (**glyph).clone();
         }
     }
+
+    // Fall back to common test glyphs
+    let common_glyphs = ["H", "h", "A", "a", "O", "o", "space", ".notdef"];
+    for glyph_name_str in common_glyphs.iter() {
+        let name = norad::GlyphName::from(*glyph_name_str);
+        if let Some(glyph) = default_layer.get_glyph(&name) {
+            return (**glyph).clone();
+        }
+    }
+
+    // Create placeholder glyph if no real glyphs are available
+    create_placeholder_glyph(&app_state.workspace.info.metrics)
+}
+
+/// Create a placeholder glyph when no real glyphs are available
+fn create_placeholder_glyph(metrics: &crate::core::state::FontMetrics) -> Glyph {
+    let mut placeholder = Glyph::new_named("placeholder");
+    placeholder.advance = Some(norad::Advance {
+        width: metrics.units_per_em as f32,
+        height: 0.0,
+    });
+    placeholder
 }
 
 /// Draw font metrics lines (baseline, x-height, cap-height, ascender, descender, and bounding box)
