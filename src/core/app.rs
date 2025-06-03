@@ -24,7 +24,7 @@ use crate::ui::TextEditorPlugin;
 use crate::editing::{EditSessionPlugin, SelectionPlugin, UndoPlugin};
 
 // Rendering - drawing glyphs and visual elements
-use crate::rendering::{CheckerboardPlugin, DrawPlugin};
+use crate::rendering::CheckerboardPlugin;
 
 // System plugins - core app behavior and event handling
 use crate::systems::plugins::*;
@@ -65,7 +65,7 @@ fn add_rendering_plugins(app: &mut App) {
     app.add_plugins((
         PanCamPlugin,       // Camera controls
         CheckerboardPlugin, // Background grid
-        DrawPlugin,         // Glyph rendering
+        // DrawPlugin now handled by BezySystems bundle
     ));
 }
 

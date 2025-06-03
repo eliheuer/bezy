@@ -2,6 +2,10 @@ use bevy::gizmos::{config::DefaultGizmoConfigGroup, config::GizmoConfigStore};
 use bevy::prelude::*;
 
 use crate::rendering::cameras::toggle_camera_controls;
+use crate::rendering::draw::{
+    draw_test_elements, draw_glyph_points_system, draw_metrics_system,
+    spawn_glyph_point_entities, detect_app_state_changes, AppStateChanged,
+};
 use crate::data::ufo::initialize_font_state;
 use crate::ui::panes::coord_pane::CoordinatePanePlugin;
 use crate::ui::panes::glyph_pane::GlyphPanePlugin;
@@ -48,6 +52,32 @@ impl Plugin for CameraPlugin {
     }
 }
 
+/// Plugin to organize drawing-related systems
+pub struct DrawPlugin;
+
+impl Plugin for DrawPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_event::<AppStateChanged>()
+            .add_systems(Startup, (spawn_glyph_point_entities,))
+            .add_systems(
+                Update,
+                (
+                    draw_glyph_points_system,
+                    draw_metrics_system,
+                    draw_test_elements,
+                    detect_app_state_changes,
+                    spawn_glyph_point_entities
+                        .run_if(|reader: EventReader<AppStateChanged>| {
+                            !reader.is_empty()
+                        })
+                        .before(
+                            crate::editing::selection::nudge::handle_nudge_shortcuts,
+                        ),
+                ),
+            );
+    }
+}
+
 /// Plugin to organize toolbar-related plugins
 pub struct ToolbarPlugin;
 
@@ -78,6 +108,7 @@ impl Plugin for BezySystems {
         app.add_plugins((
             SetupPlugin,
             CameraPlugin,
+            DrawPlugin,
             ToolbarPlugin,
             CoordinatePanePlugin,
             GlyphPanePlugin,

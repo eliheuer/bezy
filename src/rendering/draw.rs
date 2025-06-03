@@ -24,23 +24,27 @@ use norad::Glyph;
 pub fn draw_test_elements(mut gizmos: Gizmos) {
     // Only draw the debug cross if enabled in theme settings
     if DEBUG_SHOW_ORIGIN_CROSS {
-        // Draw a simple test cross at the origin
-        gizmos.line_2d(
-            Vec2::new(-64.0, 0.0),
-            Vec2::new(64.0, 0.0),
+        // Draw a simple test cross at the origin with higher Z to appear on top
+        gizmos.line(
+            Vec3::new(-64.0, 0.0, 10.0), // Higher Z value to draw on top
+            Vec3::new(64.0, 0.0, 10.0),
             Color::srgb(1.0, 0.0, 0.0),
         );
-        gizmos.line_2d(
-            Vec2::new(0.0, -64.0),
-            Vec2::new(0.0, 64.0),
+        gizmos.line(
+            Vec3::new(0.0, -64.0, 10.0),
+            Vec3::new(0.0, 64.0, 10.0),
             Color::srgb(1.0, 0.0, 0.0),
         );
-        // Draw a 32x32 red square centered at origin
-        gizmos.rect_2d(
-            Vec2::ZERO, // position
-            Vec2::new(32.0, 32.0), // size
-            Color::srgb(1.0, 0.0, 0.0), // color
-        );
+        // Note: rect_2d doesn't have a 3D equivalent, but we can draw it with lines
+        let half_size = 16.0;
+        let z = 10.0; // Same higher Z value
+        let red = Color::srgb(1.0, 0.0, 0.0);
+        
+        // Draw square outline with 3D lines at higher Z
+        gizmos.line(Vec3::new(-half_size, -half_size, z), Vec3::new(half_size, -half_size, z), red);
+        gizmos.line(Vec3::new(half_size, -half_size, z), Vec3::new(half_size, half_size, z), red);
+        gizmos.line(Vec3::new(half_size, half_size, z), Vec3::new(-half_size, half_size, z), red);
+        gizmos.line(Vec3::new(-half_size, half_size, z), Vec3::new(-half_size, -half_size, z), red);
     }
 }
 
@@ -224,6 +228,7 @@ fn draw_line(
     end: (f32, f32),
     color: Color,
 ) {
+    // DPoint = Design space Point, converted to screen coordinates
     let start_screen = viewport.to_screen(DPoint::from(start));
     let end_screen = viewport.to_screen(DPoint::from(end));
     gizmos.line_2d(start_screen, end_screen, color);
@@ -261,35 +266,6 @@ fn draw_rect(
         Vec2::new(tl_screen.x, tl_screen.y),
         color,
     );
-}
-
-/// Plugin to add drawing systems
-pub struct DrawPlugin;
-
-impl Plugin for DrawPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_event::<AppStateChanged>()
-            .add_systems(Startup, (spawn_glyph_point_entities,))
-            .add_systems(
-                Update,
-                (
-                    draw_test_elements,
-                    draw_glyph_points_system,
-                    draw_metrics_system,
-                    // Detect AppState changes
-                    detect_app_state_changes,
-                    // Re-spawn points when the app state changes (e.g., different glyph loaded)
-                    spawn_glyph_point_entities
-                        .run_if(|reader: EventReader<AppStateChanged>| {
-                            !reader.is_empty()
-                        })
-                        // Make sure this system runs before nudge systems
-                        .before(
-                            crate::editing::selection::nudge::handle_nudge_shortcuts,
-                        ),
-                ),
-            );
-    }
 }
 
 /// Event that will be triggered when the AppState changes
@@ -1115,7 +1091,7 @@ fn spawn_entities_for_glyph(
 }
 
 /// System to detect when AppState changes and send an event
-fn detect_app_state_changes(
+pub fn detect_app_state_changes(
     app_state: Res<AppState>,
     mut event_writer: EventWriter<AppStateChanged>,
 ) {
