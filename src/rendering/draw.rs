@@ -4,10 +4,17 @@ use crate::core::state::{AppState, FontMetrics};
 use crate::editing::selection::Selectable;
 use crate::ui::panes::design_space::{DPoint, ViewPort};
 use crate::ui::theme::{
-    DEBUG_SHOW_ORIGIN_CROSS, HANDLE_LINE_COLOR, METRICS_GUIDE_COLOR,
-    OFF_CURVE_INNER_CIRCLE_RATIO, OFF_CURVE_POINT_COLOR,
-    OFF_CURVE_POINT_RADIUS, ON_CURVE_INNER_CIRCLE_RATIO, ON_CURVE_POINT_COLOR,
-    ON_CURVE_POINT_RADIUS, ON_CURVE_SQUARE_ADJUSTMENT, PATH_LINE_COLOR,
+    DEBUG_SHOW_ORIGIN_CROSS,
+    HANDLE_LINE_COLOR,
+    METRICS_GUIDE_COLOR,
+    OFF_CURVE_INNER_CIRCLE_RATIO,
+    OFF_CURVE_POINT_COLOR,
+    OFF_CURVE_POINT_RADIUS,
+    ON_CURVE_INNER_CIRCLE_RATIO,
+    ON_CURVE_POINT_COLOR,
+    ON_CURVE_POINT_RADIUS,
+    ON_CURVE_SQUARE_ADJUSTMENT,
+    PATH_LINE_COLOR,
     USE_SQUARE_FOR_ON_CURVE,
 };
 use bevy::prelude::*;
@@ -38,31 +45,15 @@ pub fn draw_metrics_system(
     viewports: Query<&ViewPort>,
     glyph_navigation: Res<crate::core::state::GlyphNavigation>,
 ) {
-    // Debug metrics info
-    debug!("=== Font Metrics Debug ===");
-    debug!(
-        "Has font_info: {}",
-        app_state.workspace.font.ufo.font_info.is_some()
-    );
-
     // Get the primary viewport or create a default one if none exists
     let viewport = match viewports.get_single() {
         Ok(viewport) => *viewport,
-        Err(_) => {
-            debug!("No viewport found, using default viewport");
-            ViewPort::default()
-        }
+        Err(_) => ViewPort::default(),
     };
 
     // We need a glyph to draw metrics for
     if app_state.workspace.font.ufo.font_info.is_some() {
-        // Debug metrics values
         let metrics = &app_state.workspace.info.metrics;
-        debug!("Units per em: {}", metrics.units_per_em);
-        debug!("X-height: {:?}", metrics.x_height);
-        debug!("Cap-height: {:?}", metrics.cap_height);
-        debug!("Ascender: {:?}", metrics.ascender);
-        debug!("Descender: {:?}", metrics.descender);
 
         // Get the codepoint string for checking if it was found
         let codepoint_string = glyph_navigation.get_codepoint_string();
@@ -87,8 +78,6 @@ pub fn draw_metrics_system(
                             &glyph,
                             &app_state.workspace.info.metrics,
                         );
-                        debug!("Metrics drawn for glyph '{}' with advance width: {:?}", 
-                              glyph.name, glyph.advance.as_ref().map(|a| a.width));
                     }
                 } else {
                     // Try with some common glyphs
@@ -105,8 +94,6 @@ pub fn draw_metrics_system(
                                 &glyph,
                                 &app_state.workspace.info.metrics,
                             );
-                            debug!("Metrics drawn for glyph '{}' with advance width: {:?}", 
-                                  glyph.name, glyph.advance.as_ref().map(|a| a.width));
                             found = true;
                             break;
                         }
@@ -135,13 +122,6 @@ pub fn draw_metrics_system(
                 println!("WARNING: No default layer found in the font");
             }
         }
-
-        debug!(
-            "Metrics drawn for viewport at zoom: {}, flipped_y: {}",
-            viewport.zoom, viewport.flipped_y
-        );
-    } else {
-        debug!("No font info available, metrics not drawn");
     }
 }
 

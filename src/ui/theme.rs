@@ -102,7 +102,7 @@ pub const USE_SQUARE_FOR_ON_CURVE: bool = true;
 pub const METRICS_GUIDE_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 0.5);
 
 // Debug Settings
-pub const DEBUG_SHOW_ORIGIN_CROSS: bool = false; // Set to true to show the red cross at origin
+pub const DEBUG_SHOW_ORIGIN_CROSS: bool = true; // Set to true to show the red cross at origin
 
 // UI Panel Colors
 #[allow(dead_code)]
