@@ -20,8 +20,8 @@ use crate::ui::theme::{
 use bevy::prelude::*;
 use norad::Glyph;
 
-/// System that draws basic test elements for development
-pub fn draw_test_elements(mut gizmos: Gizmos) {
+/// System that draws the debug origin cross and square
+pub fn draw_origin_cross(mut gizmos: Gizmos) {
     // Only draw the debug cross if enabled in theme settings
     if DEBUG_SHOW_ORIGIN_CROSS {
         let red = Color::srgb(1.0, 0.0, 0.0);

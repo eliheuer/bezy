@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 use crate::rendering::cameras::toggle_camera_controls;
 use crate::rendering::draw::{
-    draw_test_elements, draw_glyph_points_system, draw_metrics_system,
+    draw_origin_cross, draw_glyph_points_system, draw_metrics_system,
     spawn_glyph_point_entities, detect_app_state_changes, AppStateChanged,
 };
 use crate::data::ufo::initialize_font_state;
@@ -64,7 +64,7 @@ impl Plugin for DrawPlugin {
                 (
                     draw_glyph_points_system,
                     draw_metrics_system,
-                    draw_test_elements,
+                    draw_origin_cross,
                     detect_app_state_changes,
                     spawn_glyph_point_entities
                         .run_if(|reader: EventReader<AppStateChanged>| {
