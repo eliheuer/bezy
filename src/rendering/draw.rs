@@ -35,7 +35,6 @@ pub fn draw_test_elements(mut gizmos: Gizmos) {
             Vec2::new(0.0, 64.0),
             Color::srgb(1.0, 0.0, 0.0),
         );
-
         // Draw a 32x32 red square centered at origin
         gizmos.rect_2d(
             Vec2::ZERO, // position
@@ -144,12 +143,21 @@ fn draw_metrics(
     // Use the constant from theme.rs instead of hardcoding the color
     let metrics_color = METRICS_GUIDE_COLOR;
 
-    // Draw the bounding box that represents the glyph metrics
+    // Draw the standard metrics bounding box (descender to ascender)
     draw_rect(
         gizmos,
         viewport,
         (0.0, descender as f32),
         (width as f32, ascender as f32),
+        metrics_color,
+    );
+
+    // Draw the full UPM bounding box (from 0 to UPM height)
+    draw_rect(
+        gizmos,
+        viewport,
+        (0.0, 0.0),
+        (width as f32, upm as f32),
         metrics_color,
     );
 
@@ -195,6 +203,15 @@ fn draw_metrics(
         viewport,
         (0.0, descender as f32),
         (width as f32, descender as f32),
+        metrics_color,
+    );
+
+    // Draw UPM top line
+    draw_line(
+        gizmos,
+        viewport,
+        (0.0, upm as f32),
+        (width as f32, upm as f32),
         metrics_color,
     );
 }
