@@ -37,7 +37,7 @@ pub fn render_sorts_system(
     }
 }
 
-/// Render an inactive sort with metrics box and glyph outline
+/// Render an inactive sort with metrics box and glyph outline only
 fn render_inactive_sort(
     gizmos: &mut Gizmos,
     viewport: &ViewPort,
@@ -53,14 +53,22 @@ fn render_inactive_sort(
         sort.position,
     );
     
-    // Then render the glyph outline if it exists
+    // Then render only the glyph outline (no control handles) if it exists
     if let Some(outline) = &sort.glyph.outline {
-        crate::rendering::glyph_outline::draw_glyph_outline_at_position(
-            gizmos,
-            viewport,
-            outline,
-            sort.position,
-        );
+        // Render each contour in the outline
+        for contour in &outline.contours {
+            if contour.points.is_empty() {
+                continue;
+            }
+
+            // Draw only the path, no control handles for inactive sorts
+            crate::rendering::glyph_outline::draw_contour_path_at_position(
+                gizmos,
+                viewport,
+                contour,
+                sort.position,
+            );
+        }
     }
 }
 
@@ -80,7 +88,7 @@ fn render_active_sort(
         sort.position,
     );
     
-    // Then render the glyph outline with full detail if it exists
+    // Then render the full glyph outline with control handles if it exists
     if let Some(outline) = &sort.glyph.outline {
         crate::rendering::glyph_outline::draw_glyph_outline_at_position(
             gizmos,
