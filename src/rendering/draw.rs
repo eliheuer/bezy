@@ -24,27 +24,27 @@ use norad::Glyph;
 pub fn draw_test_elements(mut gizmos: Gizmos) {
     // Only draw the debug cross if enabled in theme settings
     if DEBUG_SHOW_ORIGIN_CROSS {
-        // Draw a simple test cross at the origin with higher Z to appear on top
-        gizmos.line(
-            Vec3::new(-64.0, 0.0, 10.0), // Higher Z value to draw on top
-            Vec3::new(64.0, 0.0, 10.0),
-            Color::srgb(1.0, 0.0, 0.0),
-        );
-        gizmos.line(
-            Vec3::new(0.0, -64.0, 10.0),
-            Vec3::new(0.0, 64.0, 10.0),
-            Color::srgb(1.0, 0.0, 0.0),
-        );
-        // Note: rect_2d doesn't have a 3D equivalent, but we can draw it with lines
-        let half_size = 16.0;
-        let z = 10.0; // Same higher Z value
         let red = Color::srgb(1.0, 0.0, 0.0);
+        let z = 10.0; // Higher Z value to draw on top of metrics
         
-        // Draw square outline with 3D lines at higher Z
-        gizmos.line(Vec3::new(-half_size, -half_size, z), Vec3::new(half_size, -half_size, z), red);
-        gizmos.line(Vec3::new(half_size, -half_size, z), Vec3::new(half_size, half_size, z), red);
-        gizmos.line(Vec3::new(half_size, half_size, z), Vec3::new(-half_size, half_size, z), red);
-        gizmos.line(Vec3::new(-half_size, half_size, z), Vec3::new(-half_size, -half_size, z), red);
+        // Draw a simple test cross at the origin
+        gizmos.line(
+            Vec3::new(-64.0, 0.0, z),
+            Vec3::new(64.0, 0.0, z),
+            red,
+        );
+        gizmos.line(
+            Vec3::new(0.0, -64.0, z),
+            Vec3::new(0.0, 64.0, z),
+            red,
+        );
+        
+        // Draw a 32x32 red square centered at origin
+        gizmos.rect_2d(
+            Vec2::ZERO, // position (center)
+            Vec2::new(32.0, 32.0), // size
+            red,
+        );
     }
 }
 
@@ -117,7 +117,9 @@ fn find_glyph_for_metrics(
 }
 
 /// Create a placeholder glyph when no real glyphs are available
-fn create_placeholder_glyph(metrics: &crate::core::state::FontMetrics) -> Glyph {
+fn create_placeholder_glyph(
+    metrics: &crate::core::state::FontMetrics
+) -> Glyph {
     let mut placeholder = Glyph::new_named("placeholder");
     placeholder.advance = Some(norad::Advance {
         width: metrics.units_per_em as f32,
