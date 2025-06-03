@@ -1,6 +1,6 @@
 //! Drawing algorithms and helpers
 
-use crate::core::state::{AppState, FontMetrics};
+use crate::core::state::{AppState, FontMetrics, GlyphNavigation};
 use crate::editing::selection::Selectable;
 use crate::ui::panes::design_space::{DPoint, ViewPort};
 use crate::ui::theme::{
@@ -53,7 +53,7 @@ pub fn draw_metrics_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
     viewports: Query<&ViewPort>,
-    glyph_navigation: Res<crate::core::state::GlyphNavigation>,
+    glyph_navigation: Res<GlyphNavigation>,
 ) {
     // Early exit if no font is loaded
     if app_state.workspace.font.ufo.font_info.is_none() {
@@ -90,29 +90,29 @@ pub fn draw_metrics_system(
     );
 }
 
-/// Find an appropriate glyph to display metrics for
+/// Selects a glyph to determine the width for drawing font metrics lines.
+///
+/// The metrics lines (baseline, x-height, etc.) need a horizontal extent.
+/// This function prioritizes the glyph currently active via `glyph_navigation`.
+/// If no specific glyph is active or found, it falls back to a standard
+/// placeholder glyph whose width is based on the font's units_per_em value.
 fn find_glyph_for_metrics(
-    glyph_navigation: &crate::core::state::GlyphNavigation,
+    glyph_navigation: &GlyphNavigation,
     app_state: &AppState,
     default_layer: &norad::Layer,
 ) -> Glyph {
-    // Try to get the specifically requested glyph first
-    if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo) {
+    let ufo = &app_state.workspace.font.ufo;
+
+    // Try to get the specifically requested glyph first.
+    // If found, clone it and return immediately.
+    if let Some(glyph_name) = glyph_navigation.find_glyph(ufo) {
         if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
             return (**glyph).clone();
         }
     }
 
-    // Fall back to common test glyphs
-    let common_glyphs = ["H", "h", "A", "a", "O", "o", "space", ".notdef"];
-    for glyph_name_str in common_glyphs.iter() {
-        let name = norad::GlyphName::from(*glyph_name_str);
-        if let Some(glyph) = default_layer.get_glyph(&name) {
-            return (**glyph).clone();
-        }
-    }
-
-    // Create placeholder glyph if no real glyphs are available
+    // If no specific glyph is found (or the layer doesn't contain it),
+    // fall back to creating a standard placeholder glyph.
     create_placeholder_glyph(&app_state.workspace.info.metrics)
 }
 
@@ -277,7 +277,7 @@ pub fn draw_glyph_points_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
     viewports: Query<&ViewPort>,
-    mut glyph_navigation: ResMut<crate::core::state::GlyphNavigation>,
+    mut glyph_navigation: ResMut<GlyphNavigation>,
     mut camera_query: Query<
         (&mut Transform, &mut OrthographicProjection),
         With<crate::rendering::cameras::DesignCamera>,
@@ -879,7 +879,7 @@ pub fn spawn_glyph_point_entities(
         ),
         With<Selectable>,
     >,
-    glyph_navigation: Res<crate::core::state::GlyphNavigation>,
+    glyph_navigation: Res<GlyphNavigation>,
     mut selection_state: ResMut<
         crate::editing::selection::components::SelectionState,
     >,
