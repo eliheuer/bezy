@@ -126,6 +126,27 @@ pub const BACKGROUND_COLOR: Color = Color::srgb(0.05, 0.05, 0.05);
 pub const CHECKERBOARD_UNIT_SIZE: f32 = 16.0; // Width and height of each square in pixels
 pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.128, 0.128, 0.128); // Single color for checkerboard squares
 
+// Dynamic Checkerboard Scaling Configuration
+// These settings control how the checkerboard grid scales with zoom levels to maintain performance
+//
+// How it works:
+// - As you zoom out, the checkerboard grid size automatically doubles at regular intervals
+// - This prevents performance issues from rendering too many small squares
+// - The system calculates the appropriate grid size mathematically based on zoom level
+//
+// Configuration:
+// - CHECKERBOARD_SCALE_FACTOR: How aggressively the grid scales (higher = more aggressive scaling)
+// - CHECKERBOARD_MAX_ZOOM_VISIBLE: Hide checkerboard completely when zoomed out beyond this level
+//
+// Example: With scale factor 2.0:
+//          At zoom scale 1.0, grid size = 16 pixels
+//          At zoom scale 2.0, grid size = 32 pixels  
+//          At zoom scale 4.0, grid size = 64 pixels
+//          At zoom scale 8.0, grid size = 128 pixels (and so on, doubling infinitely)
+//
+pub const CHECKERBOARD_SCALE_FACTOR: f32 = 2.0; // How much the grid scales with zoom (2.0 = doubles)
+pub const CHECKERBOARD_MAX_ZOOM_VISIBLE: f32 = 32.0; // Hide checkerboard when zoomed out beyond this level
+
 // Button Styling
 // pub const BUTTON_BORDER_RADIUS: f32 = 8.0;
 

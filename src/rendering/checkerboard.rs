@@ -5,7 +5,10 @@
 //! Uses dynamic rendering to only show squares visible to the camera.
 
 use crate::rendering::cameras::DesignCamera;
-use crate::ui::theme::{CHECKERBOARD_COLOR, CHECKERBOARD_UNIT_SIZE};
+use crate::ui::theme::{
+    CHECKERBOARD_COLOR, CHECKERBOARD_UNIT_SIZE, CHECKERBOARD_SCALE_FACTOR,
+    CHECKERBOARD_MAX_ZOOM_VISIBLE,
+};
 use bevy::prelude::*;
 use std::collections::HashSet;
 
@@ -21,11 +24,6 @@ const VISIBILITY_PADDING: f32 = 128.0;
 /// Lower values = more zoomed out before hiding checkerboard
 const MIN_VISIBILITY_ZOOM: f32 = 0.01;
 
-///#[allow(dead_code)]
-#[allow(dead_code)]
-/// Maximum zoom level where checkerboard is visible  
-const MAX_VISIBILITY_ZOOM: f32 = 8.0;
-
 // Components -----------------------------------------------------------------
 
 /// Component to identify checkerboard squares
@@ -36,6 +34,8 @@ const MAX_VISIBILITY_ZOOM: f32 = 8.0;
 pub struct CheckerboardSquare {
     /// Grid coordinates of this square
     pub grid_pos: IVec2,
+    /// The grid size this square was created with
+    pub grid_size: f32,
 }
 
 /// Resource to track currently spawned checkerboard squares
@@ -45,9 +45,29 @@ pub struct CheckerboardState {
     spawned_squares: HashSet<IVec2>,
     /// Last camera position and scale to detect significant changes
     last_camera_state: Option<(Vec2, f32)>,
+    /// Last grid size used to detect when we need to respawn all squares
+    last_grid_size: Option<f32>,
 }
 
 // Systems --------------------------------------------------------------------
+
+/// Calculates the appropriate grid size based on zoom level
+///
+/// This function automatically scales the grid size based on zoom level.
+/// As you zoom out (higher scale values), the grid size increases to maintain performance.
+fn calculate_dynamic_grid_size(zoom_scale: f32) -> f32 {
+    // Calculate how much to scale the grid based on zoom level
+    // Use a more gradual scaling approach to reduce frequent changes
+    let scale_multiplier = if zoom_scale <= 1.0 {
+        1.0
+    } else {
+        // For zoom > 1.0, double the grid size every time zoom doubles
+        let log_scale = zoom_scale.log2().floor();
+        2_f32.powf(log_scale)
+    };
+    
+    CHECKERBOARD_UNIT_SIZE * scale_multiplier * CHECKERBOARD_SCALE_FACTOR
+}
 
 /// Updates the checkerboard based on camera position and zoom
 ///
@@ -66,9 +86,28 @@ pub fn update_checkerboard(
         return;
     };
 
+    // Calculate dynamic grid size based on zoom
+    let current_grid_size = calculate_dynamic_grid_size(projection.scale);
+
     // Hide checkerboard if zoom is outside visible range
     if !is_checkerboard_visible(projection.scale) {
         despawn_all_squares(&mut commands, &mut state, &square_query);
+        return;
+    }
+
+    // Check if grid size changed significantly - if so, respawn all squares
+    let grid_size_changed = state.last_grid_size.map_or(true, |last_size| {
+        // Only trigger change if grid size doubled or halved to reduce flicker
+        let ratio = current_grid_size / last_size;
+        ratio >= 2.0 || ratio <= 0.5
+    });
+
+    if grid_size_changed {
+        // Clear all existing squares and state
+        despawn_all_squares(&mut commands, &mut state, &square_query);
+        state.last_grid_size = Some(current_grid_size);
+        state.last_camera_state = None; // Force camera update
+        // Don't update visible squares this frame - let the next frame handle spawning
         return;
     }
 
@@ -78,6 +117,7 @@ pub fn update_checkerboard(
         camera_transform,
         projection,
         &square_query,
+        current_grid_size,
     );
 }
 
@@ -86,7 +126,7 @@ pub fn update_checkerboard(
 /// Only hides checkerboard when zoomed out too far to avoid visual noise
 /// and performance issues. Always visible when zoomed in for alignment.
 fn is_checkerboard_visible(zoom_scale: f32) -> bool {
-    zoom_scale >= MIN_VISIBILITY_ZOOM
+    zoom_scale >= MIN_VISIBILITY_ZOOM && zoom_scale <= CHECKERBOARD_MAX_ZOOM_VISIBLE
 }
 
 /// Updates which squares are visible based on camera position
@@ -96,6 +136,7 @@ fn update_visible_squares(
     camera_transform: &Transform,
     projection: &OrthographicProjection,
     square_query: &Query<(Entity, &CheckerboardSquare)>,
+    current_grid_size: f32,
 ) {
     let camera_pos = camera_transform.translation.truncate();
     let camera_scale = projection.scale;
@@ -105,9 +146,10 @@ fn update_visible_squares(
         let pos_diff = (camera_pos - last_pos).length();
         let scale_diff = (camera_scale - last_scale).abs();
         
-        // Only update if moved more than half a grid unit or zoom changed >10%
-        if pos_diff < CHECKERBOARD_UNIT_SIZE * 0.5 
-            && scale_diff < last_scale * 0.1 
+        // Only update if moved more than one grid unit or zoom changed >20%
+        // Increased thresholds to reduce update frequency
+        if pos_diff < current_grid_size 
+            && scale_diff < last_scale * 0.2 
         {
             return;
         }
@@ -117,20 +159,21 @@ fn update_visible_squares(
     state.last_camera_state = Some((camera_pos, camera_scale));
 
     // Calculate visible area
-    let visible_area = calculate_visible_area(camera_transform, projection);
-    let needed_squares = get_needed_squares(&visible_area);
+    let visible_area = calculate_visible_area(camera_transform, projection, current_grid_size);
+    let needed_squares = get_needed_squares(&visible_area, current_grid_size);
 
     // Despawn squares that are no longer needed
     despawn_unneeded_squares(commands, state, square_query, &needed_squares);
 
     // Spawn new squares that are needed
-    spawn_needed_squares(commands, state, &needed_squares);
+    spawn_needed_squares(commands, state, &needed_squares, current_grid_size);
 }
 
 /// Calculates the area visible to the camera
 fn calculate_visible_area(
     camera_transform: &Transform,
     projection: &OrthographicProjection,
+    current_grid_size: f32,
 ) -> Rect {
     let camera_pos = camera_transform.translation.truncate();
     
@@ -142,7 +185,7 @@ fn calculate_visible_area(
         + VISIBILITY_PADDING;
     
     // Ensure minimum visible area even when extremely zoomed in
-    let min_half_size = CHECKERBOARD_UNIT_SIZE * 2.0; // Show at least 4x4 grid
+    let min_half_size = current_grid_size * 2.0; // Show at least 4x4 grid
     let half_width = half_width.max(min_half_size);
     let half_height = half_height.max(min_half_size);
 
@@ -150,14 +193,14 @@ fn calculate_visible_area(
 }
 
 /// Gets the set of grid positions that need checkerboard squares
-fn get_needed_squares(visible_area: &Rect) -> HashSet<IVec2> {
+fn get_needed_squares(visible_area: &Rect, current_grid_size: f32) -> HashSet<IVec2> {
     let mut needed = HashSet::new();
 
     // Calculate grid bounds for visible area
-    let min_x = (visible_area.min.x / CHECKERBOARD_UNIT_SIZE).floor() as i32;
-    let max_x = (visible_area.max.x / CHECKERBOARD_UNIT_SIZE).ceil() as i32;
-    let min_y = (visible_area.min.y / CHECKERBOARD_UNIT_SIZE).floor() as i32;
-    let max_y = (visible_area.max.y / CHECKERBOARD_UNIT_SIZE).ceil() as i32;
+    let min_x = (visible_area.min.x / current_grid_size).floor() as i32;
+    let max_x = (visible_area.max.x / current_grid_size).ceil() as i32;
+    let min_y = (visible_area.min.y / current_grid_size).floor() as i32;
+    let max_y = (visible_area.max.y / current_grid_size).ceil() as i32;
 
     // Add squares in checkerboard pattern
     for x in min_x..=max_x {
@@ -179,11 +222,21 @@ fn despawn_unneeded_squares(
     square_query: &Query<(Entity, &CheckerboardSquare)>,
     needed_squares: &HashSet<IVec2>,
 ) {
+    let mut entities_to_remove = Vec::new();
+    
     for (entity, square) in square_query.iter() {
         if !needed_squares.contains(&square.grid_pos) {
-            commands.entity(entity).despawn();
-            state.spawned_squares.remove(&square.grid_pos);
+            entities_to_remove.push((entity, square.grid_pos));
         }
+    }
+    
+    // Despawn entities and update state
+    for (entity, grid_pos) in entities_to_remove {
+        // Use try_despawn to gracefully handle already-despawned entities
+        if commands.get_entity(entity).is_some() {
+            commands.entity(entity).despawn();
+        }
+        state.spawned_squares.remove(&grid_pos);
     }
 }
 
@@ -192,37 +245,41 @@ fn spawn_needed_squares(
     commands: &mut Commands,
     state: &mut CheckerboardState,
     needed_squares: &HashSet<IVec2>,
+    current_grid_size: f32,
 ) {
     for &grid_pos in needed_squares {
         if !state.spawned_squares.contains(&grid_pos) {
-            spawn_square(commands, grid_pos);
+            spawn_square(commands, grid_pos, current_grid_size);
             state.spawned_squares.insert(grid_pos);
         }
     }
 }
 
 /// Spawns a single checkerboard square at the given grid position
-fn spawn_square(commands: &mut Commands, grid_pos: IVec2) {
-    let world_pos = grid_to_world_position(grid_pos);
+fn spawn_square(commands: &mut Commands, grid_pos: IVec2, current_grid_size: f32) {
+    let world_pos = grid_to_world_position(grid_pos, current_grid_size);
 
     commands.spawn((
         Sprite {
             color: CHECKERBOARD_COLOR,
-            custom_size: Some(Vec2::splat(CHECKERBOARD_UNIT_SIZE)),
+            custom_size: Some(Vec2::splat(current_grid_size)),
             ..default()
         },
         Transform::from_xyz(world_pos.x, world_pos.y, CHECKERBOARD_Z_LEVEL),
-        CheckerboardSquare { grid_pos },
+        CheckerboardSquare { 
+            grid_pos,
+            grid_size: current_grid_size,
+        },
     ));
 }
 
 /// Converts grid coordinates to world position
-fn grid_to_world_position(grid_pos: IVec2) -> Vec2 {
+fn grid_to_world_position(grid_pos: IVec2, current_grid_size: f32) -> Vec2 {
     Vec2::new(
-        grid_pos.x as f32 * CHECKERBOARD_UNIT_SIZE
-            + CHECKERBOARD_UNIT_SIZE / 2.0,
-        grid_pos.y as f32 * CHECKERBOARD_UNIT_SIZE
-            + CHECKERBOARD_UNIT_SIZE / 2.0,
+        grid_pos.x as f32 * current_grid_size
+            + current_grid_size / 2.0,
+        grid_pos.y as f32 * current_grid_size
+            + current_grid_size / 2.0,
     )
 }
 
@@ -232,9 +289,17 @@ fn despawn_all_squares(
     state: &mut CheckerboardState,
     square_query: &Query<(Entity, &CheckerboardSquare)>,
 ) {
-    for (entity, _) in square_query.iter() {
-        commands.entity(entity).despawn();
+    // Collect all entities first to avoid iterator invalidation
+    let entities_to_despawn: Vec<Entity> = square_query.iter().map(|(entity, _)| entity).collect();
+    
+    // Despawn all entities with error handling
+    for entity in entities_to_despawn {
+        if commands.get_entity(entity).is_some() {
+            commands.entity(entity).despawn();
+        }
     }
+    
+    // Clear the state
     state.spawned_squares.clear();
 }
 
