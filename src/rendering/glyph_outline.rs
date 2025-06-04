@@ -4,7 +4,11 @@
 //! by both the main glyph rendering system and individual sorts.
 
 use crate::ui::panes::design_space::{DPoint, ViewPort};
-use crate::ui::theme::{PATH_LINE_COLOR, HANDLE_LINE_COLOR};
+use crate::ui::theme::{
+    PATH_LINE_COLOR, HANDLE_LINE_COLOR, ON_CURVE_POINT_COLOR, ON_CURVE_POINT_RADIUS,
+    OFF_CURVE_POINT_COLOR, OFF_CURVE_POINT_RADIUS, USE_SQUARE_FOR_ON_CURVE,
+    ON_CURVE_SQUARE_ADJUSTMENT, ON_CURVE_INNER_CIRCLE_RATIO, OFF_CURVE_INNER_CIRCLE_RATIO,
+};
 use bevy::prelude::*;
 use norad::{Contour, ContourPoint};
 
@@ -26,6 +30,73 @@ pub fn draw_glyph_outline_at_position(
 
         // Draw the control handles for off-curve points
         draw_control_handles_at_position(gizmos, viewport, contour, offset);
+    }
+}
+
+/// Draw glyph points (on-curve and off-curve) at a specific position
+pub fn draw_glyph_points_at_position(
+    gizmos: &mut Gizmos,
+    viewport: &ViewPort,
+    outline: &norad::glyph::Outline,
+    offset: Vec2,
+) {
+    // Render each contour's points
+    for contour in &outline.contours {
+        if contour.points.is_empty() {
+            continue;
+        }
+
+        // Draw each point in the contour
+        for point in &contour.points {
+            let point_pos = (point.x as f32 + offset.x, point.y as f32 + offset.y);
+            let screen_pos = viewport.to_screen(DPoint::from(point_pos));
+
+            // Determine if point is on-curve or off-curve
+            let is_on_curve = match point.typ {
+                norad::PointType::Move
+                | norad::PointType::Line
+                | norad::PointType::Curve => true,
+                _ => false,
+            };
+
+            // Use different sizes and colors based on point type
+            let (size, color) = if is_on_curve {
+                (ON_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR)
+            } else {
+                (OFF_CURVE_POINT_RADIUS, OFF_CURVE_POINT_COLOR)
+            };
+
+            // Draw the appropriate shape based on point type
+            if is_on_curve && USE_SQUARE_FOR_ON_CURVE {
+                // For on-curve points, draw a square with a circle inside
+                let half_size = size / ON_CURVE_SQUARE_ADJUSTMENT;
+                
+                // Draw the outer square
+                gizmos.rect_2d(
+                    screen_pos,
+                    Vec2::new(size * 2.0, size * 2.0),
+                    color,
+                );
+
+                // Draw the inner circle
+                gizmos.circle_2d(
+                    screen_pos,
+                    half_size * ON_CURVE_INNER_CIRCLE_RATIO,
+                    color,
+                );
+            } else {
+                // For off-curve points, draw a filled circle with a smaller circle inside
+                // First draw the outer circle
+                gizmos.circle_2d(screen_pos, size, color);
+
+                // Then draw a smaller inner circle with the same color
+                gizmos.circle_2d(
+                    screen_pos,
+                    size * OFF_CURVE_INNER_CIRCLE_RATIO,
+                    color,
+                );
+            }
+        }
     }
 }
 

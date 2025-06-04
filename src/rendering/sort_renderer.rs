@@ -99,5 +99,13 @@ fn render_active_sort(
             outline,
             sort.position,
         );
+        
+        // Also render the glyph points (on-curve and off-curve)
+        crate::rendering::glyph_outline::draw_glyph_points_at_position(
+            gizmos,
+            viewport,
+            outline,
+            sort.position,
+        );
     }
 } 
