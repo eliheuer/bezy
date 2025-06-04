@@ -66,7 +66,12 @@ pub fn update_text_mode_active(
     current_mode: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode>,
     mut text_mode_active: ResMut<TextModeActive>,
 ) {
-    text_mode_active.0 = current_mode.0 == crate::ui::toolbars::edit_mode_toolbar::EditMode::Text;
+    let new_active = current_mode.0 == crate::ui::toolbars::edit_mode_toolbar::EditMode::Text;
+    
+    if new_active != text_mode_active.0 {
+        text_mode_active.0 = new_active;
+        info!("Text mode active changed to: {}", new_active);
+    }
 }
 
 /// System to update cursor position in text mode
@@ -82,31 +87,47 @@ pub fn handle_text_mode_cursor(
     }
 
     let Ok(window) = window_query.get_single() else {
+        debug!("No primary window found");
         return;
     };
 
     let Ok((camera, camera_transform)) = camera_query.get_single() else {
+        debug!("No design camera found");
         return;
     };
 
-    // Update cursor position
-    for _cursor_moved in cursor_moved_events.read() {
-        if let Some(cursor_pos) = window.cursor_position() {
-            if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_pos) {
-                // Apply grid snapping
-                let snapped_position = if SNAP_TO_GRID_ENABLED {
-                    Vec2::new(
-                        (world_position.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
-                        (world_position.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
-                    )
-                } else {
-                    world_position
-                };
+    // Check if cursor moved (for responsive updates)
+    let cursor_moved = !cursor_moved_events.is_empty();
+    cursor_moved_events.clear(); // Clear the events
 
-                text_mode_state.cursor_position = Some(snapped_position);
-                text_mode_state.showing_preview = true;
+    // Always try to get current cursor position when text mode is active
+    if let Some(cursor_pos) = window.cursor_position() {
+        if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_pos) {
+            // Apply grid snapping
+            let snapped_position = if SNAP_TO_GRID_ENABLED {
+                Vec2::new(
+                    (world_position.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+                    (world_position.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+                )
+            } else {
+                world_position
+            };
+
+            // Update state
+            let position_changed = text_mode_state.cursor_position != Some(snapped_position);
+            text_mode_state.cursor_position = Some(snapped_position);
+            text_mode_state.showing_preview = true;
+            
+            // Debug logging (only when position changes or cursor moved)
+            if cursor_moved || position_changed {
+                debug!("Text mode cursor updated: pos=({:.1}, {:.1}), showing_preview={}", 
+                       snapped_position.x, snapped_position.y, text_mode_state.showing_preview);
             }
+        } else {
+            debug!("Failed to convert cursor position to world coordinates");
         }
+    } else {
+        debug!("No cursor position available");
     }
 }
 
@@ -159,33 +180,51 @@ pub fn render_sort_preview(
     glyph_navigation: Res<GlyphNavigation>,
     viewports: Query<&ViewPort>,
 ) {
+    // Debug logging
+    if text_mode_active.0 {
+        debug!("Text mode active: showing_preview={}, cursor_pos={:?}", 
+               text_mode_state.showing_preview, text_mode_state.cursor_position);
+    }
+    
     if !text_mode_active.0 || !text_mode_state.showing_preview {
         return;
     }
 
     let Some(cursor_pos) = text_mode_state.cursor_position else {
+        debug!("No cursor position available for preview");
         return;
     };
 
-    // Get viewport for coordinate transformations
+    // Get viewport for coordinate transformations - use default if none found (like main rendering systems)
     let viewport = match viewports.get_single() {
         Ok(viewport) => *viewport,
-        Err(_) => return,
+        Err(_) => {
+            debug!("No viewport found, using default viewport for preview");
+            ViewPort::default()
+        }
     };
 
     // Get the current glyph to preview
     if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo) {
+        debug!("Found glyph for preview: {}", glyph_name);
         if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
             if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
-                // Use the shared metrics rendering function with semi-transparent color
-                render_preview_metrics(&mut gizmos, &viewport, glyph, &app_state.workspace.info.metrics, cursor_pos);
+                debug!("Rendering sort preview for glyph: {}", glyph_name);
+                // Render preview with selection marquee color (yellow)
+                render_sort_preview_complete(&mut gizmos, &viewport, glyph, &app_state.workspace.info.metrics, cursor_pos);
+            } else {
+                debug!("Glyph '{}' not found in default layer", glyph_name);
             }
+        } else {
+            debug!("No default layer found");
         }
+    } else {
+        debug!("No current glyph found for preview");
     }
 }
 
-/// Render a preview metrics box with semi-transparent appearance
-fn render_preview_metrics(
+/// Render a complete sort preview with metrics and glyph outline in selection color
+fn render_sort_preview_complete(
     gizmos: &mut Gizmos,
     viewport: &ViewPort,
     glyph: &norad::Glyph,
@@ -193,16 +232,34 @@ fn render_preview_metrics(
     position: Vec2,
 ) {
     use crate::ui::panes::design_space::DPoint;
-    use crate::ui::theme::METRICS_GUIDE_COLOR;
+    use crate::ui::theme::SELECTED_POINT_COLOR;
 
-    // Create a semi-transparent version of the metrics color for preview
+    // Use the selection marquee color (yellow) with some transparency for preview
     let preview_color = Color::srgba(
-        METRICS_GUIDE_COLOR.to_srgba().red,
-        METRICS_GUIDE_COLOR.to_srgba().green,
-        METRICS_GUIDE_COLOR.to_srgba().blue,
-        0.5, // Semi-transparent for preview
+        SELECTED_POINT_COLOR.to_srgba().red,
+        SELECTED_POINT_COLOR.to_srgba().green,
+        SELECTED_POINT_COLOR.to_srgba().blue,
+        0.7, // Semi-transparent for preview
     );
 
+    // First render the metrics box
+    render_preview_metrics_with_color(gizmos, viewport, glyph, metrics, position, preview_color);
+    
+    // Then render the glyph outline if it exists
+    if let Some(outline) = &glyph.outline {
+        render_preview_glyph_outline(gizmos, viewport, outline, position, preview_color);
+    }
+}
+
+/// Render preview metrics box with specified color
+fn render_preview_metrics_with_color(
+    gizmos: &mut Gizmos,
+    viewport: &ViewPort,
+    glyph: &norad::Glyph,
+    metrics: &crate::core::state::FontMetrics,
+    position: Vec2,
+    color: Color,
+) {
     let upm = metrics.units_per_em;
     let x_height = metrics.x_height.unwrap_or_else(|| (upm * 0.5).round());
     let cap_height = metrics.cap_height.unwrap_or_else(|| (upm * 0.7).round());
@@ -224,7 +281,7 @@ fn render_preview_metrics(
         viewport,
         (offset_x, offset_y + descender as f32),
         (offset_x + width as f32, offset_y + ascender as f32),
-        preview_color,
+        color,
     );
 
     // Draw the full UPM bounding box (from 0 to UPM height)
@@ -233,7 +290,7 @@ fn render_preview_metrics(
         viewport,
         (offset_x, offset_y),
         (offset_x + width as f32, offset_y + upm as f32),
-        preview_color,
+        color,
     );
 
     // Draw baseline
@@ -242,7 +299,7 @@ fn render_preview_metrics(
         viewport,
         (offset_x, offset_y),
         (offset_x + width as f32, offset_y),
-        preview_color,
+        color,
     );
 
     // Draw x-height line
@@ -251,7 +308,7 @@ fn render_preview_metrics(
         viewport,
         (offset_x, offset_y + x_height as f32),
         (offset_x + width as f32, offset_y + x_height as f32),
-        preview_color,
+        color,
     );
 
     // Draw cap-height line
@@ -260,7 +317,7 @@ fn render_preview_metrics(
         viewport,
         (offset_x, offset_y + cap_height as f32),
         (offset_x + width as f32, offset_y + cap_height as f32),
-        preview_color,
+        color,
     );
 
     // Draw ascender line
@@ -269,7 +326,7 @@ fn render_preview_metrics(
         viewport,
         (offset_x, offset_y + ascender as f32),
         (offset_x + width as f32, offset_y + ascender as f32),
-        preview_color,
+        color,
     );
 
     // Draw descender line
@@ -278,7 +335,7 @@ fn render_preview_metrics(
         viewport,
         (offset_x, offset_y + descender as f32),
         (offset_x + width as f32, offset_y + descender as f32),
-        preview_color,
+        color,
     );
 
     // Draw UPM top line
@@ -287,8 +344,61 @@ fn render_preview_metrics(
         viewport,
         (offset_x, offset_y + upm as f32),
         (offset_x + width as f32, offset_y + upm as f32),
-        preview_color,
+        color,
     );
+}
+
+/// Render preview glyph outline with specified color
+fn render_preview_glyph_outline(
+    gizmos: &mut Gizmos,
+    viewport: &ViewPort,
+    outline: &norad::glyph::Outline,
+    offset: Vec2,
+    color: Color,
+) {
+    // Render each contour in the outline (outline only, no handles for preview)
+    for contour in &outline.contours {
+        if contour.points.is_empty() {
+            continue;
+        }
+
+        // Draw only the path for preview
+        render_preview_contour_path(gizmos, viewport, contour, offset, color);
+    }
+}
+
+/// Render a contour path for preview with specified color
+fn render_preview_contour_path(
+    gizmos: &mut Gizmos,
+    viewport: &ViewPort,
+    contour: &norad::Contour,
+    offset: Vec2,
+    color: Color,
+) {
+    use crate::ui::panes::design_space::DPoint;
+    
+    let points = &contour.points;
+    if points.is_empty() {
+        return;
+    }
+
+    // Simple line-based rendering for preview (faster than full curve rendering)
+    for i in 0..points.len() {
+        let current_point = &points[i];
+        let next_index = (i + 1) % points.len();
+        let next_point = &points[next_index];
+
+        let start_pos = viewport.to_screen(DPoint::from((
+            current_point.x as f32 + offset.x,
+            current_point.y as f32 + offset.y,
+        )));
+        let end_pos = viewport.to_screen(DPoint::from((
+            next_point.x as f32 + offset.x,
+            next_point.y as f32 + offset.y,
+        )));
+
+        gizmos.line_2d(start_pos, end_pos, color);
+    }
 }
 
 /// Draw a line in design space for preview
