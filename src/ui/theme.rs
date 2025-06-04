@@ -147,6 +147,11 @@ pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.128, 0.128, 0.128); // Singl
 pub const CHECKERBOARD_SCALE_FACTOR: f32 = 2.0; // How much the grid scales with zoom (2.0 = doubles)
 pub const CHECKERBOARD_MAX_ZOOM_VISIBLE: f32 = 32.0; // Hide checkerboard when zoomed out beyond this level
 
+// Sort Configuration
+// Colors for sort metrics display based on active/inactive state
+pub const SORT_ACTIVE_METRICS_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 0.5); // Same as current metrics color
+pub const SORT_INACTIVE_METRICS_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 0.5); // Gray exactly between 0 and 1
+
 // Button Styling
 // pub const BUTTON_BORDER_RADIUS: f32 = 8.0;
 

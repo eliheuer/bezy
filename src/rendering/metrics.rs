@@ -17,6 +17,18 @@ pub fn draw_metrics_at_position(
     metrics: &FontMetrics,
     position: Vec2,
 ) {
+    draw_metrics_at_position_with_color(gizmos, viewport, glyph, metrics, position, METRICS_GUIDE_COLOR);
+}
+
+/// Draw complete font metrics for a glyph at a specific position with custom color
+pub fn draw_metrics_at_position_with_color(
+    gizmos: &mut Gizmos,
+    viewport: &ViewPort,
+    glyph: &Glyph,
+    metrics: &FontMetrics,
+    position: Vec2,
+    metrics_color: Color,
+) {
     let upm = metrics.units_per_em;
     let x_height = metrics.x_height.unwrap_or_else(|| (upm * 0.5).round());
     let cap_height = metrics.cap_height.unwrap_or_else(|| (upm * 0.7).round());
@@ -27,8 +39,6 @@ pub fn draw_metrics_at_position(
         .as_ref()
         .map(|a| a.width as f64)
         .unwrap_or_else(|| (upm * 0.5).round());
-
-    let metrics_color = METRICS_GUIDE_COLOR;
 
     // All coordinates are offset by the position
     let offset_x = position.x;

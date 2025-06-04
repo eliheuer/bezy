@@ -7,6 +7,7 @@
 use crate::editing::sort::{Sort, ActiveSort, InactiveSort};
 use crate::core::state::{AppState, FontMetrics};
 use crate::ui::panes::design_space::ViewPort;
+use crate::ui::theme::{SORT_ACTIVE_METRICS_COLOR, SORT_INACTIVE_METRICS_COLOR};
 use bevy::prelude::*;
 
 /// System to render all sorts in the design space
@@ -44,13 +45,14 @@ fn render_inactive_sort(
     sort: &Sort,
     font_metrics: &FontMetrics,
 ) {
-    // First render the metrics box using the shared function
-    crate::rendering::metrics::draw_metrics_at_position(
+    // First render the metrics box using the inactive color
+    crate::rendering::metrics::draw_metrics_at_position_with_color(
         gizmos,
         viewport,
         &sort.glyph,
         font_metrics,
         sort.position,
+        SORT_INACTIVE_METRICS_COLOR,
     );
     
     // Then render only the glyph outline (no control handles) if it exists
@@ -79,13 +81,14 @@ fn render_active_sort(
     sort: &Sort,
     font_metrics: &FontMetrics,
 ) {
-    // First render the metrics box using the shared function
-    crate::rendering::metrics::draw_metrics_at_position(
+    // First render the metrics box using the active color
+    crate::rendering::metrics::draw_metrics_at_position_with_color(
         gizmos,
         viewport,
         &sort.glyph,
         font_metrics,
         sort.position,
+        SORT_ACTIVE_METRICS_COLOR,
     );
     
     // Then render the full glyph outline with control handles if it exists
