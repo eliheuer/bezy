@@ -6,7 +6,7 @@
 use super::EditModeSystem;
 use crate::editing::sort::{SortEvent};
 use crate::core::state::{AppState, GlyphNavigation};
-use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
+use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE, SORT_SNAP_MULTIPLIER};
 use crate::ui::panes::design_space::ViewPort;
 use crate::rendering::cameras::DesignCamera;
 use bevy::prelude::*;
@@ -103,11 +103,14 @@ pub fn handle_text_mode_cursor(
     // Always try to get current cursor position when text mode is active
     if let Some(cursor_pos) = window.cursor_position() {
         if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_pos) {
-            // Apply grid snapping
+            // Calculate sort-specific grid size (coarser than pen tool)
+            let sort_grid_value = SNAP_TO_GRID_VALUE * SORT_SNAP_MULTIPLIER;
+            
+            // Apply grid snapping with sort-specific grid size
             let snapped_position = if SNAP_TO_GRID_ENABLED {
                 Vec2::new(
-                    (world_position.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
-                    (world_position.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
+                    (world_position.x / sort_grid_value).round() * sort_grid_value,
+                    (world_position.y / sort_grid_value).round() * sort_grid_value,
                 )
             } else {
                 world_position
@@ -120,8 +123,8 @@ pub fn handle_text_mode_cursor(
             
             // Debug logging (only when position changes or cursor moved)
             if cursor_moved || position_changed {
-                debug!("Text mode cursor updated: pos=({:.1}, {:.1}), showing_preview={}", 
-                       snapped_position.x, snapped_position.y, text_mode_state.showing_preview);
+                debug!("Text mode cursor updated: pos=({:.1}, {:.1}), showing_preview={}, sort_grid={:.1}", 
+                       snapped_position.x, snapped_position.y, text_mode_state.showing_preview, sort_grid_value);
             }
         } else {
             debug!("Failed to convert cursor position to world coordinates");
@@ -231,7 +234,6 @@ fn render_sort_preview_complete(
     metrics: &crate::core::state::FontMetrics,
     position: Vec2,
 ) {
-    use crate::ui::panes::design_space::DPoint;
     use crate::ui::theme::SELECTED_POINT_COLOR;
 
     // Use the selection marquee color (yellow) with some transparency for preview

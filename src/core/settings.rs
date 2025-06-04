@@ -7,6 +7,10 @@
 pub const SNAP_TO_GRID_ENABLED: bool = true;
 pub const SNAP_TO_GRID_VALUE: f32 = 2.0;
 
+// Sort Snap to Grid (for text mode sort placement)
+// Sorts snap to a coarser grid since they represent entire glyphs
+pub const SORT_SNAP_MULTIPLIER: f32 = 8.0;
+
 // Nudge Settings
 pub const NUDGE_AMOUNT: f32 = 2.0;
 pub const SHIFT_NUDGE_AMOUNT: f32 = 8.0;
