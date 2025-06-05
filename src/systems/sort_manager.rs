@@ -8,7 +8,7 @@ use crate::editing::selection::components::{
     Selectable, Selected, PointType, GlyphPointReference, SelectionState
 };
 use crate::editing::selection::nudge::PointCoordinates;
-use crate::core::state::AppState;
+use crate::core::state::{AppState, GlyphNavigation};
 use bevy::prelude::*;
 
 /// Component to mark point entities that belong to a sort
@@ -247,14 +247,17 @@ fn spawn_point_entities_for_sort(
                     entity_name, point_pos.x, point_pos.y, is_on_curve
                 );
 
-                // Spawn the point entity
+                // Create the transform with proper positioning
+                let transform = Transform::from_translation(Vec3::new(
+                    point_pos.x,
+                    point_pos.y,
+                    0.0,
+                ));
+
+                // Spawn the point entity with all required components
                 let entity_id = commands.spawn((
-                    Transform::from_translation(Vec3::new(
-                        point_pos.x,
-                        point_pos.y,
-                        0.0,
-                    )),
-                    GlobalTransform::default(),
+                    transform,
+                    GlobalTransform::from(transform), // Explicitly set GlobalTransform
                     Visibility::default(),
                     InheritedVisibility::default(),
                     ViewVisibility::default(),
@@ -272,7 +275,8 @@ fn spawn_point_entities_for_sort(
                     Name::new(entity_name),
                 )).id();
 
-                info!("Spawned sort point entity {:?}", entity_id);
+                info!("Spawned sort point entity {:?} at world position ({:.1}, {:.1})", 
+                      entity_id, point_pos.x, point_pos.y);
             }
         }
     } else {
@@ -342,5 +346,188 @@ pub fn update_sort_glyph_data(
                 }
             }
         }
+    }
+}
+
+/// System to spawn an initial sort when the font is loaded (replaces hardcoded default glyph)
+pub fn spawn_initial_sort(
+    app_state: Res<AppState>,
+    glyph_navigation: Res<GlyphNavigation>,
+    mut sort_events: EventWriter<SortEvent>,
+    sorts_query: Query<Entity, With<Sort>>,
+) {
+    // Only create initial sort if:
+    // 1. No sorts exist yet
+    // 2. Font is loaded (has a path)
+    // 3. Font has a default layer
+    if !sorts_query.is_empty() {
+        return; // Already have sorts
+    }
+    
+    if app_state.workspace.font.path.is_none() {
+        return; // Font not loaded yet
+    }
+    
+    // Try to find a glyph to use for the initial sort
+    let mut found_glyph = None;
+    
+    if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
+        // First try to find the glyph using navigation
+        if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo) {
+            if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
+                found_glyph = Some((**glyph).clone());
+                info!("Using glyph '{}' for initial sort", glyph_name);
+            }
+        }
+        
+        // If not found, try common glyphs
+        if found_glyph.is_none() {
+            let common_glyphs = ["H", "h", "A", "a", "O", "o", "space", ".notdef"];
+            for glyph_name_str in common_glyphs.iter() {
+                let name = norad::GlyphName::from(*glyph_name_str);
+                if let Some(glyph) = default_layer.get_glyph(&name) {
+                    found_glyph = Some((**glyph).clone());
+                    info!("Using fallback glyph '{}' for initial sort", glyph_name_str);
+                    break;
+                }
+            }
+        }
+    }
+    
+    // Create the initial sort at origin (0, 0) with left baseline
+    if let Some(glyph) = found_glyph {
+        sort_events.send(SortEvent::CreateSort {
+            glyph,
+            position: Vec2::ZERO, // Left baseline at origin
+        });
+        info!("Created initial sort at origin (0, 0)");
+    }
+}
+
+/// System to automatically activate the first sort when created (for initial sort)
+pub fn auto_activate_first_sort(
+    mut commands: Commands,
+    mut active_sort_state: ResMut<ActiveSortState>,
+    sorts_query: Query<Entity, (With<Sort>, With<InactiveSort>)>,
+    active_sorts_query: Query<Entity, With<ActiveSort>>,
+) {
+    // Only auto-activate if there are no active sorts and we have exactly one inactive sort
+    if active_sorts_query.is_empty() && sorts_query.iter().count() == 1 {
+        if let Ok(sort_entity) = sorts_query.get_single() {
+            info!("Auto-activating first sort: {:?}", sort_entity);
+            
+            commands.entity(sort_entity)
+                .remove::<InactiveSort>()
+                .insert(ActiveSort);
+            
+            active_sort_state.active_sort_entity = Some(sort_entity);
+        }
+    }
+}
+
+/// System to handle glyph navigation changes and update the active sort
+pub fn handle_glyph_navigation_changes(
+    glyph_navigation: Res<GlyphNavigation>,
+    app_state: Res<AppState>,
+    mut active_sorts_query: Query<&mut Sort, With<ActiveSort>>,
+) {
+    // Only update if glyph navigation has changed
+    if !glyph_navigation.is_changed() {
+        return;
+    }
+    
+    // Get the active sort
+    if let Ok(mut sort) = active_sorts_query.get_single_mut() {
+        // Try to find the new glyph
+        if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
+            let mut found_glyph = None;
+            
+            // First try to find the glyph using navigation
+            if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo) {
+                if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
+                    found_glyph = Some((**glyph).clone());
+                    info!("Updated active sort to glyph '{}'", glyph_name);
+                }
+            }
+            
+            // If not found, try common glyphs (fallback)
+            if found_glyph.is_none() {
+                let common_glyphs = ["H", "h", "A", "a", "O", "o", "space", ".notdef"];
+                for glyph_name_str in common_glyphs.iter() {
+                    let name = norad::GlyphName::from(*glyph_name_str);
+                    if let Some(glyph) = default_layer.get_glyph(&name) {
+                        found_glyph = Some((**glyph).clone());
+                        info!("Updated active sort to fallback glyph '{}'", glyph_name_str);
+                        break;
+                    }
+                }
+            }
+            
+            // Update the sort's glyph if we found one
+            if let Some(new_glyph) = found_glyph {
+                sort.glyph = new_glyph;
+                sort.advance_width = sort.glyph
+                    .advance
+                    .as_ref()
+                    .map(|a| a.width as f32)
+                    .unwrap_or(0.0);
+            }
+        }
+    }
+}
+
+/// System to respawn sort point entities when the sort's glyph changes
+pub fn respawn_sort_points_on_glyph_change(
+    mut commands: Commands,
+    changed_sorts_query: Query<(Entity, &Sort), (With<ActiveSort>, Changed<Sort>)>,
+    sort_point_entities: Query<(Entity, &SortPointEntity)>,
+    mut selection_state: ResMut<SelectionState>,
+    // Track the previous glyph name to detect actual glyph changes
+    mut local_previous_glyph: Local<Option<String>>,
+) {
+    for (sort_entity, sort) in changed_sorts_query.iter() {
+        let current_glyph_name = sort.glyph.name.to_string();
+        
+        // Only respawn if the glyph name actually changed (not just point positions)
+        let should_respawn = match &*local_previous_glyph {
+            Some(prev_name) => prev_name != &current_glyph_name,
+            None => true, // First time, always respawn
+        };
+        
+        if should_respawn {
+            info!("Sort glyph changed from {:?} to '{}', respawning point entities for sort: {:?}", 
+                  *local_previous_glyph, current_glyph_name, sort_entity);
+            
+            // First despawn existing point entities for this sort
+            despawn_point_entities_for_sort(&mut commands, sort_entity, &sort_point_entities, &mut selection_state);
+            
+            // Then spawn new point entities for the updated glyph
+            spawn_point_entities_for_sort(&mut commands, sort_entity, sort, &mut selection_state);
+            
+            // Update the tracked glyph name
+            *local_previous_glyph = Some(current_glyph_name);
+        } else {
+            debug!("Sort changed but glyph name unchanged ({}), skipping respawn", current_glyph_name);
+        }
+    }
+}
+
+/// Debug system to log sort point entity information
+pub fn debug_sort_point_entities(
+    sort_point_entities: Query<(Entity, &Transform, &GlobalTransform, &SortPointEntity, &GlyphPointReference), With<Selectable>>,
+) {
+    if !sort_point_entities.is_empty() {
+        info!("=== Sort Point Entities Debug ===");
+        for (entity, transform, global_transform, sort_point, glyph_ref) in sort_point_entities.iter().take(3) {
+            info!(
+                "Entity {:?}: Local({:.1}, {:.1}) Global({:.1}, {:.1}) Sort:{:?} Glyph:{}",
+                entity,
+                transform.translation.x, transform.translation.y,
+                global_transform.translation().x, global_transform.translation().y,
+                sort_point.sort_entity,
+                glyph_ref.glyph_name
+            );
+        }
+        info!("=== End Debug ===");
     }
 } 

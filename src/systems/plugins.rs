@@ -4,8 +4,8 @@ use bevy::prelude::*;
 use crate::editing::sort_plugin::SortPlugin;
 use crate::rendering::cameras::toggle_camera_controls;
 use crate::rendering::draw::{
-    draw_origin_cross, draw_glyph_points_system, draw_metrics_system,
-    spawn_glyph_point_entities, detect_app_state_changes, AppStateChanged,
+    draw_origin_cross, draw_metrics_system,
+    detect_app_state_changes, AppStateChanged,
 };
 use crate::data::ufo::initialize_font_state;
 use crate::ui::panes::coord_pane::CoordinatePanePlugin;
@@ -59,21 +59,12 @@ pub struct DrawPlugin;
 impl Plugin for DrawPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<AppStateChanged>()
-            .add_systems(Startup, (spawn_glyph_point_entities,))
             .add_systems(
                 Update,
                 (
-                    draw_glyph_points_system,
                     draw_metrics_system,
                     draw_origin_cross,
                     detect_app_state_changes,
-                    spawn_glyph_point_entities
-                        .run_if(|reader: EventReader<AppStateChanged>| {
-                            !reader.is_empty()
-                        })
-                        .before(
-                            crate::editing::selection::nudge::handle_nudge_shortcuts,
-                        ),
                 ),
             );
     }

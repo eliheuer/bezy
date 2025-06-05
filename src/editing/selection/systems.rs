@@ -122,6 +122,7 @@ pub fn handle_mouse_input(
             }
 
             // Log all close points for debugging
+            debug!("Found {} selectable entities", debug_distances.len());
             for (entity, pos, dist) in debug_distances
                 .iter()
                 .filter(|(_, _, d)| *d < SELECTION_MARGIN * 2.0)
@@ -130,6 +131,17 @@ pub fn handle_mouse_input(
                     "  Point entity {:?} at ({:.1}, {:.1}) distance: {:.2}",
                     entity, pos.x, pos.y, dist
                 );
+            }
+            
+            // Also log all entities regardless of distance for debugging
+            if debug_distances.len() > 0 {
+                debug!("All selectable entities:");
+                for (entity, pos, dist) in debug_distances.iter().take(5) { // Limit to first 5
+                    debug!(
+                        "  Entity {:?} at ({:.1}, {:.1}) distance: {:.2}",
+                        entity, pos.x, pos.y, dist
+                    );
+                }
             }
 
             if let Some((entity, point_ref)) = clicked_entity {
@@ -807,7 +819,7 @@ pub fn clear_selection_on_app_change(
 pub fn update_glyph_data_from_selection(
     query: Query<
         (&Transform, &GlyphPointReference),
-        (With<Selected>, Changed<Transform>),
+        (With<Selected>, Changed<Transform>, Without<crate::systems::sort_manager::SortPointEntity>),
     >,
     mut app_state: ResMut<AppState>,
     // Track if we're in a nudging operation
@@ -831,7 +843,7 @@ pub fn update_glyph_data_from_selection(
     // Only modify app_state after detaching its change detection
     let app_state = app_state.bypass_change_detection();
 
-    // Process each nudged point
+    // Process each nudged point (excluding sort points)
     for (transform, point_ref) in query.iter() {
         // Convert the glyph name from String to GlyphName
         let glyph_name = norad::GlyphName::from(&*point_ref.glyph_name);
@@ -858,7 +870,7 @@ pub fn update_glyph_data_from_selection(
                             point.y = transform.translation.y;
 
                             debug!(
-                                "Updated glyph data for point {} in contour {} of glyph {}",
+                                "Updated UFO glyph data for point {} in contour {} of glyph {}",
                                 point_ref.point_index, point_ref.contour_index, point_ref.glyph_name
                             );
                         }
