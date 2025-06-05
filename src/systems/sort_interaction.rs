@@ -2,7 +2,7 @@
 //!
 //! Handles mouse interactions with sorts, such as clicking to activate them.
 
-use crate::editing::sort::{Sort, SortEvent, InactiveSort};
+use crate::editing::sort::{Sort, SortEvent, ActiveSort};
 use crate::core::state::AppState;
 use crate::rendering::cameras::DesignCamera;
 use bevy::prelude::*;
@@ -13,7 +13,7 @@ pub fn handle_sort_clicks(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
-    sorts_query: Query<(Entity, &Sort), With<InactiveSort>>,
+    sorts_query: Query<(Entity, &Sort, Has<ActiveSort>)>,
     app_state: Res<AppState>,
     mut sort_events: EventWriter<SortEvent>,
     current_mode: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode>,
@@ -44,15 +44,19 @@ pub fn handle_sort_clicks(
     };
 
     // Check if the click is within any sort's bounds
-    for (entity, sort) in sorts_query.iter() {
+    for (entity, sort, is_active) in sorts_query.iter() {
         if sort.contains_point(world_position, &app_state.workspace.info.metrics) {
-            // Activate this sort
-            sort_events.send(SortEvent::ActivateSort {
-                sort_entity: entity,
-            });
-            
-            info!("Activated sort '{}' by clicking", sort.glyph.name);
-            return; // Only activate one sort per click
+            if is_active {
+                // Already active sort - do nothing, keep it active for editing
+                info!("Clicked on already active sort '{}' - keeping active", sort.glyph.name);
+            } else {
+                // Inactive sort - activate it
+                sort_events.send(SortEvent::ActivateSort {
+                    sort_entity: entity,
+                });
+                info!("Activated sort '{}' by clicking", sort.glyph.name);
+            }
+            return; // Only handle one sort per click
         }
     }
 

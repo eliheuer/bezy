@@ -278,10 +278,13 @@ pub fn handle_mouse_input(
             if !selection_rect_query.is_empty() {
                 for rect_entity in &selection_rect_query {
                     if let Some(start_pos) = drag_state.start_position {
-                        commands.entity(rect_entity).insert(SelectionRect {
-                            start: start_pos,
-                            end: cursor_pos,
-                        });
+                        // Use get_entity to safely handle entity that might not exist
+                        if let Some(mut entity_commands) = commands.get_entity(rect_entity) {
+                            entity_commands.insert(SelectionRect {
+                                start: start_pos,
+                                end: cursor_pos,
+                            });
+                        }
                     }
                 }
             } else {

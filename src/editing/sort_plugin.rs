@@ -5,7 +5,9 @@
 use crate::editing::sort::{SortEvent, ActiveSortState};
 use crate::rendering::sort_renderer::render_sorts_system;
 use crate::systems::sort_interaction::handle_sort_clicks;
-use crate::systems::sort_manager::{handle_sort_events, sync_sort_transforms, enforce_single_active_sort};
+use crate::systems::sort_manager::{
+    handle_sort_events, sync_sort_transforms, enforce_single_active_sort, spawn_sort_point_entities, update_sort_glyph_data
+};
 use crate::ui::toolbars::edit_mode_toolbar::text::{TextModePlugin};
 use bevy::prelude::*;
 
@@ -37,6 +39,12 @@ impl Plugin for SortPlugin {
                     // Sort state management
                     sync_sort_transforms,
                     enforce_single_active_sort,
+                    
+                    // Sort point entity management
+                    spawn_sort_point_entities,
+                    
+                    // Sort glyph data updates
+                    update_sort_glyph_data,
                     
                     // Sort rendering
                     render_sorts_system,

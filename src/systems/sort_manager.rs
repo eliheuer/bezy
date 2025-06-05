@@ -4,8 +4,19 @@
 //! Ensures only one sort can be active at a time and manages the state transitions.
 
 use crate::editing::sort::{Sort, SortEvent, ActiveSort, InactiveSort, ActiveSortState};
+use crate::editing::selection::components::{
+    Selectable, Selected, PointType, GlyphPointReference, SelectionState
+};
+use crate::editing::selection::nudge::PointCoordinates;
 use crate::core::state::AppState;
 use bevy::prelude::*;
+
+/// Component to mark point entities that belong to a sort
+#[derive(Component, Debug)]
+pub struct SortPointEntity {
+    /// The sort entity this point belongs to
+    pub sort_entity: Entity,
+}
 
 /// System to handle sort events
 pub fn handle_sort_events(
@@ -165,6 +176,171 @@ pub fn enforce_single_active_sort(
             }
             
             active_sort_state.active_sort_entity = Some(active_sorts[0]);
+        }
+    }
+}
+
+/// System to spawn point entities for active sorts
+pub fn spawn_sort_point_entities(
+    mut commands: Commands,
+    // Detect when sorts change from inactive to active
+    added_active_sorts: Query<(Entity, &Sort), Added<ActiveSort>>,
+    // Detect when sorts change from active to inactive
+    mut removed_active_sorts: RemovedComponents<ActiveSort>,
+    // Find existing point entities for sorts
+    sort_point_entities: Query<(Entity, &SortPointEntity)>,
+    mut selection_state: ResMut<SelectionState>,
+) {
+    // Handle newly activated sorts - spawn point entities
+    for (sort_entity, sort) in added_active_sorts.iter() {
+        info!("Spawning point entities for newly activated sort: {:?}", sort_entity);
+        spawn_point_entities_for_sort(&mut commands, sort_entity, sort, &mut selection_state);
+    }
+
+    // Handle deactivated sorts - despawn point entities
+    for sort_entity in removed_active_sorts.read() {
+        info!("Despawning point entities for deactivated sort: {:?}", sort_entity);
+        despawn_point_entities_for_sort(&mut commands, sort_entity, &sort_point_entities, &mut selection_state);
+    }
+}
+
+/// Spawn point entities for a sort's glyph outline
+fn spawn_point_entities_for_sort(
+    commands: &mut Commands,
+    sort_entity: Entity,
+    sort: &Sort,
+    _selection_state: &mut SelectionState,
+) {
+    // Only proceed if the glyph has an outline
+    if let Some(outline) = &sort.glyph.outline {
+        info!("Sort '{}' has {} contours", sort.glyph.name, outline.contours.len());
+        
+        // Iterate through all contours
+        for (contour_idx, contour) in outline.contours.iter().enumerate() {
+            if contour.points.is_empty() {
+                continue;
+            }
+
+            info!("Contour {} has {} points", contour_idx, contour.points.len());
+
+            // Spawn entities for each point
+            for (point_idx, point) in contour.points.iter().enumerate() {
+                // Apply the sort's position offset to the point
+                let point_pos = sort.position + Vec2::new(point.x as f32, point.y as f32);
+
+                // Determine if point is on-curve or off-curve
+                let is_on_curve = match point.typ {
+                    norad::PointType::Move
+                    | norad::PointType::Line
+                    | norad::PointType::Curve => true,
+                    _ => false,
+                };
+
+                // Use a unique name for the point entity
+                let entity_name = format!(
+                    "SortPoint_{:?}_{}_{}_{}",
+                    sort_entity, contour_idx, point_idx, sort.glyph.name
+                );
+
+                info!(
+                    "Spawning sort point entity '{}' at ({:.1}, {:.1}) - on_curve: {}",
+                    entity_name, point_pos.x, point_pos.y, is_on_curve
+                );
+
+                // Spawn the point entity
+                let entity_id = commands.spawn((
+                    Transform::from_translation(Vec3::new(
+                        point_pos.x,
+                        point_pos.y,
+                        0.0,
+                    )),
+                    GlobalTransform::default(),
+                    Visibility::default(),
+                    InheritedVisibility::default(),
+                    ViewVisibility::default(),
+                    Selectable,
+                    PointType { is_on_curve },
+                    PointCoordinates {
+                        position: point_pos,
+                    },
+                    GlyphPointReference {
+                        glyph_name: sort.glyph.name.to_string(),
+                        contour_index: contour_idx,
+                        point_index: point_idx,
+                    },
+                    SortPointEntity { sort_entity },
+                    Name::new(entity_name),
+                )).id();
+
+                info!("Spawned sort point entity {:?}", entity_id);
+            }
+        }
+    } else {
+        info!("Sort '{}' has no outline", sort.glyph.name);
+    }
+}
+
+/// Despawn point entities for a sort
+fn despawn_point_entities_for_sort(
+    commands: &mut Commands,
+    sort_entity: Entity,
+    sort_point_entities: &Query<(Entity, &SortPointEntity)>,
+    selection_state: &mut SelectionState,
+) {
+    // Find and despawn all point entities belonging to this sort
+    for (point_entity, sort_point) in sort_point_entities.iter() {
+        if sort_point.sort_entity == sort_entity {
+            // Remove from selection state if selected
+            selection_state.selected.remove(&point_entity);
+            
+            // Despawn the entity
+            commands.entity(point_entity).despawn();
+        }
+    }
+}
+
+/// System to update sort glyph data when sort points are edited
+pub fn update_sort_glyph_data(
+    query: Query<
+        (&Transform, &GlyphPointReference, &SortPointEntity),
+        (With<Selected>, Changed<Transform>),
+    >,
+    mut sorts_query: Query<&mut Sort>,
+) {
+    // Early return if no points were modified
+    if query.is_empty() {
+        return;
+    }
+
+    // Process each modified point
+    for (transform, point_ref, sort_point) in query.iter() {
+        // Get the sort this point belongs to
+        if let Ok(mut sort) = sorts_query.get_mut(sort_point.sort_entity) {
+            // Capture the sort position before borrowing the outline mutably
+            let sort_position = sort.position;
+            
+            // Get the outline
+            if let Some(outline) = sort.glyph.outline.as_mut() {
+                // Make sure the contour index is valid
+                if point_ref.contour_index < outline.contours.len() {
+                    let contour = &mut outline.contours[point_ref.contour_index];
+
+                    // Make sure the point index is valid
+                    if point_ref.point_index < contour.points.len() {
+                        // Update the point position
+                        // Convert world position back to glyph-local position by subtracting sort offset
+                        let point = &mut contour.points[point_ref.point_index];
+                        let local_pos = Vec2::new(transform.translation.x, transform.translation.y) - sort_position;
+                        point.x = local_pos.x;
+                        point.y = local_pos.y;
+
+                        debug!(
+                            "Updated sort glyph data for point {} in contour {} of sort {:?}",
+                            point_ref.point_index, point_ref.contour_index, sort_point.sort_entity
+                        );
+                    }
+                }
+            }
         }
     }
 } 
