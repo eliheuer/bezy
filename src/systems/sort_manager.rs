@@ -153,7 +153,8 @@ pub fn sync_sort_transforms(
 ) {
     for (mut sort, transform) in sorts_query.iter_mut() {
         let new_position = transform.translation.truncate();
-        if sort.position != new_position {
+        // Only update if the position actually changed to avoid triggering Changed<Sort>
+        if (sort.position - new_position).length() > f32::EPSILON {
             sort.position = new_position;
         }
     }
@@ -511,21 +512,21 @@ pub fn respawn_sort_points_on_glyph_change(
     sort_point_entities: Query<(Entity, &SortPointEntity)>,
     mut selection_state: ResMut<SelectionState>,
     app_state: Res<AppState>,
-    // Track the previous glyph name to detect actual glyph changes
-    mut local_previous_glyph: Local<Option<String>>,
+    // Track the previous glyph name per sort entity
+    mut local_previous_glyphs: Local<std::collections::HashMap<Entity, String>>,
 ) {
     for (sort_entity, sort) in changed_sorts_query.iter() {
         let current_glyph_name = sort.glyph_name.to_string();
         
-        // Only respawn if the glyph name actually changed (not just point positions)
-        let should_respawn = match &*local_previous_glyph {
+        // Only respawn if the glyph name actually changed for this specific sort
+        let should_respawn = match local_previous_glyphs.get(&sort_entity) {
             Some(prev_name) => prev_name != &current_glyph_name,
-            None => true, // First time, always respawn
+            None => true, // First time seeing this sort, always respawn
         };
         
         if should_respawn {
-            info!("Sort glyph changed from {:?} to '{}', respawning point entities for sort: {:?}", 
-                  *local_previous_glyph, current_glyph_name, sort_entity);
+            info!("Sort {:?} glyph changed to '{}', respawning point entities", 
+                  sort_entity, current_glyph_name);
             
             // First despawn existing point entities for this sort
             despawn_point_entities_for_sort(&mut commands, sort_entity, &sort_point_entities, &mut selection_state);
@@ -533,10 +534,11 @@ pub fn respawn_sort_points_on_glyph_change(
             // Then spawn new point entities for the updated glyph
             spawn_point_entities_for_sort(&mut commands, sort_entity, sort, &app_state, &mut selection_state);
             
-            // Update the tracked glyph name
-            *local_previous_glyph = Some(current_glyph_name);
+            // Update the tracked glyph name for this sort
+            local_previous_glyphs.insert(sort_entity, current_glyph_name);
         } else {
-            debug!("Sort changed but glyph name unchanged ({}), skipping respawn", current_glyph_name);
+            debug!("Sort {:?} changed but glyph name unchanged ({}), skipping respawn", 
+                   sort_entity, current_glyph_name);
         }
     }
 }

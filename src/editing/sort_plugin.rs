@@ -58,7 +58,7 @@ impl Plugin for SortPlugin {
                 (
                     spawn_initial_sort,
                     handle_sort_events,
-                    sync_sort_transforms,
+                    // sync_sort_transforms, // Temporarily disabled to fix dragging
                     enforce_single_active_sort,
                     auto_activate_first_sort,
                     handle_glyph_navigation_changes,
