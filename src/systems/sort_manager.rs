@@ -155,6 +155,8 @@ pub fn sync_sort_transforms(
         let new_position = transform.translation.truncate();
         // Only update if the position actually changed to avoid triggering Changed<Sort>
         if (sort.position - new_position).length() > f32::EPSILON {
+            debug!("sync_sort_transforms: Updating sort position from ({:.1}, {:.1}) to ({:.1}, {:.1})", 
+                   sort.position.x, sort.position.y, new_position.x, new_position.y);
             sort.position = new_position;
         }
     }
@@ -343,10 +345,12 @@ pub fn update_sort_glyph_data(
     // Process each modified point
     for (transform, point_ref, sort_point) in query.iter() {
         // Get the sort this point belongs to
-        if let Ok(sort) = sorts_query.get(sort_point.sort_entity) {
+        if let Ok(_sort) = sorts_query.get(sort_point.sort_entity) {
             // Get the virtual font's glyph data
             if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer_mut() {
-                if let Some(glyph) = default_layer.get_glyph_mut(&sort.glyph_name) {
+                // Convert String to GlyphName
+                let glyph_name = norad::GlyphName::from(point_ref.glyph_name.as_str());
+                if let Some(glyph) = default_layer.get_glyph_mut(&glyph_name) {
                     if let Some(outline) = glyph.outline.as_mut() {
                         // Make sure the contour index is valid
                         if point_ref.contour_index < outline.contours.len() {
@@ -355,15 +359,15 @@ pub fn update_sort_glyph_data(
                             // Make sure the point index is valid
                             if point_ref.point_index < contour.points.len() {
                                 // Update the point position in the virtual font
-                                // Convert world position back to glyph-local position by subtracting sort offset
+                                // Use the transform position directly (no coordinate transformation needed)
                                 let point = &mut contour.points[point_ref.point_index];
-                                let local_pos = Vec2::new(transform.translation.x, transform.translation.y) - sort.position;
-                                point.x = local_pos.x;
-                                point.y = local_pos.y;
+                                point.x = transform.translation.x;
+                                point.y = transform.translation.y;
 
                                 debug!(
-                                    "Updated virtual font glyph '{}' point {} in contour {} from sort {:?}",
-                                    sort.glyph_name, point_ref.point_index, point_ref.contour_index, sort_point.sort_entity
+                                    "Updated virtual font glyph '{}' point {} in contour {} to ({:.1}, {:.1})",
+                                    point_ref.glyph_name, point_ref.point_index, point_ref.contour_index,
+                                    point.x, point.y
                                 );
                             }
                         }
@@ -471,7 +475,6 @@ pub fn handle_glyph_navigation_changes(
             if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo) {
                 if default_layer.get_glyph(&glyph_name).is_some() {
                     found_glyph_name = Some(glyph_name);
-                    info!("Updated active sort to glyph '{}'", found_glyph_name.as_ref().unwrap());
                 }
             }
             
@@ -482,23 +485,27 @@ pub fn handle_glyph_navigation_changes(
                     let name = norad::GlyphName::from(*glyph_name_str);
                     if default_layer.get_glyph(&name).is_some() {
                         found_glyph_name = Some(name);
-                        info!("Updated active sort to fallback glyph '{}'", glyph_name_str);
                         break;
                     }
                 }
             }
             
-            // Update the sort's glyph name and advance width if we found one
+            // Only update the sort if the glyph name actually changed
             if let Some(new_glyph_name) = found_glyph_name {
-                sort.glyph_name = new_glyph_name.clone();
-                
-                // Update advance width from the virtual font
-                if let Some(glyph) = default_layer.get_glyph(&new_glyph_name) {
-                    sort.advance_width = glyph
-                        .advance
-                        .as_ref()
-                        .map(|a| a.width as f32)
-                        .unwrap_or(0.0);
+                if sort.glyph_name != new_glyph_name {
+                    info!("Updated active sort from '{}' to '{}'", sort.glyph_name, new_glyph_name);
+                    sort.glyph_name = new_glyph_name.clone();
+                    
+                    // Update advance width from the virtual font
+                    if let Some(glyph) = default_layer.get_glyph(&new_glyph_name) {
+                        sort.advance_width = glyph
+                            .advance
+                            .as_ref()
+                            .map(|a| a.width as f32)
+                            .unwrap_or(0.0);
+                    }
+                } else {
+                    debug!("Glyph navigation changed but sort already showing '{}'", sort.glyph_name);
                 }
             }
         }
@@ -515,6 +522,15 @@ pub fn respawn_sort_points_on_glyph_change(
     // Track the previous glyph name per sort entity
     mut local_previous_glyphs: Local<std::collections::HashMap<Entity, String>>,
 ) {
+    // Debug: Log when this system runs and what sorts have changed
+    if !changed_sorts_query.is_empty() {
+        debug!("=== respawn_sort_points_on_glyph_change triggered ===");
+        for (sort_entity, sort) in changed_sorts_query.iter() {
+            debug!("Sort {:?} marked as Changed - glyph: '{}', position: ({:.1}, {:.1}), advance_width: {:.1}", 
+                   sort_entity, sort.glyph_name, sort.position.x, sort.position.y, sort.advance_width);
+        }
+    }
+    
     for (sort_entity, sort) in changed_sorts_query.iter() {
         let current_glyph_name = sort.glyph_name.to_string();
         
