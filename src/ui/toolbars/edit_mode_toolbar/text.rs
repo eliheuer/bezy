@@ -81,8 +81,15 @@ pub fn handle_text_mode_cursor(
     mut cursor_moved_events: EventReader<CursorMoved>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
+    ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
 ) {
     if !text_mode_active.0 {
+        return;
+    }
+
+    // Hide preview when hovering over UI
+    if ui_hover_state.is_hovering_ui {
+        text_mode_state.showing_preview = false;
         return;
     }
 
@@ -142,8 +149,14 @@ pub fn handle_text_mode_clicks(
     mut sort_events: EventWriter<SortEvent>,
     app_state: Res<AppState>,
     glyph_navigation: Res<GlyphNavigation>,
+    ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
 ) {
     if !text_mode_active.0 {
+        return;
+    }
+
+    // Don't place sorts when hovering over or clicking on UI elements
+    if ui_hover_state.is_hovering_ui {
         return;
     }
 
