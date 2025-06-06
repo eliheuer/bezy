@@ -29,12 +29,12 @@ pub fn render_sorts_system(
 
     // Render inactive sorts as metrics boxes with glyph outlines
     for sort in inactive_sorts_query.iter() {
-        render_inactive_sort(&mut gizmos, &viewport, sort, font_metrics);
+        render_inactive_sort(&mut gizmos, &viewport, sort, font_metrics, &app_state);
     }
 
     // Render active sorts with full outline detail
     for sort in active_sorts_query.iter() {
-        render_active_sort(&mut gizmos, &viewport, sort, font_metrics);
+        render_active_sort(&mut gizmos, &viewport, sort, font_metrics, &app_state);
     }
 }
 
@@ -44,32 +44,42 @@ fn render_inactive_sort(
     viewport: &ViewPort,
     sort: &Sort,
     font_metrics: &FontMetrics,
+    app_state: &AppState,
 ) {
-    // First render the metrics box using the inactive color
-    crate::rendering::metrics::draw_metrics_at_position_with_color(
-        gizmos,
-        viewport,
-        &sort.glyph,
-        font_metrics,
-        sort.position,
-        SORT_INACTIVE_METRICS_COLOR,
-    );
-    
-    // Then render only the glyph outline (no control handles) if it exists
-    if let Some(outline) = &sort.glyph.outline {
-        // Render each contour in the outline
-        for contour in &outline.contours {
-            if contour.points.is_empty() {
-                continue;
-            }
+    // Get the glyph from the virtual font
+    let glyph = if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
+        default_layer.get_glyph(&sort.glyph_name)
+    } else {
+        None
+    };
 
-            // Draw only the path, no control handles for inactive sorts
-            crate::rendering::glyph_outline::draw_contour_path_at_position(
-                gizmos,
-                viewport,
-                contour,
-                sort.position,
-            );
+    if let Some(glyph) = glyph {
+        // First render the metrics box using the inactive color
+        crate::rendering::metrics::draw_metrics_at_position_with_color(
+            gizmos,
+            viewport,
+            glyph,
+            font_metrics,
+            sort.position,
+            SORT_INACTIVE_METRICS_COLOR,
+        );
+        
+        // Then render only the glyph outline (no control handles) if it exists
+        if let Some(outline) = &glyph.outline {
+            // Render each contour in the outline
+            for contour in &outline.contours {
+                if contour.points.is_empty() {
+                    continue;
+                }
+
+                // Draw only the path, no control handles for inactive sorts
+                crate::rendering::glyph_outline::draw_contour_path_at_position(
+                    gizmos,
+                    viewport,
+                    contour,
+                    sort.position,
+                );
+            }
         }
     }
 }
@@ -80,32 +90,42 @@ fn render_active_sort(
     viewport: &ViewPort,
     sort: &Sort,
     font_metrics: &FontMetrics,
+    app_state: &AppState,
 ) {
-    // First render the metrics box using the active color
-    crate::rendering::metrics::draw_metrics_at_position_with_color(
-        gizmos,
-        viewport,
-        &sort.glyph,
-        font_metrics,
-        sort.position,
-        SORT_ACTIVE_METRICS_COLOR,
-    );
-    
-    // Then render the full glyph outline with control handles if it exists
-    if let Some(outline) = &sort.glyph.outline {
-        crate::rendering::glyph_outline::draw_glyph_outline_at_position(
+    // Get the glyph from the virtual font
+    let glyph = if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
+        default_layer.get_glyph(&sort.glyph_name)
+    } else {
+        None
+    };
+
+    if let Some(glyph) = glyph {
+        // First render the metrics box using the active color
+        crate::rendering::metrics::draw_metrics_at_position_with_color(
             gizmos,
             viewport,
-            outline,
+            glyph,
+            font_metrics,
             sort.position,
+            SORT_ACTIVE_METRICS_COLOR,
         );
         
-        // Also render the glyph points (on-curve and off-curve)
-        crate::rendering::glyph_outline::draw_glyph_points_at_position(
-            gizmos,
-            viewport,
-            outline,
-            sort.position,
-        );
+        // Then render the full glyph outline with control handles if it exists
+        if let Some(outline) = &glyph.outline {
+            crate::rendering::glyph_outline::draw_glyph_outline_at_position(
+                gizmos,
+                viewport,
+                outline,
+                sort.position,
+            );
+            
+            // Also render the glyph points (on-curve and off-curve)
+            crate::rendering::glyph_outline::draw_glyph_points_at_position(
+                gizmos,
+                viewport,
+                outline,
+                sort.position,
+            );
+        }
     }
 } 

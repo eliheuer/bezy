@@ -23,14 +23,25 @@ pub fn handle_sort_events(
     mut commands: Commands,
     mut sort_events: EventReader<SortEvent>,
     mut active_sort_state: ResMut<ActiveSortState>,
-    _app_state: Res<AppState>,
+    app_state: Res<AppState>,
     _sorts_query: Query<(Entity, &Sort)>,
     active_sorts_query: Query<Entity, With<ActiveSort>>,
 ) {
     for event in sort_events.read() {
         match event {
-            SortEvent::CreateSort { glyph, position } => {
-                create_sort(&mut commands, glyph.clone(), *position);
+            SortEvent::CreateSort { glyph_name, position } => {
+                // Get advance width from the virtual font
+                let advance_width = if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
+                    if let Some(glyph) = default_layer.get_glyph(glyph_name) {
+                        glyph.advance.as_ref().map(|a| a.width as f32).unwrap_or(600.0)
+                    } else {
+                        600.0 // Default fallback
+                    }
+                } else {
+                    600.0 // Default fallback
+                };
+                
+                create_sort(&mut commands, glyph_name.clone(), *position, advance_width);
             }
             SortEvent::ActivateSort { sort_entity } => {
                 activate_sort(
@@ -54,11 +65,11 @@ pub fn handle_sort_events(
 }
 
 /// Create a new sort and add it to the world
-fn create_sort(commands: &mut Commands, glyph: norad::Glyph, position: Vec2) {
-    let sort = Sort::new(glyph, position);
+fn create_sort(commands: &mut Commands, glyph_name: norad::GlyphName, position: Vec2, advance_width: f32) {
+    let sort = Sort::new(glyph_name.clone(), position, advance_width);
     
     info!("Creating sort '{}' at position ({:.1}, {:.1})", 
-          sort.glyph.name, position.x, position.y);
+          glyph_name, position.x, position.y);
 
     // Spawn the sort entity as inactive by default
     commands.spawn((
@@ -190,11 +201,12 @@ pub fn spawn_sort_point_entities(
     // Find existing point entities for sorts
     sort_point_entities: Query<(Entity, &SortPointEntity)>,
     mut selection_state: ResMut<SelectionState>,
+    app_state: Res<AppState>,
 ) {
     // Handle newly activated sorts - spawn point entities
     for (sort_entity, sort) in added_active_sorts.iter() {
         info!("Spawning point entities for newly activated sort: {:?}", sort_entity);
-        spawn_point_entities_for_sort(&mut commands, sort_entity, sort, &mut selection_state);
+        spawn_point_entities_for_sort(&mut commands, sort_entity, sort, &app_state, &mut selection_state);
     }
 
     // Handle deactivated sorts - despawn point entities
@@ -209,78 +221,88 @@ fn spawn_point_entities_for_sort(
     commands: &mut Commands,
     sort_entity: Entity,
     sort: &Sort,
+    app_state: &AppState,
     _selection_state: &mut SelectionState,
 ) {
-    // Only proceed if the glyph has an outline
-    if let Some(outline) = &sort.glyph.outline {
-        info!("Sort '{}' has {} contours", sort.glyph.name, outline.contours.len());
-        
-        // Iterate through all contours
-        for (contour_idx, contour) in outline.contours.iter().enumerate() {
-            if contour.points.is_empty() {
-                continue;
+    // Get the glyph from the virtual font
+    if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
+        if let Some(glyph) = default_layer.get_glyph(&sort.glyph_name) {
+            // Only proceed if the glyph has an outline
+            if let Some(outline) = &glyph.outline {
+                info!("Sort '{}' has {} contours", sort.glyph_name, outline.contours.len());
+                
+                // Iterate through all contours
+                for (contour_idx, contour) in outline.contours.iter().enumerate() {
+                    if contour.points.is_empty() {
+                        continue;
+                    }
+
+                    info!("Contour {} has {} points", contour_idx, contour.points.len());
+
+                    // Spawn entities for each point
+                    for (point_idx, point) in contour.points.iter().enumerate() {
+                        // Apply the sort's position offset to the point
+                        let point_pos = sort.position + Vec2::new(point.x as f32, point.y as f32);
+
+                        // Determine if point is on-curve or off-curve
+                        let is_on_curve = match point.typ {
+                            norad::PointType::Move
+                            | norad::PointType::Line
+                            | norad::PointType::Curve => true,
+                            _ => false,
+                        };
+
+                        // Use a unique name for the point entity
+                        let entity_name = format!(
+                            "SortPoint_{:?}_{}_{}_{}",
+                            sort_entity, contour_idx, point_idx, sort.glyph_name
+                        );
+
+                        info!(
+                            "Spawning sort point entity '{}' at ({:.1}, {:.1}) - on_curve: {}",
+                            entity_name, point_pos.x, point_pos.y, is_on_curve
+                        );
+
+                        // Create the transform with proper positioning
+                        let transform = Transform::from_translation(Vec3::new(
+                            point_pos.x,
+                            point_pos.y,
+                            0.0,
+                        ));
+
+                        // Spawn the point entity with all required components
+                        let entity_id = commands.spawn((
+                            transform,
+                            GlobalTransform::from(transform), // Explicitly set GlobalTransform
+                            Visibility::default(),
+                            InheritedVisibility::default(),
+                            ViewVisibility::default(),
+                            Selectable,
+                            PointType { is_on_curve },
+                            PointCoordinates {
+                                position: point_pos,
+                            },
+                            GlyphPointReference {
+                                glyph_name: sort.glyph_name.to_string(),
+                                contour_index: contour_idx,
+                                point_index: point_idx,
+                            },
+                            SortPointEntity { sort_entity },
+                            Name::new(entity_name),
+                        )).id();
+
+                        info!("Spawned sort point entity {:?} at world position ({:.1}, {:.1})", 
+                              entity_id, point_pos.x, point_pos.y);
+                    }
+                }
+            } else {
+                info!("Sort '{}' has no outline", sort.glyph_name);
             }
-
-            info!("Contour {} has {} points", contour_idx, contour.points.len());
-
-            // Spawn entities for each point
-            for (point_idx, point) in contour.points.iter().enumerate() {
-                // Apply the sort's position offset to the point
-                let point_pos = sort.position + Vec2::new(point.x as f32, point.y as f32);
-
-                // Determine if point is on-curve or off-curve
-                let is_on_curve = match point.typ {
-                    norad::PointType::Move
-                    | norad::PointType::Line
-                    | norad::PointType::Curve => true,
-                    _ => false,
-                };
-
-                // Use a unique name for the point entity
-                let entity_name = format!(
-                    "SortPoint_{:?}_{}_{}_{}",
-                    sort_entity, contour_idx, point_idx, sort.glyph.name
-                );
-
-                info!(
-                    "Spawning sort point entity '{}' at ({:.1}, {:.1}) - on_curve: {}",
-                    entity_name, point_pos.x, point_pos.y, is_on_curve
-                );
-
-                // Create the transform with proper positioning
-                let transform = Transform::from_translation(Vec3::new(
-                    point_pos.x,
-                    point_pos.y,
-                    0.0,
-                ));
-
-                // Spawn the point entity with all required components
-                let entity_id = commands.spawn((
-                    transform,
-                    GlobalTransform::from(transform), // Explicitly set GlobalTransform
-                    Visibility::default(),
-                    InheritedVisibility::default(),
-                    ViewVisibility::default(),
-                    Selectable,
-                    PointType { is_on_curve },
-                    PointCoordinates {
-                        position: point_pos,
-                    },
-                    GlyphPointReference {
-                        glyph_name: sort.glyph.name.to_string(),
-                        contour_index: contour_idx,
-                        point_index: point_idx,
-                    },
-                    SortPointEntity { sort_entity },
-                    Name::new(entity_name),
-                )).id();
-
-                info!("Spawned sort point entity {:?} at world position ({:.1}, {:.1})", 
-                      entity_id, point_pos.x, point_pos.y);
-            }
+        } else {
+            warn!("Glyph '{}' not found in virtual font", sort.glyph_name);
         }
     } else {
-        info!("Sort '{}' has no outline", sort.glyph.name);
+        warn!("No default layer found in virtual font");
     }
 }
 
@@ -303,13 +325,14 @@ fn despawn_point_entities_for_sort(
     }
 }
 
-/// System to update sort glyph data when sort points are edited
+/// System to update virtual font glyph data when sort points are edited
 pub fn update_sort_glyph_data(
     query: Query<
         (&Transform, &GlyphPointReference, &SortPointEntity),
         (With<Selected>, Changed<Transform>),
     >,
-    mut sorts_query: Query<&mut Sort>,
+    sorts_query: Query<&Sort>,
+    mut app_state: ResMut<AppState>,
 ) {
     // Early return if no points were modified
     if query.is_empty() {
@@ -319,29 +342,30 @@ pub fn update_sort_glyph_data(
     // Process each modified point
     for (transform, point_ref, sort_point) in query.iter() {
         // Get the sort this point belongs to
-        if let Ok(mut sort) = sorts_query.get_mut(sort_point.sort_entity) {
-            // Capture the sort position before borrowing the outline mutably
-            let sort_position = sort.position;
-            
-            // Get the outline
-            if let Some(outline) = sort.glyph.outline.as_mut() {
-                // Make sure the contour index is valid
-                if point_ref.contour_index < outline.contours.len() {
-                    let contour = &mut outline.contours[point_ref.contour_index];
+        if let Ok(sort) = sorts_query.get(sort_point.sort_entity) {
+            // Get the virtual font's glyph data
+            if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer_mut() {
+                if let Some(glyph) = default_layer.get_glyph_mut(&sort.glyph_name) {
+                    if let Some(outline) = glyph.outline.as_mut() {
+                        // Make sure the contour index is valid
+                        if point_ref.contour_index < outline.contours.len() {
+                            let contour = &mut outline.contours[point_ref.contour_index];
 
-                    // Make sure the point index is valid
-                    if point_ref.point_index < contour.points.len() {
-                        // Update the point position
-                        // Convert world position back to glyph-local position by subtracting sort offset
-                        let point = &mut contour.points[point_ref.point_index];
-                        let local_pos = Vec2::new(transform.translation.x, transform.translation.y) - sort_position;
-                        point.x = local_pos.x;
-                        point.y = local_pos.y;
+                            // Make sure the point index is valid
+                            if point_ref.point_index < contour.points.len() {
+                                // Update the point position in the virtual font
+                                // Convert world position back to glyph-local position by subtracting sort offset
+                                let point = &mut contour.points[point_ref.point_index];
+                                let local_pos = Vec2::new(transform.translation.x, transform.translation.y) - sort.position;
+                                point.x = local_pos.x;
+                                point.y = local_pos.y;
 
-                        debug!(
-                            "Updated sort glyph data for point {} in contour {} of sort {:?}",
-                            point_ref.point_index, point_ref.contour_index, sort_point.sort_entity
-                        );
+                                debug!(
+                                    "Updated virtual font glyph '{}' point {} in contour {} from sort {:?}",
+                                    sort.glyph_name, point_ref.point_index, point_ref.contour_index, sort_point.sort_entity
+                                );
+                            }
+                        }
                     }
                 }
             }
@@ -369,24 +393,24 @@ pub fn spawn_initial_sort(
     }
     
     // Try to find a glyph to use for the initial sort
-    let mut found_glyph = None;
+    let mut found_glyph_name = None;
     
     if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
         // First try to find the glyph using navigation
         if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo) {
-            if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
-                found_glyph = Some((**glyph).clone());
-                info!("Using glyph '{}' for initial sort", glyph_name);
+            if default_layer.get_glyph(&glyph_name).is_some() {
+                found_glyph_name = Some(glyph_name);
+                info!("Using glyph '{}' for initial sort", found_glyph_name.as_ref().unwrap());
             }
         }
         
         // If not found, try common glyphs
-        if found_glyph.is_none() {
+        if found_glyph_name.is_none() {
             let common_glyphs = ["H", "h", "A", "a", "O", "o", "space", ".notdef"];
             for glyph_name_str in common_glyphs.iter() {
                 let name = norad::GlyphName::from(*glyph_name_str);
-                if let Some(glyph) = default_layer.get_glyph(&name) {
-                    found_glyph = Some((**glyph).clone());
+                if default_layer.get_glyph(&name).is_some() {
+                    found_glyph_name = Some(name);
                     info!("Using fallback glyph '{}' for initial sort", glyph_name_str);
                     break;
                 }
@@ -395,9 +419,9 @@ pub fn spawn_initial_sort(
     }
     
     // Create the initial sort at origin (0, 0) with left baseline
-    if let Some(glyph) = found_glyph {
+    if let Some(glyph_name) = found_glyph_name {
         sort_events.send(SortEvent::CreateSort {
-            glyph,
+            glyph_name,
             position: Vec2::ZERO, // Left baseline at origin
         });
         info!("Created initial sort at origin (0, 0)");
@@ -440,37 +464,41 @@ pub fn handle_glyph_navigation_changes(
     if let Ok(mut sort) = active_sorts_query.get_single_mut() {
         // Try to find the new glyph
         if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
-            let mut found_glyph = None;
+            let mut found_glyph_name = None;
             
             // First try to find the glyph using navigation
             if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo) {
-                if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
-                    found_glyph = Some((**glyph).clone());
-                    info!("Updated active sort to glyph '{}'", glyph_name);
+                if default_layer.get_glyph(&glyph_name).is_some() {
+                    found_glyph_name = Some(glyph_name);
+                    info!("Updated active sort to glyph '{}'", found_glyph_name.as_ref().unwrap());
                 }
             }
             
             // If not found, try common glyphs (fallback)
-            if found_glyph.is_none() {
+            if found_glyph_name.is_none() {
                 let common_glyphs = ["H", "h", "A", "a", "O", "o", "space", ".notdef"];
                 for glyph_name_str in common_glyphs.iter() {
                     let name = norad::GlyphName::from(*glyph_name_str);
-                    if let Some(glyph) = default_layer.get_glyph(&name) {
-                        found_glyph = Some((**glyph).clone());
+                    if default_layer.get_glyph(&name).is_some() {
+                        found_glyph_name = Some(name);
                         info!("Updated active sort to fallback glyph '{}'", glyph_name_str);
                         break;
                     }
                 }
             }
             
-            // Update the sort's glyph if we found one
-            if let Some(new_glyph) = found_glyph {
-                sort.glyph = new_glyph;
-                sort.advance_width = sort.glyph
-                    .advance
-                    .as_ref()
-                    .map(|a| a.width as f32)
-                    .unwrap_or(0.0);
+            // Update the sort's glyph name and advance width if we found one
+            if let Some(new_glyph_name) = found_glyph_name {
+                sort.glyph_name = new_glyph_name.clone();
+                
+                // Update advance width from the virtual font
+                if let Some(glyph) = default_layer.get_glyph(&new_glyph_name) {
+                    sort.advance_width = glyph
+                        .advance
+                        .as_ref()
+                        .map(|a| a.width as f32)
+                        .unwrap_or(0.0);
+                }
             }
         }
     }
@@ -482,11 +510,12 @@ pub fn respawn_sort_points_on_glyph_change(
     changed_sorts_query: Query<(Entity, &Sort), (With<ActiveSort>, Changed<Sort>)>,
     sort_point_entities: Query<(Entity, &SortPointEntity)>,
     mut selection_state: ResMut<SelectionState>,
+    app_state: Res<AppState>,
     // Track the previous glyph name to detect actual glyph changes
     mut local_previous_glyph: Local<Option<String>>,
 ) {
     for (sort_entity, sort) in changed_sorts_query.iter() {
-        let current_glyph_name = sort.glyph.name.to_string();
+        let current_glyph_name = sort.glyph_name.to_string();
         
         // Only respawn if the glyph name actually changed (not just point positions)
         let should_respawn = match &*local_previous_glyph {
@@ -502,7 +531,7 @@ pub fn respawn_sort_points_on_glyph_change(
             despawn_point_entities_for_sort(&mut commands, sort_entity, &sort_point_entities, &mut selection_state);
             
             // Then spawn new point entities for the updated glyph
-            spawn_point_entities_for_sort(&mut commands, sort_entity, sort, &mut selection_state);
+            spawn_point_entities_for_sort(&mut commands, sort_entity, sort, &app_state, &mut selection_state);
             
             // Update the tracked glyph name
             *local_previous_glyph = Some(current_glyph_name);

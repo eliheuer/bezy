@@ -11,16 +11,16 @@
 //! Only one sort can be active at a time.
 
 use bevy::prelude::*;
-use norad::Glyph;
+use norad::{Glyph, GlyphName};
 
 /// Core Sort entity - represents a single piece of movable type
 #[derive(Component, Debug, Clone)]
 pub struct Sort {
-    /// The glyph data this sort represents
-    pub glyph: Glyph,
+    /// The name of the glyph this sort represents (references virtual font)
+    pub glyph_name: GlyphName,
     /// The sort's position in design space
     pub position: Vec2,
-    /// The sort's advance width (from the glyph)
+    /// The sort's advance width (cached from the glyph)
     pub advance_width: f32,
     /// Whether this sort is currently active for editing
     pub is_active: bool,
@@ -56,21 +56,26 @@ pub struct ActiveSortState {
 }
 
 impl Sort {
-    /// Create a new sort from a glyph
-    pub fn new(glyph: Glyph, position: Vec2) -> Self {
+    /// Create a new sort from a glyph name
+    pub fn new(glyph_name: GlyphName, position: Vec2, advance_width: f32) -> Self {
+        Self {
+            glyph_name,
+            position,
+            advance_width,
+            is_active: false,
+            id: SortId::new(),
+        }
+    }
+
+    /// Create a new sort from a glyph (extracts name and advance width)
+    pub fn from_glyph(glyph: &Glyph, position: Vec2) -> Self {
         let advance_width = glyph
             .advance
             .as_ref()
             .map(|a| a.width as f32)
             .unwrap_or(0.0);
 
-        Self {
-            glyph,
-            position,
-            advance_width,
-            is_active: false,
-            id: SortId::new(),
-        }
+        Self::new(glyph.name.clone(), position, advance_width)
     }
 
     /// Get the metrics box bounds for this sort
@@ -121,7 +126,7 @@ impl SortBounds {
 pub enum SortEvent {
     /// Create a new sort
     CreateSort {
-        glyph: Glyph,
+        glyph_name: GlyphName,
         position: Vec2,
     },
     /// Activate a sort for editing

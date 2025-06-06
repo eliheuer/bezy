@@ -153,10 +153,12 @@ pub fn handle_text_mode_clicks(
             if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo) {
                 if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
                     if let Some(glyph) = default_layer.get_glyph(&glyph_name) {
-                        // Create a sort event
                         sort_events.send(SortEvent::CreateSort {
-                            glyph: (**glyph).clone(),
-                            position: cursor_pos,
+                            glyph_name: glyph.name.clone(),
+                            position: Vec2::new(
+                                cursor_pos.x,
+                                cursor_pos.y,
+                            ),
                         });
 
                         info!("Placed sort '{}' at position ({:.1}, {:.1})", 

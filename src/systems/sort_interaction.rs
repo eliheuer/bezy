@@ -47,14 +47,15 @@ pub fn handle_sort_clicks(
     for (entity, sort, is_active) in sorts_query.iter() {
         if sort.contains_point(world_position, &app_state.workspace.info.metrics) {
             if is_active {
-                // Already active sort - do nothing, keep it active for editing
-                info!("Clicked on already active sort '{}' - keeping active", sort.glyph.name);
+                // Sort is already active - keep it active (allow editing)
+                info!("Clicked on already active sort '{}' - keeping active", sort.glyph_name);
+                return; // Don't deactivate, allow editing to continue
             } else {
-                // Inactive sort - activate it
+                // Sort is inactive - activate it
                 sort_events.send(SortEvent::ActivateSort {
                     sort_entity: entity,
                 });
-                info!("Activated sort '{}' by clicking", sort.glyph.name);
+                info!("Activated sort '{}' by clicking", sort.glyph_name);
             }
             return; // Only handle one sort per click
         }
