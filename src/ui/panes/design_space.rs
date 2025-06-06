@@ -341,7 +341,7 @@ pub fn debug_coordinates(mut gizmos: Gizmos) {
 
     // Only draw the debug cross if enabled in theme settings
     if DEBUG_SHOW_ORIGIN_CROSS {
-        // Draw a cross at (0,0)
+        // Draw a cross at (0,0) using 2D gizmos to ensure they render on top of sorts
         gizmos.line_2d(
             Vec2::new(-10.0, 0.0),
             Vec2::new(10.0, 0.0),
@@ -360,6 +360,9 @@ pub struct DesignSpacePlugin;
 
 impl Plugin for DesignSpacePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, debug_coordinates);
+        app.add_systems(
+            Update, 
+            debug_coordinates.after(crate::editing::sort_plugin::SortSystemSet::Rendering)
+        );
     }
 }

@@ -11,7 +11,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 // Constants for selection
-const SELECTION_MARGIN: f32 = 10.0; // Distance in pixels for selection hit testing
+const SELECTION_MARGIN: f32 = 16.0; // Distance in pixels for selection hit testing
 
 /// System to handle mouse input for selection and hovering
 pub fn handle_mouse_input(

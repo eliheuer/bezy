@@ -63,9 +63,12 @@ impl Plugin for DrawPlugin {
                 Update,
                 (
                     draw_metrics_system,
-                    draw_origin_cross,
                     detect_app_state_changes,
                 ),
+            )
+            .add_systems(
+                Update,
+                draw_origin_cross.after(crate::editing::sort_plugin::SortSystemSet::Rendering),
             );
     }
 }
