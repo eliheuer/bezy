@@ -46,6 +46,13 @@ pub struct SortCrosshair {
     pub sort_entity: Entity,
 }
 
+/// Component to mark crosshairs that were just spawned and shouldn't be moved yet
+#[derive(Component, Debug)]
+pub struct NewlySpawnedCrosshair {
+    /// Number of frames to wait before allowing movement
+    pub frames_remaining: u32,
+}
+
 /// System to handle sort events
 pub fn handle_sort_events(
     mut commands: Commands,
@@ -273,8 +280,18 @@ pub fn respawn_sort_points_on_glyph_change(
     mut selection_state: ResMut<SelectionState>,
     app_state: Res<AppState>,
     mut local_previous_glyphs: Local<std::collections::HashMap<Entity, String>>,
+    newly_spawned_crosshairs: Query<&SortCrosshair, With<NewlySpawnedCrosshair>>,
 ) {
     for (sort_entity, sort) in changed_sorts.iter() {
+        // Skip if this sort has a newly spawned crosshair (to avoid conflicts during initial setup)
+        let has_newly_spawned_crosshair = newly_spawned_crosshairs.iter()
+            .any(|crosshair| crosshair.sort_entity == sort_entity);
+        
+        if has_newly_spawned_crosshair {
+            debug!("respawn_sort_points_on_glyph_change: Skipping sort {:?} because it has a newly spawned crosshair", sort_entity);
+            continue;
+        }
+        
         let current_glyph_name = sort.glyph_name.to_string();
         let should_respawn = local_previous_glyphs
             .get(&sort_entity)
@@ -498,6 +515,7 @@ pub fn manage_sort_crosshairs(
 
         let crosshair_entity = commands.spawn((
             SortCrosshair { sort_entity },
+            NewlySpawnedCrosshair { frames_remaining: 3 }, // Wait 3 frames before allowing movement
             Selectable,
             PointType { is_on_curve: true }, // For selection rendering
             PointCoordinates { position: crosshair_pos },
@@ -591,9 +609,26 @@ pub fn render_sort_crosshairs(
     }
 }
 
+/// System to manage newly spawned crosshairs and prevent immediate movement
+pub fn manage_newly_spawned_crosshairs(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut NewlySpawnedCrosshair)>,
+) {
+    for (entity, mut newly_spawned) in query.iter_mut() {
+        if newly_spawned.frames_remaining > 0 {
+            newly_spawned.frames_remaining -= 1;
+            debug!("Newly spawned crosshair {:?} has {} frames remaining", entity, newly_spawned.frames_remaining);
+        } else {
+            // Remove the component to allow normal movement
+            commands.entity(entity).remove::<NewlySpawnedCrosshair>();
+            debug!("Removed NewlySpawnedCrosshair from entity {:?} - now allowing movement", entity);
+        }
+    }
+}
+
 /// When a sort is moved, its crosshair must also be moved.
 pub fn sync_crosshair_to_sort_move(
-    mut crosshair_query: Query<(&mut Transform, &SortCrosshair)>,
+    mut crosshair_query: Query<(&mut Transform, &SortCrosshair), Without<NewlySpawnedCrosshair>>,
     changed_sorts: Query<(Entity, &Sort), Changed<Sort>>,
     app_state: Res<AppState>,
 ) {

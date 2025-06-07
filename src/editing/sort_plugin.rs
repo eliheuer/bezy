@@ -9,10 +9,11 @@ use crate::rendering::sort_renderer::render_sorts_system;
 use crate::systems::sort_interaction::handle_sort_clicks;
 use crate::systems::sort_manager::{
     auto_activate_first_sort, debug_sort_point_entities, enforce_single_active_sort,
-    handle_glyph_navigation_changes, handle_sort_events, manage_sort_crosshairs,
-    render_sort_crosshairs, respawn_sort_points_on_glyph_change, spawn_initial_sort,
-    spawn_sort_point_entities, sync_crosshair_to_sort_move, sync_points_to_sort_move,
-    sync_sort_transforms, update_sort_from_crosshair_move, update_sort_glyph_data,
+    handle_glyph_navigation_changes, handle_sort_events, manage_newly_spawned_crosshairs,
+    manage_sort_crosshairs, render_sort_crosshairs, respawn_sort_points_on_glyph_change,
+    spawn_initial_sort, spawn_sort_point_entities, sync_crosshair_to_sort_move,
+    sync_points_to_sort_move, sync_sort_transforms, update_sort_from_crosshair_move,
+    update_sort_glyph_data,
 };
 use crate::ui::toolbars::edit_mode_toolbar::text::TextModePlugin;
 use bevy::prelude::*;
@@ -69,6 +70,7 @@ impl Plugin for SortPlugin {
                 (
                     spawn_sort_point_entities,
                     manage_sort_crosshairs,
+                    manage_newly_spawned_crosshairs,
                     respawn_sort_points_on_glyph_change,
                     debug_sort_point_entities,
                 )
