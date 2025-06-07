@@ -3,6 +3,8 @@
 //! This module contains all non-visual settings for the application.
 //! For visual settings, see the UI/theme.rs file.
 
+use bevy::prelude::*;
+
 // Snap to Grid
 pub const SNAP_TO_GRID_ENABLED: bool = true;
 pub const SNAP_TO_GRID_VALUE: f32 = 2.0;
@@ -20,3 +22,17 @@ pub const CMD_NUDGE_AMOUNT: f32 = 32.0;
 pub const KEYBOARD_ZOOM_STEP: f32 = 0.8;
 pub const MIN_ALLOWED_ZOOM_SCALE: f32 = 0.01;
 pub const MAX_ALLOWED_ZOOM_SCALE: f32 = 10.0;
+
+/// Apply sort-specific grid snapping to a position.
+/// Sorts use a coarser grid than regular points for better placement.
+pub fn apply_sort_grid_snap(position: Vec2) -> Vec2 {
+    if SNAP_TO_GRID_ENABLED {
+        let sort_grid_value = SNAP_TO_GRID_VALUE * SORT_SNAP_MULTIPLIER;
+        Vec2::new(
+            (position.x / sort_grid_value).round() * sort_grid_value,
+            (position.y / sort_grid_value).round() * sort_grid_value,
+        )
+    } else {
+        position
+    }
+}

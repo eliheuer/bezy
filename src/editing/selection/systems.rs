@@ -126,18 +126,32 @@ pub fn handle_mouse_input(
 
                 let shift_held = keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight);
 
+                // Debug: Check if this is a crosshair
+                let is_crosshair = selectable_query.iter()
+                    .find(|(e, _, _)| *e == entity)
+                    .map(|(_, _, _)| {
+                        // We can't easily check for SortCrosshair component here, but we can log the entity
+                        debug!("Selected entity {:?}", entity);
+                        false // placeholder
+                    })
+                    .unwrap_or(false);
+
                 if !shift_held && selection_state.selected.contains(&entity) {
                     // Clicked on an already-selected entity without shift.
                     // This is the start of a drag, do nothing to selection state.
+                    debug!("Clicked on already-selected entity {:?} - starting drag", entity);
                 } else {
                     if !shift_held {
+                        debug!("Clearing previous selection (count: {})", selection_state.selected.len());
                         for (e, _) in &selected_query {
                             commands.entity(e).remove::<Selected>();
+                            debug!("Removing Selected from entity {:?}", e);
                         }
                         selection_state.selected.clear();
                     }
                     selection_state.selected.insert(entity);
                     commands.entity(entity).insert(Selected);
+                    debug!("Added Selected to entity {:?}", entity);
                 }
 
                 drag_point_state.is_dragging = true;

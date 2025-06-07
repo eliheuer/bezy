@@ -6,7 +6,7 @@
 use super::EditModeSystem;
 use crate::editing::sort::{SortEvent};
 use crate::core::state::{AppState, GlyphNavigation};
-use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE, SORT_SNAP_MULTIPLIER};
+use crate::core::settings::apply_sort_grid_snap;
 use crate::ui::panes::design_space::ViewPort;
 use crate::rendering::cameras::DesignCamera;
 use bevy::prelude::*;
@@ -63,65 +63,44 @@ impl Plugin for TextModePlugin {
 
 /// System to track when text mode is active
 pub fn update_text_mode_active(
-    current_mode: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode>,
     mut text_mode_active: ResMut<TextModeActive>,
+    current_mode: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode>,
 ) {
-    let new_active = current_mode.0 == crate::ui::toolbars::edit_mode_toolbar::EditMode::Text;
+    let is_text_mode = current_mode.0 == crate::ui::toolbars::edit_mode_toolbar::EditMode::Text;
     
-    if new_active != text_mode_active.0 {
-        text_mode_active.0 = new_active;
-        info!("Text mode active changed to: {}", new_active);
+    if text_mode_active.0 != is_text_mode {
+        text_mode_active.0 = is_text_mode;
+        debug!("Text mode active state changed: {}", is_text_mode);
     }
 }
 
-/// System to update cursor position in text mode
+/// System to handle cursor movement in text mode
 pub fn handle_text_mode_cursor(
     text_mode_active: Res<TextModeActive>,
     mut text_mode_state: ResMut<TextModeState>,
     mut cursor_moved_events: EventReader<CursorMoved>,
-    window_query: Query<&Window, With<PrimaryWindow>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
-    ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
 ) {
     if !text_mode_active.0 {
         return;
     }
 
-    // Hide preview when hovering over UI
-    if ui_hover_state.is_hovering_ui {
-        text_mode_state.showing_preview = false;
-        return;
-    }
-
-    let Ok(window) = window_query.get_single() else {
-        debug!("No primary window found");
+    let Ok(window) = windows.get_single() else {
         return;
     };
 
     let Ok((camera, camera_transform)) = camera_query.get_single() else {
-        debug!("No design camera found");
         return;
     };
 
-    // Check if cursor moved (for responsive updates)
     let cursor_moved = !cursor_moved_events.is_empty();
-    cursor_moved_events.clear(); // Clear the events
+    cursor_moved_events.clear(); // Consume the events
 
-    // Always try to get current cursor position when text mode is active
-    if let Some(cursor_pos) = window.cursor_position() {
-        if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_pos) {
-            // Calculate sort-specific grid size (coarser than pen tool)
-            let sort_grid_value = SNAP_TO_GRID_VALUE * SORT_SNAP_MULTIPLIER;
-            
-            // Apply grid snapping with sort-specific grid size
-            let snapped_position = if SNAP_TO_GRID_ENABLED {
-                Vec2::new(
-                    (world_position.x / sort_grid_value).round() * sort_grid_value,
-                    (world_position.y / sort_grid_value).round() * sort_grid_value,
-                )
-            } else {
-                world_position
-            };
+    if let Some(cursor_position) = window.cursor_position() {
+        if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
+            // Apply sort-specific grid snapping
+            let snapped_position = apply_sort_grid_snap(world_position);
 
             // Update state
             let position_changed = text_mode_state.cursor_position != Some(snapped_position);
@@ -130,8 +109,8 @@ pub fn handle_text_mode_cursor(
             
             // Debug logging (only when position changes or cursor moved)
             if cursor_moved || position_changed {
-                debug!("Text mode cursor updated: pos=({:.1}, {:.1}), showing_preview={}, sort_grid={:.1}", 
-                       snapped_position.x, snapped_position.y, text_mode_state.showing_preview, sort_grid_value);
+                debug!("Text mode cursor updated: pos=({:.1}, {:.1}), showing_preview={}", 
+                       snapped_position.x, snapped_position.y, text_mode_state.showing_preview);
             }
         } else {
             debug!("Failed to convert cursor position to world coordinates");

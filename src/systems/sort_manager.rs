@@ -4,6 +4,7 @@
 //! Ensures only one sort can be active at a time and manages the state transitions.
 
 use crate::core::state::{AppState, GlyphNavigation};
+use crate::core::settings::apply_sort_grid_snap;
 use crate::editing::selection::components::{
     GlyphPointReference, PointType, Selectable, Selected, SelectionState,
 };
@@ -210,42 +211,186 @@ pub fn sync_sort_transforms(mut sorts_query: Query<(&mut Sort, &Transform), Chan
 /// System to ensure only one sort is active at a time
 pub fn enforce_single_active_sort(
     mut commands: Commands,
-    mut active_sort_state: ResMut<ActiveSortState>,
-    active_sorts_query: Query<Entity, With<ActiveSort>>,
+    active_sorts: Query<Entity, With<ActiveSort>>,
 ) {
-    let active_sorts: Vec<Entity> = active_sorts_query.iter().collect();
-
-    match active_sorts.len() {
-        0 => {
-            // No active sorts, clear the state
-            if active_sort_state.active_sort_entity.is_some() {
-                active_sort_state.active_sort_entity = None;
+    let active_count = active_sorts.iter().count();
+    if active_count > 1 {
+        warn!("Multiple active sorts detected ({}), deactivating all but first", active_count);
+        
+        // Keep the first one, deactivate the rest
+        for (index, entity) in active_sorts.iter().enumerate() {
+            if index > 0 {
+                commands.entity(entity).remove::<ActiveSort>().insert(InactiveSort);
             }
-        }
-        1 => {
-            // Exactly one active sort, update the state
-            let entity = active_sorts[0];
-            if active_sort_state.active_sort_entity != Some(entity) {
-                active_sort_state.active_sort_entity = Some(entity);
-            }
-        }
-        _ => {
-            // Multiple active sorts - this shouldn't happen, fix it
-            warn!("Multiple active sorts detected, deactivating all but the first");
-
-            for &entity in &active_sorts[1..] {
-                commands
-                    .entity(entity)
-                    .remove::<ActiveSort>()
-                    .insert(InactiveSort);
-            }
-
-            active_sort_state.active_sort_entity = Some(active_sorts[0]);
         }
     }
 }
 
-/// System to spawn point entities for active sorts
+/// System to handle glyph navigation changes
+pub fn handle_glyph_navigation_changes(
+    glyph_navigation: Res<GlyphNavigation>,
+    app_state: Res<AppState>,
+    mut sorts_query: Query<(Entity, &mut Sort), With<ActiveSort>>,
+) {
+    if !glyph_navigation.is_changed() {
+        return;
+    }
+
+    // Get the current glyph name
+    if let Some(current_glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo) {
+        // Update the active sort to show the current glyph
+        for (_entity, mut sort) in sorts_query.iter_mut() {
+            if sort.glyph_name != current_glyph_name {
+                info!(
+                    "Updating active sort from '{}' to '{}'",
+                    sort.glyph_name, current_glyph_name
+                );
+                sort.glyph_name = current_glyph_name.clone();
+                
+                // Update advance width from the new glyph
+                if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
+                    if let Some(glyph) = default_layer.get_glyph(&current_glyph_name) {
+                        sort.advance_width = glyph
+                            .advance
+                            .as_ref()
+                            .map(|a| a.width as f32)
+                            .unwrap_or(600.0);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// System to respawn sort points when the glyph changes
+pub fn respawn_sort_points_on_glyph_change(
+    mut commands: Commands,
+    changed_sorts: Query<(Entity, &Sort), (With<ActiveSort>, Changed<Sort>)>,
+    sort_point_entities: Query<(Entity, &SortPointEntity)>,
+    mut selection_state: ResMut<SelectionState>,
+    app_state: Res<AppState>,
+) {
+    for (sort_entity, sort) in changed_sorts.iter() {
+        // Check if the glyph_name changed (not just position)
+        // We can't easily detect this, so we'll respawn on any Sort change for active sorts
+        info!("Sort changed, respawning point entities for sort: {:?}", sort_entity);
+        
+        // Despawn existing point entities for this sort
+        despawn_point_entities_for_sort(
+            &mut commands,
+            sort_entity,
+            &sort_point_entities,
+            &mut selection_state,
+        );
+        
+        // Spawn new point entities for the updated sort
+        spawn_point_entities_for_sort(
+            &mut commands,
+            sort_entity,
+            sort,
+            &app_state,
+            &mut selection_state,
+        );
+    }
+}
+
+/// Spawn point entities for a sort's glyph outline
+fn spawn_point_entities_for_sort(
+    commands: &mut Commands,
+    sort_entity: Entity,
+    sort: &Sort,
+    app_state: &AppState,
+    selection_state: &mut ResMut<SelectionState>,
+) {
+    // Get the glyph from the virtual font
+    let glyph = if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
+        default_layer.get_glyph(&sort.glyph_name)
+    } else {
+        None
+    };
+
+    if let Some(glyph) = glyph {
+        if let Some(outline) = &glyph.outline {
+            for (contour_idx, contour) in outline.contours.iter().enumerate() {
+                for (point_idx, point) in contour.points.iter().enumerate() {
+                    let is_on_curve = matches!(point.typ, norad::PointType::Move | norad::PointType::Line | norad::PointType::Curve);
+                    
+                    // Calculate world position: sort position + point offset
+                    let point_pos = sort.position + Vec2::new(point.x, point.y);
+                    
+                    let entity_name = format!(
+                        "SortPoint_{}_{}_{}",
+                        sort.glyph_name, contour_idx, point_idx
+                    );
+
+                    // Check if this point was previously selected
+                    // We can't easily track this across respawns, so we'll start fresh
+                    let was_selected = false;
+
+                    let mut entity_cmds = commands.spawn((
+                        Transform::from_translation(Vec3::new(
+                            point_pos.x,
+                            point_pos.y,
+                            0.0,
+                        )),
+                        GlobalTransform::default(),
+                        Visibility::default(),
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
+                        Selectable,
+                        crate::editing::selection::components::PointType { is_on_curve },
+                        crate::editing::selection::nudge::PointCoordinates {
+                            position: point_pos,
+                        },
+                        crate::editing::selection::components::GlyphPointReference {
+                            glyph_name: glyph.name.to_string(),
+                            contour_index: contour_idx,
+                            point_index: point_idx,
+                        },
+                        SortPointEntity { sort_entity },
+                        Name::new(entity_name),
+                    ));
+
+                    // If the point was selected before, restore selection state
+                    if was_selected {
+                        let entity = entity_cmds.id();
+                        entity_cmds.insert(
+                            crate::editing::selection::components::Selected,
+                        );
+                        selection_state.selected.insert(entity);
+                        info!(
+                            "Restored selection for point at ({}, {})",
+                            point_pos.x, point_pos.y
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Despawn point entities for a sort
+fn despawn_point_entities_for_sort(
+    commands: &mut Commands,
+    sort_entity: Entity,
+    sort_point_entities: &Query<(Entity, &SortPointEntity)>,
+    selection_state: &mut ResMut<SelectionState>,
+) {
+    for (entity, sort_point) in sort_point_entities.iter() {
+        if sort_point.sort_entity == sort_entity {
+            // Remove from selection state if selected
+            if selection_state.selected.contains(&entity) {
+                selection_state.selected.remove(&entity);
+                info!("Removed despawned entity {:?} from selection", entity);
+            }
+            
+            commands.entity(entity).despawn();
+            debug!("Despawned point entity {:?} for sort {:?}", entity, sort_entity);
+        }
+    }
+}
+
+/// System to spawn point entities for newly activated sorts
 pub fn spawn_sort_point_entities(
     mut commands: Commands,
     // Detect when sorts change from inactive to active
@@ -287,83 +432,7 @@ pub fn spawn_sort_point_entities(
     }
 }
 
-/// Spawn point entities for a sort's glyph outline
-fn spawn_point_entities_for_sort(
-    commands: &mut Commands,
-    sort_entity: Entity,
-    sort: &Sort,
-    app_state: &AppState,
-    _selection_state: &mut SelectionState,
-) {
-    // Get the glyph from the virtual font
-    if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
-        if let Some(glyph) = default_layer.get_glyph(&sort.glyph_name) {
-            // Only proceed if the glyph has an outline
-            if let Some(outline) = &glyph.outline {
-                // Iterate through all contours
-                for (contour_idx, contour) in outline.contours.iter().enumerate() {
-                    // Spawn entities for each point
-                    for (point_idx, point) in contour.points.iter().enumerate() {
-                        // Apply the sort's position offset to the point
-                        let point_pos = sort.position + Vec2::new(point.x, point.y);
-
-                        // Determine if point is on-curve or off-curve
-                        let is_on_curve = !matches!(point.typ, norad::PointType::OffCurve);
-
-                        let entity_name = format!(
-                            "SortPoint_{:?}_{}_{}_{}",
-                            sort_entity, contour_idx, point_idx, sort.glyph_name
-                        );
-
-                        let transform = Transform::from_translation(point_pos.extend(0.0));
-
-                        // Spawn the point entity with all required components
-                        commands.spawn((
-                            transform,
-                            GlobalTransform::from(transform), // Explicitly set GlobalTransform
-                            Visibility::default(),
-                            InheritedVisibility::default(),
-                            ViewVisibility::default(),
-                            Selectable,
-                            PointType { is_on_curve },
-                            PointCoordinates {
-                                position: point_pos,
-                            },
-                            GlyphPointReference {
-                                glyph_name: sort.glyph_name.to_string(),
-                                contour_index: contour_idx,
-                                point_index: point_idx,
-                            },
-                            SortPointEntity { sort_entity },
-                            Name::new(entity_name),
-                        ));
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// Despawn point entities for a sort
-fn despawn_point_entities_for_sort(
-    commands: &mut Commands,
-    sort_entity: Entity,
-    sort_point_entities: &Query<(Entity, &SortPointEntity)>,
-    selection_state: &mut SelectionState,
-) {
-    // Find and despawn all point entities belonging to this sort
-    for (point_entity, sort_point) in sort_point_entities.iter() {
-        if sort_point.sort_entity == sort_entity {
-            // Remove from selection state if selected
-            selection_state.selected.remove(&point_entity);
-
-            // Despawn the entity
-            commands.entity(point_entity).despawn();
-        }
-    }
-}
-
-/// System to update virtual font glyph data when sort points are edited
+/// System to update sort glyph data when points are moved
 pub fn update_sort_glyph_data(
     query: Query<
         (&Transform, &GlyphPointReference, &SortPointEntity),
@@ -412,7 +481,7 @@ pub fn manage_sort_crosshairs(
         let crosshair_pos = get_crosshair_position(sort, &app_state);
         let transform = Transform::from_translation(crosshair_pos.extend(20.0)); // High Z-value
 
-        commands.spawn((
+        let crosshair_entity = commands.spawn((
             SortCrosshair { sort_entity },
             Selectable,
             PointType { is_on_curve: true }, // For selection rendering
@@ -423,7 +492,10 @@ pub fn manage_sort_crosshairs(
             InheritedVisibility::default(),
             ViewVisibility::default(),
             Name::new(format!("SortCrosshair_{:?}", sort_entity)),
-        ));
+        )).id();
+        
+        info!("Spawned crosshair entity {:?} for sort {:?} at position ({:.1}, {:.1})", 
+              crosshair_entity, sort_entity, crosshair_pos.x, crosshair_pos.y);
     }
 
     // Despawn crosshair for deactivated sorts
@@ -432,6 +504,7 @@ pub fn manage_sort_crosshairs(
         for (crosshair_entity, crosshair) in crosshairs.iter() {
             if crosshair.sort_entity == sort_entity {
                 commands.entity(crosshair_entity).despawn();
+                info!("Despawned crosshair entity {:?}", crosshair_entity);
             }
         }
     }
@@ -458,9 +531,13 @@ pub fn update_sort_from_crosshair_move(
         
         // The sort position is the crosshair position minus the offset
         let sort_pos = crosshair_pos - offset;
-        debug!("Calculated sort position: ({:.1}, {:.1})", sort_pos.x, sort_pos.y);
         
-        moves_to_apply.push((crosshair.sort_entity, sort_pos));
+        // Apply sort grid snapping to the calculated position
+        let snapped_sort_pos = apply_sort_grid_snap(sort_pos);
+        debug!("Calculated sort position: ({:.1}, {:.1}) -> snapped: ({:.1}, {:.1})", 
+               sort_pos.x, sort_pos.y, snapped_sort_pos.x, snapped_sort_pos.y);
+        
+        moves_to_apply.push((crosshair.sort_entity, snapped_sort_pos));
     }
 
     if moves_to_apply.is_empty() {
@@ -612,63 +689,14 @@ pub fn auto_activate_first_sort(
                 .remove::<InactiveSort>()
                 .insert(ActiveSort);
             active_sort_state.active_sort_entity = Some(sort_entity);
+            debug!("auto_activate_first_sort: Set active_sort_entity to {:?}", sort_entity);
         }
-    }
-}
-
-/// System to handle glyph navigation changes and update the active sort.
-pub fn handle_glyph_navigation_changes(
-    mut active_sorts_query: Query<&mut Sort, With<ActiveSort>>,
-    glyph_navigation: Res<GlyphNavigation>,
-    app_state: Res<AppState>,
-) {
-    if !glyph_navigation.is_changed() {
-        return;
-    }
-    if let Ok(mut sort) = active_sorts_query.get_single_mut() {
-        if let Some(new_glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo) {
-            if sort.glyph_name != new_glyph_name {
-                info!("Updating active sort glyph to '{}'", new_glyph_name);
-                sort.glyph_name = new_glyph_name;
-            }
+    } else {
+        if !active_sorts_query.is_empty() {
+            debug!("auto_activate_first_sort: Already have {} active sorts", active_sorts_query.iter().count());
         }
-    }
-}
-
-/// System to respawn sort point entities when the sort's glyph changes.
-pub fn respawn_sort_points_on_glyph_change(
-    mut commands: Commands,
-    changed_sorts_query: Query<(Entity, &Sort), (With<ActiveSort>, Changed<Sort>)>,
-    sort_point_entities: Query<(Entity, &SortPointEntity)>,
-    mut selection_state: ResMut<SelectionState>,
-    app_state: Res<AppState>,
-    mut local_previous_glyphs: Local<std::collections::HashMap<Entity, String>>,
-) {
-    for (sort_entity, sort) in changed_sorts_query.iter() {
-        let current_glyph_name = sort.glyph_name.to_string();
-        let should_respawn = local_previous_glyphs
-            .get(&sort_entity)
-            .map_or(true, |prev_name| prev_name != &current_glyph_name);
-
-        if should_respawn {
-            info!(
-                "Respawning points for sort {:?} due to glyph change to '{}'",
-                sort_entity, current_glyph_name
-            );
-            despawn_point_entities_for_sort(
-                &mut commands,
-                sort_entity,
-                &sort_point_entities,
-                &mut selection_state,
-            );
-            spawn_point_entities_for_sort(
-                &mut commands,
-                sort_entity,
-                sort,
-                &app_state,
-                &mut selection_state,
-            );
-            local_previous_glyphs.insert(sort_entity, current_glyph_name);
+        if sorts_query.iter().count() != 1 {
+            debug!("auto_activate_first_sort: Have {} total sorts", sorts_query.iter().count());
         }
     }
 }
