@@ -2,17 +2,19 @@
 //!
 //! Bevy plugin that registers all sort-related systems, resources, and events.
 
-use crate::editing::sort::{SortEvent, ActiveSortState};
 use crate::editing::selection::SelectionSystemSet;
+use crate::editing::sort::ActiveSortState;
+use crate::editing::sort::SortEvent;
 use crate::rendering::sort_renderer::render_sorts_system;
 use crate::systems::sort_interaction::handle_sort_clicks;
 use crate::systems::sort_manager::{
-    handle_sort_events, sync_sort_transforms, enforce_single_active_sort, 
-    spawn_sort_point_entities, update_sort_glyph_data, spawn_initial_sort,
-    auto_activate_first_sort, handle_glyph_navigation_changes, respawn_sort_points_on_glyph_change,
-    debug_sort_point_entities
+    auto_activate_first_sort, debug_sort_point_entities, enforce_single_active_sort,
+    handle_glyph_navigation_changes, handle_sort_events, manage_sort_crosshairs,
+    render_sort_crosshairs, respawn_sort_points_on_glyph_change, spawn_initial_sort,
+    spawn_sort_point_entities, sync_crosshair_to_sort_move, sync_points_to_sort_move,
+    sync_sort_transforms, update_sort_from_crosshair_move, update_sort_glyph_data,
 };
-use crate::ui::toolbars::edit_mode_toolbar::text::{TextModePlugin};
+use crate::ui::toolbars::edit_mode_toolbar::text::TextModePlugin;
 use bevy::prelude::*;
 
 /// System sets for Sort management
@@ -32,13 +34,10 @@ impl Plugin for SortPlugin {
         app
             // Add sort events
             .add_event::<SortEvent>()
-            
             // Add sort resources
             .init_resource::<ActiveSortState>()
-            
             // Add the text mode plugin for sort placement
             .add_plugins(TextModePlugin)
-            
             // Configure system sets to run in proper order
             .configure_sets(
                 Update,
@@ -49,9 +48,8 @@ impl Plugin for SortPlugin {
                     SortSystemSet::Rendering,
                 )
                     .chain()
-                    .before(SelectionSystemSet::Input), // Ensure sorts run before selection
+                    .before(SelectionSystemSet::Input), // Ensure sort data is ready before input
             )
-            
             // Sort management systems
             .add_systems(
                 Update,
@@ -65,43 +63,43 @@ impl Plugin for SortPlugin {
                 )
                     .in_set(SortSystemSet::Management),
             )
-            
-            // Point entity management systems
+            // Point and crosshair entity management
             .add_systems(
                 Update,
                 (
                     spawn_sort_point_entities,
-                    // respawn_sort_points_on_glyph_change, // Temporarily disabled to test dragging
+                    manage_sort_crosshairs,
+                    respawn_sort_points_on_glyph_change,
                     debug_sort_point_entities,
                 )
                     .in_set(SortSystemSet::PointSpawning)
                     .after(SortSystemSet::Management),
             )
-            
-            // Sort data updates
+            // Sort data updates - this includes moving the sort based on crosshair
             .add_systems(
                 Update,
                 (
                     update_sort_glyph_data,
+                    update_sort_from_crosshair_move,
+                    sync_points_to_sort_move,
+                    sync_crosshair_to_sort_move,
                 )
                     .in_set(SortSystemSet::DataUpdate)
                     .after(SortSystemSet::PointSpawning),
             )
-            
             // Sort rendering
             .add_systems(
                 Update,
-                (
-                    render_sorts_system,
-                )
+                (render_sorts_system, render_sort_crosshairs)
                     .in_set(SortSystemSet::Rendering)
                     .after(SortSystemSet::DataUpdate),
             )
-            
-            // Sort interaction (needs to run with selection input)
+            // Interactions need to be handled alongside or after main input processing
             .add_systems(
                 Update,
-                handle_sort_clicks.in_set(SelectionSystemSet::Input),
+                (
+                    handle_sort_clicks.in_set(SelectionSystemSet::Input),
+                ),
             );
     }
 } 

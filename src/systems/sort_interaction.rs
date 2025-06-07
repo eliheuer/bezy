@@ -17,7 +17,13 @@ pub fn handle_sort_clicks(
     app_state: Res<AppState>,
     mut sort_events: EventWriter<SortEvent>,
     current_mode: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode>,
+    click_pos: Option<Res<crate::editing::selection::systems::ClickWorldPosition>>,
 ) {
+    // If the click was already handled by another system (e.g., on a point or crosshair), do nothing.
+    if click_pos.is_some() {
+        return;
+    }
+
     // Only handle clicks when in select mode
     if current_mode.0 != crate::ui::toolbars::edit_mode_toolbar::EditMode::Select {
         return;

@@ -85,6 +85,7 @@ impl Plugin for SelectionPlugin {
                 (
                     systems::update_glyph_data_from_selection,
                     sync_selected_components,
+                    systems::cleanup_click_resource.after(SelectionSystemSet::Input),
                 )
                     .in_set(SelectionSystemSet::Processing)
                     .after(SelectionSystemSet::Input),

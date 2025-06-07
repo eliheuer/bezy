@@ -1,6 +1,7 @@
 use super::components::*;
 use super::DragPointState;
 use super::DragSelectionState;
+use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
 use crate::core::state::AppState;
 use crate::editing::edit_type::EditType;
 use crate::editing::selection::nudge::{EditEvent, NudgeState};
@@ -9,6 +10,11 @@ use crate::rendering::draw::AppStateChanged;
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+
+/// A resource to hold the world position of a handled click.
+/// This prevents multiple systems from reacting to the same click event.
+#[derive(Resource)]
+pub struct ClickWorldPosition(pub Vec2);
 
 // Constants for selection
 const SELECTION_MARGIN: f32 = 16.0; // Distance in pixels for selection hit testing
@@ -23,10 +29,7 @@ pub fn handle_mouse_input(
     mut drag_state: ResMut<DragSelectionState>,
     mut drag_point_state: ResMut<DragPointState>,
     mut event_writer: EventWriter<EditEvent>,
-    selectable_query: Query<
-        (Entity, &GlobalTransform, Option<&GlyphPointReference>),
-        With<Selectable>,
-    >,
+    selectable_query: Query<(Entity, &GlobalTransform, Option<&GlyphPointReference>), With<Selectable>>,
     selected_query: Query<(Entity, &Transform), With<Selected>>,
     selection_rect_query: Query<Entity, With<SelectionRect>>,
     mut selection_state: ResMut<SelectionState>,
@@ -104,109 +107,39 @@ pub fn handle_mouse_input(
                 cursor_pos.x, cursor_pos.y
             );
 
-            // Check if we clicked on a selectable entity
-            let mut clicked_entity = None;
-            let mut closest_distance = SELECTION_MARGIN;
-            let mut debug_distances = Vec::new();
+            let mut best_hit = None;
+            let mut min_dist_sq = SELECTION_MARGIN * SELECTION_MARGIN;
 
-            for (entity, transform, point_ref) in selectable_query.iter() {
-                let entity_pos = transform.translation().truncate();
-                let distance = cursor_pos.distance(entity_pos);
+            for (entity, transform, _) in &selectable_query {
+                let pos = transform.translation().truncate();
+                let dist_sq = cursor_pos.distance_squared(pos);
 
-                debug_distances.push((entity, entity_pos, distance));
-
-                if distance < closest_distance {
-                    closest_distance = distance;
-                    clicked_entity = Some((entity, point_ref));
+                if dist_sq < min_dist_sq {
+                    min_dist_sq = dist_sq;
+                    best_hit = Some((entity, pos));
                 }
-            }
-
-            // Log all close points for debugging
-            debug!("Found {} selectable entities", debug_distances.len());
-            for (entity, pos, dist) in debug_distances
-                .iter()
-                .filter(|(_, _, d)| *d < SELECTION_MARGIN * 2.0)
-            {
-                debug!(
-                    "  Point entity {:?} at ({:.1}, {:.1}) distance: {:.2}",
-                    entity, pos.x, pos.y, dist
-                );
             }
             
-            // Also log all entities regardless of distance for debugging
-            if debug_distances.len() > 0 {
-                debug!("All selectable entities:");
-                for (entity, pos, dist) in debug_distances.iter().take(5) { // Limit to first 5
-                    debug!(
-                        "  Entity {:?} at ({:.1}, {:.1}) distance: {:.2}",
-                        entity, pos.x, pos.y, dist
-                    );
-                }
-            }
+            if let Some((entity, _)) = best_hit {
+                // This click is on a selectable entity. Claim it.
+                commands.insert_resource(ClickWorldPosition(cursor_pos));
 
-            if let Some((entity, point_ref)) = clicked_entity {
-                debug!(
-                    "Entity clicked: {:?} distance: {:.2}",
-                    entity, closest_distance
-                );
+                let shift_held = keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight);
 
-                if let Some(glyph_ref) = point_ref {
-                    debug!(
-                        "  Glyph point: {} contour: {} point: {}",
-                        glyph_ref.glyph_name,
-                        glyph_ref.contour_index,
-                        glyph_ref.point_index
-                    );
-                }
-
-                // Handle entity selection
-                if selection_state.multi_select {
-                    // Toggle selection with shift key
-                    if selection_state.selected.contains(&entity) {
-                        debug!(
-                            "  Deselecting entity (multi-select) {:?}",
-                            entity
-                        );
-                        selection_state.selected.remove(&entity);
-                        commands.entity(entity).remove::<Selected>();
-                        debug!("    -> Command to remove Selected component from entity {:?} queued", entity);
-                    } else {
-                        debug!(
-                            "  Adding entity to selection (multi-select) {:?}",
-                            entity
-                        );
-                        selection_state.selected.insert(entity);
-                        commands.entity(entity).insert(Selected);
-                        debug!("    -> Command to add Selected component to entity {:?} queued", entity);
-                    }
+                if !shift_held && selection_state.selected.contains(&entity) {
+                    // Clicked on an already-selected entity without shift.
+                    // This is the start of a drag, do nothing to selection state.
                 } else {
-                    // If clicked entity is not in selection, make it the only selection
-                    if !selection_state.selected.contains(&entity) {
-                        // Clear previous selection
-                        debug!(
-                            "  Clearing previous selection of {} entities",
-                            selected_query.iter().count()
-                        );
-                        for (entity, _) in &selected_query {
-                            commands.entity(entity).remove::<Selected>();
-                            debug!("    -> Command to remove Selected component from entity {:?} queued", entity);
+                    if !shift_held {
+                        for (e, _) in &selected_query {
+                            commands.entity(e).remove::<Selected>();
                         }
                         selection_state.selected.clear();
-
-                        // Select the clicked entity
-                        debug!("  Selecting new entity {:?}", entity);
-                        selection_state.selected.insert(entity);
-                        commands.entity(entity).insert(Selected);
-                        debug!("    -> Command to add Selected component to entity {:?} queued", entity);
                     }
+                    selection_state.selected.insert(entity);
+                    commands.entity(entity).insert(Selected);
                 }
 
-                // IMMEDIATELY initialize drag point state for dragging the selected points
-                // This allows single-click-and-drag behavior instead of requiring two clicks
-                debug!(
-                    "Immediately initializing point drag with {} selected points",
-                    selection_state.selected.len()
-                );
                 drag_point_state.is_dragging = true;
                 drag_point_state.start_position = Some(cursor_pos);
                 drag_point_state.current_position = Some(cursor_pos);
@@ -922,26 +855,18 @@ pub fn handle_point_drag(
     mut drag_point_state: ResMut<DragPointState>,
     mut query: Query<
         (
+            Entity,
             &mut Transform,
             &mut crate::editing::selection::nudge::PointCoordinates,
-            &GlyphPointReference,
-            Option<&crate::editing::selection::components::PointType>,
-            Entity,
+            Option<&GlyphPointReference>,
+            Option<&crate::systems::sort_manager::SortCrosshair>,
         ),
         With<Selected>,
     >,
     mut app_state: ResMut<AppState>,
     mut event_writer: EventWriter<EditEvent>,
 ) {
-    // Debug: Log the dragging state
-    if drag_point_state.is_dragging {
-        debug!("handle_point_drag: Dragging is active, {} selected points", query.iter().count());
-    }
-    
-    // Skip if not currently dragging
-    if !drag_point_state.is_dragging
-        || mouse_button_input.just_released(MouseButton::Left)
-    {
+    if !drag_point_state.is_dragging || mouse_button_input.just_released(MouseButton::Left) {
         if mouse_button_input.just_released(MouseButton::Left) && drag_point_state.is_dragging {
             debug!("handle_point_drag: Mouse released, ending drag");
         }
@@ -959,138 +884,78 @@ pub fn handle_point_drag(
         return;
     };
 
-    // Get current cursor position
     if let Some(cursor_pos) = window
         .cursor_position()
         .and_then(|pos| camera.viewport_to_world_2d(camera_transform, pos).ok())
     {
-        debug!("handle_point_drag: Cursor at ({:.1}, {:.1})", cursor_pos.x, cursor_pos.y);
-        
-        // Update the current position
         drag_point_state.current_position = Some(cursor_pos);
 
-        // Get the start position for calculating movement
         if let Some(start_pos) = drag_point_state.start_position {
-            // Calculate the total movement from start
             let total_movement = cursor_pos - start_pos;
-            debug!("handle_point_drag: Total movement ({:.1}, {:.1})", total_movement.x, total_movement.y);
-
-            // Axis lock if shift is pressed
             let mut movement = total_movement;
-            if keyboard_input.pressed(KeyCode::ShiftLeft)
-                || keyboard_input.pressed(KeyCode::ShiftRight)
-            {
-                // Lock to the axis with the largest movement
+
+            if keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight) {
                 if total_movement.x.abs() > total_movement.y.abs() {
-                    movement = Vec2::new(total_movement.x, 0.0);
-                    debug!("Axis-locked to X: {:.2}", movement.x);
+                    movement.y = 0.0;
                 } else {
-                    movement = Vec2::new(0.0, total_movement.y);
-                    debug!("Axis-locked to Y: {:.2}", movement.y);
+                    movement.x = 0.0;
                 }
             }
 
-            let points_count = query.iter().count();
             let mut updated_count = 0;
 
-            debug!("handle_point_drag: Processing {} selected points", points_count);
-
-            // Apply absolute positioning to all selected points
-            for (
-                mut transform,
-                mut coordinates,
-                point_ref,
-                point_type,
-                entity,
-            ) in &mut query
-            {
-                // Get the original position for this entity
+            for (entity, mut transform, mut coordinates, point_ref, crosshair_ref) in &mut query {
                 if let Some(original_pos) = drag_point_state.original_positions.get(&entity) {
-                    // Calculate new position: original position + movement
                     let new_pos = *original_pos + movement;
-                    
-                    debug!("handle_point_drag: Moving entity {:?} from ({:.1}, {:.1}) to ({:.1}, {:.1})", 
-                           entity, original_pos.x, original_pos.y, new_pos.x, new_pos.y);
-                    
-                    // Update transform
                     transform.translation.x = new_pos.x;
                     transform.translation.y = new_pos.y;
+                    
+                    // Logic for sort crosshair drag
+                    if crosshair_ref.is_some() {
+                        transform.translation.z = 25.0; // Keep on top
+                    } 
+                    // Logic for glyph point drag
+                    else if let Some(point_ref) = point_ref {
+                        transform.translation.z = 5.0;
 
-                    // Important: Set a small Z value to ensure visibility during dragging
-                    // This helps prevent z-fighting or visibility issues during movement
-                    transform.translation.z = 5.0;
-
-                    // Apply grid snapping for on-curve points if enabled
-                    if crate::core::settings::SNAP_TO_GRID_ENABLED {
-                        // Only apply to on-curve points if we can determine the point type
-                        let should_snap = match point_type {
-                            Some(pt) => pt.is_on_curve,
-                            None => false, // Skip snapping if we can't determine point type
+                        let snapped_pos = if SNAP_TO_GRID_ENABLED {
+                            let grid_size = SNAP_TO_GRID_VALUE;
+                            Vec2::new(
+                                (new_pos.x / grid_size).round() * grid_size,
+                                (new_pos.y / grid_size).round() * grid_size,
+                            )
+                        } else {
+                            new_pos
                         };
 
-                        if should_snap {
-                            let grid_value =
-                                crate::core::settings::SNAP_TO_GRID_VALUE;
-                            // Snap to the nearest multiple of SNAP_TO_GRID_VALUE
-                            transform.translation.x =
-                                (transform.translation.x / grid_value).round()
-                                    * grid_value;
-                            transform.translation.y =
-                                (transform.translation.y / grid_value).round()
-                                    * grid_value;
+                        transform.translation.x = snapped_pos.x;
+                        transform.translation.y = snapped_pos.y;
+                        coordinates.position = snapped_pos;
 
-                            debug!(
-                                "Snapped point to grid: ({:.1}, {:.1})",
-                                transform.translation.x, transform.translation.y
-                            );
+                        if let Some(point) = app_state.get_point_mut(point_ref) {
+                            point.x = transform.translation.x;
+                            point.y = transform.translation.y;
+                            updated_count += 1;
                         }
                     }
-
-                    // Keep point coordinates in sync
-                    coordinates.position.x = transform.translation.x;
-                    coordinates.position.y = transform.translation.y;
-
-                    // Update the font data directly
-                    if let Some(point) = app_state.get_point_mut(point_ref) {
-                        point.x = transform.translation.x;
-                        point.y = transform.translation.y;
-                        updated_count += 1;
-
-                        debug!(
-                            "Updated point in glyph '{}' contour {} point {} to ({:.1}, {:.1})",
-                            point_ref.glyph_name,
-                            point_ref.contour_index,
-                            point_ref.point_index,
-                            point.x,
-                            point.y
-                        );
-                    } else {
-                        debug!(
-                            "Failed to update point for entity {:?} in glyph '{}' contour {} point {}",
-                            entity,
-                            point_ref.glyph_name,
-                            point_ref.contour_index,
-                            point_ref.point_index
-                        );
-                    }
-                } else {
-                    debug!("No original position found for entity {:?}", entity);
                 }
             }
 
-            debug!(
-                "Updated {}/{} points in the font data with movement ({:.2}, {:.2})",
-                updated_count, points_count, movement.x, movement.y
-            );
+            if updated_count > 0 {
+                debug!(
+                    "Updated {} points in the font data with movement ({:.2}, {:.2})",
+                    updated_count, movement.x, movement.y
+                );
+            }
 
-            // Send an edit event for undo purposes
             event_writer.send(EditEvent {
                 edit_type: EditType::Drag,
             });
-        } else {
-            debug!("handle_point_drag: No start position found");
         }
-    } else {
-        debug!("handle_point_drag: No cursor position found");
     }
+}
+
+/// A system to clean up the ClickWorldPosition resource at the end of the frame.
+pub fn cleanup_click_resource(mut commands: Commands) {
+    commands.remove_resource::<ClickWorldPosition>();
 }
