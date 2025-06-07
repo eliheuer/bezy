@@ -11,6 +11,23 @@ use crate::editing::selection::nudge::PointCoordinates;
 use crate::editing::sort::{ActiveSort, ActiveSortState, InactiveSort, Sort, SortEvent};
 use bevy::prelude::*;
 
+/// Helper to calculate the desired position of the crosshair.
+/// Places it at the lower-left of the sort's metrics box, offset inward by 64 units.
+fn get_crosshair_position(sort: &Sort, app_state: &AppState) -> Vec2 {
+    let metrics = &app_state.workspace.info.metrics;
+    
+    // Get the descender (bottom of the metrics box)
+    let descender = metrics.descender.unwrap_or(-250.0) as f32;
+    
+    // Left edge is at x=0 for the sort's origin
+    let left_edge = 0.0;
+    
+    // Position at lower-left corner, offset inward by 64 units
+    let offset = Vec2::new(left_edge + 64.0, descender + 64.0);
+    
+    sort.position + offset
+}
+
 /// Component to mark point entities that belong to a sort
 #[derive(Component, Debug)]
 pub struct SortPointEntity {
@@ -387,11 +404,12 @@ pub fn manage_sort_crosshairs(
     added_active: Query<(Entity, &Sort), Added<ActiveSort>>,
     mut removed_active: RemovedComponents<ActiveSort>,
     crosshairs: Query<(Entity, &SortCrosshair)>,
+    app_state: Res<AppState>,
 ) {
     // Spawn crosshair for new active sort
     for (sort_entity, sort) in added_active.iter() {
         info!("Spawning crosshair for active sort {:?}", sort_entity);
-        let crosshair_pos = sort.position;
+        let crosshair_pos = get_crosshair_position(sort, &app_state);
         let transform = Transform::from_translation(crosshair_pos.extend(20.0)); // High Z-value
 
         commands.spawn((
@@ -425,13 +443,24 @@ pub fn update_sort_from_crosshair_move(
         Query<(&Transform, &SortCrosshair), (With<Selected>, Changed<Transform>)>,
         Query<(&mut Transform, &mut Sort)>,
     )>,
+    app_state: Res<AppState>,
 ) {
     let mut moves_to_apply = Vec::new();
     for (crosshair_transform, crosshair) in set.p0().iter() {
-        moves_to_apply.push((
-            crosshair.sort_entity,
-            crosshair_transform.translation.truncate(),
-        ));
+        // Calculate what the sort position should be based on crosshair position
+        let crosshair_pos = crosshair_transform.translation.truncate();
+        debug!("Crosshair moved to ({:.1}, {:.1})", crosshair_pos.x, crosshair_pos.y);
+        
+        // We need to reverse the offset calculation to get the sort position
+        let metrics = &app_state.workspace.info.metrics;
+        let descender = metrics.descender.unwrap_or(-250.0) as f32;
+        let offset = Vec2::new(64.0, descender + 64.0);
+        
+        // The sort position is the crosshair position minus the offset
+        let sort_pos = crosshair_pos - offset;
+        debug!("Calculated sort position: ({:.1}, {:.1})", sort_pos.x, sort_pos.y);
+        
+        moves_to_apply.push((crosshair.sort_entity, sort_pos));
     }
 
     if moves_to_apply.is_empty() {
@@ -441,7 +470,8 @@ pub fn update_sort_from_crosshair_move(
     for (sort_entity, new_pos) in moves_to_apply {
         if let Ok((mut sort_transform, mut sort)) = set.p1().get_mut(sort_entity) {
             if sort.position.distance_squared(new_pos) > 0.001 {
-                info!("Moving sort {:?} to {:?}", sort_entity, new_pos);
+                debug!("Moving sort {:?} from ({:.1}, {:.1}) to ({:.1}, {:.1})", 
+                       sort_entity, sort.position.x, sort.position.y, new_pos.x, new_pos.y);
                 sort.position = new_pos;
                 sort_transform.translation = new_pos.extend(0.0);
             }
@@ -472,16 +502,21 @@ pub fn render_sort_crosshairs(
 pub fn sync_crosshair_to_sort_move(
     mut crosshair_query: Query<(&mut Transform, &SortCrosshair)>,
     changed_sorts: Query<(Entity, &Sort), Changed<Sort>>,
+    app_state: Res<AppState>,
 ) {
     if changed_sorts.is_empty() {
         return;
     }
 
     for (sort_entity, sort) in changed_sorts.iter() {
+        debug!("Sort {:?} changed, syncing crosshair position", sort_entity);
         for (mut crosshair_transform, crosshair) in crosshair_query.iter_mut() {
             if crosshair.sort_entity == sort_entity {
-                let new_pos = sort.position;
+                let old_pos = crosshair_transform.translation.truncate();
+                let new_pos = get_crosshair_position(sort, &app_state);
                 crosshair_transform.translation = new_pos.extend(crosshair_transform.translation.z);
+                debug!("Moved crosshair from ({:.1}, {:.1}) to ({:.1}, {:.1})", 
+                       old_pos.x, old_pos.y, new_pos.x, new_pos.y);
             }
         }
     }

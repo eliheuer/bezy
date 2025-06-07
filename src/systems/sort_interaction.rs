@@ -67,6 +67,9 @@ pub fn handle_sort_clicks(
         }
     }
 
-    // If we didn't click on any sort, deactivate the current active sort
-    sort_events.send(SortEvent::DeactivateSort);
+    // If we didn't click on any sort AND no other system claimed the click, deactivate the current active sort
+    // This prevents deactivation when clicking on crosshairs or other UI elements
+    if click_pos.is_none() {
+        sort_events.send(SortEvent::DeactivateSort);
+    }
 } 
