@@ -82,7 +82,6 @@ impl Plugin for SortPlugin {
                     update_sort_glyph_data,
                     update_sort_from_crosshair_move,
                     sync_points_to_sort_move,
-                    sync_crosshair_to_sort_move,
                 )
                     .in_set(SortSystemSet::DataUpdate)
                     .after(SortSystemSet::PointSpawning),
@@ -99,6 +98,8 @@ impl Plugin for SortPlugin {
                 Update,
                 (
                     handle_sort_clicks.in_set(SelectionSystemSet::Input),
+                    // Move crosshair sync to run after selection input to avoid interference
+                    sync_crosshair_to_sort_move.after(SelectionSystemSet::Input),
                 ),
             );
     }

@@ -12,6 +12,9 @@ use crate::editing::selection::nudge::PointCoordinates;
 use crate::editing::sort::{ActiveSort, ActiveSortState, InactiveSort, Sort, SortEvent};
 use bevy::prelude::*;
 
+
+
+
 /// Helper to calculate the desired position of the crosshair.
 /// Places it at the lower-left of the sort's metrics box, offset inward by 64 units.
 fn get_crosshair_position(sort: &Sort, app_state: &AppState) -> Vec2 {
@@ -269,28 +272,40 @@ pub fn respawn_sort_points_on_glyph_change(
     sort_point_entities: Query<(Entity, &SortPointEntity)>,
     mut selection_state: ResMut<SelectionState>,
     app_state: Res<AppState>,
+    mut local_previous_glyphs: Local<std::collections::HashMap<Entity, String>>,
 ) {
     for (sort_entity, sort) in changed_sorts.iter() {
-        // Check if the glyph_name changed (not just position)
-        // We can't easily detect this, so we'll respawn on any Sort change for active sorts
-        info!("Sort changed, respawning point entities for sort: {:?}", sort_entity);
-        
-        // Despawn existing point entities for this sort
-        despawn_point_entities_for_sort(
-            &mut commands,
-            sort_entity,
-            &sort_point_entities,
-            &mut selection_state,
-        );
-        
-        // Spawn new point entities for the updated sort
-        spawn_point_entities_for_sort(
-            &mut commands,
-            sort_entity,
-            sort,
-            &app_state,
-            &mut selection_state,
-        );
+        let current_glyph_name = sort.glyph_name.to_string();
+        let should_respawn = local_previous_glyphs
+            .get(&sort_entity)
+            .map_or(true, |prev_name| prev_name != &current_glyph_name);
+
+        if should_respawn {
+            info!("respawn_sort_points_on_glyph_change: Sort {:?} glyph changed to '{}', respawning point entities", 
+                  sort_entity, current_glyph_name);
+            
+            // Despawn existing point entities for this sort
+            despawn_point_entities_for_sort(
+                &mut commands,
+                sort_entity,
+                &sort_point_entities,
+                &mut selection_state,
+            );
+            
+            // Spawn new point entities for the updated sort
+            spawn_point_entities_for_sort(
+                &mut commands,
+                sort_entity,
+                sort,
+                &app_state,
+                &mut selection_state,
+            );
+            
+            local_previous_glyphs.insert(sort_entity, current_glyph_name);
+        } else {
+            debug!("respawn_sort_points_on_glyph_change: Sort {:?} changed but glyph name '{}' is the same, skipping respawn", 
+                   sort_entity, current_glyph_name);
+        }
     }
 }
 
@@ -501,6 +516,7 @@ pub fn manage_sort_crosshairs(
     // Despawn crosshair for deactivated sorts
     for sort_entity in removed_active.read() {
         info!("Despawning crosshair for inactive sort {:?}", sort_entity);
+        
         for (crosshair_entity, crosshair) in crosshairs.iter() {
             if crosshair.sort_entity == sort_entity {
                 commands.entity(crosshair_entity).despawn();
@@ -586,18 +602,20 @@ pub fn sync_crosshair_to_sort_move(
     }
 
     for (sort_entity, sort) in changed_sorts.iter() {
-        debug!("Sort {:?} changed, syncing crosshair position", sort_entity);
+        debug!("sync_crosshair_to_sort_move: Sort {:?} changed, syncing crosshair position", sort_entity);
         for (mut crosshair_transform, crosshair) in crosshair_query.iter_mut() {
             if crosshair.sort_entity == sort_entity {
                 let old_pos = crosshair_transform.translation.truncate();
                 let new_pos = get_crosshair_position(sort, &app_state);
                 crosshair_transform.translation = new_pos.extend(crosshair_transform.translation.z);
-                debug!("Moved crosshair from ({:.1}, {:.1}) to ({:.1}, {:.1})", 
+                debug!("sync_crosshair_to_sort_move: Moved crosshair from ({:.1}, {:.1}) to ({:.1}, {:.1})", 
                        old_pos.x, old_pos.y, new_pos.x, new_pos.y);
             }
         }
     }
 }
+
+
 
 /// When a sort is moved, all of its point entities must also be moved.
 pub fn sync_points_to_sort_move(
@@ -684,6 +702,8 @@ pub fn auto_activate_first_sort(
     if active_sorts_query.is_empty() && sorts_query.iter().count() == 1 {
         if let Ok(sort_entity) = sorts_query.get_single() {
             info!("Auto-activating first sort: {:?}", sort_entity);
+            
+            // Use the same activation logic as manual activation to ensure consistency
             commands
                 .entity(sort_entity)
                 .remove::<InactiveSort>()
