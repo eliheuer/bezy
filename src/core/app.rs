@@ -3,6 +3,8 @@
 //! This module creates and configures the main Bevy application
 //! The main entry point is `create_app()` which takes CLI arguments
 
+// ------------------------------------------------------------
+
 // External dependencies - libraries we use from other crates
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
@@ -30,6 +32,8 @@ use crate::rendering::CheckerboardPlugin;
 use crate::systems::plugins::*;
 use crate::systems::{CommandsPlugin, UiInteractionPlugin};
 
+// ------------------------------------------------------------
+
 /// Creates a fully configured Bevy application ready to run
 pub fn create_app(cli_args: CliArgs) -> App {
     crate::utils::logger::init_custom_logger();
@@ -38,6 +42,8 @@ pub fn create_app(cli_args: CliArgs) -> App {
     add_all_plugins(&mut app);
     app
 }
+
+// ------------------------------------------------------------
 
 /// Sets up application resources and configuration
 fn configure_app_settings(app: &mut App, cli_args: CliArgs) {

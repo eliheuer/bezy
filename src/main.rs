@@ -1,6 +1,6 @@
 //! A font editor built with Rust, the Bevy game engine, and Linebender crates.
 //!
-//! "The enjoyment of one's tools is an essential ingredient of successful work."
+//! The enjoyment of one's tools is an essential ingredient of successful work.
 //! — Donald Knuth
 
 mod core;
