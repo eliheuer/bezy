@@ -709,21 +709,28 @@ pub fn spawn_initial_sort(
     let metrics = &app_state.workspace.info.metrics;
 
     const GLYPHS_PER_ROW: usize = 32;
-    let ascender = metrics.ascender.unwrap_or(800.0) as f32;
-    let descender = metrics.descender.unwrap_or(-200.0) as f32;
-    let row_height = (ascender - descender) * 1.2;
+    const HORIZONTAL_PADDING: f32 = 32.0;
+    const VERTICAL_PADDING: f32 = 32.0;
+
+    let upm = metrics.units_per_em as f32;
+    let descender = metrics.descender.unwrap_or(-(upm as f64 * 0.2)) as f32;
+
+    // Per user specification, the total height of the metrics box is from the
+    // bottom of the descender to the top of the UPM.
+    let metrics_box_height = upm - descender;
 
     let mut current_x = 0.0;
     let mut current_y = 0.0;
     let mut glyph_count_in_row = 0;
-    let mut max_row_width: f32 = 0.0;
 
     // Process all glyphs including 'a'
     let glyphs_to_spawn: Vec<_> = default_layer.iter_contents().collect();
 
     for glyph in glyphs_to_spawn {
         if glyph_count_in_row >= GLYPHS_PER_ROW {
-            current_y -= row_height;
+            // Move to the next row, dropping by the full height of the metrics
+            // box plus the desired padding. This ensures a 32-unit gap.
+            current_y -= metrics_box_height + VERTICAL_PADDING;
             current_x = 0.0;
             glyph_count_in_row = 0;
         }
@@ -734,12 +741,11 @@ pub fn spawn_initial_sort(
         });
 
         let advance = glyph.advance.as_ref().map_or(600.0, |a| a.width as f32);
-        current_x += advance;
-        max_row_width = max_row_width.max(current_x);
+        current_x += advance + HORIZONTAL_PADDING;
         glyph_count_in_row += 1;
     }
 
-    info!("Spawned initial sorts for all glyphs in a grid.");
+    info!("Spawned initial sorts for all glyphs in a grid with padding.");
 }
 
 /// System to automatically activate the first sort that is created
