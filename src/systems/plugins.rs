@@ -2,7 +2,7 @@ use bevy::gizmos::{config::DefaultGizmoConfigGroup, config::GizmoConfigStore};
 use bevy::prelude::*;
 
 use crate::editing::sort_plugin::SortPlugin;
-use crate::rendering::cameras::toggle_camera_controls;
+use crate::rendering::cameras::{set_initial_camera_transform, toggle_camera_controls};
 use crate::rendering::draw::{
     draw_origin_cross, draw_metrics_system,
     detect_app_state_changes, AppStateChanged,
@@ -90,7 +90,13 @@ impl Plugin for SetupPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Startup,
-            (initialize_font_state, setup, configure_gizmos),
+            (
+                initialize_font_state,
+                setup,
+                configure_gizmos,
+                set_initial_camera_transform,
+            )
+                .chain(),
         );
     }
 }
