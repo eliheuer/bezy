@@ -708,9 +708,9 @@ pub fn spawn_initial_sort(
     let default_layer = app_state.workspace.font.ufo.get_default_layer().unwrap();
     let metrics = &app_state.workspace.info.metrics;
 
-    const GLYPHS_PER_ROW: usize = 32;
-    const HORIZONTAL_PADDING: f32 = 32.0;
-    const VERTICAL_PADDING: f32 = 32.0;
+    const GLYPHS_PER_ROW: usize = 16;
+    const HORIZONTAL_PADDING: f32 = 64.0;
+    const VERTICAL_PADDING: f32 = 64.0;
 
     let upm = metrics.units_per_em as f32;
     let descender = metrics.descender.unwrap_or(-(upm as f64 * 0.2)) as f32;
