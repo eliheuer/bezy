@@ -692,42 +692,55 @@ pub fn spawn_initial_sort(
     mut sort_events: EventWriter<SortEvent>,
     sorts_query: Query<Entity, With<Sort>>,
     app_state: Res<AppState>,
-    glyph_navigation: Res<GlyphNavigation>,
+    _glyph_navigation: Res<GlyphNavigation>,
 ) {
-    if !sorts_query.is_empty() || app_state.workspace.font.path.is_none() {
+    // Only spawn if there are no sorts yet
+    if !sorts_query.is_empty() {
         return;
     }
 
-    if let Some(default_layer) = app_state.workspace.font.ufo.get_default_layer() {
-        let mut found_glyph_name = None;
-        if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo) {
-            if default_layer.get_glyph(&glyph_name).is_some() {
-                found_glyph_name = Some(glyph_name);
-            }
-        }
+    // Check if the font is loaded
+    if app_state.workspace.font.ufo.layers.is_empty() {
+        warn!("Font not loaded yet, cannot spawn initial sort.");
+        return;
+    }
 
-        if found_glyph_name.is_none() {
-            let common_glyphs = ["H", "h", "A", "a", "O", "o", "space", ".notdef"];
-            for &name_str in &common_glyphs {
-                let name = norad::GlyphName::from(name_str);
-                if default_layer.get_glyph(&name).is_some() {
-                    found_glyph_name = Some(name);
-                    break;
-                }
-            }
-        }
+    let default_layer = app_state.workspace.font.ufo.get_default_layer().unwrap();
+    let mut current_x = 0.0;
 
-        if let Some(glyph_name) = found_glyph_name {
-            info!("Spawning initial sort with glyph '{}'", glyph_name);
-            sort_events.send(SortEvent::CreateSort {
-                glyph_name,
-                position: Vec2::ZERO,
-            });
+    let a_glyph_name: norad::GlyphName = "a".into();
+
+    // First, place 'a' at (0,0)
+    if default_layer.contains_glyph(&a_glyph_name) {
+        sort_events.send(SortEvent::CreateSort {
+            glyph_name: a_glyph_name.clone(),
+            position: Vec2::ZERO,
+        });
+
+        if let Some(glyph) = default_layer.get_glyph(&a_glyph_name) {
+            current_x += glyph.advance.as_ref().map_or(600.0, |a| a.width as f32);
         }
     }
+
+    // Then, place all other glyphs
+    for glyph in default_layer.iter_contents() {
+        let glyph_name = &glyph.name;
+        if glyph_name == &a_glyph_name {
+            continue; // Skip 'a' as it's already placed
+        }
+
+        sort_events.send(SortEvent::CreateSort {
+            glyph_name: glyph_name.clone(),
+            position: Vec2::new(current_x, 0.0),
+        });
+
+        current_x += glyph.advance.as_ref().map_or(600.0, |a| a.width as f32);
+    }
+
+    info!("Spawned initial sorts for all glyphs.");
 }
 
-/// System to automatically activate the first sort when created.
+/// System to automatically activate the first sort that is created
 pub fn auto_activate_first_sort(
     mut commands: Commands,
     mut active_sort_state: ResMut<ActiveSortState>,
