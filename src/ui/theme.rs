@@ -163,10 +163,6 @@ pub const KNIFE_DASH_LENGTH: f32 = 8.0; // Length of dash segments
 pub const KNIFE_GAP_LENGTH: f32 = 4.0; // Length of gaps between dashes
 pub const KNIFE_CROSS_SIZE: f32 = 8.0; // Size of crosses at intersection points
 
-// Camera Settings
-pub const CAMERA_ZOOM_FACTOR: f32 = 0.5; // Factor used in zoom level calculation
-pub const CAMERA_MIN_SCALE: f32 = 0.8; // Minimum camera scale to prevent excessive zooming
-
 /// Creates a consistent styled container for UI widgets/panes
 ///
 /// Returns a bundle of components that can be used to spawn a widget with

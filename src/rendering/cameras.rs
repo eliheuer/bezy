@@ -11,7 +11,6 @@
 use crate::core::settings::{
     KEYBOARD_ZOOM_STEP, MAX_ALLOWED_ZOOM_SCALE, MIN_ALLOWED_ZOOM_SCALE,
 };
-use crate::ui::theme::{CAMERA_MIN_SCALE, CAMERA_ZOOM_FACTOR};
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy_pancam::*;
@@ -27,9 +26,13 @@ const DESIGN_CAMERA_LAYER: usize = 0;
 const UI_CAMERA_LAYER: usize = 1;
 
 // Settings for glyph centering
+#[allow(dead_code)]
 const HORIZONTAL_PADDING: f32 = 50.0;
+#[allow(dead_code)]
 const VERTICAL_PADDING: f32 = 100.0;
+#[allow(dead_code)]
 const OPTICAL_ADJUSTMENT_FACTOR: f32 = 0.03;
+#[allow(dead_code)]
 const MAX_ZOOM_PERCENTAGE: f32 = 0.9; // Use 90% of max zoom
 
 // CAMERA COMPONENTS ----------------------------------------------------------
@@ -188,204 +191,5 @@ fn zoom_camera(
             let limit_type = if zoom_in { "minimum" } else { "maximum" };
             info!("Camera already at {} zoom limit", limit_type);
         }
-    }
-}
-
-// GLYPH CENTERING -------------------------------------------------------------
-
-/// Centers the camera on a specific glyph
-///
-/// This automatically positions and zooms the camera to show the glyph
-/// clearly in the center of the screen.
-pub fn center_camera_on_glyph(
-    glyph: &norad::Glyph,
-    metrics: &crate::core::state::FontMetrics,
-    camera_query: &mut Query<
-        (&mut Transform, &mut OrthographicProjection),
-        With<DesignCamera>,
-    >,
-    window_query: &Query<&Window>,
-) {
-    // Make sure the glyph has something to show
-    if glyph.outline.is_none() {
-        info!("Cannot center camera: glyph has no outline");
-        return;
-    }
-
-    let outline = glyph.outline.as_ref().unwrap();
-
-    // Calculate where the glyph is and how big it is
-    let bbox = calculate_glyph_bounding_box(glyph, metrics, outline);
-
-    // Get the window size for zoom calculations
-    let window = match window_query.get_single() {
-        Ok(window) => window,
-        Err(_) => {
-            warn!("Cannot center camera: window not available");
-            return;
-        }
-    };
-
-    // Move and zoom the camera to show the glyph
-    position_camera(camera_query, bbox, window);
-}
-
-// HELPER TYPES AND FUNCTIONS -------------------------------------------------
-
-/// A rectangle that contains a glyph
-///
-/// This represents the area that a glyph occupies, used for centering
-/// the camera and calculating zoom levels.
-struct BoundingBox {
-    min_x: f32,
-    min_y: f32,
-    max_x: f32,
-    max_y: f32,
-}
-
-impl BoundingBox {
-    /// Creates a new empty bounding box
-    fn new() -> Self {
-        Self {
-            min_x: f32::MAX,
-            min_y: f32::MAX,
-            max_x: f32::MIN,
-            max_y: f32::MIN,
-        }
-    }
-
-    /// Gets the width of the bounding box
-    fn width(&self) -> f32 {
-        self.max_x - self.min_x
-    }
-
-    /// Gets the height of the bounding box
-    fn height(&self) -> f32 {
-        self.max_y - self.min_y
-    }
-
-    /// Gets the center X coordinate
-    fn center_x(&self) -> f32 {
-        (self.min_x + self.max_x) / 2.0
-    }
-
-    /// Gets the center Y coordinate
-    fn center_y(&self) -> f32 {
-        (self.min_y + self.max_y) / 2.0
-    }
-
-    /// Gets a visually adjusted center Y coordinate
-    ///
-    /// This makes the glyph appear slightly lower in the viewport
-    /// for better visual balance.
-    fn adjusted_center_y(&self) -> f32 {
-        let adjustment = self.height() * OPTICAL_ADJUSTMENT_FACTOR;
-        self.center_y() + adjustment
-    }
-
-    /// Expands the box to include a point
-    fn include_point(&mut self, x: f32, y: f32) {
-        self.min_x = self.min_x.min(x);
-        self.min_y = self.min_y.min(y);
-        self.max_x = self.max_x.max(x);
-        self.max_y = self.max_y.max(y);
-    }
-
-    /// Adds padding around the bounding box
-    fn add_padding(&mut self, horizontal: f32, vertical: f32) {
-        self.min_x -= horizontal;
-        self.max_x += horizontal;
-        self.min_y -= vertical;
-        self.max_y += vertical;
-    }
-}
-
-/// Calculates the area that a glyph occupies
-fn calculate_glyph_bounding_box(
-    glyph: &norad::Glyph,
-    metrics: &crate::core::state::FontMetrics,
-    outline: &norad::Outline,
-) -> BoundingBox {
-    let mut bbox = BoundingBox::new();
-
-    // Get the glyph's width
-    let width = glyph
-        .advance
-        .as_ref()
-        .map(|a| a.width as f32)
-        .unwrap_or_else(|| (metrics.units_per_em as f32 * 0.5));
-
-    // Get font metrics with sensible defaults
-    let descender = metrics
-        .descender
-        .unwrap_or_else(|| -(metrics.units_per_em * 0.2))
-        as f32;
-    let ascender = metrics
-        .ascender
-        .unwrap_or_else(|| metrics.units_per_em * 0.8)
-        as f32;
-
-    // Start with the font's standard dimensions
-    bbox.include_point(0.0, descender);
-    bbox.include_point(width, ascender);
-
-    // Include all the actual glyph points
-    for contour in &outline.contours {
-        for point in &contour.points {
-            let x = point.x as f32;
-            let y = point.y as f32;
-            bbox.include_point(x, y);
-        }
-    }
-
-    // Add some padding so the glyph isn't right at the edge
-    bbox.add_padding(HORIZONTAL_PADDING, VERTICAL_PADDING);
-
-    bbox
-}
-
-/// Moves and zooms the camera to show a glyph
-fn position_camera(
-    camera_query: &mut Query<
-        (&mut Transform, &mut OrthographicProjection),
-        With<DesignCamera>,
-    >,
-    bbox: BoundingBox,
-    window: &Window,
-) {
-    if let Ok((mut transform, mut projection)) = camera_query.get_single_mut() {
-        // Center the camera on the glyph
-        transform.translation.x = bbox.center_x();
-        transform.translation.y = bbox.adjusted_center_y();
-
-        // Calculate how much to zoom based on glyph and window size
-        let zoom_scale = calculate_zoom_scale(&bbox, window);
-
-        // Apply the zoom
-        projection.scale = 
-            (CAMERA_ZOOM_FACTOR / zoom_scale).max(CAMERA_MIN_SCALE);
-
-        info!(
-            "Centered camera on glyph at ({:.2}, {:.2}) with zoom {:.3}",
-            transform.translation.x, 
-            transform.translation.y, 
-            projection.scale
-        );
-    } else {
-        warn!("Cannot center camera: design camera not found");
-    }
-}
-
-/// Calculates how much to zoom to fit a glyph in the window
-fn calculate_zoom_scale(bbox: &BoundingBox, window: &Window) -> f32 {
-    let window_aspect = window.width() / window.height();
-    let glyph_aspect = bbox.width() / bbox.height();
-
-    if glyph_aspect > window_aspect {
-        // Glyph is wide - fit to width
-        (window.width() / bbox.width()) * MAX_ZOOM_PERCENTAGE
-    } else {
-        // Glyph is tall - fit to height
-        (window.height() / bbox.height()) * MAX_ZOOM_PERCENTAGE
     }
 }

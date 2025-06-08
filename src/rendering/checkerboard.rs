@@ -34,8 +34,6 @@ const MIN_VISIBILITY_ZOOM: f32 = 0.01;
 pub struct CheckerboardSquare {
     /// Grid coordinates of this square
     pub grid_pos: IVec2,
-    /// The grid size this square was created with
-    pub grid_size: f32,
 }
 
 /// Resource to track currently spawned checkerboard squares
@@ -266,10 +264,7 @@ fn spawn_square(commands: &mut Commands, grid_pos: IVec2, current_grid_size: f32
             ..default()
         },
         Transform::from_xyz(world_pos.x, world_pos.y, CHECKERBOARD_Z_LEVEL),
-        CheckerboardSquare { 
-            grid_pos,
-            grid_size: current_grid_size,
-        },
+        CheckerboardSquare { grid_pos },
     ));
 }
 

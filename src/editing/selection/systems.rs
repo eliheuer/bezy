@@ -14,7 +14,7 @@ use bevy::window::PrimaryWindow;
 /// A resource to hold the world position of a handled click.
 /// This prevents multiple systems from reacting to the same click event.
 #[derive(Resource)]
-pub struct ClickWorldPosition(pub Vec2);
+pub struct ClickWorldPosition;
 
 // Constants for selection
 const SELECTION_MARGIN: f32 = 16.0; // Distance in pixels for selection hit testing
@@ -122,19 +122,9 @@ pub fn handle_mouse_input(
             
             if let Some((entity, _)) = best_hit {
                 // This click is on a selectable entity. Claim it.
-                commands.insert_resource(ClickWorldPosition(cursor_pos));
+                commands.insert_resource(ClickWorldPosition);
 
                 let shift_held = keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight);
-
-                // Debug: Check if this is a crosshair
-                let is_crosshair = selectable_query.iter()
-                    .find(|(e, _, _)| *e == entity)
-                    .map(|(_, _, _)| {
-                        // We can't easily check for SortCrosshair component here, but we can log the entity
-                        debug!("Selected entity {:?}", entity);
-                        false // placeholder
-                    })
-                    .unwrap_or(false);
 
                 if !shift_held && selection_state.selected.contains(&entity) {
                     // Clicked on an already-selected entity without shift.

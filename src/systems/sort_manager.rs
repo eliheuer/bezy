@@ -95,13 +95,13 @@ pub fn handle_sort_events(
             SortEvent::DeactivateSort => {
                 deactivate_current_sort(&mut commands, &mut active_sort_state, &active_sorts_query);
             }
-            SortEvent::MoveSort {
+            SortEvent::_MoveSort {
                 sort_entity,
                 new_position,
             } => {
                 move_sort(&mut commands, *sort_entity, *new_position);
             }
-            SortEvent::DeleteSort { sort_entity } => {
+            SortEvent::_DeleteSort { sort_entity } => {
                 delete_sort(&mut commands, &mut active_sort_state, *sort_entity);
             }
         }

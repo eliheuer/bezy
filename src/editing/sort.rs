@@ -23,9 +23,9 @@ pub struct Sort {
     /// The sort's advance width (cached from the glyph)
     pub advance_width: f32,
     /// Whether this sort is currently active for editing
-    pub is_active: bool,
+    pub _is_active: bool,
     /// Unique identifier for this sort instance
-    pub id: SortId,
+    pub _id: SortId,
 }
 
 /// Unique identifier for sort instances
@@ -62,13 +62,13 @@ impl Sort {
             glyph_name,
             position,
             advance_width,
-            is_active: false,
-            id: SortId::new(),
+            _is_active: false,
+            _id: SortId::new(),
         }
     }
 
     /// Create a new sort from a glyph (extracts name and advance width)
-    pub fn from_glyph(glyph: &Glyph, position: Vec2) -> Self {
+    pub fn _from_glyph(glyph: &Glyph, position: Vec2) -> Self {
         let advance_width = glyph
             .advance
             .as_ref()
@@ -108,15 +108,15 @@ pub struct SortBounds {
 }
 
 impl SortBounds {
-    pub fn width(&self) -> f32 {
+    pub fn _width(&self) -> f32 {
         self.max.x - self.min.x
     }
 
-    pub fn height(&self) -> f32 {
+    pub fn _height(&self) -> f32 {
         self.max.y - self.min.y
     }
 
-    pub fn center(&self) -> Vec2 {
+    pub fn _center(&self) -> Vec2 {
         (self.min + self.max) * 0.5
     }
 }
@@ -136,12 +136,12 @@ pub enum SortEvent {
     /// Deactivate the current sort
     DeactivateSort,
     /// Move a sort to a new position
-    MoveSort {
+    _MoveSort {
         sort_entity: Entity,
         new_position: Vec2,
     },
     /// Delete a sort
-    DeleteSort {
+    _DeleteSort {
         sort_entity: Entity,
     },
 } 
