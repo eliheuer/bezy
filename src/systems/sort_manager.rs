@@ -706,38 +706,40 @@ pub fn spawn_initial_sort(
     }
 
     let default_layer = app_state.workspace.font.ufo.get_default_layer().unwrap();
+    let metrics = &app_state.workspace.info.metrics;
+
+    const GLYPHS_PER_ROW: usize = 32;
+    let ascender = metrics.ascender.unwrap_or(800.0) as f32;
+    let descender = metrics.descender.unwrap_or(-200.0) as f32;
+    let row_height = (ascender - descender) * 1.2;
+
     let mut current_x = 0.0;
+    let mut current_y = 0.0;
+    let mut glyph_count_in_row = 0;
+    let mut max_row_width: f32 = 0.0;
 
-    let a_glyph_name: norad::GlyphName = "a".into();
+    // Process all glyphs including 'a'
+    let glyphs_to_spawn: Vec<_> = default_layer.iter_contents().collect();
 
-    // First, place 'a' at (0,0)
-    if default_layer.contains_glyph(&a_glyph_name) {
-        sort_events.send(SortEvent::CreateSort {
-            glyph_name: a_glyph_name.clone(),
-            position: Vec2::ZERO,
-        });
-
-        if let Some(glyph) = default_layer.get_glyph(&a_glyph_name) {
-            current_x += glyph.advance.as_ref().map_or(600.0, |a| a.width as f32);
-        }
-    }
-
-    // Then, place all other glyphs
-    for glyph in default_layer.iter_contents() {
-        let glyph_name = &glyph.name;
-        if glyph_name == &a_glyph_name {
-            continue; // Skip 'a' as it's already placed
+    for glyph in glyphs_to_spawn {
+        if glyph_count_in_row >= GLYPHS_PER_ROW {
+            current_y -= row_height;
+            current_x = 0.0;
+            glyph_count_in_row = 0;
         }
 
         sort_events.send(SortEvent::CreateSort {
-            glyph_name: glyph_name.clone(),
-            position: Vec2::new(current_x, 0.0),
+            glyph_name: glyph.name.clone(),
+            position: Vec2::new(current_x, current_y),
         });
 
-        current_x += glyph.advance.as_ref().map_or(600.0, |a| a.width as f32);
+        let advance = glyph.advance.as_ref().map_or(600.0, |a| a.width as f32);
+        current_x += advance;
+        max_row_width = max_row_width.max(current_x);
+        glyph_count_in_row += 1;
     }
 
-    info!("Spawned initial sorts for all glyphs.");
+    info!("Spawned initial sorts for all glyphs in a grid.");
 }
 
 /// System to automatically activate the first sort that is created
