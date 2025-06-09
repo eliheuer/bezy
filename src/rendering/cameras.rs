@@ -81,9 +81,9 @@ pub fn set_initial_camera_transform(
     mut camera_query: Query<(&mut OrthographicProjection, &mut Transform), With<DesignCamera>>,
 ) {
     if let Ok((mut projection, mut transform)) = camera_query.get_single_mut() {
-        projection.scale = 8.0;
-        transform.translation.x = 3072.0; // Pan to the right
-        transform.translation.y = -1024.0; // Pan down
+        projection.scale = 16.0;
+        transform.translation.x = 6144.0; // Pan to the right
+        transform.translation.y = -3072.0; // Pan down
         info!(
             "Set initial camera zoom to {} and pan to {}",
             projection.scale, transform.translation
