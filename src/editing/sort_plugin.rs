@@ -5,7 +5,7 @@
 use crate::editing::selection::SelectionSystemSet;
 use crate::editing::sort::ActiveSortState;
 use crate::editing::sort::SortEvent;
-use crate::rendering::sort_renderer::render_sorts_system;
+use crate::rendering::sort_renderer::{render_sorts_system, manage_sort_unicode_text, update_sort_unicode_text_positions};
 use crate::systems::sort_interaction::handle_sort_clicks;
 use crate::systems::sort_manager::{
     auto_activate_first_sort, debug_sort_point_entities, enforce_single_active_sort,
@@ -89,10 +89,15 @@ impl Plugin for SortPlugin {
                     .in_set(SortSystemSet::DataUpdate)
                     .after(SortSystemSet::PointSpawning),
             )
-            // Sort rendering
+            // Sort rendering and unicode text management
             .add_systems(
                 Update,
-                (render_sort_crosshairs, render_sorts_system)
+                (
+                    render_sort_crosshairs, 
+                    render_sorts_system,
+                    manage_sort_unicode_text,
+                    update_sort_unicode_text_positions,
+                )
                     .in_set(SortSystemSet::Rendering)
                     .after(SortSystemSet::DataUpdate),
             )
