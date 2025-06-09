@@ -288,7 +288,7 @@ pub fn respawn_sort_points_on_glyph_change(
             .any(|crosshair| crosshair.sort_entity == sort_entity);
         
         if has_newly_spawned_crosshair {
-            debug!("respawn_sort_points_on_glyph_change: Skipping sort {:?} because it has a newly spawned crosshair", sort_entity);
+            debug!("Skipping sort {:?} because it has a newly spawned crosshair", sort_entity);
             continue;
         }
         
@@ -298,7 +298,7 @@ pub fn respawn_sort_points_on_glyph_change(
             .map_or(true, |prev_name| prev_name != &current_glyph_name);
 
         if should_respawn {
-            info!("respawn_sort_points_on_glyph_change: Sort {:?} glyph changed to '{}', respawning point entities", 
+            info!("Sort {:?} glyph changed to '{}', respawning point entities", 
                   sort_entity, current_glyph_name);
             
             // Despawn existing point entities for this sort
@@ -320,7 +320,7 @@ pub fn respawn_sort_points_on_glyph_change(
             
             local_previous_glyphs.insert(sort_entity, current_glyph_name);
         } else {
-            debug!("respawn_sort_points_on_glyph_change: Sort {:?} changed but glyph name '{}' is the same, skipping respawn", 
+            debug!("Sort {:?} changed but glyph name '{}' is the same, skipping respawn", 
                    sort_entity, current_glyph_name);
         }
     }
@@ -649,8 +649,6 @@ pub fn sync_crosshair_to_sort_move(
         }
     }
 }
-
-
 
 /// When a sort is moved, all of its point entities must also be moved.
 pub fn sync_points_to_sort_move(

@@ -5,6 +5,8 @@
 use crate::editing::sort::{Sort, SortEvent, ActiveSort};
 use crate::core::state::AppState;
 use crate::rendering::cameras::DesignCamera;
+use crate::systems::ui_interaction::UiHoverState;
+use crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
@@ -16,9 +18,21 @@ pub fn handle_sort_clicks(
     sorts_query: Query<(Entity, &Sort, Has<ActiveSort>)>,
     app_state: Res<AppState>,
     mut sort_events: EventWriter<SortEvent>,
-    current_mode: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode>,
+    current_mode: Res<CurrentEditMode>,
     click_pos: Option<Res<crate::editing::selection::systems::ClickWorldPosition>>,
+    ui_hover_state: Res<UiHoverState>,
 ) {
+    // If we're in pen mode, do nothing. Pen tool handles clicks.
+    if current_mode.0
+        == crate::ui::toolbars::edit_mode_toolbar::EditMode::Pen
+    {
+        return;
+    }
+
+    if ui_hover_state.is_hovering_ui {
+        return;
+    }
+
     // If the click was already handled by another system (e.g., on a point or crosshair), do nothing.
     if click_pos.is_some() {
         return;

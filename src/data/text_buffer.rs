@@ -1,8 +1,13 @@
-//! Virtual font text editing functionality
+//! A buffer for text editing functionality.
+//!
+//! This module provides a simple text buffer with cursor management,
+//! designed to be the backing data model for a text input field.
+//!
+//! NOTE: This is currently not used anywhere in the application.
 
 #[derive(Debug, Default)]
 #[allow(dead_code)]
-pub struct VirtualFont {
+pub struct TextBuffer {
     /// The current text content
     text: String,
     /// Current position of the cursor (0 = start of text)
@@ -10,7 +15,7 @@ pub struct VirtualFont {
 }
 
 #[allow(dead_code)]
-impl VirtualFont {
+impl TextBuffer {
     /// Create a new empty text editor
     pub fn new() -> Self {
         Self::default()
@@ -27,7 +32,7 @@ impl VirtualFont {
         if self.cursor_position == 0 {
             return false;
         }
-        
+
         self.text.remove(self.cursor_position - 1);
         self.cursor_position -= 1;
         true
@@ -47,4 +52,4 @@ impl VirtualFont {
     pub fn set_cursor_position(&mut self, position: usize) {
         self.cursor_position = position.min(self.text.len());
     }
-}
+} 

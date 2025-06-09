@@ -163,7 +163,7 @@ fn try_commit_current_path(
         return;
     }
 
-    if let Some(_contour) = create_contour_from_points(&pen_state.points) {
+    if let Some(_contour) = create_contour_from_points(&pen_state.points, Vec2::ZERO) {
         app_state_changed.send(crate::rendering::draw::AppStateChanged);
         info!("Auto-committing path when switching modes");
     }
@@ -205,6 +205,7 @@ pub fn handle_pen_mouse_events(
     mut app_state: ResMut<crate::core::state::AppState>,
     mut app_state_changed: EventWriter<crate::rendering::draw::AppStateChanged>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
+    active_sort_query: Query<&crate::editing::sort::Sort, With<crate::editing::sort::ActiveSort>>,
 ) {
     // Early returns for invalid states
     if !is_pen_mode_active(&pen_mode) || ui_hover_state.is_hovering_ui {
@@ -218,6 +219,9 @@ pub fn handle_pen_mouse_events(
         warn!("No active camera found for pen tool");
         return;
     };
+
+    // Get the active sort if one exists
+    let active_sort = active_sort_query.get_single().ok();
 
     // Update cursor position from mouse movement
     update_cursor_position(
@@ -236,6 +240,7 @@ pub fn handle_pen_mouse_events(
             &glyph_navigation,
             &mut app_state,
             &mut app_state_changed,
+            active_sort,
         );
     }
 
@@ -245,6 +250,7 @@ pub fn handle_pen_mouse_events(
             &glyph_navigation,
             &mut app_state,
             &mut app_state_changed,
+            active_sort,
         );
     }
 }
@@ -292,6 +298,7 @@ fn handle_left_click(
     app_state_changed: &mut EventWriter<
         crate::rendering::draw::AppStateChanged,
     >,
+    active_sort: Option<&crate::editing::sort::Sort>,
 ) {
     let Some(cursor_pos) = pen_state.cursor_position else {
         return;
@@ -311,6 +318,7 @@ fn handle_left_click(
                     glyph_navigation,
                     app_state,
                     app_state_changed,
+                    active_sort,
                 );
             } else {
                 add_point_to_path(pen_state, final_pos);
@@ -378,6 +386,7 @@ fn close_current_path(
     app_state_changed: &mut EventWriter<
         crate::rendering::draw::AppStateChanged,
     >,
+    active_sort: Option<&crate::editing::sort::Sort>,
 ) {
     info!("Closing path - clicked near start point");
 
@@ -386,14 +395,18 @@ fn close_current_path(
         path.close_path();
     }
 
+    // Get the active sort offset for coordinate transformation
+    let active_sort_offset = active_sort.map_or(Vec2::ZERO, |sort| sort.position);
+
     // Add the closed path to the current glyph
-    if let Some(contour) = create_contour_from_points(&pen_state.points) {
+    if let Some(contour) = create_contour_from_points(&pen_state.points, active_sort_offset) {
         add_contour_to_glyph(
             contour,
             glyph_navigation,
             app_state,
             app_state_changed,
             true,
+            active_sort,
         );
     }
 
@@ -418,17 +431,22 @@ fn handle_right_click(
     app_state_changed: &mut EventWriter<
         crate::rendering::draw::AppStateChanged,
     >,
+    active_sort: Option<&crate::editing::sort::Sort>,
 ) {
     if pen_state.state == PenState::Drawing && pen_state.points.len() >= 2 {
         info!("Finishing open path with right click");
 
-        if let Some(contour) = create_contour_from_points(&pen_state.points) {
+        // Get the active sort offset for coordinate transformation
+        let active_sort_offset = active_sort.map_or(Vec2::ZERO, |sort| sort.position);
+
+        if let Some(contour) = create_contour_from_points(&pen_state.points, active_sort_offset) {
             add_contour_to_glyph(
                 contour,
                 glyph_navigation,
                 app_state,
                 app_state_changed,
                 false,
+                active_sort,
             );
         }
 
@@ -445,22 +463,37 @@ fn add_contour_to_glyph(
         crate::rendering::draw::AppStateChanged,
     >,
     is_closed: bool,
+    active_sort: Option<&crate::editing::sort::Sort>,
 ) {
-    let Some(glyph_name) =
-        glyph_navigation.find_glyph(&app_state.workspace.font.ufo)
-    else {
-        return;
+    // When there's an active sort, use the sort's glyph; otherwise use glyph navigation
+    let glyph_name = if let Some(sort) = active_sort {
+        info!("PEN TOOL: Using active sort glyph: {}", sort.glyph_name);
+        sort.glyph_name.clone()
+    } else {
+        let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo) else {
+            warn!("PEN TOOL: No glyph found in navigation and no active sort");
+            return;
+        };
+        info!("PEN TOOL: Using glyph navigation glyph: {}", glyph_name);
+        glyph_name
     };
-    let glyph_name = glyph_name.clone();
+
+    info!("PEN TOOL: Adding contour with {} points to glyph {}", contour.points.len(), glyph_name);
 
     // Get mutable access to the font and glyph
     let font_obj = app_state.workspace.font_mut();
     let Some(default_layer) = font_obj.ufo.get_default_layer_mut() else {
+        warn!("PEN TOOL: No default layer found");
         return;
     };
     let Some(glyph) = default_layer.get_glyph_mut(&glyph_name) else {
+        warn!("PEN TOOL: Could not find glyph {} in default layer", glyph_name);
         return;
     };
+
+    // Log existing contours before adding
+    let existing_contours = glyph.outline.as_ref().map_or(0, |o| o.contours.len());
+    info!("PEN TOOL: Glyph {} currently has {} contours", glyph_name, existing_contours);
 
     // Get or create the outline
     let outline = glyph.outline.get_or_insert_with(|| norad::glyph::Outline {
@@ -470,11 +503,15 @@ fn add_contour_to_glyph(
 
     // Add the new contour
     outline.contours.push(contour);
+    let new_contour_count = outline.contours.len();
 
     let path_type = if is_closed { "closed" } else { "open" };
-    info!("Added new {} contour to glyph {}", path_type, glyph_name);
+    let source = if active_sort.is_some() { "active sort" } else { "glyph navigation" };
+    info!("PEN TOOL: Successfully added {} contour to glyph {} (from {}). Total contours now: {}", 
+          path_type, glyph_name, source, new_contour_count);
 
     // Notify that the app state has changed
+    info!("PEN TOOL: Sending AppStateChanged event");
     app_state_changed.send(crate::rendering::draw::AppStateChanged);
 }
 
@@ -650,33 +687,28 @@ fn axis_lock_position(pos: Vec2, relative_to: Vec2) -> Vec2 {
     }
 }
 
-/// Convert a list of points into a UFO Contour for font storage
-///
-/// This creates the actual geometry that gets saved in the font file.
-/// The first point becomes a "move" operation, subsequent points are "line" operations.
-fn create_contour_from_points(points: &[Vec2]) -> Option<Contour> {
-    if points.len() < 2 {
+/// Create a UFO contour from a list of points
+fn create_contour_from_points(points: &[Vec2], active_sort_offset: Vec2) -> Option<Contour> {
+    if points.is_empty() {
         return None;
     }
 
-    let contour_points: Vec<ContourPoint> = points
-        .iter()
-        .enumerate()
-        .map(|(i, p)| {
-            let point_type = if i == 0 {
-                norad::PointType::Move // First point starts the path
-            } else {
-                norad::PointType::Line // Subsequent points are line segments
-            };
+    let mut contour_points = Vec::new();
 
-            ContourPoint::new(
-                p.x, p.y, point_type, false, // not smooth
-                None,  // no name
-                None,  // no identifier
-                None,  // no comments
-            )
-        })
-        .collect();
+    for point in points {
+        // Convert from world coordinates to glyph-local coordinates
+        let glyph_local_point = *point - active_sort_offset;
+        
+        contour_points.push(ContourPoint::new(
+            glyph_local_point.x, 
+            glyph_local_point.y, 
+            norad::PointType::Line, 
+            false, // not smooth
+            None,  // no name
+            None,  // no identifier
+            None,  // no comments
+        ));
+    }
 
     Some(Contour::new(contour_points, None, None))
 }
