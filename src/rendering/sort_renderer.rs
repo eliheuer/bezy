@@ -54,6 +54,7 @@ pub fn manage_sort_unicode_text(
     sorts_query: Query<(Entity, &Sort), (Changed<Sort>, Or<(With<ActiveSort>, With<InactiveSort>)>)>,
     existing_text_query: Query<(Entity, &SortUnicodeText)>,
     all_sorts_query: Query<Entity, With<Sort>>,
+    active_sorts_query: Query<&Sort, With<ActiveSort>>,
 ) {
     // Remove text for sorts that no longer exist
     let existing_sort_entities: HashSet<Entity> = all_sorts_query.iter().collect();
@@ -73,6 +74,13 @@ pub fn manage_sort_unicode_text(
         if let Some(unicode_value) = get_unicode_for_glyph(&sort.glyph_name, &app_state) {
             let text_content = format!("U+{}", unicode_value);
             
+            // Determine text color based on sort state (match metrics line colors)
+            let text_color = if active_sorts_query.get(sort_entity).is_ok() {
+                SORT_ACTIVE_METRICS_COLOR // Green for active sorts
+            } else {
+                Color::srgba(0.8, 0.8, 0.8, 0.9) // Light gray for better readability on dark background
+            };
+            
             match existing_text_entity {
                 Some(text_entity) => {
                     // Update existing text entity
@@ -84,6 +92,7 @@ pub fn manage_sort_unicode_text(
                                 font_size: 48.0, // Reduced from 128.0 to fit within sort boundaries
                                 ..default()
                             },
+                            TextColor(text_color),
                             TextLayout::new_with_justify(JustifyText::Right), // Right-align the text
                             Anchor::TopRight, // Anchor the text at its top-right corner
                             calculate_text_transform(sort, &app_state.workspace.info.metrics),
@@ -99,7 +108,7 @@ pub fn manage_sort_unicode_text(
                              font_size: 48.0, // Reduced from 128.0 to fit within sort boundaries
                              ..default()
                          },
-                         TextColor(Color::srgba(0.8, 0.8, 0.8, 0.9)), // Subtle gray color
+                         TextColor(text_color),
                          TextLayout::new_with_justify(JustifyText::Right), // Right-align the text
                          Anchor::TopRight, // Anchor the text at its top-right corner
                          calculate_text_transform(sort, &app_state.workspace.info.metrics),
@@ -131,6 +140,26 @@ pub fn update_sort_unicode_text_positions(
         if let Ok(sort) = sorts_query.get(sort_unicode_text.sort_entity) {
             *text_transform = calculate_text_transform(sort, font_metrics);
         }
+    }
+}
+
+/// System to update unicode text colors when sorts change state (active/inactive)
+pub fn update_sort_unicode_text_colors(
+    active_sorts_query: Query<Entity, (With<Sort>, With<ActiveSort>)>,
+    inactive_sorts_query: Query<Entity, (With<Sort>, With<InactiveSort>)>,
+    mut text_query: Query<(&mut TextColor, &SortUnicodeText)>,
+) {
+    for (mut text_color, sort_unicode_text) in text_query.iter_mut() {
+        // Determine the color based on whether the sort is active or inactive
+        let new_color = if active_sorts_query.get(sort_unicode_text.sort_entity).is_ok() {
+            SORT_ACTIVE_METRICS_COLOR // Green for active sorts
+        } else if inactive_sorts_query.get(sort_unicode_text.sort_entity).is_ok() {
+            Color::srgba(0.8, 0.8, 0.8, 0.9) // Light gray for better readability on dark background
+        } else {
+            continue; // Sort doesn't exist, skip
+        };
+        
+        *text_color = TextColor(new_color);
     }
 }
 
