@@ -605,9 +605,9 @@ pub fn render_selected_entities(
 
     for (transform, point_type) in &selected_query {
         let position = transform.translation().truncate();
-        // Use a position with a slight Z offset to ensure it renders on top
+        // Use a much higher Z offset to ensure selected points always render on top of normal glyph points
         let position_3d =
-            Vec3::new(position.x, position.y, transform.translation().z + 5.0);
+            Vec3::new(position.x, position.y, transform.translation().z + 100.0);
         let position_2d = position_3d.truncate();
 
         // Different rendering based on point type

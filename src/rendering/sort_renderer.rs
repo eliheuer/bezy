@@ -6,10 +6,12 @@
 
 use crate::editing::sort::{Sort, ActiveSort, InactiveSort};
 use crate::core::state::{AppState, FontMetrics};
+use crate::rendering::cameras::DesignCamera;
 use crate::ui::panes::design_space::ViewPort;
 use crate::ui::theme::{SORT_ACTIVE_METRICS_COLOR, SORT_INACTIVE_METRICS_COLOR, MONO_FONT_PATH};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
+use bevy::window::PrimaryWindow;
 use std::collections::HashSet;
 
 /// Component to mark text entities that display unicode values for sorts
