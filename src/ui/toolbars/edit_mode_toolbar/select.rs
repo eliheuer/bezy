@@ -44,16 +44,14 @@ impl EditTool for SelectTool {
     fn update(&self, commands: &mut Commands) {
         // Mark select mode as active while this tool is current
         commands.insert_resource(SelectModeActive(true));
-        // Debug logging to verify this is being called
-        debug!("SelectTool::update - Setting SelectModeActive to true");
     }
     
     fn on_enter(&self) {
-        info!("Entered Select tool - selection mode activated");
+        info!("Entered Select tool");
     }
     
     fn on_exit(&self) {
-        info!("Exited Select tool - selection mode will be deactivated");
+        info!("Exited Select tool");
     }
 }
 
@@ -79,7 +77,6 @@ impl Plugin for SelectToolPlugin {
 }
 
 fn register_select_tool(mut tool_registry: ResMut<ToolRegistry>) {
-    info!("Registering Select tool with ToolRegistry");
     tool_registry.register_tool(Box::new(SelectTool));
 }
 
@@ -91,6 +88,5 @@ pub fn reset_select_mode_when_inactive(
     if current_tool.get_current() != Some("select") {
         // Mark select mode as inactive when not the current tool
         commands.insert_resource(SelectModeActive(false));
-        debug!("SelectTool is not current - Setting SelectModeActive to false");
     }
 }

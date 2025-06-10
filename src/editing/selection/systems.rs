@@ -59,19 +59,10 @@ pub fn handle_mouse_input(
     // Only process when in select mode
     if let Some(select_mode) = select_mode {
         if !select_mode.0 {
-            debug!("Selection skipped - select mode not active (SelectModeActive: false)");
+            debug!("Selection skipped - select mode not active");
             return;
-        } else {
-            debug!("Selection processing - select mode is active (SelectModeActive: true)");
         }
-    } else {
-        debug!("Selection skipped - SelectModeActive resource not found");
-        return;
     }
-
-    // Log selectable entities count for debugging
-    let selectable_count = selectable_query.iter().count();
-    debug!("Found {} selectable entities", selectable_count);
 
     // Don't process selection when hovering over UI
     if ui_hover_state.is_hovering_ui {
@@ -339,9 +330,7 @@ pub fn handle_mouse_input(
             drag_point_state.is_dragging = false;
 
             // Only send edit event if points were actually moved
-            if drag_point_state.start_position
-                != drag_point_state.current_position
-            {
+            if drag_point_state.start_position != drag_point_state.current_position {
                 event_writer.send(EditEvent {
                     edit_type: EditType::DragUp,
                 });
@@ -354,7 +343,7 @@ pub fn handle_mouse_input(
             drag_point_state.original_positions.clear();
         }
 
-        // Existing code for drag selection
+        // Handle drag selection end
         if drag_state.is_dragging {
             drag_state.is_dragging = false;
             drag_state.start_position = None;
@@ -879,10 +868,8 @@ pub fn handle_point_drag(
     mut app_state: ResMut<AppState>,
     mut event_writer: EventWriter<EditEvent>,
 ) {
-    if !drag_point_state.is_dragging || mouse_button_input.just_released(MouseButton::Left) {
-        if mouse_button_input.just_released(MouseButton::Left) && drag_point_state.is_dragging {
-            debug!("handle_point_drag: Mouse released, ending drag");
-        }
+    // Early return if not dragging
+    if !drag_point_state.is_dragging {
         return;
     }
 

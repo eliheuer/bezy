@@ -36,7 +36,6 @@ use crate::systems::{CommandsPlugin, UiInteractionPlugin};
 
 /// Creates a fully configured Bevy application ready to run
 pub fn create_app(cli_args: CliArgs) -> App {
-    crate::utils::logger::init_custom_logger();
     let mut app = App::new();
     configure_app_settings(&mut app, cli_args);
     add_all_plugins(&mut app);
