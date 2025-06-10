@@ -73,7 +73,6 @@ mod measure;
 mod pan;
 mod pen;
 mod primitives;
-mod primitives_mode;
 pub mod select;
 pub mod text;
 mod ui;
@@ -409,20 +408,14 @@ pub use hyper::HyperMode;
 pub use knife::KnifeMode;
 pub use pan::{PanMode, PanToolPlugin};
 pub use pen::{PenMode, PenToolPlugin};
-pub use primitives::base::{
+pub use primitives::{
     handle_primitive_mouse_events, render_active_primitive_drawing,
-    ActivePrimitiveDrawing,
+    ActivePrimitiveDrawing, CurrentCornerRadius, UiInteractionState,
+    handle_primitive_selection, spawn_primitives_submenu, 
+    toggle_primitive_submenu_visibility, CurrentPrimitiveType, 
+    PrimitiveType, PrimitivesToolPlugin,
 };
-pub use primitives::ui::{
-    handle_radius_input, spawn_primitive_controls,
-    update_primitive_ui_visibility, CurrentCornerRadius, UiInteractionState,
-};
-pub use primitives_mode::{PrimitivesMode, PrimitivesToolPlugin};
-pub use primitives_mode::{
-    handle_active_primitive_tool, handle_primitive_selection,
-    spawn_primitives_submenu, toggle_primitive_submenu_visibility,
-};
-pub use primitives_mode::{CurrentPrimitiveType, PrimitiveType};
+
 pub use select::{SelectMode, SelectToolPlugin};
 pub use text::TextMode;
 pub use measure::MeasureMode;
@@ -432,6 +425,12 @@ pub trait EditModeSystem: Send + Sync + 'static {
     fn update(&self, commands: &mut Commands);
     fn on_enter(&self) {}
     fn on_exit(&self) {}
+}
+
+// Legacy compatibility - will be removed after migration
+pub struct PrimitivesMode;
+impl EditModeSystem for PrimitivesMode {
+    fn update(&self, _commands: &mut Commands) {}
 }
 
 /// System to initialize the default tool (Select) on startup
@@ -494,11 +493,7 @@ impl Plugin for EditModeToolbarPlugin {
                     // Primitives sub-menu systems
                     handle_primitive_selection,
                     toggle_primitive_submenu_visibility,
-                    handle_active_primitive_tool,
-                    // Rounded rectangle radius control - runs BEFORE mouse event handling
-                    update_primitive_ui_visibility,
-                    handle_radius_input,
-                    // Mouse event handling for drawing shapes - runs AFTER UI systems
+                    // Mouse event handling for drawing shapes
                     handle_primitive_mouse_events,
                     // Render the active primitive shape while drawing
                     render_active_primitive_drawing,
