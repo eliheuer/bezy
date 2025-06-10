@@ -72,7 +72,7 @@ pub mod knife;
 mod measure;
 mod pan;
 mod pen;
-mod primitives;
+mod shapes;
 pub mod select;
 pub mod text;
 mod ui;
@@ -372,7 +372,7 @@ impl ToolOrdering {
             "select",
             "pen", 
             "eraser",
-            "primitives",
+            "shapes",
             "text",
             "measure",
             "knife",
@@ -387,7 +387,7 @@ impl ToolOrdering {
             "select",
             "text",
             "pen",
-            "primitives", 
+            "shapes", 
             "measure",
             "eraser",
             "knife",
@@ -408,12 +408,12 @@ pub use hyper::HyperMode;
 pub use knife::KnifeMode;
 pub use pan::{PanMode, PanToolPlugin};
 pub use pen::{PenMode, PenToolPlugin};
-pub use primitives::{
+pub use shapes::{
     handle_primitive_mouse_events, render_active_primitive_drawing,
     ActivePrimitiveDrawing, CurrentCornerRadius, UiInteractionState,
-    handle_primitive_selection, spawn_primitives_submenu, 
-    toggle_primitive_submenu_visibility, CurrentPrimitiveType, 
-    PrimitiveType, PrimitivesToolPlugin,
+    handle_primitive_selection, spawn_shapes_submenu, 
+    toggle_shapes_submenu_visibility, CurrentPrimitiveType, 
+    PrimitiveType, ShapesToolPlugin,
 };
 
 pub use select::{SelectMode, SelectToolPlugin};
@@ -428,8 +428,8 @@ pub trait EditModeSystem: Send + Sync + 'static {
 }
 
 // Legacy compatibility - will be removed after migration
-pub struct PrimitivesMode;
-impl EditModeSystem for PrimitivesMode {
+pub struct ShapesMode;
+impl EditModeSystem for ShapesMode {
     fn update(&self, _commands: &mut Commands) {}
 }
 
@@ -473,7 +473,7 @@ impl Plugin for EditModeToolbarPlugin {
             .add_plugins(MeasureToolPlugin)
             .add_plugins(TextToolPlugin)
             .add_plugins(PenToolPlugin)
-            .add_plugins(PrimitivesToolPlugin)
+            .add_plugins(ShapesToolPlugin)
             .add_plugins(knife::KnifeModePlugin)
             .add_plugins(hyper::HyperModePlugin)
             
@@ -490,12 +490,12 @@ impl Plugin for EditModeToolbarPlugin {
                     // UI systems
                     handle_toolbar_mode_selection,
                     update_current_edit_mode,
-                    // Primitives sub-menu systems
+                    // Shapes sub-menu systems
                     handle_primitive_selection,
-                    toggle_primitive_submenu_visibility,
+                    toggle_shapes_submenu_visibility,
                     // Mouse event handling for drawing shapes
                     handle_primitive_mouse_events,
-                    // Render the active primitive shape while drawing
+                    // Render the active shape while drawing
                     render_active_primitive_drawing,
                 ),
             );

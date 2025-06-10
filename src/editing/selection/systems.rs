@@ -59,10 +59,19 @@ pub fn handle_mouse_input(
     // Only process when in select mode
     if let Some(select_mode) = select_mode {
         if !select_mode.0 {
-            debug!("Selection skipped - select mode not active");
+            debug!("Selection skipped - select mode not active (SelectModeActive: false)");
             return;
+        } else {
+            debug!("Selection processing - select mode is active (SelectModeActive: true)");
         }
+    } else {
+        debug!("Selection skipped - SelectModeActive resource not found");
+        return;
     }
+
+    // Log selectable entities count for debugging
+    let selectable_count = selectable_query.iter().count();
+    debug!("Found {} selectable entities", selectable_count);
 
     // Don't process selection when hovering over UI
     if ui_hover_state.is_hovering_ui {

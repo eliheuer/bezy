@@ -42,20 +42,20 @@ use norad::{Contour, ContourPoint, PointType};
 
 // ==================== MAIN TOOL IMPLEMENTATION ====================
 
-/// Main primitives tool - handles shape drawing with submenu support
-pub struct PrimitivesTool;
+/// Main shapes tool - handles shape drawing with submenu support
+pub struct ShapesTool;
 
-impl EditTool for PrimitivesTool {
+impl EditTool for ShapesTool {
     fn id(&self) -> ToolId {
-        "primitives"
+        "shapes"
     }
     
     fn name(&self) -> &'static str {
-        "Primitives"
+        "Shapes"
     }
     
     fn icon(&self) -> &'static str {
-        "\u{E016}" // Primitives icon
+        "\u{E016}" // Shapes icon
     }
     
     fn shortcut_key(&self) -> Option<char> {
@@ -67,22 +67,22 @@ impl EditTool for PrimitivesTool {
     }
     
     fn description(&self) -> &'static str {
-        "Draw primitive shapes (rectangles, ellipses, rounded rectangles)"
+        "Draw shapes (rectangles, ellipses, rounded rectangles)"
     }
     
     fn update(&self, commands: &mut Commands) {
-        // Disable selection mode while in primitives mode
+        // Disable selection mode while in shapes mode
         commands.insert_resource(
             crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive(false),
         );
     }
     
     fn on_enter(&self) {
-        info!("Entered Primitives tool");
+        info!("Entered Shapes tool");
     }
     
     fn on_exit(&self) {
-        info!("Exited Primitives tool");
+        info!("Exited Shapes tool");
     }
 }
 
@@ -209,31 +209,31 @@ impl Default for CurrentCornerRadius {
 
 // ==================== PLUGIN ====================
 
-/// Plugin for the Primitives tool
-pub struct PrimitivesToolPlugin;
+/// Plugin for the Shapes tool
+pub struct ShapesToolPlugin;
 
-impl Plugin for PrimitivesToolPlugin {
+impl Plugin for ShapesToolPlugin {
     fn build(&self, app: &mut App) {
         app
             .init_resource::<CurrentPrimitiveType>()
             .init_resource::<ActivePrimitiveDrawing>()
             .init_resource::<CurrentCornerRadius>()
             .init_resource::<UiInteractionState>()
-            .add_systems(Startup, register_primitives_tool);
+            .add_systems(Startup, register_shapes_tool);
     }
 }
 
-fn register_primitives_tool(mut tool_registry: ResMut<ToolRegistry>) {
-    tool_registry.register_tool(Box::new(PrimitivesTool));
+fn register_shapes_tool(mut tool_registry: ResMut<ToolRegistry>) {
+    tool_registry.register_tool(Box::new(ShapesTool));
 }
 
 // ==================== SUBMENU FUNCTIONS ====================
 
-/// System to spawn the primitives sub-menu
+/// System to spawn the shapes sub-menu
 /// 
 /// This demonstrates the submenu pattern that can be reused for other tools.
 /// The submenu appears below the main toolbar when the tool is active.
-pub fn spawn_primitives_submenu(
+pub fn spawn_shapes_submenu(
     commands: &mut Commands,
     asset_server: &AssetServer,
 ) {
@@ -253,8 +253,8 @@ pub fn spawn_primitives_submenu(
                 row_gap: Val::Px(TOOLBAR_ROW_GAP), // Use theme row gap
                 ..default()
             },
-            Name::new("PrimitivesSubMenu"),
-            // Start as hidden until primitives mode is selected
+            Name::new("ShapesSubMenu"),
+            // Start as hidden until shapes mode is selected
             Visibility::Hidden,
         ))
         .with_children(|parent| {
@@ -389,15 +389,15 @@ pub fn handle_primitive_selection(
 /// Toggle submenu visibility based on current tool
 /// 
 /// This pattern can be reused for other tool submenus
-pub fn toggle_primitive_submenu_visibility(
+pub fn toggle_shapes_submenu_visibility(
     current_tool: Res<CurrentTool>,
     mut submenu_query: Query<(&mut Visibility, &Name)>,
 ) {
-    let is_primitives_active = current_tool.get_current() == Some("primitives");
+    let is_shapes_active = current_tool.get_current() == Some("shapes");
     
     for (mut visibility, name) in submenu_query.iter_mut() {
-        if name.as_str() == "PrimitivesSubMenu" {
-            *visibility = if is_primitives_active {
+        if name.as_str() == "ShapesSubMenu" {
+            *visibility = if is_shapes_active {
                 Visibility::Visible
             } else {
                 Visibility::Hidden
@@ -408,7 +408,7 @@ pub fn toggle_primitive_submenu_visibility(
 
 // ==================== DRAWING LOGIC ====================
 
-/// Handle mouse events for primitive drawing
+/// Handle mouse events for shape drawing
 pub fn handle_primitive_mouse_events(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut cursor_moved_events: EventReader<CursorMoved>,
@@ -423,9 +423,10 @@ pub fn handle_primitive_mouse_events(
     corner_radius: Res<CurrentCornerRadius>,
     ui_state: Res<UiInteractionState>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
+    active_sort_query: Query<&crate::editing::sort::Sort, With<crate::editing::sort::ActiveSort>>,
 ) {
-    // Only handle events when in primitives mode
-    if current_tool.get_current() != Some("primitives") {
+    // Only handle events when in shapes mode
+    if current_tool.get_current() != Some("shapes") {
         return;
     }
 
@@ -475,8 +476,14 @@ pub fn handle_primitive_mouse_events(
         }
     } else if mouse_button_input.just_released(MouseButton::Left) {
         if active_drawing.is_drawing {
+            println!("Mouse released - attempting to create shape");
             // Finish the drawing and create the shape
             if let Some(rect) = active_drawing.get_rect() {
+                println!("Creating primitive shape with rect: {:?}", rect);
+                
+                // Get active sort if present (same pattern as pen tool)
+                let active_sort = active_sort_query.get_single().ok();
+                
                 create_primitive_shape(
                     rect,
                     active_drawing.tool_type,
@@ -484,7 +491,10 @@ pub fn handle_primitive_mouse_events(
                     &glyph_navigation,
                     &mut app_state,
                     &mut app_state_changed,
+                    active_sort,
                 );
+            } else {
+                println!("No rect available for shape creation");
             }
 
             // Reset drawing state
@@ -494,14 +504,14 @@ pub fn handle_primitive_mouse_events(
     }
 }
 
-/// Render the active primitive shape being drawn
+/// Render the active shape being drawn
 pub fn render_active_primitive_drawing(
     mut gizmos: Gizmos,
     active_drawing: Res<ActivePrimitiveDrawing>,
     current_tool: Res<CurrentTool>,
 ) {
-    // Only render when in primitives mode and actively drawing
-    if current_tool.get_current() != Some("primitives") || !active_drawing.is_drawing {
+    // Only render when in shapes mode and actively drawing
+    if current_tool.get_current() != Some("shapes") || !active_drawing.is_drawing {
         return;
     }
 
@@ -522,7 +532,7 @@ pub fn render_active_primitive_drawing(
     }
 }
 
-/// Create a primitive shape and add it to the current glyph
+/// Create a shape and add it to the current glyph
 fn create_primitive_shape(
     rect: Rect,
     primitive_type: PrimitiveType,
@@ -530,27 +540,57 @@ fn create_primitive_shape(
     glyph_navigation: &crate::core::state::GlyphNavigation,
     app_state: &mut crate::core::state::AppState,
     app_state_changed: &mut EventWriter<crate::rendering::draw::AppStateChanged>,
+    active_sort: Option<&crate::editing::sort::Sort>,
 ) {
-    let glyph_name = glyph_navigation.find_glyph(&app_state.workspace.font.ufo);
-    let Some(glyph_name) = glyph_name else {
-        warn!("No glyph found for primitive drawing");
-        return;
+    println!("create_primitive_shape called with type: {:?}", primitive_type);
+    
+    // When there's an active sort, use the sort's glyph; otherwise use glyph navigation (same as pen tool)
+    let glyph_name = if let Some(sort) = active_sort {
+        println!("SHAPES TOOL: Using active sort glyph: {}", sort.glyph_name);
+        sort.glyph_name.clone()
+    } else {
+        let Some(glyph_name) = glyph_navigation.find_glyph(&app_state.workspace.font.ufo) else {
+            println!("ERROR: No glyph found for shape drawing and no active sort");
+            return;
+        };
+        println!("SHAPES TOOL: Using glyph navigation glyph: {}", glyph_name);
+        glyph_name
     };
 
     if let Some(layer) = app_state.workspace.font.ufo.get_default_layer_mut() {
+        println!("Got default layer");
         if let Some(glyph) = layer.get_glyph_mut(&glyph_name) {
-        let contour = match primitive_type {
-            PrimitiveType::Rectangle => create_rectangle_contour(rect),
-            PrimitiveType::Ellipse => create_ellipse_contour(rect),
-            PrimitiveType::RoundedRectangle => create_rounded_rectangle_contour(rect, corner_radius as f32),
-        };
+            println!("Got glyph, creating contour...");
+            let contour = match primitive_type {
+                PrimitiveType::Rectangle => create_rectangle_contour(rect),
+                PrimitiveType::Ellipse => create_ellipse_contour(rect),
+                PrimitiveType::RoundedRectangle => create_rounded_rectangle_contour(rect, corner_radius as f32),
+            };
 
             if let Some(contour) = contour {
-                glyph.outline.as_mut().unwrap().contours.push(contour);
+                println!("Contour created with {} points", contour.points.len());
+                
+                // Get or create the outline (same pattern as pen tool)
+                let outline = glyph.outline.get_or_insert_with(|| norad::glyph::Outline {
+                    contours: Vec::new(),
+                    components: Vec::new(),
+                });
+                
+                // Add the contour to the outline
+                outline.contours.push(contour);
                 app_state_changed.send(crate::rendering::draw::AppStateChanged);
-                info!("Created {:?} primitive", primitive_type);
+                
+                let source = if active_sort.is_some() { "active sort" } else { "glyph navigation" };
+                println!("SHAPES TOOL: Successfully created {:?} shape in glyph {} (from {}). Total contours now: {}", 
+                        primitive_type, glyph_name, source, outline.contours.len());
+            } else {
+                println!("ERROR: Failed to create contour");
             }
+        } else {
+            println!("ERROR: Failed to get glyph: {}", glyph_name);
         }
+    } else {
+        println!("ERROR: Failed to get default layer");
     }
 }
 

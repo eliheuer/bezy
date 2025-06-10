@@ -65,7 +65,7 @@ pub enum EditMode {
     Knife,
     Pan,
     Measure,
-    Primitives,
+    Shapes,
     Text,
 }
 
@@ -78,7 +78,7 @@ impl EditMode {
             EditMode::Knife => Box::new(KnifeMode),
             EditMode::Pan => Box::new(PanMode),
             EditMode::Measure => Box::new(MeasureMode),
-            EditMode::Primitives => Box::new(PrimitivesMode),
+            EditMode::Shapes => Box::new(ShapesMode),
             EditMode::Text => Box::new(TextMode),
         }
     }
@@ -91,7 +91,7 @@ impl EditMode {
             EditMode::Knife => "\u{E013}",
             EditMode::Pan => "\u{E014}",
             EditMode::Measure => "\u{E015}",
-            EditMode::Primitives => "\u{E016}",
+            EditMode::Shapes => "\u{E016}",
             EditMode::Text => "\u{E017}",
         }
     }
@@ -104,7 +104,7 @@ impl EditMode {
             EditMode::Knife => "Knife",
             EditMode::Pan => "Pan",
             EditMode::Measure => "Measure",
-            EditMode::Primitives => "Primitives",
+            EditMode::Shapes => "Shapes",
             EditMode::Text => "Text",
         }
     }
@@ -169,9 +169,9 @@ pub fn spawn_edit_mode_toolbar(
             }
         });
 
-    // Also spawn the primitives sub-menu (it will start hidden)
+    // Also spawn the shapes sub-menu (it will start hidden)
     // TODO: Make this dynamic too - tools should be able to register their own submenus
-    crate::ui::toolbars::edit_mode_toolbar::spawn_primitives_submenu(
+            crate::ui::toolbars::edit_mode_toolbar::spawn_shapes_submenu(
         &mut commands,
         &asset_server,
     );
@@ -339,7 +339,7 @@ fn parse_edit_mode_from_button_name(button_name: &str) -> EditMode {
         "Knife" => EditMode::Knife,
         "Pan" => EditMode::Pan,
         "Measure" => EditMode::Measure,
-        "Primitives" => EditMode::Primitives,
+        "Shapes" => EditMode::Shapes,
         "Text" => EditMode::Text,
         _ => {
             warn!(

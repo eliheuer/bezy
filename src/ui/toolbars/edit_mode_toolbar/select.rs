@@ -41,19 +41,19 @@ impl EditTool for SelectTool {
         "Select and manipulate objects"
     }
     
-    fn update(&self, _commands: &mut Commands) {
-        // Implement select tool behavior
-        // This will contain the actual selection logic
+    fn update(&self, commands: &mut Commands) {
+        // Mark select mode as active while this tool is current
+        commands.insert_resource(SelectModeActive(true));
+        // Debug logging to verify this is being called
+        debug!("SelectTool::update - Setting SelectModeActive to true");
     }
     
     fn on_enter(&self) {
-        info!("Entered Select tool");
-        // Setup selection mode
+        info!("Entered Select tool - selection mode activated");
     }
     
     fn on_exit(&self) {
-        info!("Exited Select tool");
-        // Cleanup selection mode
+        info!("Exited Select tool - selection mode will be deactivated");
     }
 }
 
@@ -71,11 +71,26 @@ pub struct SelectToolPlugin;
 
 impl Plugin for SelectToolPlugin {
     fn build(&self, app: &mut App) {
-        // Register the select tool
-        app.add_systems(Startup, register_select_tool);
+        app
+            .init_resource::<SelectModeActive>()
+            .add_systems(Startup, register_select_tool)
+            .add_systems(Update, reset_select_mode_when_inactive);
     }
 }
 
 fn register_select_tool(mut tool_registry: ResMut<ToolRegistry>) {
+    info!("Registering Select tool with ToolRegistry");
     tool_registry.register_tool(Box::new(SelectTool));
+}
+
+/// System to deactivate select mode when another tool is selected
+pub fn reset_select_mode_when_inactive(
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    mut commands: Commands,
+) {
+    if current_tool.get_current() != Some("select") {
+        // Mark select mode as inactive when not the current tool
+        commands.insert_resource(SelectModeActive(false));
+        debug!("SelectTool is not current - Setting SelectModeActive to false");
+    }
 }
