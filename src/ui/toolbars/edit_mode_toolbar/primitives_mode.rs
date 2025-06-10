@@ -6,6 +6,49 @@ use bevy::prelude::*;
 // Import primitive shapes modules directly
 use crate::ui::toolbars::edit_mode_toolbar::primitives::base;
 
+pub struct PrimitivesTool;
+
+impl crate::ui::toolbars::edit_mode_toolbar::EditTool for PrimitivesTool {
+    fn id(&self) -> crate::ui::toolbars::edit_mode_toolbar::ToolId {
+        "primitives"
+    }
+    
+    fn name(&self) -> &'static str {
+        "Primitives"
+    }
+    
+    fn icon(&self) -> &'static str {
+        "\u{E018}" // Rectangle icon as default
+    }
+    
+    fn shortcut_key(&self) -> Option<char> {
+        Some('r')
+    }
+    
+    fn default_order(&self) -> i32 {
+        50 // After drawing tools
+    }
+    
+    fn description(&self) -> &'static str {
+        "Draw primitive shapes"
+    }
+    
+    fn update(&self, commands: &mut Commands) {
+        // Disable selection mode while in primitives mode
+        commands.insert_resource(
+            crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive(false),
+        );
+    }
+    
+    fn on_enter(&self) {
+        info!("Entered Primitives tool");
+    }
+    
+    fn on_exit(&self) {
+        info!("Exited Primitives tool");
+    }
+}
+
 // An enum to track which primitive type is currently selected
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Resource)]
 pub enum PrimitiveType {
@@ -81,13 +124,11 @@ impl EditModeSystem for PrimitivesMode {
 // Now add a system that will handle the active primitive tool
 pub fn handle_active_primitive_tool(
     current_primitive_type: Res<CurrentPrimitiveType>,
-    current_mode: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
     mut commands: Commands,
 ) {
     // Only update when in primitives mode
-    if current_mode.0
-        == crate::ui::toolbars::edit_mode_toolbar::EditMode::Primitives
-    {
+    if current_tool.get_current() == Some("primitives") {
         let tool = base::get_primitive_tool(current_primitive_type.0);
         tool.update(&mut commands);
     }
@@ -277,22 +318,31 @@ pub fn handle_primitive_selection(
 
 // System to show/hide the primitive sub-menu based on the current edit mode
 pub fn toggle_primitive_submenu_visibility(
-    current_edit_mode: Res<
-        crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode,
-    >,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
     mut submenu_query: Query<(&mut Visibility, &Name)>,
 ) {
     // Find the primitives submenu by name
     for (mut visibility, name) in submenu_query.iter_mut() {
         if name.as_str() == "PrimitivesSubMenu" {
             // Show the submenu only when in primitives mode
-            *visibility = if current_edit_mode.0
-                == crate::ui::toolbars::edit_mode_toolbar::EditMode::Primitives
-            {
+            *visibility = if current_tool.get_current() == Some("primitives") {
                 Visibility::Visible
             } else {
                 Visibility::Hidden
             };
         }
     }
+}
+
+/// Plugin for the Primitives tool
+pub struct PrimitivesToolPlugin;
+
+impl Plugin for PrimitivesToolPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, register_primitives_tool);
+    }
+}
+
+fn register_primitives_tool(mut tool_registry: ResMut<crate::ui::toolbars::edit_mode_toolbar::ToolRegistry>) {
+    tool_registry.register_tool(Box::new(PrimitivesTool));
 }

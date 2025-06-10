@@ -12,6 +12,46 @@ use crate::rendering::cameras::DesignCamera;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
+pub struct TextTool;
+
+impl crate::ui::toolbars::edit_mode_toolbar::EditTool for TextTool {
+    fn id(&self) -> crate::ui::toolbars::edit_mode_toolbar::ToolId {
+        "text"
+    }
+    
+    fn name(&self) -> &'static str {
+        "Text"
+    }
+    
+    fn icon(&self) -> &'static str {
+        "\u{E017}"
+    }
+    
+    fn shortcut_key(&self) -> Option<char> {
+        Some('t')
+    }
+    
+    fn default_order(&self) -> i32 {
+        40 // After drawing tools, around position 5
+    }
+    
+    fn description(&self) -> &'static str {
+        "Place text and create sorts"
+    }
+    
+    fn update(&self, _commands: &mut Commands) {
+        // Text tool behavior is handled by dedicated systems
+    }
+    
+    fn on_enter(&self) {
+        info!("Entered Text tool - click to place sorts");
+    }
+    
+    fn on_exit(&self) {
+        info!("Exited Text tool");
+    }
+}
+
 /// Resource to track if text mode is active
 #[derive(Resource, Default)]
 pub struct TextModeActive(pub bool);
@@ -61,12 +101,26 @@ impl Plugin for TextModePlugin {
     }
 }
 
+/// Plugin for the Text tool
+pub struct TextToolPlugin;
+
+impl Plugin for TextToolPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, register_text_tool)
+           .add_plugins(TextModePlugin);
+    }
+}
+
+fn register_text_tool(mut tool_registry: ResMut<crate::ui::toolbars::edit_mode_toolbar::ToolRegistry>) {
+    tool_registry.register_tool(Box::new(TextTool));
+}
+
 /// System to track when text mode is active
 pub fn update_text_mode_active(
     mut text_mode_active: ResMut<TextModeActive>,
-    current_mode: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
 ) {
-    let is_text_mode = current_mode.0 == crate::ui::toolbars::edit_mode_toolbar::EditMode::Text;
+    let is_text_mode = current_tool.get_current() == Some("text");
     
     if text_mode_active.0 != is_text_mode {
         text_mode_active.0 = is_text_mode;

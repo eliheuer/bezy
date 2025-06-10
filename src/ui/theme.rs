@@ -13,7 +13,7 @@ pub const WIDGET_TEXT_FONT_SIZE: f32 = 24.0;
 // Widget Visual Style Constants
 pub const WIDGET_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
 pub const WIDGET_BORDER_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
-pub const WIDGET_BORDER_RADIUS: f32 = 4.0;
+pub const WIDGET_BORDER_RADIUS: f32 = 0.0;
 pub const WIDGET_BORDER_WIDTH: f32 = 2.0;
 pub const WIDGET_PADDING: f32 = 16.0;
 pub const WIDGET_MARGIN: f32 = 24.0;
@@ -31,7 +31,7 @@ pub const GIZMO_LINE_WIDTH: f32 = 3.0;
 pub const TOOLBAR_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
 pub const TOOLBAR_ICON_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
 pub const TOOLBAR_BORDER_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
-pub const TOOLBAR_BORDER_RADIUS: f32 = 4.0;
+pub const TOOLBAR_BORDER_RADIUS: f32 = 0.0;
 pub const TOOLBAR_BORDER_WIDTH: f32 = 2.0;
 pub const TOOLBAR_PADDING: f32 = 8.0;
 pub const TOOLBAR_MARGIN: f32 = 16.0;

@@ -15,7 +15,7 @@ use crate::systems::sort_manager::{
     sync_points_to_sort_move, sync_sort_transforms, update_sort_from_crosshair_move,
     update_sort_glyph_data,
 };
-use crate::ui::toolbars::edit_mode_toolbar::text::TextModePlugin;
+
 use bevy::prelude::*;
 
 /// System sets for Sort management
@@ -37,8 +37,6 @@ impl Plugin for SortPlugin {
             .add_event::<SortEvent>()
             // Add sort resources
             .init_resource::<ActiveSortState>()
-            // Add the text mode plugin for sort placement
-            .add_plugins(TextModePlugin)
             // Configure system sets to run in proper order
             .configure_sets(
                 Update,

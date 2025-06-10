@@ -182,6 +182,76 @@ If you're new to Rust and want to contribute to Bezy:
 4. Try making small modifications to understand how things work
 5. PRs are welcome!
 
+### Adding Custom Tools
+
+Bezy features a dynamic toolbar system that makes it incredibly easy to add new editing tools. The system uses Bevy's plugin architecture and requires minimal code changes.
+
+#### Quick Start: Adding a Tool
+
+1. **Create your tool file** (`src/ui/toolbars/edit_mode_toolbar/my_tool.rs`):
+   ```rust
+   use bevy::prelude::*;
+   use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
+
+   pub struct MyTool;
+
+   impl EditTool for MyTool {
+       fn id(&self) -> crate::ui::toolbars::edit_mode_toolbar::ToolId {
+           "my_tool"
+       }
+       
+       fn name(&self) -> &'static str {
+           "My Tool"
+       }
+       
+       fn icon(&self) -> &'static str {
+           "\u{E019}"  // Unicode icon
+       }
+       
+       fn default_order(&self) -> i32 {
+           50  // Lower numbers appear first
+       }
+       
+       fn update(&self, commands: &mut Commands) {
+           // Tool behavior while active
+       }
+   }
+
+   pub struct MyToolPlugin;
+
+   impl Plugin for MyToolPlugin {
+       fn build(&self, app: &mut App) {
+           app.add_systems(Startup, register_my_tool);
+       }
+   }
+
+   fn register_my_tool(mut tool_registry: ResMut<ToolRegistry>) {
+       tool_registry.register_tool(Box::new(MyTool));
+   }
+   ```
+
+2. **Add module declaration** to `src/ui/toolbars/edit_mode_toolbar/mod.rs`:
+   ```rust
+   mod my_tool;
+   pub use my_tool::MyToolPlugin;
+   ```
+
+3. **Register the plugin** in your app:
+   ```rust
+   app.add_plugins(MyToolPlugin);
+   ```
+
+That's it! Your tool automatically appears in the toolbar with proper ordering and functionality.
+
+#### Advanced Features
+
+- **Custom ordering**: Control tool order with `default_order()` or `ToolOrdering` resource
+- **Keyboard shortcuts**: Add shortcuts with `shortcut_key()`
+- **Lifecycle management**: Use `on_enter()` and `on_exit()` for setup/cleanup
+- **Temporary modes**: Support temporary activation (like spacebar for pan)
+
+For detailed documentation, see `src/ui/toolbars/edit_mode_toolbar/USAGE.md`.
+
 ## Documentation
 
 Bezy has developer documentation available in the `docs/` directory:

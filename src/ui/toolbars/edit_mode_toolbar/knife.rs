@@ -4,6 +4,48 @@ use bevy::prelude::*;
 use kurbo::{BezPath, ParamCurve};
 use log::info;
 
+/// New EditTool implementation for Knife tool
+pub struct KnifeTool;
+
+impl crate::ui::toolbars::edit_mode_toolbar::EditTool for KnifeTool {
+    fn id(&self) -> crate::ui::toolbars::edit_mode_toolbar::ToolId {
+        "knife"
+    }
+    
+    fn name(&self) -> &'static str {
+        "Knife"
+    }
+    
+    fn icon(&self) -> &'static str {
+        "\u{E022}" // Knife icon
+    }
+    
+    fn shortcut_key(&self) -> Option<char> {
+        Some('k')
+    }
+    
+    fn default_order(&self) -> i32 {
+        110 // Advanced tool, later in toolbar
+    }
+    
+    fn description(&self) -> &'static str {
+        "Cut and slice paths"
+    }
+    
+    fn update(&self, commands: &mut Commands) {
+        // Mark knife mode as active
+        commands.insert_resource(KnifeModeActive(true));
+    }
+    
+    fn on_enter(&self) {
+        info!("Entered Knife tool");
+    }
+    
+    fn on_exit(&self) {
+        info!("Exited Knife tool");
+    }
+}
+
 /// Resource to track if knife mode is active
 #[derive(Resource, Default, PartialEq, Eq)]
 pub struct KnifeModeActive(pub bool);
@@ -15,6 +57,7 @@ impl Plugin for KnifeModePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<KnifeToolState>()
             .init_resource::<KnifeModeActive>()
+            .add_systems(Startup, register_knife_tool)
             .add_systems(
                 Update,
                 (
@@ -25,6 +68,10 @@ impl Plugin for KnifeModePlugin {
                 ),
             );
     }
+}
+
+fn register_knife_tool(mut tool_registry: ResMut<crate::ui::toolbars::edit_mode_toolbar::ToolRegistry>) {
+    tool_registry.register_tool(Box::new(KnifeTool));
 }
 
 /// The state of the knife gesture
@@ -110,11 +157,11 @@ impl EditModeSystem for KnifeMode {
 
 /// System to handle deactivation of knife mode when another mode is selected
 pub fn reset_knife_mode_when_inactive(
-    current_mode: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
     mut commands: Commands,
     mut knife_state: ResMut<KnifeToolState>,
 ) {
-    if current_mode.0 != crate::ui::toolbars::edit_mode_toolbar::EditMode::Knife
+    if current_tool.get_current() != Some("knife")
     {
         // Clear state and mark inactive
         *knife_state = KnifeToolState::default();

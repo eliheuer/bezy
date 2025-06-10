@@ -4,6 +4,48 @@ use bevy::prelude::*;
 use kurbo::BezPath;
 use norad::{Contour, ContourPoint, PointType};
 
+/// New EditTool implementation for Hyperbezier tool
+pub struct HyperTool;
+
+impl crate::ui::toolbars::edit_mode_toolbar::EditTool for HyperTool {
+    fn id(&self) -> crate::ui::toolbars::edit_mode_toolbar::ToolId {
+        "hyper"
+    }
+    
+    fn name(&self) -> &'static str {
+        "Hyperbezier"
+    }
+    
+    fn icon(&self) -> &'static str {
+        "\u{E021}" // Hyperbezier icon
+    }
+    
+    fn shortcut_key(&self) -> Option<char> {
+        Some('h')
+    }
+    
+    fn default_order(&self) -> i32 {
+        100 // Advanced tool, later in toolbar
+    }
+    
+    fn description(&self) -> &'static str {
+        "Draw smooth hyperbezier curves"
+    }
+    
+    fn update(&self, commands: &mut Commands) {
+        // Mark hyper pen mode as active
+        commands.insert_resource(HyperModeActive(true));
+    }
+    
+    fn on_enter(&self) {
+        info!("Entered Hyperbezier tool");
+    }
+    
+    fn on_exit(&self) {
+        info!("Exited Hyperbezier tool");
+    }
+}
+
 /// Resource to track if hyper pen mode is active
 #[derive(Resource, Default, PartialEq, Eq)]
 pub struct HyperModeActive(pub bool);
@@ -15,6 +57,7 @@ impl Plugin for HyperModePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<HyperToolState>()
             .init_resource::<HyperModeActive>()
+            .add_systems(Startup, register_hyper_tool)
             .add_systems(
                 Update,
                 (
@@ -25,6 +68,10 @@ impl Plugin for HyperModePlugin {
                 ),
             );
     }
+}
+
+fn register_hyper_tool(mut tool_registry: ResMut<crate::ui::toolbars::edit_mode_toolbar::ToolRegistry>) {
+    tool_registry.register_tool(Box::new(HyperTool));
 }
 
 /// The state of the hyper pen tool
@@ -96,12 +143,12 @@ impl EditModeSystem for HyperMode {
 
 /// System to handle deactivation of hyper pen mode when another mode is selected
 pub fn reset_hyper_mode_when_inactive(
-    current_mode: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
     mut commands: Commands,
     mut hyper_state: ResMut<HyperToolState>,
     mut app_state_changed: EventWriter<crate::rendering::draw::AppStateChanged>,
 ) {
-    if current_mode.0 != crate::ui::toolbars::edit_mode_toolbar::EditMode::Hyper
+    if current_tool.get_current() != Some("hyper")
     {
         // Commit any open path before deactivating
         if hyper_state.state == HyperState::Drawing

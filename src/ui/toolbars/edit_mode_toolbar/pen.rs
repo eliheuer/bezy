@@ -12,6 +12,47 @@ use bevy::prelude::*;
 use kurbo::BezPath;
 use norad::{Contour, ContourPoint};
 
+pub struct PenTool;
+
+impl crate::ui::toolbars::edit_mode_toolbar::EditTool for PenTool {
+    fn id(&self) -> crate::ui::toolbars::edit_mode_toolbar::ToolId {
+        "pen"
+    }
+    
+    fn name(&self) -> &'static str {
+        "Pen"
+    }
+    
+    fn icon(&self) -> &'static str {
+        "\u{E011}"
+    }
+    
+    fn shortcut_key(&self) -> Option<char> {
+        Some('p')
+    }
+    
+    fn default_order(&self) -> i32 {
+        20 // After select, primary drawing tool
+    }
+    
+    fn description(&self) -> &'static str {
+        "Draw paths and contours"
+    }
+    
+    fn update(&self, commands: &mut Commands) {
+        // Ensure pen mode is active
+        commands.insert_resource(PenModeActive(true));
+    }
+    
+    fn on_enter(&self) {
+        info!("Entered Pen tool");
+    }
+    
+    fn on_exit(&self) {
+        info!("Exited Pen tool");
+    }
+}
+
 // ================================================================
 // CONSTANTS TODO: MOVE TO SETTINGS
 // ================================================================
@@ -135,13 +176,13 @@ impl EditModeSystem for PenMode {
 /// If the user was in the middle of drawing a path, this system
 /// will automatically commit it before switching modes.
 pub fn reset_pen_mode_when_inactive(
-    current_mode: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentEditMode>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
     mut commands: Commands,
     mut pen_state: ResMut<PenToolState>,
     mut app_state_changed: EventWriter<crate::rendering::draw::AppStateChanged>,
 ) {
     // Early return if still in pen mode
-    if current_mode.0 == crate::ui::toolbars::edit_mode_toolbar::EditMode::Pen {
+    if current_tool.get_current() == Some("pen") {
         return;
     }
 
@@ -711,4 +752,18 @@ fn create_contour_from_points(points: &[Vec2], active_sort_offset: Vec2) -> Opti
     }
 
     Some(Contour::new(contour_points, None, None))
+}
+
+/// Plugin for the Pen tool
+pub struct PenToolPlugin;
+
+impl Plugin for PenToolPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, register_pen_tool)
+           .add_plugins(PenModePlugin);
+    }
+}
+
+fn register_pen_tool(mut tool_registry: ResMut<crate::ui::toolbars::edit_mode_toolbar::ToolRegistry>) {
+    tool_registry.register_tool(Box::new(PenTool));
 }
