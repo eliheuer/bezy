@@ -18,7 +18,7 @@ impl crate::ui::toolbars::edit_mode_toolbar::EditTool for PrimitivesTool {
     }
     
     fn icon(&self) -> &'static str {
-        "\u{E018}" // Rectangle icon as default
+        "\u{E016}" // Primitives icon
     }
     
     fn shortcut_key(&self) -> Option<char> {

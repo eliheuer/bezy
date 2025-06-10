@@ -17,7 +17,7 @@ impl crate::ui::toolbars::edit_mode_toolbar::EditTool for KnifeTool {
     }
     
     fn icon(&self) -> &'static str {
-        "\u{E022}" // Knife icon
+        "\u{E013}" // Knife icon
     }
     
     fn shortcut_key(&self) -> Option<char> {

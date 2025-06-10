@@ -17,7 +17,7 @@ impl crate::ui::toolbars::edit_mode_toolbar::EditTool for HyperTool {
     }
     
     fn icon(&self) -> &'static str {
-        "\u{E021}" // Hyperbezier icon
+        "\u{E012}" // Hyperbezier icon
     }
     
     fn shortcut_key(&self) -> Option<char> {
