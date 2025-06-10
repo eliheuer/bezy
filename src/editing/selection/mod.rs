@@ -73,10 +73,13 @@ impl Plugin for SelectionPlugin {
             .add_systems(
                 Update,
                 (
+                    // Mouse input must run first to handle clicks and drag start/end
                     systems::handle_mouse_input,
+                    // Point drag runs after mouse input to process ongoing drags
+                    systems::handle_point_drag.after(systems::handle_mouse_input),
+                    // Other input systems can run in parallel
                     systems::handle_selection_shortcuts,
                     systems::handle_key_releases,
-                    systems::handle_point_drag,
                 )
                     .in_set(SelectionSystemSet::Input),
             )

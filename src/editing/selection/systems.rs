@@ -144,12 +144,21 @@ pub fn handle_mouse_input(
                     debug!("Added Selected to entity {:?}", entity);
                 }
 
+                // Ensure we're not already dragging before starting a new drag
+                if drag_point_state.is_dragging {
+                    debug!("WARNING: Starting drag while already dragging - resetting drag state");
+                    drag_point_state.is_dragging = false;
+                    drag_point_state.original_positions.clear();
+                    drag_point_state.dragged_entities.clear();
+                }
+
                 drag_point_state.is_dragging = true;
                 drag_point_state.start_position = Some(cursor_pos);
                 drag_point_state.current_position = Some(cursor_pos);
                 
                 // Include all currently selected entities in the drag operation
                 drag_point_state.dragged_entities = selection_state.selected.iter().cloned().collect();
+                debug!("Starting drag with {} entities", drag_point_state.dragged_entities.len());
 
                 // Save the original positions for all selected entities
                 // We'll use the selected_query which contains the current selection with transforms
@@ -172,14 +181,23 @@ pub fn handle_mouse_input(
                     }
                 }
 
+                // Validate that we have original positions for all dragged entities
+                let missing_positions = drag_point_state.dragged_entities.iter()
+                    .filter(|e| !drag_point_state.original_positions.contains_key(e))
+                    .count();
+                if missing_positions > 0 {
+                    debug!("WARNING: {} dragged entities are missing original positions", missing_positions);
+                }
+
                 // Notify about the edit
                 event_writer.send(EditEvent {
                     edit_type: EditType::Normal,
                 });
 
                 debug!(
-                    "Selection updated and drag started. Current selection count: {}",
-                    selection_state.selected.len()
+                    "Selection updated and drag started. Current selection count: {}, drag entities: {}",
+                    selection_state.selected.len(),
+                    drag_point_state.dragged_entities.len()
                 );
             } else {
                 debug!("No entity clicked, starting drag selection");
@@ -325,8 +343,11 @@ pub fn handle_mouse_input(
 
     // Handle mouse button release
     if mouse_button_input.just_released(MouseButton::Left) {
+        debug!("Mouse released - checking for active drags");
+        
         // Handle point drag end
         if drag_point_state.is_dragging {
+            debug!("Ending point drag - {} entities were being dragged", drag_point_state.dragged_entities.len());
             drag_point_state.is_dragging = false;
 
             // Only send edit event if points were actually moved
@@ -334,9 +355,12 @@ pub fn handle_mouse_input(
                 event_writer.send(EditEvent {
                     edit_type: EditType::DragUp,
                 });
-                debug!("Point drag completed");
+                debug!("Point drag completed with movement");
+            } else {
+                debug!("Point drag completed without movement");
             }
 
+            // Clean up drag state
             drag_point_state.start_position = None;
             drag_point_state.current_position = None;
             drag_point_state.dragged_entities.clear();
@@ -345,6 +369,7 @@ pub fn handle_mouse_input(
 
         // Handle drag selection end
         if drag_state.is_dragging {
+            debug!("Ending drag selection");
             drag_state.is_dragging = false;
             drag_state.start_position = None;
             drag_state.current_position = None;
@@ -364,6 +389,10 @@ pub fn handle_mouse_input(
                     selection_state.selected.len()
                 );
             }
+        }
+        
+        if !drag_point_state.is_dragging && !drag_state.is_dragging {
+            debug!("Mouse released - no active drags to clean up");
         }
     }
 }
@@ -612,33 +641,24 @@ pub fn render_selected_entities(
 
         // Different rendering based on point type
         if point_type.is_on_curve && crate::ui::theme::USE_SQUARE_FOR_ON_CURVE {
-            // Draw a square for on-curve points
+            // Draw a filled square for on-curve points to completely cover the underlying glyph point
             let half_size = crate::ui::theme::SELECTION_POINT_RADIUS
                 / crate::ui::theme::ON_CURVE_SQUARE_ADJUSTMENT
                 * size_multiplier;
 
-            // First draw a filled circle inside the square
+            // Draw a filled rectangle to completely cover the underlying green square
+            gizmos.rect_2d(
+                position_2d,
+                Vec2::new(half_size * 2.0, half_size * 2.0),
+                selection_color,
+            );
+
+            // Draw a smaller inner circle for visual distinction
             gizmos.circle_2d(
                 position_2d,
                 half_size * crate::ui::theme::ON_CURVE_INNER_CIRCLE_RATIO,
                 selection_color,
             );
-
-            // Then draw the square outline
-            let top_left =
-                Vec2::new(position_2d.x - half_size, position_2d.y + half_size);
-            let top_right =
-                Vec2::new(position_2d.x + half_size, position_2d.y + half_size);
-            let bottom_right =
-                Vec2::new(position_2d.x + half_size, position_2d.y - half_size);
-            let bottom_left =
-                Vec2::new(position_2d.x - half_size, position_2d.y - half_size);
-
-            // Draw the square sides
-            gizmos.line_2d(top_left, top_right, selection_color);
-            gizmos.line_2d(top_right, bottom_right, selection_color);
-            gizmos.line_2d(bottom_right, bottom_left, selection_color);
-            gizmos.line_2d(bottom_left, top_left, selection_color);
         } else {
             // Draw a circle for off-curve points
             gizmos.circle_2d(
@@ -851,7 +871,6 @@ pub fn handle_key_releases(
 /// System to handle dragging of selected points
 pub fn handle_point_drag(
     windows: Query<&Window, With<PrimaryWindow>>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
     mut drag_point_state: ResMut<DragPointState>,
@@ -872,6 +891,8 @@ pub fn handle_point_drag(
     if !drag_point_state.is_dragging {
         return;
     }
+
+    debug!("handle_point_drag: Processing drag for {} selected entities", query.iter().count());
 
     // Early return if no window or camera
     let Ok(window) = windows.get_single() else {
@@ -894,6 +915,7 @@ pub fn handle_point_drag(
             let total_movement = cursor_pos - start_pos;
             let mut movement = total_movement;
 
+            // Handle constrained movement with Shift key
             if keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight) {
                 if total_movement.x.abs() > total_movement.y.abs() {
                     movement.y = 0.0;
