@@ -1,4 +1,4 @@
-use crate::editing::selection::components::Selected;
+use crate::editing::selection::components::{Selectable, Selected};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -68,12 +68,9 @@ fn create_edit_session(mut commands: Commands) {
 fn update_edit_session(
     mut edit_sessions: Query<&mut EditSession>,
     selected_points: Query<(Entity, &Transform), With<Selected>>,
-    all_points: Query<
-        (Entity, &Transform),
-        With<crate::editing::selection::components::Selectable>,
-    >,
+    all_points: Query<(Entity, &Transform), With<Selectable>>,
 ) {
-    if let Ok(mut session) = edit_sessions.get_single_mut() {
+    if let Ok(mut session) = edit_sessions.single_mut() {
         // Update selection count
         session.selection_count = selected_points.iter().count();
 
@@ -97,7 +94,7 @@ fn sync_transforms_with_session(
 ) {
     // Only run this system when the EditSession has been explicitly changed
     // (e.g., through undo/redo operations)
-    if let Ok(session) = edit_sessions.get_single() {
+    if let Ok(session) = edit_sessions.single() {
         // Only process if we have stored point positions
         if !session.point_positions.is_empty() {
             // Count how many transforms we updated
@@ -128,4 +125,4 @@ fn debug_print_edit_sessions(edit_sessions: Query<Entity, With<EditSession>>) {
             edit_sessions.iter().collect::<Vec<_>>()
         );
     }
-}
+} 

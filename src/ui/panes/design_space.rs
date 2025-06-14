@@ -10,9 +10,11 @@ use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use bevy::math::{Mat3, Vec2, Vec3};
 use bevy::prelude::*;
+use crate::ui::palette;
+
 
 /// The position of the view, relative to the design space.
-#[derive(Component, Debug, Clone, Copy, PartialEq)]
+#[derive(Resource, Debug, Clone, Copy, PartialEq)]
 pub struct ViewPort {
     /// The offset from (0, 0) in view space (the top left corner) and (0, 0) in
     /// design space, which is the intersection of the baseline and the left sidebearing.
@@ -53,25 +55,16 @@ impl DPoint {
     /// Should only be used with inputs already in design space, such as when
     /// loaded from file.
     pub(crate) fn new(x: f32, y: f32) -> DPoint {
-        assert!(
-            x.is_finite()
-                && y.is_finite()
-                && x.fract() == 0.
-                && y.fract() == 0.,
-            "({}, {})",
-            x,
-            y
-        );
         DPoint { x, y }
     }
 
     #[allow(dead_code)]
-    pub fn from_screen(point: Vec2, vport: ViewPort) -> DPoint {
+    pub fn from_screen(point: Vec2, vport: &ViewPort) -> DPoint {
         vport.from_screen(point)
     }
 
     #[allow(dead_code)]
-    pub fn to_screen(self, vport: ViewPort) -> Vec2 {
+    pub fn to_screen(self, vport: &ViewPort) -> Vec2 {
         vport.to_screen(self)
     }
 
@@ -81,7 +74,7 @@ impl DPoint {
     #[allow(dead_code)]
     pub fn from_raw(point: impl Into<Vec2>) -> DPoint {
         let point = point.into();
-        DPoint::new(point.x.round(), point.y.round())
+        DPoint::new(point.x, point.y)
     }
 
     /// Convert a design point directly to a Vec2, without taking screen geometry
@@ -123,19 +116,13 @@ impl DVec2 {
     pub const ZERO: DVec2 = DVec2 { x: 0.0, y: 0.0 };
 
     fn new(x: f32, y: f32) -> DVec2 {
-        assert!(
-            x.is_finite()
-                && y.is_finite()
-                && x.fract() == 0.
-                && y.fract() == 0.
-        );
         DVec2 { x, y }
     }
 
     #[allow(dead_code)]
     pub fn from_raw(vec2: impl Into<Vec2>) -> DVec2 {
         let vec2 = vec2.into();
-        DVec2::new(vec2.x.round(), vec2.y.round())
+        DVec2::new(vec2.x, vec2.y)
     }
 
     #[allow(dead_code)]
@@ -185,19 +172,11 @@ impl ViewPort {
     }
 
     pub fn transform_matrix(&self) -> Mat3 {
-        let y_scale = if self.flipped_y {
-            self.zoom
-        } else {
-            -self.zoom
-        };
+        let y_scale = if self.flipped_y { -self.zoom } else { self.zoom };
         Mat3::from_cols(
             Vec3::new(self.zoom, 0.0, 0.0),
             Vec3::new(0.0, y_scale, 0.0),
-            Vec3::new(
-                self.offset.x * self.zoom,
-                self.offset.y * self.zoom,
-                1.0,
-            ),
+            Vec3::new(self.offset.x, self.offset.y, 1.0),
         )
     }
 
@@ -206,40 +185,20 @@ impl ViewPort {
     }
 
     pub fn from_screen(&self, point: impl Into<Vec2>) -> DPoint {
-        let point = point.into();
-        let transformed =
-            self.inverse_transform_matrix().transform_point2(point);
-        DPoint::new(transformed.x.round(), transformed.y.round())
+        let point: Vec2 = point.into();
+        let DPoint { x, y } = self.inverse_transform_matrix().transform_point2(point).into();
+        DPoint::new(x, y)
     }
 
     pub fn to_screen(&self, point: impl Into<DPoint>) -> Vec2 {
-        let point = point.into().to_raw();
-        self.transform_matrix().transform_point2(point)
-    }
-
-    // rects get special treatment because they can't be transformed with a matrix directly
-    #[allow(dead_code)]
-    pub fn rect_to_screen(&self, rect: Rect) -> Rect {
-        let p0 = self.to_screen(DPoint::from_raw(rect.min));
-        let p1 = self.to_screen(DPoint::from_raw(rect.max));
-        Rect::from_corners(p0, p1)
-    }
-
-    #[allow(dead_code)]
-    pub fn get_color(&self) -> Color {
-        Color::srgba(1.0, 0.0, 0.0, 1.0)
-    }
-
-    #[allow(dead_code)]
-    pub fn get_hover_color(&self) -> Color {
-        Color::srgba(1.0, 0.0, 0.0, 1.0)
+        let point = point.into();
+        self.transform_matrix().transform_point2(point.to_raw())
     }
 }
 
 impl Add<DVec2> for DPoint {
     type Output = DPoint;
 
-    #[inline]
     fn add(self, other: DVec2) -> Self {
         DPoint::new(self.x + other.x, self.y + other.y)
     }
@@ -248,7 +207,6 @@ impl Add<DVec2> for DPoint {
 impl Sub<DVec2> for DPoint {
     type Output = DPoint;
 
-    #[inline]
     fn sub(self, other: DVec2) -> Self {
         DPoint::new(self.x - other.x, self.y - other.y)
     }
@@ -257,7 +215,6 @@ impl Sub<DVec2> for DPoint {
 impl Sub<DPoint> for DPoint {
     type Output = DVec2;
 
-    #[inline]
     fn sub(self, other: DPoint) -> DVec2 {
         DVec2::new(self.x - other.x, self.y - other.y)
     }
@@ -266,22 +223,20 @@ impl Sub<DPoint> for DPoint {
 impl Add for DVec2 {
     type Output = DVec2;
 
-    #[inline]
     fn add(self, other: DVec2) -> DVec2 {
-        DVec2::new((self.x + other.x).round(), (self.y + other.y).round())
+        DVec2::new(self.x + other.x, self.y + other.y)
     }
 }
 
 impl AddAssign for DVec2 {
     fn add_assign(&mut self, rhs: DVec2) {
-        *self = *self + rhs
+        *self = *self + rhs;
     }
 }
 
 impl Sub for DVec2 {
     type Output = DVec2;
 
-    #[inline]
     fn sub(self, other: DVec2) -> DVec2 {
         DVec2::new(self.x - other.x, self.y - other.y)
     }
@@ -289,80 +244,84 @@ impl Sub for DVec2 {
 
 impl SubAssign for DVec2 {
     fn sub_assign(&mut self, rhs: DVec2) {
-        *self = *self - rhs
+        *self = *self - rhs;
     }
 }
 
 impl From<(f32, f32)> for DPoint {
     fn from(src: (f32, f32)) -> DPoint {
-        DPoint::new(src.0.round(), src.1.round())
+        DPoint::new(src.0, src.1)
+    }
+}
+
+impl From<Vec2> for DPoint {
+    fn from(src: Vec2) -> DPoint {
+        DPoint::new(src.x, src.y)
     }
 }
 
 impl fmt::Debug for DPoint {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "D({:?}, {:?})", self.x, self.y)
+        write!(f, "DPoint<{} {}>", self.x, self.y)
     }
 }
 
 impl fmt::Display for DPoint {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "D(")?;
-        fmt::Display::fmt(&self.x, formatter)?;
-        write!(formatter, ", ")?;
-        fmt::Display::fmt(&self.y, formatter)?;
-        write!(formatter, ")")
+        write!(
+            formatter,
+            "x: {:.1}, y: {:.1}",
+            self.x,
+            self.y
+        )
     }
 }
 
 impl fmt::Display for DVec2 {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "D𝐯=(")?;
-        fmt::Display::fmt(&self.x, formatter)?;
-        write!(formatter, ", ")?;
-        fmt::Display::fmt(&self.y, formatter)?;
-        write!(formatter, ")")
+        write!(
+            formatter,
+            "x: {:.1}, y: {:.1}",
+            self.x,
+            self.y
+        )
     }
 }
 
 impl Default for ViewPort {
     fn default() -> Self {
-        ViewPort {
-            offset: Vec2::ZERO,
+        Self {
+            offset: Vec2::new(100.0, 400.0),
             zoom: 1.0,
             flipped_y: true,
         }
     }
 }
 
-/// System that draws debug coordinate lines in the design space
-pub fn debug_coordinates(mut gizmos: Gizmos) {
-    use crate::ui::theme::DEBUG_SHOW_ORIGIN_CROSS;
-
-    // Only draw the debug cross if enabled in theme settings
-    if DEBUG_SHOW_ORIGIN_CROSS {
-        // Draw a cross at (0,0) using 2D gizmos to ensure they render on top of sorts
-        gizmos.line_2d(
-            Vec2::new(-10.0, 0.0),
-            Vec2::new(10.0, 0.0),
-            Color::srgba(1.0, 0.0, 0.0, 1.0),
-        );
-        gizmos.line_2d(
-            Vec2::new(0.0, -10.0),
-            Vec2::new(0.0, 10.0),
-            Color::srgba(1.0, 0.0, 0.0, 1.0),
-        );
+pub fn debug_coordinates(
+    mut gizmos: Gizmos,
+    vport: Res<ViewPort>,
+)
+{
+    if !palette::DEBUG_SHOW_ORIGIN_CROSS {
+        return;
     }
+    let origin = vport.to_screen(DPoint::new(0.0, 0.0));
+    let x_max = vport.to_screen(DPoint::new(100.0, 0.0));
+    let y_max = vport.to_screen(DPoint::new(0.0, 100.0));
+
+    gizmos.line_2d(origin, x_max, Color::srgb(1.0, 0.0, 0.0));
+    gizmos.line_2d(origin, y_max, Color::srgb(0.0, 1.0, 0.0));
 }
 
-/// Plugin that sets up the design space systems
 pub struct DesignSpacePlugin;
 
 impl Plugin for DesignSpacePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update, 
-            debug_coordinates.after(crate::editing::sort_plugin::SortSystemSet::Rendering)
-        );
+        app
+            .init_resource::<ViewPort>()
+            .add_systems(Update, debug_coordinates);
     }
 }
+
+// Design space - coming soon! 

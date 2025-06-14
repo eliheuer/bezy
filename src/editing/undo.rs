@@ -107,4 +107,4 @@ impl<T: Clone> UndoState<T> {
             f(state);
         }
     }
-}
+} 

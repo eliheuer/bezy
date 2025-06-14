@@ -67,7 +67,7 @@ pub fn initialize_undo_stack(
         return;
     }
 
-    if let Ok(session) = edit_sessions.get_single() {
+    if let Ok(session) = edit_sessions.single() {
         debug!("Initializing undo stack with initial edit session");
         let undo_resource = UndoStateResource {
             undo_stack: UndoState::new(Arc::new(session.clone())),
@@ -118,7 +118,7 @@ pub fn handle_undo_redo_shortcuts(
             debug!("Undoing last action");
             *debug_count += 1; // Track undo count for debugging
 
-            if let Ok(mut session) = edit_sessions.get_single_mut() {
+            if let Ok(mut session) = edit_sessions.single_mut() {
                 // Replace the current EditSession with the previous state
                 *session = prev_state.as_ref().clone();
 
@@ -159,7 +159,7 @@ pub fn handle_undo_redo_shortcuts(
         if let Some(next_state) = undo_state.undo_stack.redo() {
             debug!("Redoing previously undone action");
 
-            if let Ok(mut session) = edit_sessions.get_single_mut() {
+            if let Ok(mut session) = edit_sessions.single_mut() {
                 // Replace the current EditSession with the next state
                 *session = next_state.as_ref().clone();
 
@@ -218,4 +218,4 @@ impl Plugin for UndoPlugin {
                 (initialize_undo_stack, handle_undo_redo_shortcuts),
             );
     }
-}
+} 
