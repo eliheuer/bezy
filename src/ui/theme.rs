@@ -1,6 +1,4 @@
-//! A palette of colors and other style constants for the Bezy UI.
-
-use bevy::prelude::Color;
+use bevy::prelude::*;
 
 // Font Path
 pub const DEFAULT_FONT_PATH: &str = "fonts/bezy-grotesk-regular.ttf";
@@ -112,12 +110,13 @@ pub const PATH_FILL_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
 pub const BACKGROUND_COLOR: Color = Color::srgb(0.05, 0.05, 0.05);
 
 // Checkerboard Configuration
-pub const CHECKERBOARD_UNIT_SIZE: f32 = 32.0;
-pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
-pub const CHECKERBOARD_DARK_COLOR: Color = Color::srgb(0.05, 0.05, 0.05);
+pub const CHECKERBOARD_UNIT_SIZE: f32 = 32.0; // Width and height of each square in pixels
+pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.2, 0.2, 0.2); // Light color for checkerboard squares
+pub const CHECKERBOARD_DARK_COLOR: Color = Color::srgb(0.05, 0.05, 0.05); // Dark color for checkerboard squares
 
-pub const CHECKERBOARD_SCALE_FACTOR: f32 = 2.0;
-pub const CHECKERBOARD_MAX_ZOOM_VISIBLE: f32 = 32.0;
+// Dynamic Checkerboard Scaling Configuration
+pub const CHECKERBOARD_SCALE_FACTOR: f32 = 2.0; // How much the grid scales with zoom (2.0 = doubles)
+pub const CHECKERBOARD_MAX_ZOOM_VISIBLE: f32 = 32.0; // Hide checkerboard when zoomed out beyond this level
 
 // Sort Configuration
 pub const SORT_ACTIVE_METRICS_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 0.5);
@@ -129,4 +128,124 @@ pub const KNIFE_INTERSECTION_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0);
 pub const KNIFE_START_POINT_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 1.0);
 pub const KNIFE_DASH_LENGTH: f32 = 8.0;
 pub const KNIFE_GAP_LENGTH: f32 = 4.0;
-pub const KNIFE_CROSS_SIZE: f32 = 8.0; 
+pub const KNIFE_CROSS_SIZE: f32 = 8.0;
+
+/// Creates a consistent styled container for UI widgets/panes
+///
+/// Returns a bundle of components that can be used to spawn a widget with
+/// consistent styling across the application.
+pub fn create_widget_style<T: Component + Default>(
+    _asset_server: &Res<AssetServer>,
+    position: PositionType,
+    position_props: UiRect,
+    marker: T,
+    name: &str,
+) -> impl Bundle {
+    (
+        Node {
+            position_type: position,
+            left: position_props.left,
+            right: position_props.right,
+            top: position_props.top,
+            bottom: position_props.bottom,
+            padding: UiRect::all(Val::Px(WIDGET_PADDING)),
+            margin: UiRect::all(Val::Px(0.0)),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(WIDGET_ROW_GAP),
+            border: UiRect::all(Val::Px(WIDGET_BORDER_WIDTH)),
+            // Add size constraints to keep widgets compact
+            width: Val::Auto,
+            height: Val::Auto,
+            min_width: Val::Auto,
+            min_height: Val::Auto,
+            max_width: Val::Px(256.0), // Reduced maximum width for more compact widgets
+            max_height: Val::Percent(50.0), // Limit height to prevent stretching to top of screen
+            justify_content: JustifyContent::FlexStart,
+            align_items: AlignItems::FlexStart,
+            ..default()
+        },
+        BackgroundColor(WIDGET_BACKGROUND_COLOR),
+        BorderColor(WIDGET_BORDER_COLOR),
+        BorderRadius::all(Val::Px(WIDGET_BORDER_RADIUS)),
+        marker,
+        Name::new(name.to_string()),
+    )
+}
+
+/// Creates a text component with the mono font and standard styling
+#[allow(dead_code)]
+pub fn create_widget_text(
+    asset_server: &Res<AssetServer>,
+    text: &str,
+    font_size: f32,
+    color: Color,
+) -> (Text, TextFont, TextColor) {
+    (
+        Text::new(text),
+        TextFont {
+            font: asset_server.load(MONO_FONT_PATH),
+            font_size,
+            ..default()
+        },
+        TextColor(color),
+    )
+}
+
+/// Creates a label (dim) and value (bright) text pair for a widget row
+#[allow(dead_code)]
+pub fn create_widget_label_value_pair(
+    asset_server: &Res<AssetServer>,
+    label: &str,
+    value: &str,
+) -> impl Bundle {
+    (
+        Node {
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            width: Val::Auto,
+            height: Val::Auto,
+            ..default()
+        },
+        (
+            Node {
+                margin: UiRect::right(Val::Px(4.0)),
+                width: Val::Auto,
+                ..default()
+            },
+            Text::new(label),
+            TextFont {
+                font: asset_server.load(MONO_FONT_PATH),
+                font_size: WIDGET_TEXT_FONT_SIZE,
+                ..default()
+            },
+            TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+        ),
+        (
+            Text::new(value),
+            TextFont {
+                font: asset_server.load(MONO_FONT_PATH),
+                font_size: WIDGET_TEXT_FONT_SIZE,
+                ..default()
+            },
+            TextColor(TEXT_COLOR),
+        ),
+    )
+}
+
+#[allow(dead_code)]
+pub fn get_default_text_style(asset_server: &Res<AssetServer>) -> TextFont {
+    TextFont {
+        font: asset_server.load(DEFAULT_FONT_PATH),
+        font_size: 40.0,
+        ..default()
+    }
+}
+
+#[allow(dead_code)]
+pub fn get_mono_text_style(asset_server: &Res<AssetServer>) -> TextFont {
+    TextFont {
+        font: asset_server.load(MONO_FONT_PATH),
+        font_size: 40.0,
+        ..default()
+    }
+} 

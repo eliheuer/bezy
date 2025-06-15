@@ -10,7 +10,7 @@ use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use bevy::math::{Mat3, Vec2, Vec3};
 use bevy::prelude::*;
-use crate::ui::palette;
+use crate::ui::theme;
 
 
 /// The position of the view, relative to the design space.
@@ -303,7 +303,7 @@ pub fn debug_coordinates(
     vport: Res<ViewPort>,
 )
 {
-    if !palette::DEBUG_SHOW_ORIGIN_CROSS {
+    if !theme::DEBUG_SHOW_ORIGIN_CROSS {
         return;
     }
     let origin = vport.to_screen(DPoint::new(0.0, 0.0));

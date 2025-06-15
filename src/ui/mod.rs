@@ -1,2 +1,2 @@
 pub mod panes;
-pub mod palette;
+pub mod theme;
