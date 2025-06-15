@@ -6,6 +6,7 @@ mod editing;
 mod rendering;
 mod systems;
 mod ui;
+use ui::theme::BACKGROUND_COLOR;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -16,6 +17,7 @@ struct Args {
 
 fn main() {
     App::new()
+        .insert_resource(ClearColor(BACKGROUND_COLOR))
         .init_non_send_resource::<core::state::AppState>()
         .add_plugins((
             DefaultPlugins,

@@ -27,8 +27,12 @@ impl Plugin for CameraPlugin {
 fn setup_camera(mut commands: Commands) {
     // Create a 2D camera with proper configuration
     commands.spawn((
-        Camera2d::default(),
-        Transform::from_xyz(0.0, 0.0, 1000.0),
+        Camera2d,
+        Camera {
+            order: 0,
+            ..default()
+        },
+        Transform::from_xyz(0.0, 0.0, 1000.0).with_scale(Vec3::splat(INITIAL_ZOOM_SCALE)),
         PanCam {
             grab_buttons: vec![MouseButton::Left, MouseButton::Middle],
             enabled: true,
@@ -67,12 +71,12 @@ fn zoom_camera(
 
 /// Handles keyboard shortcuts for camera control
 fn toggle_camera_controls(
-    mut query: Query<&mut PanCam>,
+    mut query: Query<(&mut PanCam, &mut Transform)>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    // Toggle zoom-to-cursor behavior with T key
+    // Handle zoom to cursor toggle
     if keys.just_pressed(KeyCode::KeyT) {
-        for mut pancam in query.iter_mut() {
+        for (mut pancam, _) in query.iter_mut() {
             pancam.zoom_to_cursor = !pancam.zoom_to_cursor;
             let status = if pancam.zoom_to_cursor {
                 "enabled"
@@ -80,6 +84,29 @@ fn toggle_camera_controls(
                 "disabled"
             };
             info!("Camera zoom to cursor {}", status);
+        }
+    }
+
+    // Handle keyboard zoom
+    let modifier_pressed = keys.pressed(KeyCode::SuperLeft)
+        || keys.pressed(KeyCode::SuperRight)
+        || keys.pressed(KeyCode::ControlLeft)
+        || keys.pressed(KeyCode::ControlRight);
+
+    if !modifier_pressed {
+        return;
+    }
+
+    for (_, mut transform) in query.iter_mut() {
+        let current_scale = transform.scale.x;
+        if keys.just_pressed(KeyCode::Equal) {
+            // Zoom in
+            let new_scale = (current_scale * KEYBOARD_ZOOM_STEP).max(MIN_ALLOWED_ZOOM_SCALE);
+            transform.scale = Vec3::splat(new_scale);
+        } else if keys.just_pressed(KeyCode::Minus) {
+            // Zoom out
+            let new_scale = (current_scale / KEYBOARD_ZOOM_STEP).min(MAX_ALLOWED_ZOOM_SCALE);
+            transform.scale = Vec3::splat(new_scale);
         }
     }
 }
