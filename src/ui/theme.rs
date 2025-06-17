@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::ui::prelude::*;
 
 // Font Path
 pub const DEFAULT_FONT_PATH: &str = "fonts/bezy-grotesk-regular.ttf";
@@ -111,32 +112,17 @@ pub const BACKGROUND_COLOR: Color = Color::srgb(0.05, 0.05, 0.05);
 
 // Checkerboard Configuration
 pub const CHECKERBOARD_UNIT_SIZE: f32 = 16.0; // Width and height of each square in pixels
-pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.128, 0.128, 0.128); // Single color for checkerboard squares
+pub const CHECKERBOARD_COLOR_1: Color = Color::srgb(0.128, 0.128, 0.128); // Dark squares
+pub const CHECKERBOARD_COLOR_2: Color = Color::srgb(0.150, 0.150, 0.150); // Light squares
 
-// Dynamic Checkerboard Scaling Configuration
-// These settings control how the checkerboard grid scales with zoom levels to maintain performance
-//
-// How it works:
-// - As you zoom out, the checkerboard grid size automatically doubles at regular intervals
-// - This prevents performance issues from rendering too many small squares
-// - The system calculates the appropriate grid size mathematically based on zoom level
-//
-// Configuration:
-// - CHECKERBOARD_SCALE_FACTOR: How aggressively the grid scales (higher = more aggressive scaling)
-// - CHECKERBOARD_MAX_ZOOM_VISIBLE: Hide checkerboard completely when zoomed out beyond this level
-//
-// Example: With scale factor 2.0:
-//          At zoom scale 1.0, grid size = 16 pixels
-//          At zoom scale 2.0, grid size = 32 pixels  
-//          At zoom scale 4.0, grid size = 64 pixels
-//          At zoom scale 8.0, grid size = 128 pixels (and so on, doubling infinitely)
-//
-pub const CHECKERBOARD_SCALE_FACTOR: f32 = 2.0; // How much the grid scales with zoom (2.0 = doubles)
-pub const CHECKERBOARD_MAX_ZOOM_VISIBLE: f32 = 32.0; // Hide checkerboard when zoomed out beyond this level
+pub const CHECKERBOARD_SCALE_FACTOR: f32 = 2.0;
+pub const CHECKERBOARD_MAX_ZOOM_VISIBLE: f32 = 32.0;
 
 // Sort Configuration
 pub const SORT_ACTIVE_METRICS_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 0.5);
 pub const SORT_INACTIVE_METRICS_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 0.5);
+pub const SORT_ACTIVE_OUTLINE_COLOR: Color = Color::srgb(1.0, 0.4, 0.0);
+pub const SORT_INACTIVE_OUTLINE_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
 
 // Knife Tool Colors
 pub const KNIFE_LINE_COLOR: Color = Color::srgba(1.0, 0.3, 0.3, 0.9);
@@ -147,45 +133,12 @@ pub const KNIFE_GAP_LENGTH: f32 = 4.0;
 pub const KNIFE_CROSS_SIZE: f32 = 8.0;
 
 /// Creates a consistent styled container for UI widgets/panes
-///
-/// Returns a bundle of components that can be used to spawn a widget with
-/// consistent styling across the application.
-pub fn create_widget_style<T: Component + Default>(
-    _asset_server: &Res<AssetServer>,
-    position: PositionType,
-    position_props: UiRect,
-    marker: T,
-    name: &str,
-) -> impl Bundle {
-    (
-        Node {
-            position_type: position,
-            left: position_props.left,
-            right: position_props.right,
-            top: position_props.top,
-            bottom: position_props.bottom,
-            padding: UiRect::all(Val::Px(WIDGET_PADDING)),
-            margin: UiRect::all(Val::Px(0.0)),
-            flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(WIDGET_ROW_GAP),
-            border: UiRect::all(Val::Px(WIDGET_BORDER_WIDTH)),
-            // Add size constraints to keep widgets compact
-            width: Val::Auto,
-            height: Val::Auto,
-            min_width: Val::Auto,
-            min_height: Val::Auto,
-            max_width: Val::Px(256.0), // Reduced maximum width for more compact widgets
-            max_height: Val::Percent(50.0), // Limit height to prevent stretching to top of screen
-            justify_content: JustifyContent::FlexStart,
-            align_items: AlignItems::FlexStart,
-            ..default()
-        },
-        BackgroundColor(WIDGET_BACKGROUND_COLOR),
-        BorderColor(WIDGET_BORDER_COLOR),
-        BorderRadius::all(Val::Px(WIDGET_BORDER_RADIUS)),
-        marker,
-        Name::new(name.to_string()),
-    )
+pub fn create_widget_style() -> Node {
+    Node {
+        // Set fields directly here
+        // e.g., size, color, etc.
+        ..Default::default()
+    }
 }
 
 /// Creates a text component with the mono font and standard styling
@@ -195,16 +148,8 @@ pub fn create_widget_text(
     text: &str,
     font_size: f32,
     color: Color,
-) -> (Text, TextFont, TextColor) {
-    (
-        Text::new(text),
-        TextFont {
-            font: asset_server.load(MONO_FONT_PATH),
-            font_size,
-            ..default()
-        },
-        TextColor(color),
-    )
+) -> Text {
+    Text(text.to_string())
 }
 
 /// Creates a label (dim) and value (bright) text pair for a widget row
@@ -213,55 +158,25 @@ pub fn create_widget_label_value_pair(
     asset_server: &Res<AssetServer>,
     label: &str,
     value: &str,
-) -> impl Bundle {
+) -> (Node, Text) {
     (
         Node {
-            flex_direction: FlexDirection::Row,
-            align_items: AlignItems::Center,
-            width: Val::Auto,
-            height: Val::Auto,
-            ..default()
+            // Set fields directly here
+            ..Default::default()
         },
-        (
-            Node {
-                margin: UiRect::right(Val::Px(4.0)),
-                width: Val::Auto,
-                ..default()
-            },
-            Text::new(label),
-            TextFont {
-                font: asset_server.load(MONO_FONT_PATH),
-                font_size: WIDGET_TEXT_FONT_SIZE,
-                ..default()
-            },
-            TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-        ),
-        (
-            Text::new(value),
-            TextFont {
-                font: asset_server.load(MONO_FONT_PATH),
-                font_size: WIDGET_TEXT_FONT_SIZE,
-                ..default()
-            },
-            TextColor(TEXT_COLOR),
-        ),
+        Text(format!("{} {}", label, value))
     )
 }
 
-#[allow(dead_code)]
-pub fn get_default_text_style(asset_server: &Res<AssetServer>) -> TextFont {
-    TextFont {
-        font: asset_server.load(DEFAULT_FONT_PATH),
-        font_size: 40.0,
-        ..default()
-    }
+pub fn get_default_text_style(asset_server: &Res<AssetServer>) -> Text {
+    Text(String::new())
 }
 
 #[allow(dead_code)]
-pub fn get_mono_text_style(asset_server: &Res<AssetServer>) -> TextFont {
-    TextFont {
-        font: asset_server.load(MONO_FONT_PATH),
-        font_size: 40.0,
-        ..default()
-    }
+pub fn get_mono_text_style(asset_server: &Res<AssetServer>) -> Text {
+    Text(String::new())
+}
+
+pub fn create_text_style(text: &str, font_size: f32) -> Text {
+    Text(text.to_string())
 } 

@@ -5,14 +5,17 @@
 //! Uses dynamic rendering to only show squares visible to the camera.
 
 use bevy::prelude::*;
-use bevy_pancam::PanCam;
+use bevy::render::{
+    render_resource::{AsBindGroup, ShaderRef},
+    mesh::MeshVertexBufferLayout,
+};
 use std::collections::HashSet;
 use crate::rendering::cameras::DesignCamera;
+use crate::ui::panes::design_space::{ViewPort, DPoint};
 use crate::ui::theme::{
-    CHECKERBOARD_COLOR, CHECKERBOARD_UNIT_SIZE, CHECKERBOARD_SCALE_FACTOR,
+    CHECKERBOARD_COLOR_1, CHECKERBOARD_COLOR_2, CHECKERBOARD_UNIT_SIZE, CHECKERBOARD_SCALE_FACTOR,
     CHECKERBOARD_MAX_ZOOM_VISIBLE,
 };
-use bevy::window::PrimaryWindow;
 
 // Constants ------------------------------------------------------------------
 
@@ -25,6 +28,8 @@ const VISIBILITY_PADDING: f32 = 128.0;
 /// Minimum zoom level where checkerboard is visible (very zoomed out)
 /// Lower values = more zoomed out before hiding checkerboard
 const MIN_VISIBILITY_ZOOM: f32 = 0.01;
+
+/// The size of each square in the checkerboard pattern.
 
 // Components -----------------------------------------------------------------
 
@@ -70,7 +75,7 @@ pub fn update_checkerboard(
     camera_query: Query<&Transform, With<DesignCamera>>,
     square_query: Query<(Entity, &CheckerboardSquare)>,
 ) {
-    let Ok(camera_transform) = camera_query.get_single() else {
+    let Ok(camera_transform) = camera_query.single() else {
         return;
     };
     let zoom_scale = camera_transform.scale.x;
@@ -183,10 +188,7 @@ fn get_needed_squares(visible_area: &Rect, current_grid_size: f32) -> HashSet<IV
     // Add squares in checkerboard pattern
     for x in min_x..=max_x {
         for y in min_y..=max_y {
-            // Only create squares in checkerboard pattern (skip white squares)
-            if (x % 2 == 0) != (y % 2 == 0) {
-                needed.insert(IVec2::new(x, y));
-            }
+            needed.insert(IVec2::new(x, y));
         }
     }
 
@@ -236,9 +238,14 @@ fn spawn_needed_squares(
 /// Spawns a single checkerboard square at the given grid position
 fn spawn_square(commands: &mut Commands, grid_pos: IVec2, current_grid_size: f32) {
     let world_pos = grid_to_world_position(grid_pos, current_grid_size);
+    let color = if (grid_pos.x + grid_pos.y) % 2 == 0 {
+        CHECKERBOARD_COLOR_1
+    } else {
+        CHECKERBOARD_COLOR_2
+    };
     commands.spawn((
         Sprite {
-            color: CHECKERBOARD_COLOR,
+            color,
             custom_size: Some(Vec2::splat(current_grid_size)),
             ..default()
         },

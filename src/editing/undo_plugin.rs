@@ -1,24 +1,25 @@
 use bevy::prelude::*;
 use std::sync::Arc;
 
-use crate::editing::edit_session::EditSession;
 use crate::editing::edit_type::EditType;
+use crate::editing::sort::Sort;
 use crate::editing::undo::UndoState;
+
+type UndoableState = Vec<(Entity, Sort)>;
 
 /// Resource that holds the undo/redo stack
 #[derive(Resource, Debug)]
 pub struct UndoStateResource {
     /// The undo stack containing all edit session states
-    undo_stack: UndoState<Arc<EditSession>>,
+    undo_stack: UndoState<Arc<UndoableState>>,
     /// The last edit type that was processed
     last_edit_type: Option<EditType>,
 }
 
 impl Default for UndoStateResource {
     fn default() -> Self {
-        // We will initialize with a proper state when an EditSession becomes available
         Self {
-            undo_stack: UndoState::new(Arc::new(EditSession::default())),
+            undo_stack: UndoState::new(Arc::new(vec![])),
             last_edit_type: None,
         }
     }
@@ -36,59 +37,56 @@ impl UndoStateResource {
     }
 
     /// Push a new state onto the undo stack
-    pub fn push_undo_state(&mut self, state: Arc<EditSession>) {
+    pub fn push_undo_state(&mut self, state: Arc<UndoableState>) {
         self.undo_stack.push(state);
     }
 
     /// Update the current undo state
-    pub fn update_current_undo(&mut self, state: Arc<EditSession>) {
+    pub fn update_current_undo(&mut self, state: Arc<UndoableState>) {
         self.undo_stack.update_current(state);
-    }
-
-    /// Get the current size of the undo stack
-    pub fn _stack_size(&self) -> usize {
-        self.undo_stack.len()
-    }
-
-    /// Get the current index in the undo stack
-    pub fn _current_index(&self) -> usize {
-        self.undo_stack.current_index()
     }
 }
 
-/// System to initialize the undo stack with the first edit session
+/// System to initialize the undo stack with the first state
 pub fn initialize_undo_stack(
-    mut commands: Commands,
-    edit_sessions: Query<&EditSession>,
-    undo_state: Option<Res<UndoStateResource>>,
+    mut undo_resource: ResMut<UndoStateResource>,
+    sorts: Query<(Entity, &Sort)>,
+    mut initialized: Local<bool>,
 ) {
-    // Only run if we have an edit session but no undo state yet
-    if undo_state.is_some() || edit_sessions.is_empty() {
+    if *initialized || sorts.is_empty() {
         return;
     }
 
-    if let Ok(session) = edit_sessions.single() {
-        debug!("Initializing undo stack with initial edit session");
-        let undo_resource = UndoStateResource {
-            undo_stack: UndoState::new(Arc::new(session.clone())),
-            last_edit_type: None,
-        };
-        commands.insert_resource(undo_resource);
+    let initial_state: Vec<(Entity, Sort)> = sorts.iter().map(|(e, s)| (e, s.clone())).collect();
+    if !initial_state.is_empty() {
+        debug!("Initializing undo stack with initial sort state");
+        undo_resource.undo_stack = UndoState::new(Arc::new(initial_state));
+        *initialized = true;
     }
+}
+
+/// System to save the state of all sorts when they are changed
+pub fn save_sort_state(
+    mut undo_resource: ResMut<UndoStateResource>,
+    changed_sorts: Query<&Sort, Changed<Sort>>,
+    all_sorts: Query<(Entity, &Sort)>,
+) {
+    if changed_sorts.is_empty() {
+        return;
+    }
+
+    let current_state: Arc<UndoableState> =
+        Arc::new(all_sorts.iter().map(|(e, s)| (e, s.clone())).collect());
+    undo_resource.push_undo_state(current_state);
+    debug!("Saved new sort state to undo stack");
 }
 
 /// System to handle undo/redo keyboard shortcuts
 pub fn handle_undo_redo_shortcuts(
     keyboard: Res<ButtonInput<KeyCode>>,
-    undo_state: Option<ResMut<UndoStateResource>>,
-    mut edit_sessions: Query<&mut EditSession>,
-    mut transforms: Query<(Entity, &mut Transform)>,
-    mut debug_count: Local<usize>,
+    mut undo_state: ResMut<UndoStateResource>,
+    mut sorts: Query<&mut Sort>,
 ) {
-    let Some(mut undo_state) = undo_state else {
-        return;
-    };
-
     // Check for Command/Control key
     let modifier_pressed = keyboard.pressed(KeyCode::SuperLeft)
         || keyboard.pressed(KeyCode::SuperRight)
@@ -102,106 +100,35 @@ pub fn handle_undo_redo_shortcuts(
     let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft)
         || keyboard.pressed(KeyCode::ShiftRight);
 
-    // Undo with Command+Z
-    if keyboard.just_pressed(KeyCode::KeyZ) && !shift_pressed {
+    let state_to_restore = if keyboard.just_pressed(KeyCode::KeyZ) && !shift_pressed {
         debug!("Undo shortcut detected (Cmd+Z)");
-
-        // Debug info about undo stack state
-        let stack_size = undo_state.undo_stack.len();
-        let current_index = undo_state.undo_stack.current_index();
-        debug!(
-            "Undo stack state before undo: size={}, current_index={}",
-            stack_size, current_index
-        );
-
-        if let Some(prev_state) = undo_state.undo_stack.undo() {
-            debug!("Undoing last action");
-            *debug_count += 1; // Track undo count for debugging
-
-            if let Ok(mut session) = edit_sessions.single_mut() {
-                // Replace the current EditSession with the previous state
-                *session = prev_state.as_ref().clone();
-
-                // Now explicitly update all transforms based on the restored positions
-                let restored_count =
-                    apply_edit_session_to_transforms(&session, &mut transforms);
-
-                debug!("Restored EditSession from undo stack (undo #{}) - Updated {} transforms", 
-                      *debug_count, restored_count);
-
-                // Debug info about undo stack state after undo
-                let new_current_index = undo_state.undo_stack.current_index();
-                debug!(
-                    "Undo stack state after undo: current_index={}",
-                    new_current_index
-                );
-            } else {
-                warn!("Could not find EditSession to apply undo");
-            }
-        } else {
-            debug!(
-                "Nothing to undo - undo stack may be empty or at the beginning"
-            );
-        }
-    }
-    // Redo with Command+Shift+Z
-    else if keyboard.just_pressed(KeyCode::KeyZ) && shift_pressed {
+        undo_state.undo_stack.undo()
+    } else if keyboard.just_pressed(KeyCode::KeyZ) && shift_pressed {
         debug!("Redo shortcut detected (Cmd+Shift+Z)");
+        undo_state.undo_stack.redo()
+    } else {
+        None
+    };
 
-        // Debug info about undo stack state
-        let stack_size = undo_state.undo_stack.len();
-        let current_index = undo_state.undo_stack.current_index();
-        debug!(
-            "Undo stack state before redo: size={}, current_index={}",
-            stack_size, current_index
-        );
-
-        if let Some(next_state) = undo_state.undo_stack.redo() {
-            debug!("Redoing previously undone action");
-
-            if let Ok(mut session) = edit_sessions.single_mut() {
-                // Replace the current EditSession with the next state
-                *session = next_state.as_ref().clone();
-
-                // Now explicitly update all transforms
-                let restored_count =
-                    apply_edit_session_to_transforms(&session, &mut transforms);
-
-                debug!("Restored EditSession from redo stack - Updated {} transforms", restored_count);
-
-                // Debug info about undo stack state after redo
-                let new_current_index = undo_state.undo_stack.current_index();
-                debug!(
-                    "Undo stack state after redo: current_index={}",
-                    new_current_index
-                );
-            } else {
-                warn!("Could not find EditSession to apply redo");
+    if let Some(state) = state_to_restore {
+        debug!("Restoring sort state from undo/redo stack");
+        for (entity, sort_state) in state.iter() {
+            if let Ok(mut sort) = sorts.get_mut(*entity) {
+                *sort = sort_state.clone();
             }
-        } else {
-            debug!("Nothing to redo - may be at the most recent state");
         }
     }
 }
 
-/// Helper function to ensure transforms are updated when restoring an EditSession
-fn apply_edit_session_to_transforms(
-    session: &EditSession,
-    transforms: &mut Query<(Entity, &mut Transform)>,
-) -> usize {
-    let mut count = 0;
-
-    // Loop through all stored positions in the EditSession
-    for (entity, position) in &session.point_positions {
-        if let Ok((_, mut transform)) = transforms.get_mut(*entity) {
-            // Update the transform position
-            transform.translation.x = position.x;
-            transform.translation.y = position.y;
-            count += 1;
+/// System to synchronize the `Transform` of a `Sort` with its `position` field.
+pub fn sync_sort_to_transform(mut query: Query<(&mut Transform, &Sort), Changed<Sort>>) {
+    for (mut transform, sort) in query.iter_mut() {
+        if transform.translation.x != sort.position.x || transform.translation.y != sort.position.y {
+            transform.translation.x = sort.position.x;
+            transform.translation.y = sort.position.y;
+            debug!("Synced transform for sort {:?}", sort.glyph_name);
         }
     }
-
-    count
 }
 
 /// Plugin to set up the undo/redo system
@@ -215,7 +142,13 @@ impl Plugin for UndoPlugin {
             // Add the systems
             .add_systems(
                 Update,
-                (initialize_undo_stack, handle_undo_redo_shortcuts),
+                (
+                    initialize_undo_stack,
+                    handle_undo_redo_shortcuts,
+                    save_sort_state.after(initialize_undo_stack),
+                    sync_sort_to_transform,
+                )
+                    .chain(),
             );
     }
 } 

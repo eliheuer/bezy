@@ -23,8 +23,6 @@ fn main() {
             DefaultPlugins,
             rendering::cameras::CameraPlugin,
             rendering::checkerboard::CheckerboardPlugin,
-            editing::edit_session::EditSessionPlugin,
-            editing::sort_plugin::SortPlugin,
             editing::undo_plugin::UndoPlugin,
             ui::panes::design_space::DesignSpacePlugin,
         ))

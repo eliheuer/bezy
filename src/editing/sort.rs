@@ -10,16 +10,14 @@
 //!
 //! Only one sort can be active at a time.
 
-use crate::core::state::FontMetrics;
 use bevy::prelude::*;
 use norad::Glyph;
-use smol_str::SmolStr;
 
 /// Core Sort entity - represents a single piece of movable type
 #[derive(Component, Debug, Clone)]
 pub struct Sort {
     /// The name of the glyph this sort represents (references virtual font)
-    pub glyph_name: SmolStr,
+    pub glyph_name: String,
     /// The sort's position in design space
     pub position: Vec2,
     /// The sort's advance width (cached from the glyph)
@@ -59,7 +57,7 @@ pub struct ActiveSortState {
 
 impl Sort {
     /// Create a new sort from a glyph name
-    pub fn new(glyph_name: SmolStr, position: Vec2, advance_width: f32) -> Self {
+    pub fn new(glyph_name: String, position: Vec2, advance_width: f32) -> Self {
         Self {
             glyph_name,
             position,
@@ -72,11 +70,11 @@ impl Sort {
     /// Create a new sort from a glyph (extracts name and advance width)
     pub fn _from_glyph(glyph: &Glyph, position: Vec2) -> Self {
         let advance_width = glyph.width as f32;
-        Self::new(glyph.name().as_ref().into(), position, advance_width)
+        Self::new(glyph.name().to_string(), position, advance_width)
     }
 
     /// Get the metrics box bounds for this sort
-    pub fn get_metrics_bounds(&self, font_metrics: &FontMetrics) -> SortBounds {
+    pub fn get_metrics_bounds(&self, font_metrics: &crate::core::state::FontMetrics) -> SortBounds {
         let width = self.advance_width;
         let ascender = font_metrics.ascender.unwrap_or(font_metrics.units_per_em * 0.8) as f32;
         let descender = font_metrics.descender.unwrap_or(-(font_metrics.units_per_em * 0.2)) as f32;
@@ -88,7 +86,7 @@ impl Sort {
     }
 
     /// Check if this sort contains the given point
-    pub fn contains_point(&self, point: Vec2, font_metrics: &FontMetrics) -> bool {
+    pub fn contains_point(&self, point: Vec2, font_metrics: &crate::core::state::FontMetrics) -> bool {
         let bounds = self.get_metrics_bounds(font_metrics);
         point.x >= bounds.min.x
             && point.x <= bounds.max.x
@@ -123,7 +121,7 @@ impl SortBounds {
 pub enum SortEvent {
     /// Create a new sort
     CreateSort {
-        glyph_name: SmolStr,
+        glyph_name: String,
         position: Vec2,
     },
     /// Activate a sort for editing

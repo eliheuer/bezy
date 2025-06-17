@@ -5,40 +5,25 @@ authors = ["Eli Heuer <elih@protonmail.com>"]
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.16.1", features = ["bevy_sprite"] }
-# We removed the "druid" feature because it's not needed and not available in newer versions
-norad = { version = "0.11.0", features = ["rayon"] }
+bevy = "0.16.1"
+bevy_pancam = "0.18.0"
+norad = { version = "0.16.0", features = ["kurbo", "rayon"] }
+kurbo = { version = "0.11.2", features = ["libm", "serde"] }
 smol_str = "0.2"
 anyhow = "1.0.86"
-spline = { version = "0.3.0", git = "https://github.com/eliheuer/spline.git", rev = "229f7e7" }
-kurbo = "0.11.1"
+spline = { git = "https://github.com/eliheuer/spline.git", rev = "229f7e7" }
 clap = { version = "4.5.4", features = ["derive"] }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-
-harfbuzz_rs = "2.0.1"
+tracing = "0.1.40"
 log = "0.4.22"
 plist = "1.7.0"
-serde = { version = "1.0.204", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.120"
 base64 = "0.22.1"
-lopdf = "0.32.0"
-svg = "0.17.0"
-chrono = "0.4.38"
-rand = "0.8.5"
-bevy_pancam = "0.18.0"
 
-# Enable small optimizations for local code
-[profile.dev]
-opt-level = 1
-
-# Enable high optimizations for dependencies
-[profile.dev.package."*"]
-opt-level = 3
-
-# Note: There's still a warning about quick-xml v0.20.0 future incompatibility.
-# This is coming from an indirect dependency (norad uses it internally).
-# This warning can be safely ignored for now, as the code will continue to work
-# with current Rust versions. When a future version of Rust actually rejects this
-# code, either:
-# 1. norad will have updated its dependencies, or
-# 2. You can add an override in your Cargo.toml at that time
+[features]
+# For profiling in development, see:
+# https://github.com/bevyengine/bevy/blob/main/docs/profiling.md
+dev = [
+    "bevy/dynamic_linking",
+]
