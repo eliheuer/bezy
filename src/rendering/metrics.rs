@@ -6,21 +6,24 @@
 use bevy::prelude::*;
 use crate::core::state::FontMetrics;
 use crate::ui::theme::METRICS_GUIDE_COLOR;
+use crate::ui::panes::design_space::{DPoint, ViewPort};
 use norad::Glyph;
 
 /// Draw complete font metrics for a glyph at a specific position
 pub fn draw_metrics_at_position(
     gizmos: &mut Gizmos,
+    viewport: &ViewPort,
     glyph: &Glyph,
     metrics: &FontMetrics,
     position: Vec2,
 ) {
-    draw_metrics_at_position_with_color(gizmos, glyph, metrics, position, METRICS_GUIDE_COLOR);
+    draw_metrics_at_position_with_color(gizmos, viewport, glyph, metrics, position, METRICS_GUIDE_COLOR);
 }
 
 /// Draw complete font metrics for a glyph at a specific position with custom color
 pub fn draw_metrics_at_position_with_color(
     gizmos: &mut Gizmos,
+    viewport: &ViewPort,
     glyph: &Glyph,
     metrics: &FontMetrics,
     position: Vec2,
@@ -43,6 +46,7 @@ pub fn draw_metrics_at_position_with_color(
     // Draw baseline
     draw_line(
         gizmos,
+        viewport,
         (offset_x, offset_y),
         (offset_x + width, offset_y),
         color,
@@ -51,6 +55,7 @@ pub fn draw_metrics_at_position_with_color(
     // Draw x-height line
     draw_line(
         gizmos,
+        viewport,
         (offset_x, offset_y + x_height),
         (offset_x + width, offset_y + x_height),
         color,
@@ -59,6 +64,7 @@ pub fn draw_metrics_at_position_with_color(
     // Draw cap-height line
     draw_line(
         gizmos,
+        viewport,
         (offset_x, offset_y + cap_height),
         (offset_x + width, offset_y + cap_height),
         color,
@@ -67,6 +73,7 @@ pub fn draw_metrics_at_position_with_color(
     // Draw ascender line
     draw_line(
         gizmos,
+        viewport,
         (offset_x, offset_y + ascender),
         (offset_x + width, offset_y + ascender),
         color,
@@ -75,6 +82,7 @@ pub fn draw_metrics_at_position_with_color(
     // Draw descender line
     draw_line(
         gizmos,
+        viewport,
         (offset_x, offset_y + descender),
         (offset_x + width, offset_y + descender),
         color,
@@ -83,6 +91,7 @@ pub fn draw_metrics_at_position_with_color(
     // Draw UPM top line
     draw_line(
         gizmos,
+        viewport,
         (offset_x, offset_y + upm),
         (offset_x + width, offset_y + upm),
         color,
@@ -91,24 +100,33 @@ pub fn draw_metrics_at_position_with_color(
     // Draw vertical side-bearing lines
     draw_line(
         gizmos,
+        viewport,
         (offset_x, offset_y + descender),
         (offset_x, offset_y + ascender),
         color,
     );
     draw_line(
         gizmos,
+        viewport,
         (offset_x + width, offset_y + descender),
         (offset_x + width, offset_y + ascender),
         color,
     );
 }
 
-/// Draw a line in world space
+/// Draw a line in design space
 fn draw_line(
     gizmos: &mut Gizmos,
+    viewport: &ViewPort,
     start: (f32, f32),
     end: (f32, f32),
     color: Color,
 ) {
-    gizmos.line_2d(Vec2::new(start.0, start.1), Vec2::new(end.0, end.1), color);
+    let start_screen = viewport.to_screen(DPoint::new(start.0, start.1));
+    let end_screen = viewport.to_screen(DPoint::new(end.0, end.1));
+    gizmos.line_2d(
+        Vec2::new(start_screen.x as f32, start_screen.y as f32),
+        Vec2::new(end_screen.x as f32, end_screen.y as f32),
+        color,
+    );
 }

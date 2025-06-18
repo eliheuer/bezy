@@ -24,6 +24,7 @@ fn main() {
             rendering::cameras::CameraPlugin,
             rendering::checkerboard::CheckerboardPlugin,
             editing::undo_plugin::UndoPlugin,
+            editing::sort_plugin::SortPlugin,
             ui::panes::design_space::DesignSpacePlugin,
         ))
         .add_systems(Startup, load_ufo_font)
@@ -45,7 +46,14 @@ fn load_ufo_font(mut app_state: NonSendMut<core::state::AppState>) {
     let args = std::env::args().collect::<Vec<_>>();
     let args = Args::parse_from(args);
     if let Some(path) = args.load_ufo {
-        let font = norad::Font::load(path).expect("Failed to load UFO");
-        app_state.font = Some(font);
+        match norad::Font::load(path) {
+            Ok(font) => {
+                info!("Successfully loaded UFO font");
+                app_state.set_font(font);
+            }
+            Err(e) => {
+                error!("Failed to load UFO font: {}", e);
+            }
+        }
     }
 } 
