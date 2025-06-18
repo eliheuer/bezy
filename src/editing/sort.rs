@@ -76,8 +76,8 @@ impl Sort {
     /// Get the metrics box bounds for this sort
     pub fn get_metrics_bounds(&self, font_metrics: &crate::core::state::FontMetrics) -> SortBounds {
         let width = self.advance_width;
-        let ascender = font_metrics.ascender.unwrap_or(font_metrics.units_per_em * 0.8) as f32;
-        let descender = font_metrics.descender.unwrap_or(-(font_metrics.units_per_em * 0.2)) as f32;
+        let ascender = font_metrics.ascender as f32;
+        let descender = font_metrics.descender as f32;
 
         SortBounds {
             min: self.position + Vec2::new(0.0, descender),

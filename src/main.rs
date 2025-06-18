@@ -18,7 +18,8 @@ struct Args {
 fn main() {
     App::new()
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .init_non_send_resource::<core::state::AppState>()
+        .init_resource::<core::state::AppState>()
+        .init_resource::<core::state::GlyphNavigation>()
         .add_plugins((
             DefaultPlugins,
             rendering::cameras::CameraPlugin,
@@ -42,19 +43,19 @@ fn exit_on_esc(
     }
 }
 
-fn load_ufo_font(mut app_state: NonSendMut<core::state::AppState>) {
+fn load_ufo_font(mut app_state: ResMut<core::state::AppState>) {
     let args = std::env::args().collect::<Vec<_>>();
     let args = Args::parse_from(args);
     
     // Now we always have a path (either provided or default)
     if let Some(path) = args.load_ufo {
-        match norad::Font::load(&path) {
-            Ok(font) => {
-                info!("Successfully loaded UFO font from: {}", path);
-                app_state.set_font(font);
+        let path_buf = std::path::PathBuf::from(path);
+        match app_state.load_font_from_path(path_buf.clone()) {
+            Ok(_) => {
+                info!("Successfully loaded UFO font from: {}", path_buf.display());
             }
             Err(e) => {
-                error!("Failed to load UFO font from {}: {}", path, e);
+                error!("Failed to load UFO font from {}: {}", path_buf.display(), e);
             }
         }
     }
