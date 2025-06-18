@@ -33,9 +33,9 @@ pub fn draw_metrics_at_position_with_color(
     let ascender = metrics.ascender.unwrap_or((upm * 0.8).round() as f64) as f32;
     let descender = metrics.descender.unwrap_or(-(upm * 0.2).round() as f64) as f32;
     
-    // Calculate x-height and cap-height based on UPM
-    let x_height = (upm * 0.5).round();
-    let cap_height = (upm * 0.7).round();
+    // Use actual font metrics if available, otherwise fallback to reasonable defaults
+    let x_height = metrics.x_height.unwrap_or((upm * 0.5).round() as f64) as f32;
+    let cap_height = metrics.cap_height.unwrap_or((upm * 0.7).round() as f64) as f32;
 
     let width = glyph.width as f32;
 
@@ -43,7 +43,25 @@ pub fn draw_metrics_at_position_with_color(
     let offset_x = position.x;
     let offset_y = position.y;
 
-    // Draw baseline
+    // Draw the standard metrics bounding box (descender to ascender)
+    draw_rect(
+        gizmos,
+        viewport,
+        (offset_x, offset_y + descender),
+        (offset_x + width, offset_y + ascender),
+        color,
+    );
+
+    // Draw the full UPM bounding box (from 0 to UPM height)
+    draw_rect(
+        gizmos,
+        viewport,
+        (offset_x, offset_y),
+        (offset_x + width, offset_y + upm),
+        color,
+    );
+
+    // Draw baseline (most important)
     draw_line(
         gizmos,
         viewport,
@@ -96,22 +114,6 @@ pub fn draw_metrics_at_position_with_color(
         (offset_x + width, offset_y + upm),
         color,
     );
-
-    // Draw vertical side-bearing lines
-    draw_line(
-        gizmos,
-        viewport,
-        (offset_x, offset_y + descender),
-        (offset_x, offset_y + ascender),
-        color,
-    );
-    draw_line(
-        gizmos,
-        viewport,
-        (offset_x + width, offset_y + descender),
-        (offset_x + width, offset_y + ascender),
-        color,
-    );
 }
 
 /// Draw a line in design space
@@ -127,6 +129,40 @@ fn draw_line(
     gizmos.line_2d(
         Vec2::new(start_screen.x as f32, start_screen.y as f32),
         Vec2::new(end_screen.x as f32, end_screen.y as f32),
+        color,
+    );
+}
+
+/// Draw a rectangle outline in design space
+fn draw_rect(
+    gizmos: &mut Gizmos,
+    viewport: &ViewPort,
+    top_left: (f32, f32),
+    bottom_right: (f32, f32),
+    color: Color,
+) {
+    let tl_screen = viewport.to_screen(DPoint::new(top_left.0, top_left.1));
+    let br_screen = viewport.to_screen(DPoint::new(bottom_right.0, bottom_right.1));
+
+    // Draw the rectangle outline (four lines)
+    gizmos.line_2d(
+        Vec2::new(tl_screen.x as f32, tl_screen.y as f32),
+        Vec2::new(br_screen.x as f32, tl_screen.y as f32),
+        color,
+    );
+    gizmos.line_2d(
+        Vec2::new(br_screen.x as f32, tl_screen.y as f32),
+        Vec2::new(br_screen.x as f32, br_screen.y as f32),
+        color,
+    );
+    gizmos.line_2d(
+        Vec2::new(br_screen.x as f32, br_screen.y as f32),
+        Vec2::new(tl_screen.x as f32, br_screen.y as f32),
+        color,
+    );
+    gizmos.line_2d(
+        Vec2::new(tl_screen.x as f32, br_screen.y as f32),
+        Vec2::new(tl_screen.x as f32, tl_screen.y as f32),
         color,
     );
 }

@@ -19,6 +19,8 @@ pub struct FontMetrics {
     pub units_per_em: f64,
     pub ascender: Option<f64>,
     pub descender: Option<f64>,
+    pub x_height: Option<f64>,
+    pub cap_height: Option<f64>,
 }
 
 impl AppState {
@@ -34,6 +36,8 @@ impl AppState {
             units_per_em: (*units_per_em).into(),
             ascender,
             descender,
+            x_height: font_info.x_height.map(|v| v.into()),
+            cap_height: font_info.cap_height.map(|v| v.into()),
         };
         
         // Update main state

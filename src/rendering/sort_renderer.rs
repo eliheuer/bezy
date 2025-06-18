@@ -50,13 +50,13 @@ fn render_inactive_sort(
         return;
     };
 
-    // Draw simple metrics box
-    draw_simple_metrics_box(gizmos, viewport, glyph, font_metrics, sort.position, SORT_INACTIVE_METRICS_COLOR);
+    // Draw simple metrics using the metrics module
+    crate::rendering::metrics::draw_metrics_at_position_with_color(
+        gizmos, viewport, glyph, font_metrics, sort.position, SORT_INACTIVE_METRICS_COLOR
+    );
 
-    // Draw simple glyph outline using the contours directly
-    if !glyph.contours.is_empty() {
-        draw_simple_glyph_contours(gizmos, viewport, &glyph.contours, sort.position);
-    }
+    // For performance, don't draw glyph outlines for inactive sorts
+    // Only show metrics to keep rendering lightweight
 }
 
 /// Render an active sort with highlights
@@ -71,83 +71,22 @@ fn render_active_sort(
         return;
     };
 
-    // Draw highlighted metrics box
-    draw_simple_metrics_box(gizmos, viewport, glyph, font_metrics, sort.position, SORT_ACTIVE_METRICS_COLOR);
+    // Draw comprehensive metrics using the metrics module
+    crate::rendering::metrics::draw_metrics_at_position_with_color(
+        gizmos, viewport, glyph, font_metrics, sort.position, SORT_ACTIVE_METRICS_COLOR
+    );
 
-    // Draw glyph outline using the contours directly
+    // Draw full glyph outline with control handles for active sorts
     if !glyph.contours.is_empty() {
-        draw_simple_glyph_contours(gizmos, viewport, &glyph.contours, sort.position);
+        crate::rendering::glyph_outline::draw_glyph_outline_at_position(
+            gizmos, viewport, &glyph.contours, sort.position
+        );
     }
 }
 
-/// Draw a simple metrics box
-fn draw_simple_metrics_box(
-    gizmos: &mut Gizmos,
-    viewport: &ViewPort,
-    glyph: &norad::Glyph,
-    font_metrics: &crate::core::state::FontMetrics,
-    position: Vec2,
-    color: Color,
-) {
-    let upm = font_metrics.units_per_em as f32;
-    let width = glyph.width as f32;
-    
-    // Draw simple box - position.y is the baseline
-    // Descender goes below baseline (negative Y in font space)
-    // Ascender goes above baseline (positive Y in font space)
-    let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
-    let ascender = font_metrics.ascender.unwrap_or(800.0) as f32;
-    
-    let min_x = position.x;
-    let max_x = position.x + width;
-    let min_y = position.y + descender; // Below baseline
-    let max_y = position.y + ascender;  // Above baseline
-    
-    // Convert to screen space
-    let bl_screen = viewport.to_screen(crate::ui::panes::design_space::DPoint::new(min_x, min_y));
-    let br_screen = viewport.to_screen(crate::ui::panes::design_space::DPoint::new(max_x, min_y));
-    let tl_screen = viewport.to_screen(crate::ui::panes::design_space::DPoint::new(min_x, max_y));
-    let tr_screen = viewport.to_screen(crate::ui::panes::design_space::DPoint::new(max_x, max_y));
-    
-    // Draw box outline
-    gizmos.line_2d(bl_screen, br_screen, color);
-    gizmos.line_2d(br_screen, tr_screen, color);
-    gizmos.line_2d(tr_screen, tl_screen, color);
-    gizmos.line_2d(tl_screen, bl_screen, color);
-    
-    // Draw baseline (horizontal line at Y=0 relative to position)
-    let baseline_start = viewport.to_screen(crate::ui::panes::design_space::DPoint::new(min_x, position.y));
-    let baseline_end = viewport.to_screen(crate::ui::panes::design_space::DPoint::new(max_x, position.y));
-    gizmos.line_2d(baseline_start, baseline_end, Color::srgba(1.0, 0.0, 0.0, 1.0));
-}
 
-/// Draw a simple glyph outline using the contours directly
-fn draw_simple_glyph_contours(
-    gizmos: &mut Gizmos,
-    viewport: &ViewPort,
-    contours: &[norad::Contour],
-    position: Vec2,
-) {
-    for contour in contours {
-        if contour.points.is_empty() {
-            continue;
-        }
-        
-        // Draw simple lines between consecutive points
-        for i in 0..contour.points.len() {
-            let current = &contour.points[i];
-            let next = &contour.points[(i + 1) % contour.points.len()];
-            
-            let start_pos = position + Vec2::new(current.x as f32, -current.y as f32);
-            let end_pos = position + Vec2::new(next.x as f32, -next.y as f32);
-            
-            let start_screen = viewport.to_screen(crate::ui::panes::design_space::DPoint::new(start_pos.x, start_pos.y));
-            let end_screen = viewport.to_screen(crate::ui::panes::design_space::DPoint::new(end_pos.x, end_pos.y));
-            
-            gizmos.line_2d(start_screen, end_screen, Color::WHITE);
-        }
-    }
-}
+
+
 
 // Stub functions for sort text management to satisfy the plugin
 pub fn manage_sort_unicode_text() {}

@@ -72,15 +72,16 @@ pub fn spawn_initial_sort(
 
     const GLYPHS_PER_ROW: usize = 16;
     const HORIZONTAL_PADDING: f32 = 64.0;
+    const MAX_INITIAL_SORTS: usize = 12; // Limit to prevent performance issues
 
     let mut current_x = 0.0;
     let mut current_y = 0.0;
     let mut glyph_count_in_row = 0;
 
-    // Create sorts for all glyphs in the font
+    // Create sorts for only the first few glyphs to avoid performance issues
     let glyphs: Vec<_> = default_layer.iter().collect();
     
-    for glyph in glyphs.iter().take(64) { // Limit to first 64 glyphs for now
+    for glyph in glyphs.iter().take(MAX_INITIAL_SORTS) { // Only process first 12 glyphs
         if glyph_count_in_row >= GLYPHS_PER_ROW {
             current_y += 1200.0; // Move to next row (positive Y goes down in screen space)
             current_x = 0.0;

@@ -172,7 +172,7 @@ impl ViewPort {
     }
 
     pub fn transform_matrix(&self) -> Mat3 {
-        let y_scale = if self.flipped_y { -self.zoom } else { self.zoom };
+        let y_scale = if self.flipped_y { self.zoom } else { -self.zoom };
         Mat3::from_cols(
             Vec3::new(self.zoom, 0.0, 0.0),
             Vec3::new(0.0, y_scale, 0.0),

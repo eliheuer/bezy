@@ -292,7 +292,7 @@ fn draw_quadratic_curve(
     end: Vec2,
     color: Color,
 ) {
-    const SEGMENTS: usize = 20;
+    const SEGMENTS: usize = 3;
     let mut last_point = start;
     
     for i in 1..=SEGMENTS {
@@ -312,7 +312,7 @@ fn draw_cubic_curve(
     end: Vec2,
     color: Color,
 ) {
-    const SEGMENTS: usize = 20;
+    const SEGMENTS: usize = 3;
     let mut last_point = start;
     
     for i in 1..=SEGMENTS {
