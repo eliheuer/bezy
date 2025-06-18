@@ -82,14 +82,18 @@ pub fn spawn_initial_sort(
     
     for glyph in glyphs.iter().take(64) { // Limit to first 64 glyphs for now
         if glyph_count_in_row >= GLYPHS_PER_ROW {
-            current_y -= 1000.0; // Move to next row
+            current_y += 1200.0; // Move to next row (positive Y goes down in screen space)
             current_x = 0.0;
             glyph_count_in_row = 0;
         }
 
+        // Position sorts with proper baseline - Y=0 should be the baseline
+        // Add some offset so glyphs don't start at the very edge
+        let sort_position = Vec2::new(current_x + 50.0, current_y + 200.0);
+
         sort_events.write(SortEvent::CreateSort {
             glyph_name: glyph.name().to_string(),
-            position: Vec2::new(current_x, current_y),
+            position: sort_position,
         });
 
         let advance = glyph.width as f32;

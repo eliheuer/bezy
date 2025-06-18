@@ -291,8 +291,8 @@ impl fmt::Display for DVec2 {
 impl Default for ViewPort {
     fn default() -> Self {
         Self {
-            offset: Vec2::new(100.0, 400.0),
-            zoom: 1.0,
+            offset: Vec2::new(50.0, 800.0),
+            zoom: 0.8,
             flipped_y: true,
         }
     }
