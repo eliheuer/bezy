@@ -26,7 +26,7 @@ impl Plugin for SortPlugin {
                     auto_activate_first_sort,
                     enforce_single_active_sort,
                     render_sorts_system,
-                ).chain()
+                )
             );
     }
 } 
