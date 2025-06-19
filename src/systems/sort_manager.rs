@@ -1,55 +1,31 @@
 //! Sort management system
 //!
 //! Handles the creation, activation, deactivation, and lifecycle of sorts.
-//! Uses our thread-safe FontData structures for performance.
+//! Ensures only one sort can be active at a time and manages the state transitions.
 
-use crate::core::state::{AppState, GlyphNavigation, FontData};
+use crate::core::state::{AppState, GlyphNavigation};
 use crate::editing::selection::components::{
-    GlyphPointReference, Selectable, SelectionState,
+    GlyphPointReference, PointType, Selectable, SelectionState,
 };
 use crate::editing::sort::{ActiveSort, ActiveSortState, InactiveSort, Sort, SortEvent};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-/// Convert a Unicode character to its hex codepoint string
-fn char_to_hex_codepoint(unicode_char: char) -> String {
-    format!("{:04X}", unicode_char as u32)
-}
-
-/// Build a map of Unicode codepoints to glyph names for efficient lookups
-fn build_codepoint_glyph_map(font_data: &FontData) -> HashMap<String, String> {
-    let mut codepoint_to_glyph = HashMap::new();
-    
-    for glyph_data in font_data.glyphs.values() {
-        for &unicode_char in &glyph_data.unicode_values {
-            let codepoint_hex = char_to_hex_codepoint(unicode_char);
-            codepoint_to_glyph.insert(codepoint_hex, glyph_data.name.clone());
-        }
-    }
-    
-    codepoint_to_glyph
-}
-
-/// Find a glyph by its Unicode codepoint (like "0041" for letter A)
-pub fn find_glyph_by_unicode(
-    font_data: &FontData, 
-    codepoint_hex: &str
-) -> Option<String> {
-    build_codepoint_glyph_map(font_data).get(codepoint_hex).cloned()
-}
-
 /// Helper to calculate the desired position of the crosshair.
 /// Places it at the lower-left of the sort's metrics box, offset inward by 64 units.
 fn get_crosshair_position(sort: &Sort, app_state: &AppState) -> Vec2 {
-    // Get the center of the glyph for the crosshair position
-    let glyph_data = app_state.workspace.font.get_glyph(&sort.glyph_name);
-    let metrics = app_state.workspace.info.metrics();
+    let metrics = &app_state.workspace.info.metrics();
     
-    // Default to center of advance width if we can't get specific glyph bounds
-    let center_x = sort.position.x + (sort.advance_width / 2.0);
-    let center_y = sort.position.y + (metrics.ascender as f32 / 2.0);
+    // Get the descender (bottom of the metrics box)
+    let descender = metrics.descender as f32;
     
-    Vec2::new(center_x, center_y)
+    // Left edge is at x=0 for the sort's origin
+    let left_edge = 0.0;
+    
+    // Position at lower-left corner, offset inward by 64 units
+    let offset = Vec2::new(left_edge + 64.0, descender + 64.0);
+    
+    sort.position + offset
 }
 
 /// Component to mark point entities that belong to a sort
@@ -85,33 +61,34 @@ pub fn handle_sort_events(
     for event in sort_events.read() {
         match event {
             SortEvent::CreateSort { glyph_name, position } => {
-                // Get advance width from our thread-safe font data
+                // Get advance width from the virtual font
                 let advance_width = if let Some(glyph_data) = app_state.workspace.font.get_glyph(glyph_name) {
                     glyph_data.advance_width as f32
                 } else {
-                    warn!("Glyph '{}' not found in font", glyph_name);
-                    600.0 // Default width
+                    600.0 // Default fallback
                 };
 
-                // Get metrics for proper positioning
-                let _metrics = app_state.workspace.info.metrics();
-
-                let sort = Sort::new(glyph_name.clone(), *position, advance_width);
-
-                let sort_entity = commands.spawn((sort, InactiveSort)).id();
-                info!("Created sort for glyph '{}' at position {:?}", glyph_name, position);
+                create_sort(&mut commands, glyph_name.clone(), *position, advance_width);
             }
             SortEvent::ActivateSort { sort_entity } => {
-                activate_sort(&mut commands, &mut active_sort_state, *sort_entity, &active_sorts_query);
+                activate_sort(
+                    &mut commands,
+                    &mut active_sort_state,
+                    *sort_entity,
+                    &active_sorts_query,
+                );
             }
             SortEvent::DeactivateSort => {
-                deactivate_active_sort(&mut commands, &active_sort_state);
+                deactivate_current_sort(&mut commands, &mut active_sort_state, &active_sorts_query);
             }
-            SortEvent::_MoveSort { sort_entity: _, new_position: _ } => {
-                // TODO: Implement sort moving
+            SortEvent::_MoveSort {
+                sort_entity,
+                new_position,
+            } => {
+                move_sort(&mut commands, *sort_entity, *new_position);
             }
-            SortEvent::_DeleteSort { sort_entity: _ } => {
-                // TODO: Implement sort deletion
+            SortEvent::_DeleteSort { sort_entity } => {
+                delete_sort(&mut commands, &mut active_sort_state, *sort_entity);
             }
         }
     }
@@ -144,37 +121,48 @@ fn create_sort(
     ));
 }
 
-/// Activate a sort (making it the only active sort)
+/// Activate a sort for editing
 fn activate_sort(
     commands: &mut Commands,
     active_sort_state: &mut ResMut<ActiveSortState>,
-    entity: Entity,
+    sort_entity: Entity,
     active_sorts_query: &Query<Entity, With<ActiveSort>>,
 ) {
-    // Deactivate any currently active sorts
+    // First deactivate any currently active sort
     for active_entity in active_sorts_query.iter() {
-        commands.entity(active_entity).remove::<ActiveSort>();
-        commands.entity(active_entity).insert(InactiveSort);
+        commands
+            .entity(active_entity)
+            .remove::<ActiveSort>()
+            .insert(InactiveSort);
     }
 
     // Activate the new sort
-    commands.entity(entity).remove::<InactiveSort>();
-    commands.entity(entity).insert(ActiveSort);
-    active_sort_state.active_sort_entity = Some(entity);
+    commands
+        .entity(sort_entity)
+        .remove::<InactiveSort>()
+        .insert(ActiveSort);
 
-    info!("Activated sort entity {:?}", entity);
+    active_sort_state.active_sort_entity = Some(sort_entity);
+
+    info!("Activated sort entity {:?}", sort_entity);
 }
 
 /// Deactivate the currently active sort
-fn deactivate_active_sort(
+fn deactivate_current_sort(
     commands: &mut Commands,
-    active_sort_state: &ActiveSortState,
+    active_sort_state: &mut ResMut<ActiveSortState>,
+    active_sorts_query: &Query<Entity, With<ActiveSort>>,
 ) {
-    if let Some(current_entity) = active_sort_state.active_sort_entity {
-        commands.entity(current_entity).remove::<ActiveSort>();
-        commands.entity(current_entity).insert(InactiveSort);
-        info!("Deactivated sort entity {:?}", current_entity);
+    for active_entity in active_sorts_query.iter() {
+        commands
+            .entity(active_entity)
+            .remove::<ActiveSort>()
+            .insert(InactiveSort);
+
+        info!("Deactivated sort entity {:?}", active_entity);
     }
+
+    active_sort_state.active_sort_entity = None;
 }
 
 /// Move a sort to a new position
@@ -198,28 +186,32 @@ fn delete_sort(
     }
 
     commands.entity(sort_entity).despawn();
-
     info!("Deleted sort entity {:?}", sort_entity);
 }
 
-/// Sync sort position with transform changes
+/// System to sync Transform changes back to Sort position
 pub fn sync_sort_transforms(mut sorts_query: Query<(&mut Sort, &Transform), Changed<Transform>>) {
     for (mut sort, transform) in sorts_query.iter_mut() {
         let new_position = transform.translation.truncate();
-        if sort.position != new_position {
+        // Only update if the position actually changed to avoid triggering Changed<Sort>
+        if (sort.position - new_position).length() > f32::EPSILON {
+            debug!(
+                "sync_sort_transforms: Updating sort position from ({:.1}, {:.1}) to ({:.1}, {:.1})",
+                sort.position.x, sort.position.y, new_position.x, new_position.y
+            );
             sort.position = new_position;
         }
     }
 }
 
-/// Ensure only one sort is active at a time
+/// System to ensure only one sort is active at a time
 pub fn enforce_single_active_sort(
     mut commands: Commands,
     active_sorts: Query<Entity, With<ActiveSort>>,
 ) {
     let active_count = active_sorts.iter().count();
     if active_count > 1 {
-        warn!("Multiple active sorts detected ({}), deactivating extras", active_count);
+        warn!("Multiple active sorts detected ({}), deactivating all but first", active_count);
         
         // Keep the first one, deactivate the rest
         for (index, entity) in active_sorts.iter().enumerate() {
@@ -230,166 +222,176 @@ pub fn enforce_single_active_sort(
     }
 }
 
+/// System to handle glyph navigation changes
 pub fn handle_glyph_navigation_changes(
-    glyph_navigation: Res<GlyphNavigation>,
-    app_state: Res<AppState>,
-    mut sorts_query: Query<(Entity, &mut Sort), With<ActiveSort>>,
+    _glyph_navigation: Res<GlyphNavigation>,
+    _app_state: Res<AppState>,
+    _sorts_query: Query<(Entity, &mut Sort), With<ActiveSort>>,
 ) {
-    if !glyph_navigation.is_changed() {
-        return;
-    }
+    // TODO: Implement glyph navigation when the navigation system is ported
+}
 
-    // Only proceed if we have glyph data
-    let Some(current_glyph) = &glyph_navigation.current_glyph else {
-        return;
-    };
+/// System to respawn sort points when the glyph changes
+pub fn respawn_sort_points_on_glyph_change(
+    mut commands: Commands,
+    changed_sorts: Query<(Entity, &Sort), (With<ActiveSort>, Changed<Sort>)>,
+    sort_point_entities: Query<(Entity, &SortPointEntity)>,
+    mut selection_state: ResMut<SelectionState>,
+    app_state: Res<AppState>,
+    mut local_previous_glyphs: Local<HashMap<Entity, String>>,
+    newly_spawned_crosshairs: Query<&SortCrosshair, With<NewlySpawnedCrosshair>>,
+) {
+    for (sort_entity, sort) in changed_sorts.iter() {
+        // Skip if this sort has a newly spawned crosshair (to avoid conflicts during initial setup)
+        let has_newly_spawned_crosshair = newly_spawned_crosshairs.iter()
+            .any(|crosshair| crosshair.sort_entity == sort_entity);
+        
+        if has_newly_spawned_crosshair {
+            debug!("Skipping sort {:?} because it has a newly spawned crosshair", sort_entity);
+            continue;
+        }
+        
+        let current_glyph_name = sort.glyph_name.to_string();
+        let should_respawn = local_previous_glyphs
+            .get(&sort_entity)
+            .map_or(true, |prev_name| prev_name != &current_glyph_name);
 
-    // Update all active sorts to use this glyph
-    for (_entity, mut sort) in sorts_query.iter_mut() {
-        if sort.glyph_name != *current_glyph {
-            info!(
-                "Switching active sort from '{}' to '{}'",
-                sort.glyph_name, current_glyph
+        if should_respawn {
+            info!("Sort {:?} glyph changed to '{}', respawning point entities", 
+                  sort_entity, current_glyph_name);
+            
+            // Despawn existing point entities for this sort
+            despawn_point_entities_for_sort(
+                &mut commands,
+                sort_entity,
+                &sort_point_entities,
+                &mut selection_state,
             );
             
-            // Get advance width from the font for the new glyph
-            let advance_width = if let Some(glyph_data) = app_state.workspace.font.get_glyph(current_glyph) {
-                glyph_data.advance_width as f32
-            } else {
-                600.0 // Default fallback
-            };
-
-            sort.glyph_name = current_glyph.clone();
-            sort.advance_width = advance_width;
-        }
-    }
-}
-
-/// System to spawn initial sorts when font is loaded - matches backup approach
-pub fn spawn_initial_sort(
-    mut sort_events: EventWriter<SortEvent>,
-    sorts_query: Query<Entity, With<Sort>>,
-    app_state: Res<AppState>,
-    _glyph_navigation: Res<GlyphNavigation>,
-) {
-    // If there are already sorts, don't spawn more
-    if !sorts_query.is_empty() {
-        return;
-    }
-
-    // Check if we have a valid font loaded
-    if app_state.workspace.font.glyphs.is_empty() {
-        return;
-    }
-
-    const GLYPHS_PER_ROW: usize = 16;
-    const SORT_SPACING: f32 = 800.0;
-    const START_X: f32 = 100.0;
-    const START_Y: f32 = 100.0;
-
-    // Create some initial sorts - grab first few glyphs
-    for (index, glyph_name) in app_state.workspace.font.glyphs.keys().take(20).enumerate() {
-        let x = START_X + (index % GLYPHS_PER_ROW) as f32 * SORT_SPACING;
-        let y = START_Y - (index / GLYPHS_PER_ROW) as f32 * SORT_SPACING;
-        let position = Vec2::new(x, y);
-
-        sort_events.send(SortEvent::CreateSort {
-            glyph_name: glyph_name.clone(),
-            position,
-        });
-    }
-}
-
-/// Auto-activate the first sort
-pub fn auto_activate_first_sort(
-    mut commands: Commands,
-    mut active_sort_state: ResMut<ActiveSortState>,
-    sorts_query: Query<Entity, (With<Sort>, With<InactiveSort>)>,
-    active_sorts_query: Query<Entity, With<ActiveSort>>,
-) {
-    // Only activate if no sorts are currently active
-    if !active_sorts_query.is_empty() {
-        return;
-    }
-
-    // Only activate if we have inactive sorts
-    if let Some(first_sort_entity) = sorts_query.iter().next() {
-        info!("Auto-activating first sort: {:?}", first_sort_entity);
-        
-        commands
-            .entity(first_sort_entity)
-            .remove::<InactiveSort>()
-            .insert(ActiveSort);
+            // Spawn new point entities for the updated sort
+            spawn_point_entities_for_sort(
+                &mut commands,
+                sort_entity,
+                sort,
+                &app_state,
+                &mut selection_state,
+            );
             
-        active_sort_state.active_sort_entity = Some(first_sort_entity);
-    }
-}
-
-/// System to generate sorts from Unicode input
-pub fn generate_sorts_from_unicode_input(
-    mut sort_events: EventWriter<SortEvent>,
-    glyph_navigation: Res<GlyphNavigation>,
-    _app_state: Res<AppState>,
-) {
-    let Some(current_glyph) = &glyph_navigation.current_glyph else {
-        return;
-    };
-
-    // Generate a sort for the current glyph at origin
-    let position = Vec2::ZERO;
-    
-    sort_events.send(SortEvent::CreateSort {
-        glyph_name: current_glyph.clone(),
-        position,
-    });
-}
-
-/// System to create sorts at startup with some default glyphs
-pub fn create_startup_sorts(
-    mut sort_events: EventWriter<SortEvent>,
-    app_state: Res<AppState>,
-) {
-    let test_glyphs = vec!["A", "B", "C", "a", "b", "c"];
-    
-    for (i, glyph_name) in test_glyphs.iter().enumerate() {
-        // Only create if glyph exists in font
-        if app_state.workspace.font.get_glyph(glyph_name).is_some() {
-            let position = Vec2::new(i as f32 * 800.0, 0.0);
-            sort_events.send(SortEvent::CreateSort {
-                glyph_name: glyph_name.to_string(),
-                position,
-            });
+            local_previous_glyphs.insert(sort_entity, current_glyph_name);
+        } else {
+            debug!("Sort {:?} changed but glyph name '{}' is the same, skipping respawn", 
+                   sort_entity, current_glyph_name);
         }
     }
 }
 
-pub fn spawn_sort_point_entities(
-    mut commands: Commands,
-    added_active_sorts: Query<(Entity, &Sort), Added<ActiveSort>>,
-    mut removed_active_sorts: RemovedComponents<ActiveSort>,
-    sort_point_entities: Query<(Entity, &SortPointEntity)>,
-    mut _selection_state: ResMut<SelectionState>,
-    _app_state: Res<AppState>,
+/// Spawn point entities for a sort's glyph outline
+fn spawn_point_entities_for_sort(
+    commands: &mut Commands,
+    sort_entity: Entity,
+    sort: &Sort,
+    app_state: &AppState,
+    _selection_state: &mut ResMut<SelectionState>,
 ) {
-    // Spawn point entities for newly activated sorts
-    for (sort_entity, sort) in added_active_sorts.iter() {
-        info!("Spawning point entities for activated sort: {}", sort.glyph_name);
-        // TODO: Implement point entity spawning when selection system is ready
-    }
+    // Get the glyph from the virtual font
+    let glyph_data = app_state.workspace.font.get_glyph(&sort.glyph_name);
 
-    // Despawn point entities for deactivated sorts
-    for sort_entity in removed_active_sorts.read() {
-        info!("Despawning point entities for deactivated sort: {:?}", sort_entity);
-        for (entity, sort_point_entity) in sort_point_entities.iter() {
-            if sort_point_entity.sort_entity == sort_entity {
-                commands.entity(entity).despawn();
+    if let Some(glyph_data) = glyph_data {
+        if let Some(outline_data) = &glyph_data.outline {
+            for (contour_idx, contour_data) in outline_data.contours.iter().enumerate() {
+                for (point_idx, point_data) in contour_data.points.iter().enumerate() {
+                    let is_on_curve = matches!(point_data.point_type, crate::core::state::PointTypeData::Move | crate::core::state::PointTypeData::Line | crate::core::state::PointTypeData::Curve);
+                    
+                    // Calculate world position: sort position + point offset
+                    let point_pos = sort.position + Vec2::new(point_data.x as f32, point_data.y as f32);
+                    
+                    let entity_name = format!(
+                        "SortPoint_{}_{}_{}",
+                        sort.glyph_name, contour_idx, point_idx
+                    );
+
+                    commands.spawn((
+                        Transform::from_translation(Vec3::new(
+                            point_pos.x,
+                            point_pos.y,
+                            0.0,
+                        )),
+                        GlobalTransform::default(),
+                        Visibility::default(),
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
+                        Selectable,
+                        PointType { is_on_curve },
+                        GlyphPointReference {
+                            glyph_name: glyph_data.name.clone(),
+                            contour_index: contour_idx,
+                            point_index: point_idx,
+                        },
+                        SortPointEntity { sort_entity },
+                        Name::new(entity_name),
+                    ));
+                }
             }
         }
     }
 }
 
-// Stub implementations for now - we can implement these as needed
-pub fn respawn_sort_points_on_glyph_change() {}
+/// Despawn point entities for a sort
+fn despawn_point_entities_for_sort(
+    commands: &mut Commands,
+    sort_entity: Entity,
+    sort_point_entities: &Query<(Entity, &SortPointEntity)>,
+    selection_state: &mut ResMut<SelectionState>,
+) {
+    for (entity, sort_point_entity) in sort_point_entities.iter() {
+        if sort_point_entity.sort_entity == sort_entity {
+            // Remove from selection if selected
+            selection_state.selected.remove(&entity);
+            
+            // Despawn the entity
+            commands.entity(entity).despawn();
+            debug!("Despawned point entity {:?} for sort {:?}", entity, sort_entity);
+        }
+    }
+}
+
+/// System to spawn/despawn point entities when sorts become active/inactive
+pub fn spawn_sort_point_entities(
+    mut commands: Commands,
+    // Detect when sorts change from inactive to active
+    added_active_sorts: Query<(Entity, &Sort), Added<ActiveSort>>,
+    // Detect when sorts change from active to inactive
+    mut removed_active_sorts: RemovedComponents<ActiveSort>,
+    // Find existing point entities for sorts
+    sort_point_entities: Query<(Entity, &SortPointEntity)>,
+    mut selection_state: ResMut<SelectionState>,
+    app_state: Res<AppState>,
+) {
+    // Spawn point entities for newly active sorts
+    for (sort_entity, sort) in added_active_sorts.iter() {
+        info!("Spawning point entities for newly active sort {:?}", sort_entity);
+        spawn_point_entities_for_sort(
+            &mut commands,
+            sort_entity,
+            sort,
+            &app_state,
+            &mut selection_state,
+        );
+    }
+
+    // Despawn point entities for sorts that are no longer active
+    for sort_entity in removed_active_sorts.read() {
+        info!("Despawning point entities for inactive sort {:?}", sort_entity);
+        despawn_point_entities_for_sort(
+            &mut commands,
+            sort_entity,
+            &sort_point_entities,
+            &mut selection_state,
+        );
+    }
+}
+
+// Placeholder systems for features not yet implemented
 pub fn update_sort_glyph_data() {}
 pub fn manage_sort_crosshairs() {}
 pub fn update_sort_from_crosshair_move() {}
@@ -399,20 +401,69 @@ pub fn sync_crosshair_to_sort_move() {}
 pub fn sync_points_to_sort_move() {}
 pub fn debug_sort_point_entities() {}
 
+/// System to create initial sorts from glyphs
+pub fn create_startup_sorts(
+    mut sort_events: EventWriter<SortEvent>,
+    sorts_query: Query<Entity, With<Sort>>,
+    app_state: Res<AppState>,
+) {
+    // Only create sorts if none exist
+    if sorts_query.is_empty() {
+        info!("No sorts found, creating startup sorts from font glyphs");
+        
+        // Use font metrics for proper spacing
+        let font_metrics = app_state.workspace.info.metrics();
+        let upm = font_metrics.units_per_em as f32;
+        let ascender = font_metrics.ascender as f32;
+        let descender = font_metrics.descender as f32;
+        let total_height = ascender - descender;
+        
+        // Calculate spacing based on font metrics for even margins
+        let vertical_margin = total_height * 0.3; // 30% margin between rows
+        let horizontal_margin = upm * 0.2; // 20% margin between columns
+        let row_height = total_height + vertical_margin;
+        let col_width = upm + horizontal_margin;
+        
+        let start_x = 100.0;
+        let start_y = 100.0;
+        let max_cols = 12; // Reduced to fit better on screen
+        
+        // Create sorts for all glyphs, arranged in a grid with proper spacing
+        for (index, glyph_name) in app_state.workspace.font.glyphs.keys().enumerate() {
+            let col = index % max_cols;
+            let row = index / max_cols;
+            
+            let position = Vec2::new(
+                start_x + col as f32 * col_width,
+                start_y - row as f32 * row_height,
+            );
+            
+            sort_events.write(SortEvent::CreateSort {
+                glyph_name: glyph_name.clone(),
+                position,
+            });
+        }
+    }
+}
+
+/// System to auto-activate the first sort if no sort is active
 pub fn make_first_sort_active_system(
     mut commands: Commands,
     mut active_sort_state: ResMut<ActiveSortState>,
     sorts_query: Query<Entity, (With<Sort>, With<InactiveSort>)>,
+    active_sorts_query: Query<Entity, With<ActiveSort>>,
 ) {
     // Only activate if no sort is currently active
-    if active_sort_state.active_sort_entity.is_none() {
+    if active_sorts_query.is_empty() && !sorts_query.is_empty() {
         if let Some(first_sort_entity) = sorts_query.iter().next() {
             commands
                 .entity(first_sort_entity)
                 .remove::<InactiveSort>()
                 .insert(ActiveSort);
-              
+            
             active_sort_state.active_sort_entity = Some(first_sort_entity);
+            
+            info!("Auto-activating first sort: {:?}", first_sort_entity);
         }
     }
 } 

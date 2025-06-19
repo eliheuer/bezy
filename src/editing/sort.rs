@@ -70,18 +70,19 @@ impl Sort {
     /// Create a new sort from a glyph (extracts name and advance width)
     pub fn _from_glyph(glyph: &Glyph, position: Vec2) -> Self {
         let advance_width = glyph.width as f32;
+
         Self::new(glyph.name().to_string(), position, advance_width)
     }
 
     /// Get the metrics box bounds for this sort
     pub fn get_metrics_bounds(&self, font_metrics: &crate::core::state::FontMetrics) -> SortBounds {
         let width = self.advance_width;
-        let ascender = font_metrics.ascender as f32;
-        let descender = font_metrics.descender as f32;
+        let ascender = font_metrics.ascender;
+        let descender = font_metrics.descender;
 
         SortBounds {
-            min: self.position + Vec2::new(0.0, descender),
-            max: self.position + Vec2::new(width, ascender),
+            min: self.position + Vec2::new(0.0, descender as f32),
+            max: self.position + Vec2::new(width, ascender as f32),
         }
     }
 

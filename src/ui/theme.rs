@@ -114,6 +114,7 @@ pub const BACKGROUND_COLOR: Color = Color::srgb(0.05, 0.05, 0.05);
 pub const CHECKERBOARD_UNIT_SIZE: f32 = 16.0; // Width and height of each square in pixels
 pub const CHECKERBOARD_COLOR_1: Color = Color::srgb(0.128, 0.128, 0.128); // Dark squares
 pub const CHECKERBOARD_COLOR_2: Color = Color::srgb(0.150, 0.150, 0.150); // Light squares
+pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.128, 0.128, 0.128); // Single color for checkerboard squares
 
 pub const CHECKERBOARD_SCALE_FACTOR: f32 = 2.0;
 pub const CHECKERBOARD_MAX_ZOOM_VISIBLE: f32 = 32.0;
