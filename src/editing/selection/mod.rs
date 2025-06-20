@@ -1,9 +1,11 @@
 pub mod components;
 pub mod nudge;
+pub mod systems;
 
 use bevy::prelude::*;
 pub use components::*;
 pub use nudge::*;
+pub use systems::*;
 use std::collections::HashMap;
 
 /// Resource to track the drag selection state
@@ -47,6 +49,8 @@ pub struct SelectionPlugin;
 impl Plugin for SelectionPlugin {
     fn build(&self, app: &mut App) {
         app
+            // Add events
+            .add_event::<systems::AppStateChanged>()
             // Register components
             .register_type::<Selectable>()
             .register_type::<Selected>()
@@ -54,10 +58,54 @@ impl Plugin for SelectionPlugin {
             .register_type::<SelectionRect>()
             .register_type::<PointType>()
             .register_type::<GlyphPointReference>()
+            .register_type::<LastEditType>()
             // Register resources
             .init_resource::<SelectionState>()
             .init_resource::<DragSelectionState>()
             .init_resource::<DragPointState>()
+            // Add core selection systems
+            .configure_sets(
+                Update,
+                (
+                    SelectionSystemSet::Input,
+                    SelectionSystemSet::Processing,
+                    SelectionSystemSet::Render,
+                )
+                    .chain(),
+            )
+            .add_systems(
+                Update,
+                (
+                    // Mouse input must run first to handle clicks and drag start/end
+                    systems::handle_mouse_input,
+                    // Point drag runs after mouse input to process ongoing drags
+                    systems::handle_point_drag.after(systems::handle_mouse_input),
+                    // Other input systems can run in parallel
+                    systems::handle_selection_shortcuts,
+                    systems::handle_key_releases,
+                )
+                    .in_set(SelectionSystemSet::Input),
+            )
+            .add_systems(
+                Update,
+                (
+                    systems::update_glyph_data_from_selection,
+                    sync_selected_components,
+                    systems::clear_selection_on_app_change,
+                    systems::cleanup_click_resource.after(SelectionSystemSet::Input),
+                )
+                    .in_set(SelectionSystemSet::Processing)
+                    .after(SelectionSystemSet::Input),
+            )
+            .add_systems(
+                Update,
+                (
+                    systems::render_selection_rect,
+                    systems::render_selected_entities,
+                )
+                    .in_set(SelectionSystemSet::Render)
+                    .after(SelectionSystemSet::Processing),
+            )
             // Add the nudge plugin
             .add_plugins(NudgePlugin);
     }
