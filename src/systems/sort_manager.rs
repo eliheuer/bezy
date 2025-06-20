@@ -14,10 +14,10 @@ use std::collections::HashMap;
 /// Helper to calculate the desired position of the crosshair.
 /// Places it at the lower-left of the sort's metrics box, offset inward by 64 units.
 fn get_crosshair_position(sort: &Sort, app_state: &AppState) -> Vec2 {
-    let metrics = &app_state.workspace.info.metrics();
+    let metrics = &app_state.workspace.info.metrics;
     
     // Get the descender (bottom of the metrics box)
-    let descender = metrics.descender as f32;
+    let descender = metrics.descender.unwrap_or(-200.0) as f32;
     
     // Left edge is at x=0 for the sort's origin
     let left_edge = 0.0;
@@ -412,10 +412,10 @@ pub fn create_startup_sorts(
         info!("No sorts found, creating startup sorts from font glyphs");
         
         // Use font metrics for proper spacing
-        let font_metrics = app_state.workspace.info.metrics();
+        let font_metrics = &app_state.workspace.info.metrics;
         let upm = font_metrics.units_per_em as f32;
-        let ascender = font_metrics.ascender as f32;
-        let descender = font_metrics.descender as f32;
+        let ascender = font_metrics.ascender.unwrap_or(800.0) as f32;
+        let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
         let total_height = ascender - descender;
         
         // Calculate spacing based on font metrics for even margins

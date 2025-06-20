@@ -14,7 +14,7 @@ use norad::Glyph;
 /// including units per em, x-height, cap-height, ascender, and descender.
 pub fn debug_font_metrics(app_state: &AppState) {
     debug!("=== Font Metrics Debug ===");
-    let metrics = &app_state.workspace.info.metrics();
+    let metrics = &app_state.workspace.info.metrics;
     debug!("Units per em: {}", metrics.units_per_em);
     debug!("X-height: {:?}", metrics.x_height);
     debug!("Cap-height: {:?}", metrics.cap_height);

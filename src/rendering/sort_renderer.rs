@@ -26,7 +26,7 @@ pub fn render_sorts_system(
     active_sorts_query: Query<&Sort, With<ActiveSort>>,
     inactive_sorts_query: Query<&Sort, With<InactiveSort>>,
 ) {
-    let font_metrics = &app_state.workspace.info.metrics();
+    let font_metrics = &app_state.workspace.info.metrics;
 
     // Render inactive sorts as metrics boxes with glyph outlines
     for sort in inactive_sorts_query.iter() {
@@ -88,7 +88,7 @@ pub fn manage_sort_unicode_text(
                             TextColor(text_color),
                             TextLayout::new_with_justify(JustifyText::Right), // Right-align the text
                             Anchor::TopRight, // Anchor the text at its top-right corner
-                            calculate_text_transform(sort, &app_state.workspace.info.metrics()),
+                            calculate_text_transform(sort, &app_state.workspace.info.metrics),
                         ));
                     }
                 }
@@ -104,7 +104,7 @@ pub fn manage_sort_unicode_text(
                          TextColor(text_color),
                          TextLayout::new_with_justify(JustifyText::Right), // Right-align the text
                          Anchor::TopRight, // Anchor the text at its top-right corner
-                         calculate_text_transform(sort, &app_state.workspace.info.metrics()),
+                         calculate_text_transform(sort, &app_state.workspace.info.metrics),
                          GlobalTransform::default(),
                          Visibility::Visible,
                          InheritedVisibility::default(),
@@ -127,7 +127,7 @@ pub fn update_sort_unicode_text_positions(
     sorts_query: Query<&Sort, Changed<Sort>>,
     mut text_query: Query<(&mut Transform, &SortUnicodeText)>,
 ) {
-    let font_metrics = &app_state.workspace.info.metrics();
+    let font_metrics = &app_state.workspace.info.metrics;
     
     for (mut text_transform, sort_unicode_text) in text_query.iter_mut() {
         if let Ok(sort) = sorts_query.get(sort_unicode_text.sort_entity) {
@@ -263,8 +263,8 @@ fn draw_sort_metrics_box(
     color: Color,
 ) {
     let upm = font_metrics.units_per_em as f32;
-    let ascender = font_metrics.ascender as f32;
-    let descender = font_metrics.descender as f32;
+    let ascender = font_metrics.ascender.unwrap_or(800.0) as f32;
+    let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
     let width = glyph_data.advance_width as f32;
 
     // All coordinates are offset by the position

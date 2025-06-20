@@ -30,8 +30,8 @@ pub fn draw_metrics_at_position_with_color(
     color: Color,
 ) {
     let upm = metrics.units_per_em as f32;
-    let ascender = metrics.ascender as f32;
-    let descender = metrics.descender as f32;
+    let ascender = metrics.ascender.unwrap_or(800.0) as f32;
+    let descender = metrics.descender.unwrap_or(-200.0) as f32;
     
     // Use actual font metrics if available, otherwise fallback to reasonable defaults
     let x_height = metrics.x_height.unwrap_or((upm * 0.5).round() as f64) as f32;

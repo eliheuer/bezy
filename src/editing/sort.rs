@@ -81,8 +81,8 @@ impl Sort {
         let descender = font_metrics.descender;
 
         SortBounds {
-            min: self.position + Vec2::new(0.0, descender as f32),
-            max: self.position + Vec2::new(width, ascender as f32),
+            min: self.position + Vec2::new(0.0, descender.unwrap_or(-200.0) as f32),
+            max: self.position + Vec2::new(width, ascender.unwrap_or(800.0) as f32),
         }
     }
 

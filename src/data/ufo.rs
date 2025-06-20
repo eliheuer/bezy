@@ -1,14 +1,32 @@
 //! UFO file I/O operations
 
 use anyhow::Result;
+use bevy::prelude::*;
 use norad::Font;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use crate::data::unicode::sort_and_deduplicate_codepoints;
+use crate::core::state::AppState;
 
 /// Load a UFO font file from disk
 pub fn load_ufo_from_path(path: impl AsRef<Path>) -> Result<Font> {
     let font = Font::load(path)?;
+    Ok(font)
+}
+
+/// Load a UFO font file from disk (compatibility version)
+/// This version matches the old API signature for compatibility
+pub fn load_ufo_from_path_compat(
+    path: &str
+) -> Result<Font, Box<dyn std::error::Error>> {
+    let font_path = PathBuf::from(path);
+    
+    if !font_path.exists() {
+        let error_msg = format!("File not found: {}", font_path.display());
+        return Err(error_msg.into());
+    }
+
+    let font = Font::load(font_path)?;
     Ok(font)
 }
 
@@ -58,6 +76,7 @@ pub fn get_all_codepoints(font: &Font) -> Vec<String> {
     let mut codepoints: Vec<String> = map.keys().cloned().collect();
     sort_and_deduplicate_codepoints(&mut codepoints);
 
+    debug!("Found {} codepoints in font", codepoints.len());
     codepoints
 }
 
@@ -158,4 +177,49 @@ pub fn find_previous_codepoint_in_list(
         current_codepoint,
         CycleDirection::Previous
     )
+}
+
+// File Loading and Initialization (Compatibility Functions) ------------------
+
+/// Set up the font when the app starts (compatibility function)
+/// This provides the same API as the old version but works with the new architecture
+pub fn initialize_font_state(
+    mut commands: Commands,
+    cli_args: Res<crate::core::cli::CliArgs>,
+) {
+    if let Some(font_path) = &cli_args.ufo_path {
+        load_font_at_startup(&mut commands, font_path);
+    } else {
+        // No font specified, start with empty state
+        commands.init_resource::<AppState>();
+    }
+}
+
+/// Load and set up a font when the app starts (compatibility function)
+/// This provides the same API as the old version but works with the new architecture
+fn load_font_at_startup(commands: &mut Commands, font_path: &PathBuf) {
+    let path_string = font_path.to_str().unwrap_or_default();
+    
+    match load_ufo_from_path_compat(path_string) {
+        Ok(_font) => {
+            // Successfully loaded font - initialize AppState and let the main app system handle loading
+            let mut app_state = AppState::default();
+            match app_state.load_font_from_path(font_path.clone()) {
+                Ok(_) => {
+                    let font_name = app_state.get_font_display_name();
+                    commands.insert_resource(app_state);
+                    info!("Loaded font: {}", font_name);
+                }
+                Err(error) => {
+                    error!("Failed to initialize font state: {}", error);
+                    commands.init_resource::<AppState>();
+                }
+            }
+        }
+        Err(error) => {
+            // Failed to load font
+            error!("Failed to load UFO file: {}", error);
+            commands.init_resource::<AppState>();
+        }
+    }
 } 

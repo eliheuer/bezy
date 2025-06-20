@@ -94,6 +94,8 @@ pub struct FontInfo {
     pub style_name: String,
     /// Units per em
     pub units_per_em: f64,
+    /// Font metrics for spacing and positioning
+    pub metrics: FontMetrics,
     /// Ascender value
     pub ascender: Option<f64>,
     /// Descender value
@@ -102,6 +104,18 @@ pub struct FontInfo {
     pub x_height: Option<f64>,
     /// Cap height value
     pub cap_height: Option<f64>,
+}
+
+/// Font metrics for spacing and positioning
+#[derive(Clone, Default)]
+pub struct FontMetrics {
+    pub units_per_em: f64,
+    pub descender: Option<f64>,
+    pub x_height: Option<f64>,
+    pub cap_height: Option<f64>,
+    pub ascender: Option<f64>,
+    pub italic_angle: Option<f64>,
+    pub line_height: f64,
 }
 
 impl AppState {
@@ -386,16 +400,56 @@ impl FontData {
 impl FontInfo {
     /// Extract font info from norad Font
     pub fn from_norad_font(font: &Font) -> Self {
+        let units_per_em = font.font_info.units_per_em
+            .map(|v| v.to_string().parse().unwrap_or(1024.0))
+            .unwrap_or(1024.0);
+        let ascender = font.font_info.ascender.map(|v| v as f64);
+        let descender = font.font_info.descender.map(|v| v as f64);
+        let x_height = font.font_info.x_height.map(|v| v as f64);
+        let cap_height = font.font_info.cap_height.map(|v| v as f64);
+        let italic_angle = font.font_info.italic_angle.map(|v| v as f64);
+        
+        let metrics = FontMetrics::from_ufo(font);
+        
         Self {
-            family_name: font.font_info.family_name.clone().unwrap_or_else(|| "Untitled".to_string()),
-            style_name: font.font_info.style_name.clone().unwrap_or_else(|| "Regular".to_string()),
-            units_per_em: font.font_info.units_per_em
-                .map(|v| v.to_string().parse().unwrap_or(1024.0))
-                .unwrap_or(1024.0),
-            ascender: font.font_info.ascender.map(|v| v as f64),
-            descender: font.font_info.descender.map(|v| v as f64),
-            x_height: font.font_info.x_height.map(|v| v as f64),
-            cap_height: font.font_info.cap_height.map(|v| v as f64),
+            family_name: Self::extract_string_field(&font.font_info, |info| &info.family_name, "Untitled"),
+            style_name: Self::extract_string_field(&font.font_info, |info| &info.style_name, "Regular"),
+            units_per_em,
+            metrics,
+            ascender,
+            descender,
+            x_height,
+            cap_height,
+        }
+    }
+    
+    /// Helper to extract string fields with defaults
+    fn extract_string_field<F>(
+        font_info: &norad::FontInfo,
+        getter: F,
+        default: &str,
+    ) -> String
+    where
+        F: Fn(&norad::FontInfo) -> &Option<String>,
+    {
+        getter(font_info)
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| default.to_string())
+    }
+    
+    /// Get a display name combining family and style names
+    pub fn get_display_name(&self) -> String {
+        let parts: Vec<&str> = [&self.family_name, &self.style_name]
+            .iter()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.as_str())
+            .collect();
+
+        if parts.is_empty() {
+            "Untitled Font".to_string()
+        } else {
+            parts.join(" ")
         }
     }
     
@@ -423,38 +477,19 @@ impl FontInfo {
     }
     
     /// Get metrics for rendering
-    pub fn metrics(&self) -> FontMetrics {
-        FontMetrics::from(self)
-    }
-}
-
-/// Font metrics for rendering
-#[derive(Resource, Default, Clone)]
-pub struct FontMetrics {
-    pub units_per_em: f64,
-    pub ascender: f64,
-    pub descender: f64,
-    pub line_height: f64,
-    pub x_height: Option<f64>,
-    pub cap_height: Option<f64>,
-}
-
-impl From<&FontInfo> for FontMetrics {
-    fn from(info: &FontInfo) -> Self {
-        Self {
-            units_per_em: info.units_per_em,
-            ascender: info.ascender.unwrap_or(800.0),
-            descender: info.descender.unwrap_or(-200.0),
-            line_height: info.ascender.unwrap_or(800.0) - info.descender.unwrap_or(-200.0),
-            x_height: info.x_height,
-            cap_height: info.cap_height,
-        }
+    pub fn get_metrics(&self) -> &FontMetrics {
+        &self.metrics
     }
 }
 
 /// Glyph navigation state
 #[derive(Resource, Default)]
 pub struct GlyphNavigation {
+    /// The current Unicode codepoint being viewed (like "0061" for 'a')
+    pub current_codepoint: Option<String>,
+    /// Whether we found this codepoint in the loaded font
+    pub codepoint_found: bool,
+    /// Legacy fields for compatibility
     pub current_glyph: Option<String>,
     pub glyph_list: Vec<String>,
     pub current_index: usize,
@@ -465,6 +500,36 @@ impl GlyphNavigation {
         Self::default()
     }
     
+    /// Create a new navigation state with a starting codepoint
+    pub fn with_codepoint(initial_codepoint: Option<String>) -> Self {
+        Self {
+            current_codepoint: initial_codepoint,
+            codepoint_found: false,
+            current_glyph: None,
+            glyph_list: Vec::new(),
+            current_index: 0,
+        }
+    }
+
+    /// Change to a different codepoint
+    pub fn set_codepoint(&mut self, new_codepoint: String) {
+        self.current_codepoint = Some(new_codepoint);
+        self.codepoint_found = false; // We'll need to check if this exists
+    }
+
+    /// Get the current codepoint as a string for display
+    pub fn get_codepoint_string(&self) -> String {
+        self.current_codepoint.clone().unwrap_or_default()
+    }
+
+    /// Find the glyph name for the current codepoint
+    pub fn find_glyph(&self, app_state: &AppState) -> Option<String> {
+        self.current_codepoint
+            .as_ref()
+            .and_then(|codepoint| find_glyph_by_unicode_codepoint(app_state, codepoint))
+    }
+    
+    /// Legacy methods for compatibility
     pub fn set_current_glyph(&mut self, glyph_name: String) {
         self.current_glyph = Some(glyph_name);
     }
@@ -493,5 +558,137 @@ impl Workspace {
         } else {
             parts.join(" ")
         }
+    }
+}
+
+impl FontMetrics {
+    /// Extract metrics from a UFO
+    pub fn from_ufo(ufo: &Font) -> Self {
+        let font_info = &ufo.font_info;
+
+        let units_per_em = font_info
+            .units_per_em.map(|v| v.to_string().parse().unwrap_or(1024.0))
+            .unwrap_or(1024.0);
+        let ascender = font_info.ascender.map(|v| v as f64);
+        let descender = font_info.descender.map(|v| v as f64);
+        let x_height = font_info.x_height.map(|v| v as f64);
+        let cap_height = font_info.cap_height.map(|v| v as f64);
+        let italic_angle = font_info.italic_angle.map(|v| v as f64);
+        let line_height = ascender.unwrap_or(800.0) - descender.unwrap_or(-200.0);
+
+        Self {
+            units_per_em,
+            descender,
+            x_height,
+            cap_height,
+            ascender,
+            italic_angle,
+            line_height,
+        }
+    }
+}
+
+/// Create resource-compatible FontMetrics for rendering
+#[derive(Resource, Default, Clone)]
+pub struct FontMetricsResource {
+    pub units_per_em: f64,
+    pub ascender: f64,
+    pub descender: f64,
+    pub line_height: f64,
+    pub x_height: Option<f64>,
+    pub cap_height: Option<f64>,
+}
+
+impl From<&FontInfo> for FontMetricsResource {
+    fn from(info: &FontInfo) -> Self {
+        Self {
+            units_per_em: info.units_per_em,
+            ascender: info.ascender.unwrap_or(800.0),
+            descender: info.descender.unwrap_or(-200.0),
+            line_height: info.ascender.unwrap_or(800.0) - info.descender.unwrap_or(-200.0),
+            x_height: info.x_height,
+            cap_height: info.cap_height,
+        }
+    }
+}
+
+/// Find a glyph by Unicode codepoint in the app state
+pub fn find_glyph_by_unicode_codepoint(app_state: &AppState, codepoint: &str) -> Option<String> {
+    // Parse the codepoint string to a character
+    if let Ok(codepoint_num) = u32::from_str_radix(codepoint, 16) {
+        if let Some(ch) = char::from_u32(codepoint_num) {
+            // Search through all glyphs for one with this unicode value
+            for (glyph_name, glyph_data) in &app_state.workspace.font.glyphs {
+                if glyph_data.unicode_values.contains(&ch) {
+                    return Some(glyph_name.clone());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Get all unicode codepoints available in the font
+pub fn get_all_codepoints(app_state: &AppState) -> Vec<String> {
+    let mut codepoints = Vec::new();
+    
+    for glyph_data in app_state.workspace.font.glyphs.values() {
+        for &unicode_char in &glyph_data.unicode_values {
+            let codepoint = format!("{:04X}", unicode_char as u32);
+            if !codepoints.contains(&codepoint) {
+                codepoints.push(codepoint);
+            }
+        }
+    }
+    
+    // Sort and return
+    codepoints.sort();
+    codepoints
+}
+
+/// Navigation direction for cycling through codepoints
+#[derive(Clone, Debug)]
+pub enum CycleDirection {
+    Next,
+    Previous,
+}
+
+/// Find the next or previous codepoint in the font's available codepoints
+pub fn cycle_codepoint_in_list(
+    current_codepoint: Option<String>, 
+    app_state: &AppState,
+    direction: CycleDirection,
+) -> Option<String> {
+    let codepoints = get_all_codepoints(app_state);
+    
+    if codepoints.is_empty() {
+        return None;
+    }
+    
+    // If no current codepoint, return the first one
+    let current = match current_codepoint {
+        Some(cp) => cp,
+        None => return codepoints.first().cloned(),
+    };
+    
+    // Find the position of the current codepoint
+    if let Some(current_index) = codepoints.iter().position(|cp| cp == &current) {
+        match direction {
+            CycleDirection::Next => {
+                let next_index = (current_index + 1) % codepoints.len();
+                codepoints.get(next_index).cloned()
+            }
+            CycleDirection::Previous => {
+                let prev_index = if current_index == 0 {
+                    codepoints.len() - 1
+                } else {
+                    current_index - 1
+                };
+                codepoints.get(prev_index).cloned()
+            }
+        }
+    } else {
+        // Current codepoint not found, return first
+        codepoints.first().cloned()
     }
 }
