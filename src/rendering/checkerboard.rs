@@ -77,7 +77,7 @@ pub fn update_checkerboard(
     camera_query: Query<&Transform, With<DesignCamera>>,
     square_query: Query<(Entity, &CheckerboardSquare)>,
 ) {
-    let Ok(camera_transform) = camera_query.get_single() else {
+    let Ok(camera_transform) = camera_query.single() else {
         return;
     };
 

@@ -13,7 +13,7 @@ impl EditTool for ShapesTool {
     }
     
     fn icon(&self) -> &'static str {
-        "\u{E012}"
+        "\u{E016}"
     }
     
     fn shortcut_key(&self) -> Option<char> {

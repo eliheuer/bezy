@@ -13,7 +13,7 @@ impl EditTool for KnifeTool {
     }
     
     fn icon(&self) -> &'static str {
-        "\u{E017}"
+        "\u{E013}"
     }
     
     fn shortcut_key(&self) -> Option<char> {

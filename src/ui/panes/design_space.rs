@@ -14,7 +14,7 @@ use crate::ui::theme;
 
 
 /// The position of the view, relative to the design space.
-#[derive(Resource, Debug, Clone, Copy, PartialEq)]
+#[derive(Component, Resource, Debug, Clone, Copy, PartialEq)]
 pub struct ViewPort {
     /// The offset from (0, 0) in view space (the top left corner) and (0, 0) in
     /// design space, which is the intersection of the baseline and the left sidebearing.

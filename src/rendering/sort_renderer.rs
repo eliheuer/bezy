@@ -22,20 +22,27 @@ pub struct SortUnicodeText {
 pub fn render_sorts_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
+    viewports: Query<&crate::ui::panes::design_space::ViewPort>,
     _sorts_query: Query<&Sort>,
     active_sorts_query: Query<&Sort, With<ActiveSort>>,
     inactive_sorts_query: Query<&Sort, With<InactiveSort>>,
 ) {
+    // Get viewport for coordinate transformations
+    let viewport = match viewports.single() {
+        Ok(viewport) => *viewport,
+        Err(_) => crate::ui::panes::design_space::ViewPort::default(),
+    };
+
     let font_metrics = &app_state.workspace.info.metrics;
 
     // Render inactive sorts as metrics boxes with glyph outlines
     for sort in inactive_sorts_query.iter() {
-        render_inactive_sort(&mut gizmos, sort, font_metrics, &app_state);
+        render_inactive_sort(&mut gizmos, &viewport, sort, font_metrics, &app_state);
     }
 
     // Render active sorts with full outline detail
     for sort in active_sorts_query.iter() {
-        render_active_sort(&mut gizmos, sort, font_metrics, &app_state);
+        render_active_sort(&mut gizmos, &viewport, sort, font_metrics, &app_state);
     }
 }
 
@@ -171,7 +178,7 @@ fn calculate_text_transform(sort: &Sort, font_metrics: &FontMetrics) -> Transfor
 
 /// Get the unicode value for a given glyph name
 fn get_unicode_for_glyph(glyph_name: &str, app_state: &AppState) -> Option<String> {
-    if let Some(glyph_data) = app_state.workspace.font.get_glyph(glyph_name) {
+    if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
         if !glyph_data.unicode_values.is_empty() {
             if let Some(&first_codepoint) = glyph_data.unicode_values.first() {
                 return Some(format!("{:04X}", first_codepoint as u32));
@@ -184,32 +191,35 @@ fn get_unicode_for_glyph(glyph_name: &str, app_state: &AppState) -> Option<Strin
 /// Render an inactive sort with metrics box and glyph outline only
 fn render_inactive_sort(
     gizmos: &mut Gizmos,
+    viewport: &crate::ui::panes::design_space::ViewPort,
     sort: &Sort,
     font_metrics: &FontMetrics,
     app_state: &AppState,
 ) {
-    // Get the glyph from our thread-safe font data
-    if let Some(glyph_data) = app_state.workspace.font.get_glyph(&sort.glyph_name) {
-        // First render the metrics box using the inactive color
-        draw_sort_metrics_box(
+    // Get the glyph from our internal data
+    let glyph = app_state.workspace.font.glyphs.get(&sort.glyph_name);
+
+    if let Some(glyph) = glyph {
+        // Convert our internal glyph data to norad format for metrics rendering
+        let norad_glyph = glyph.to_norad_glyph();
+        
+        // First render the metrics box using the inactive color and proper viewport
+        crate::rendering::metrics::draw_metrics_at_position_with_color(
             gizmos,
-            glyph_data,
+            viewport,
+            &norad_glyph,
             font_metrics,
             sort.position,
             SORT_INACTIVE_METRICS_COLOR,
         );
         
         // Then render only the glyph outline (no control handles) if it exists
-        if let Some(outline) = &glyph_data.outline {
-            // Render each contour in the outline
-            for contour in &outline.contours {
-                if contour.points.is_empty() {
-                    continue;
-                }
-
-                // Draw only the path, no control handles for inactive sorts
-                draw_contour_path_direct(
+        if let Some(outline) = &glyph.outline {
+            // Draw only the path, no control handles for inactive sorts
+            for contour in outline.contours.iter() {
+                crate::rendering::glyph_outline::draw_contour_path_at_position(
                     gizmos,
+                    viewport,
                     contour,
                     sort.position,
                 );
@@ -221,301 +231,44 @@ fn render_inactive_sort(
 /// Render an active sort with full glyph outline and control handles
 fn render_active_sort(
     gizmos: &mut Gizmos,
+    viewport: &crate::ui::panes::design_space::ViewPort,
     sort: &Sort,
     font_metrics: &FontMetrics,
     app_state: &AppState,
 ) {
-    // Get the glyph from our thread-safe font data
-    if let Some(glyph_data) = app_state.workspace.font.get_glyph(&sort.glyph_name) {
-        // First render the metrics box using the active color
-        draw_sort_metrics_box(
+    // Get the glyph from our internal data
+    let glyph = app_state.workspace.font.glyphs.get(&sort.glyph_name);
+
+    if let Some(glyph) = glyph {
+        // Convert our internal glyph data to norad format for metrics rendering
+        let norad_glyph = glyph.to_norad_glyph();
+        
+        // First render the metrics box using the active color and proper viewport
+        crate::rendering::metrics::draw_metrics_at_position_with_color(
             gizmos,
-            glyph_data,
+            viewport,
+            &norad_glyph,
             font_metrics,
             sort.position,
             SORT_ACTIVE_METRICS_COLOR,
         );
         
         // Then render the full glyph outline with control handles if it exists
-        if let Some(outline) = &glyph_data.outline {
-            draw_glyph_outline_direct(
+        if let Some(outline) = &glyph.outline {
+            crate::rendering::glyph_outline::draw_glyph_outline_at_position(
                 gizmos,
+                viewport,
                 outline,
                 sort.position,
             );
             
             // Also render the glyph points (on-curve and off-curve)
-            draw_glyph_points_direct(
+            crate::rendering::glyph_outline::draw_glyph_points_at_position(
                 gizmos,
+                viewport,
                 outline,
                 sort.position,
             );
         }
     }
-}
-
-/// Draw metrics box for a sort using GlyphData
-fn draw_sort_metrics_box(
-    gizmos: &mut Gizmos,
-    glyph_data: &crate::core::state::GlyphData,
-    font_metrics: &FontMetrics,
-    position: Vec2,
-    color: Color,
-) {
-    let upm = font_metrics.units_per_em as f32;
-    let ascender = font_metrics.ascender.unwrap_or(800.0) as f32;
-    let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
-    let width = glyph_data.advance_width as f32;
-
-    // All coordinates are offset by the position
-    let offset_x = position.x;
-    let offset_y = position.y;
-
-    // Draw the UPM bounding box (from 0 to UPM height) - this is the key fix!
-    gizmos.rect_2d(
-        Vec2::new(offset_x + width / 2.0, offset_y + upm / 2.0),
-        Vec2::new(width, upm),
-        color,
-    );
-
-    // Draw baseline (most important)
-    gizmos.line_2d(
-        Vec2::new(offset_x, offset_y),
-        Vec2::new(offset_x + width, offset_y),
-        color,
-    );
-
-    // Optional: Draw ascender and descender lines for reference
-    if ascender != 0.0 {
-        gizmos.line_2d(
-            Vec2::new(offset_x, offset_y + ascender),
-            Vec2::new(offset_x + width, offset_y + ascender),
-            color,
-        );
-    }
-
-    if descender != 0.0 {
-        gizmos.line_2d(
-            Vec2::new(offset_x, offset_y + descender),
-            Vec2::new(offset_x + width, offset_y + descender),
-            color,
-        );
-    }
-}
-
-/// Draw a contour path directly without viewport transformation using kurbo
-fn draw_contour_path_direct(
-    gizmos: &mut Gizmos,
-    contour: &crate::core::state::ContourData,
-    offset: Vec2,
-) {
-    let points = &contour.points;
-    if points.is_empty() {
-        return;
-    }
-
-    // Convert contour to kurbo BezPath
-    let bez_path = contour_to_bezpath(contour, offset);
-    
-    // Draw the path using kurbo's flatten method for smooth curves
-    draw_bezpath_direct(gizmos, &bez_path, crate::ui::theme::PATH_LINE_COLOR);
-}
-
-/// Convert a contour to a kurbo BezPath with offset (matching original algorithm)
-fn contour_to_bezpath(contour: &crate::core::state::ContourData, offset: Vec2) -> kurbo::BezPath {
-    use kurbo::{BezPath, Point};
-    
-    let mut path = BezPath::new();
-    let points = &contour.points;
-    
-    if points.is_empty() {
-        return path;
-    }
-
-    // Find segments between on-curve points (matching original algorithm)
-    let mut segment_start_idx = 0;
-    let mut last_was_on_curve = false;
-
-    // Handle the special case where the first point might be off-curve
-    if !is_on_curve_point(&points[0]) {
-        // Find the last on-curve point to start with
-        let mut last_on_curve_idx = points.len() - 1;
-        while last_on_curve_idx > 0 && !is_on_curve_point(&points[last_on_curve_idx]) {
-            last_on_curve_idx -= 1;
-        }
-
-        if is_on_curve_point(&points[last_on_curve_idx]) {
-            segment_start_idx = last_on_curve_idx;
-            last_was_on_curve = true;
-        }
-    } else {
-        last_was_on_curve = true;
-    }
-
-    let mut path_started = false;
-
-    // Iterate through all points to identify and draw segments (including wrap-around)
-    for i in 0..points.len() + 1 {
-        let point_idx = i % points.len();
-        let is_on = is_on_curve_point(&points[point_idx]);
-
-        if is_on && last_was_on_curve {
-            // Two consecutive on-curve points - straight line
-            let start_point = &points[segment_start_idx];
-            let end_point = &points[point_idx];
-
-            let start_pos = Point::new(
-                start_point.x as f64 + offset.x as f64,
-                start_point.y as f64 + offset.y as f64,
-            );
-            let end_pos = Point::new(
-                end_point.x as f64 + offset.x as f64,
-                end_point.y as f64 + offset.y as f64,
-            );
-
-            if !path_started {
-                path.move_to(start_pos);
-                path_started = true;
-            }
-            path.line_to(end_pos);
-
-            segment_start_idx = point_idx;
-        } else if is_on {
-            // Found the end of a curve segment (on-curve point after off-curve points)
-            // Collect all points in this segment
-            let mut segment_points = Vec::new();
-            let mut idx = segment_start_idx;
-
-            // Collect all points from segment_start_idx to point_idx (inclusive)
-            loop {
-                let pt = &points[idx];
-                segment_points.push(Point::new(
-                    pt.x as f64 + offset.x as f64,
-                    pt.y as f64 + offset.y as f64,
-                ));
-                idx = (idx + 1) % points.len();
-                if idx == (point_idx + 1) % points.len() {
-                    break;
-                }
-            }
-
-            // Draw the appropriate curve based on number of points
-            add_curve_segment_to_path(&mut path, &segment_points, &mut path_started);
-
-            // Update for next segment
-            segment_start_idx = point_idx;
-        }
-
-        last_was_on_curve = is_on;
-    }
-
-    // Close the path
-    path.close_path();
-    path
-}
-
-/// Add a curve segment to the kurbo path based on the collected points
-fn add_curve_segment_to_path(
-    path: &mut kurbo::BezPath,
-    segment_points: &[kurbo::Point],
-    path_started: &mut bool,
-) {
-    if segment_points.len() < 2 {
-        return;
-    }
-
-    if !*path_started {
-        path.move_to(segment_points[0]);
-        *path_started = true;
-    }
-
-    if segment_points.len() == 2 {
-        // Simple line segment between two on-curve points
-        path.line_to(segment_points[1]);
-    } else if segment_points.len() == 4 {
-        // Cubic Bezier curve: on-curve, off-curve, off-curve, on-curve
-        path.curve_to(segment_points[1], segment_points[2], segment_points[3]);
-    } else if segment_points.len() == 3 {
-        // Quadratic curve: on-curve, off-curve, on-curve
-        path.quad_to(segment_points[1], segment_points[2]);
-    } else {
-        // For other cases, fallback to line
-        path.line_to(segment_points[segment_points.len() - 1]);
-    }
-}
-
-/// Draw a kurbo BezPath using line segments for rendering
-fn draw_bezpath_direct(gizmos: &mut Gizmos, path: &kurbo::BezPath, color: bevy::prelude::Color) {
-    let mut prev_point: Option<Vec2> = None;
-    
-    // Use the newer kurbo flatten API with callback
-    path.flatten(0.5, |element| {
-        match element {
-            kurbo::PathEl::MoveTo(point) => {
-                prev_point = Some(Vec2::new(point.x as f32, point.y as f32));
-            }
-            kurbo::PathEl::LineTo(point) => {
-                let current = Vec2::new(point.x as f32, point.y as f32);
-                if let Some(prev) = prev_point {
-                    gizmos.line_2d(prev, current, color);
-                }
-                prev_point = Some(current);
-            }
-            kurbo::PathEl::ClosePath => {
-                // Kurbo handles path closing in the flattening process
-            }
-            _ => {
-                // Other elements should already be flattened to lines
-            }
-        }
-    });
-}
-
-/// Draw glyph outline directly without viewport transformation
-fn draw_glyph_outline_direct(
-    gizmos: &mut Gizmos,
-    outline: &crate::core::state::OutlineData,
-    offset: Vec2,
-) {
-    for contour in &outline.contours {
-        if contour.points.is_empty() {
-            continue;
-        }
-        draw_contour_path_direct(gizmos, contour, offset);
-    }
-}
-
-/// Draw glyph points directly without viewport transformation
-fn draw_glyph_points_direct(
-    gizmos: &mut Gizmos,
-    outline: &crate::core::state::OutlineData,
-    offset: Vec2,
-) {
-    use crate::ui::theme::{ON_CURVE_POINT_COLOR, OFF_CURVE_POINT_COLOR, ON_CURVE_POINT_RADIUS, OFF_CURVE_POINT_RADIUS};
-    
-    for contour in &outline.contours {
-        for point in &contour.points {
-            let pos = Vec2::new(
-                point.x as f32 + offset.x,
-                point.y as f32 + offset.y,
-            );
-
-            let (color, radius) = if is_on_curve_point(point) {
-                (ON_CURVE_POINT_COLOR, ON_CURVE_POINT_RADIUS)
-            } else {
-                (OFF_CURVE_POINT_COLOR, OFF_CURVE_POINT_RADIUS)
-            };
-
-            gizmos.circle_2d(pos, radius, color);
-        }
-    }
-}
-
-/// Check if a point is on-curve
-
-
-fn is_on_curve_point(point: &crate::core::state::PointData) -> bool {
-    matches!(point.point_type, crate::core::state::PointTypeData::Move | 
-                               crate::core::state::PointTypeData::Line |
-                               crate::core::state::PointTypeData::Curve)
 }

@@ -124,13 +124,9 @@ fn draw_line(
     end: (f32, f32),
     color: Color,
 ) {
-    let start_screen = viewport.to_screen(DPoint::new(start.0, start.1));
-    let end_screen = viewport.to_screen(DPoint::new(end.0, end.1));
-    gizmos.line_2d(
-        Vec2::new(start_screen.x as f32, start_screen.y as f32),
-        Vec2::new(end_screen.x as f32, end_screen.y as f32),
-        color,
-    );
+    let start_screen = viewport.to_screen(DPoint::from(start));
+    let end_screen = viewport.to_screen(DPoint::from(end));
+    gizmos.line_2d(start_screen, end_screen, color);
 }
 
 /// Draw a rectangle outline in design space
@@ -141,28 +137,28 @@ fn draw_rect(
     bottom_right: (f32, f32),
     color: Color,
 ) {
-    let tl_screen = viewport.to_screen(DPoint::new(top_left.0, top_left.1));
-    let br_screen = viewport.to_screen(DPoint::new(bottom_right.0, bottom_right.1));
+    let tl_screen = viewport.to_screen(DPoint::from(top_left));
+    let br_screen = viewport.to_screen(DPoint::from(bottom_right));
 
     // Draw the rectangle outline (four lines)
     gizmos.line_2d(
-        Vec2::new(tl_screen.x as f32, tl_screen.y as f32),
-        Vec2::new(br_screen.x as f32, tl_screen.y as f32),
+        Vec2::new(tl_screen.x, tl_screen.y),
+        Vec2::new(br_screen.x, tl_screen.y),
         color,
     );
     gizmos.line_2d(
-        Vec2::new(br_screen.x as f32, tl_screen.y as f32),
-        Vec2::new(br_screen.x as f32, br_screen.y as f32),
+        Vec2::new(br_screen.x, tl_screen.y),
+        Vec2::new(br_screen.x, br_screen.y),
         color,
     );
     gizmos.line_2d(
-        Vec2::new(br_screen.x as f32, br_screen.y as f32),
-        Vec2::new(tl_screen.x as f32, br_screen.y as f32),
+        Vec2::new(br_screen.x, br_screen.y),
+        Vec2::new(tl_screen.x, br_screen.y),
         color,
     );
     gizmos.line_2d(
-        Vec2::new(tl_screen.x as f32, br_screen.y as f32),
-        Vec2::new(tl_screen.x as f32, tl_screen.y as f32),
+        Vec2::new(tl_screen.x, br_screen.y),
+        Vec2::new(tl_screen.x, tl_screen.y),
         color,
     );
 }

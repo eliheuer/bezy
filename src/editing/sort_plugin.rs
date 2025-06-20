@@ -39,8 +39,7 @@ impl Plugin for SortPlugin {
                     manage_sort_unicode_text,
                     update_sort_unicode_text_positions,
                     update_sort_unicode_text_colors,
-                )
-                    .chain(),
+                ),
             );
     }
 } 

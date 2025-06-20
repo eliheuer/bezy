@@ -13,7 +13,7 @@ impl EditTool for HyperTool {
     }
     
     fn icon(&self) -> &'static str {
-        "\u{E018}"
+        "\u{E012}"
     }
     
     fn shortcut_key(&self) -> Option<char> {
