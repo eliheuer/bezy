@@ -15,6 +15,7 @@ use crate::core::state::{AppState, GlyphNavigation};
 
 // UI and theming - visual appearance and user interface
 use crate::ui::panes::design_space::DesignSpacePlugin;
+use crate::ui::toolbars::EditModeToolbarPlugin;
 use crate::ui::theme::BACKGROUND_COLOR;
 
 // Editing functionality - tools for modifying fonts
@@ -78,9 +79,7 @@ fn add_rendering_plugins(app: &mut App) {
 fn add_editor_plugins(app: &mut App) {
     app.add_plugins((
         DesignSpacePlugin,      // Main design area
-        // Note: Other UI plugins like EditModeToolbarPlugin,
-        // TextEditorPlugin, etc. are not included as they don't
-        // exist in the current codebase
+        EditModeToolbarPlugin,  // Edit mode toolbar
     ));
 }
 
