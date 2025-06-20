@@ -88,6 +88,10 @@ pub enum PointTypeData {
 /// Font information
 #[derive(Clone, Default)]
 pub struct FontInfo {
+    /// Family name
+    pub family_name: String,
+    /// Style name
+    pub style_name: String,
     /// Units per em
     pub units_per_em: f64,
     /// Ascender value
@@ -111,6 +115,115 @@ impl AppState {
         self.workspace.info = FontInfo::from_norad_font(&font);
         
         Ok(())
+    }
+
+    /// Save the current font to its file path
+    pub fn save_font(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let path = self.workspace.font.path.clone()
+            .ok_or("No file path set - use Save As first")?;
+        
+        // Convert our internal data back to norad and save
+        let norad_font = self.workspace.font.to_norad_font(&self.workspace.info);
+        norad_font.save(&path)?;
+        
+        info!("Saved font to {:?}", path);
+        Ok(())
+    }
+
+    /// Save the font to a new path
+    pub fn save_font_as(&mut self, path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+        // Convert our internal data back to norad and save
+        let norad_font = self.workspace.font.to_norad_font(&self.workspace.info);
+        norad_font.save(&path)?;
+        
+        // Update our stored path
+        self.workspace.font.path = Some(path.clone());
+        
+        info!("Saved font to {:?}", path);
+        Ok(())
+    }
+
+    /// Get a display name for the current font
+    pub fn get_font_display_name(&self) -> String {
+        self.workspace.get_font_display_name()
+    }
+
+    /// Get a mutable reference to a specific point in a glyph
+    pub fn get_point_mut(&mut self, glyph_name: &str, contour_idx: usize, point_idx: usize) 
+        -> Option<&mut PointData> {
+        self.workspace.font.glyphs
+            .get_mut(glyph_name)?
+            .outline.as_mut()?
+            .contours.get_mut(contour_idx)?
+            .points.get_mut(point_idx)
+    }
+
+    /// Update a specific point in a glyph
+    pub fn update_point(&mut self, glyph_name: &str, contour_idx: usize, point_idx: usize, new_point: PointData) -> bool {
+        if let Some(point) = self.get_point_mut(glyph_name, contour_idx, point_idx) {
+            *point = new_point;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Get a point by reference (read-only)
+    pub fn get_point(&self, glyph_name: &str, contour_idx: usize, point_idx: usize) 
+        -> Option<&PointData> {
+        self.workspace.font.glyphs
+            .get(glyph_name)?
+            .outline.as_ref()?
+            .contours.get(contour_idx)?
+            .points.get(point_idx)
+    }
+
+    /// Move a point by a delta amount
+    pub fn move_point(&mut self, glyph_name: &str, contour_idx: usize, point_idx: usize, delta_x: f64, delta_y: f64) -> bool {
+        if let Some(point) = self.get_point_mut(glyph_name, contour_idx, point_idx) {
+            point.x += delta_x;
+            point.y += delta_y;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Set the position of a point
+    pub fn set_point_position(&mut self, glyph_name: &str, contour_idx: usize, point_idx: usize, x: f64, y: f64) -> bool {
+        if let Some(point) = self.get_point_mut(glyph_name, contour_idx, point_idx) {
+            point.x = x;
+            point.y = y;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Get all points in a contour (read-only)
+    pub fn get_contour_points(&self, glyph_name: &str, contour_idx: usize) -> Option<&Vec<PointData>> {
+        self.workspace.font.glyphs
+            .get(glyph_name)?
+            .outline.as_ref()?
+            .contours.get(contour_idx)
+            .map(|contour| &contour.points)
+    }
+
+    /// Get the number of contours in a glyph
+    pub fn get_contour_count(&self, glyph_name: &str) -> Option<usize> {
+        self.workspace.font.glyphs
+            .get(glyph_name)?
+            .outline.as_ref()
+            .map(|outline| outline.contours.len())
+    }
+
+    /// Get the number of points in a specific contour
+    pub fn get_point_count(&self, glyph_name: &str, contour_idx: usize) -> Option<usize> {
+        self.workspace.font.glyphs
+            .get(glyph_name)?
+            .outline.as_ref()?
+            .contours.get(contour_idx)
+            .map(|contour| contour.points.len())
     }
 }
 
@@ -251,12 +364,31 @@ impl FontData {
     pub fn get_glyph(&self, name: &str) -> Option<&GlyphData> {
         self.glyphs.get(name)
     }
+
+    /// Convert back to a complete norad Font
+    pub fn to_norad_font(&self, info: &FontInfo) -> Font {
+        let mut font = Font::new();
+        
+        // Set font info using our conversion method
+        font.font_info = info.to_norad_font_info();
+        
+        // Add glyphs to the default layer
+        let layer = font.default_layer_mut();
+        for (_name, glyph_data) in &self.glyphs {
+            let glyph = glyph_data.to_norad_glyph();
+            layer.insert_glyph(glyph);
+        }
+        
+        font
+    }
 }
 
 impl FontInfo {
     /// Extract font info from norad Font
     pub fn from_norad_font(font: &Font) -> Self {
         Self {
+            family_name: font.font_info.family_name.clone().unwrap_or_else(|| "Untitled".to_string()),
+            style_name: font.font_info.style_name.clone().unwrap_or_else(|| "Regular".to_string()),
             units_per_em: font.font_info.units_per_em
                 .map(|v| v.to_string().parse().unwrap_or(1024.0))
                 .unwrap_or(1024.0),
@@ -270,13 +402,23 @@ impl FontInfo {
     /// Convert back to norad FontInfo
     pub fn to_norad_font_info(&self) -> norad::FontInfo {
         let mut info = norad::FontInfo::default();
+        
+        // Set family and style names
+        if !self.family_name.is_empty() {
+            info.family_name = Some(self.family_name.clone());
+        }
+        if !self.style_name.is_empty() {
+            info.style_name = Some(self.style_name.clone());
+        }
+        
+        // Set numeric values
         if let Some(units_per_em) = norad::fontinfo::NonNegativeIntegerOrFloat::new(self.units_per_em) {
             info.units_per_em = Some(units_per_em);
         }
-        info.ascender = self.ascender.map(|v| v);
-        info.descender = self.descender.map(|v| v);
-        info.x_height = self.x_height.map(|v| v);
-        info.cap_height = self.cap_height.map(|v| v);
+        info.ascender = self.ascender;
+        info.descender = self.descender;
+        info.x_height = self.x_height;
+        info.cap_height = self.cap_height;
         info
     }
     
@@ -329,5 +471,27 @@ impl GlyphNavigation {
     
     pub fn get_current_glyph(&self) -> Option<&String> {
         self.current_glyph.as_ref()
+    }
+}
+
+impl Workspace {
+    /// Get a display name for the font
+    pub fn get_font_display_name(&self) -> String {
+        self.get_font_name()
+    }
+
+    /// Get a display name combining family and style names  
+    pub fn get_font_name(&self) -> String {
+        let parts: Vec<&str> = [&self.info.family_name, &self.info.style_name]
+            .iter()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.as_str())
+            .collect();
+
+        if parts.is_empty() {
+            "Untitled Font".to_string()
+        } else {
+            parts.join(" ")
+        }
     }
 }
