@@ -5,6 +5,9 @@
 
 use bevy::prelude::*;
 
+// Default UFO File
+pub const DEFAULT_UFO_PATH: &str = "assets/fonts/bezy-grotesk-regular.ufo";
+
 // Snap to Grid
 pub const SNAP_TO_GRID_ENABLED: bool = true;
 pub const SNAP_TO_GRID_VALUE: f32 = 2.0;

@@ -108,17 +108,15 @@ fn exit_on_esc(
 
 /// System to load UFO font on startup
 fn load_ufo_font(cli_args: Res<CliArgs>, mut app_state: ResMut<AppState>) {
-    // Use the UFO path from CLI args or default
-    let path = cli_args.ufo_path.clone().unwrap_or_else(|| {
-        std::path::PathBuf::from("assets/fonts/bezy-grotesk-regular.ufo")
-    });
-    
-    match app_state.load_font_from_path(path.clone()) {
-        Ok(_) => {
-            info!("Successfully loaded UFO font from: {}", path.display());
-        }
-        Err(e) => {
-            error!("Failed to load UFO font from {}: {}", path.display(), e);
+    // clap provides the default value, so ufo_path is guaranteed to be Some
+    if let Some(path) = &cli_args.ufo_path {
+        match app_state.load_font_from_path(path.clone()) {
+            Ok(_) => {
+                info!("Successfully loaded UFO font from: {}", path.display());
+            }
+            Err(e) => {
+                error!("Failed to load UFO font from {}: {}", path.display(), e);
+            }
         }
     }
 }
