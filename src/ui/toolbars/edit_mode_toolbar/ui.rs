@@ -5,7 +5,7 @@
 //! and displays all registered tools with proper ordering and visual feedback.
 
 use bevy::prelude::*;
-use crate::ui::theme::*;
+use crate::ui::theme::{*, DEFAULT_FONT_PATH};
 use crate::ui::toolbars::edit_mode_toolbar::*;
 
 #[derive(Component)]
@@ -22,6 +22,7 @@ pub struct ToolButton {
 /// It respects tool ordering preferences and creates interactive buttons for each tool.
 pub fn spawn_edit_mode_toolbar(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut tool_registry: ResMut<ToolRegistry>,
 ) {
     // Get all tools in their proper order
@@ -45,7 +46,7 @@ pub fn spawn_edit_mode_toolbar(
             // Create a button for each registered tool in order
             for tool_id in ordered_tools {
                 if let Some(tool) = tool_registry.get_tool(tool_id) {
-                    spawn_tool_button(parent, tool);
+                    spawn_tool_button(parent, tool, &asset_server);
                 }
             }
         });
@@ -55,6 +56,7 @@ pub fn spawn_edit_mode_toolbar(
 fn spawn_tool_button(
     parent: &mut ChildSpawnerCommands,
     tool: &dyn EditTool,
+    asset_server: &AssetServer,
 ) {
     parent
         .spawn(Node {
@@ -84,6 +86,7 @@ fn spawn_tool_button(
                     button.spawn((
                         Text::new(tool.icon()),
                         TextFont {
+                            font: asset_server.load(DEFAULT_FONT_PATH),
                             font_size: 32.0,
                             ..default()
                         },
