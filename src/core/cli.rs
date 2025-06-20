@@ -1,9 +1,10 @@
 //! Command line interface for the application.
+use bevy::prelude::*;
 use clap::Parser;
 use std::path::PathBuf;
 
 /// A UFO and font design tool.
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Resource)]
 #[clap(name = "bezy")]
 pub struct CliArgs {
     /// The path to a UFO file to load.
