@@ -12,6 +12,12 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use std::collections::HashSet;
 
+/// Component to mark text entities that display glyph names for sorts
+#[derive(Component)]
+pub struct SortGlyphNameText {
+    pub sort_entity: Entity,
+}
+
 /// Component to mark text entities that display unicode values for sorts
 #[derive(Component)]
 pub struct SortUnicodeText {
@@ -46,134 +52,249 @@ pub fn render_sorts_system(
     }
 }
 
-/// System to manage unicode text entities for all sorts
-pub fn manage_sort_unicode_text(
+/// System to manage text labels (glyph name and unicode) for all sorts
+pub fn manage_sort_labels(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     app_state: Res<AppState>,
     sorts_query: Query<(Entity, &Sort), (Changed<Sort>, Or<(With<ActiveSort>, With<InactiveSort>)>)>,
-    existing_text_query: Query<(Entity, &SortUnicodeText)>,
+    existing_name_text_query: Query<(Entity, &SortGlyphNameText)>,
+    existing_unicode_text_query: Query<(Entity, &SortUnicodeText)>,
     all_sorts_query: Query<Entity, With<Sort>>,
     active_sorts_query: Query<&Sort, With<ActiveSort>>,
+    viewports: Query<&crate::ui::panes::design_space::ViewPort>,
 ) {
     // Remove text for sorts that no longer exist
     let existing_sort_entities: HashSet<Entity> = all_sorts_query.iter().collect();
-    for (text_entity, sort_unicode_text) in existing_text_query.iter() {
+    
+    // Clean up glyph name text entities
+    for (text_entity, sort_name_text) in existing_name_text_query.iter() {
+        if !existing_sort_entities.contains(&sort_name_text.sort_entity) {
+            commands.entity(text_entity).despawn();
+        }
+    }
+    
+    // Clean up unicode text entities
+    for (text_entity, sort_unicode_text) in existing_unicode_text_query.iter() {
         if !existing_sort_entities.contains(&sort_unicode_text.sort_entity) {
             commands.entity(text_entity).despawn();
         }
     }
 
-    // Create or update text for changed sorts
+    // Get viewport for coordinate transformations
+    let viewport = match viewports.single() {
+        Ok(viewport) => *viewport,
+        Err(_) => crate::ui::panes::design_space::ViewPort::default(),
+    };
+
+    // Create or update text labels for changed sorts
     for (sort_entity, sort) in sorts_query.iter() {
-        // Check if text entity already exists for this sort
-        let existing_text_entity = existing_text_query.iter()
+        // Determine text color based on sort state
+        let text_color = if active_sorts_query.get(sort_entity).is_ok() {
+            SORT_ACTIVE_METRICS_COLOR // Green for active sorts
+        } else {
+            Color::srgba(0.8, 0.8, 0.8, 0.9) // Light gray for inactive sorts
+        };
+
+        // Handle glyph name text (first line)
+        let existing_name_text_entity = existing_name_text_query.iter()
+            .find(|(_, sort_name_text)| sort_name_text.sort_entity == sort_entity)
+            .map(|(entity, _)| entity);
+
+        let glyph_name_content = sort.glyph_name.clone();
+        let name_transform = calculate_glyph_name_transform(sort, &app_state.workspace.info.metrics, &viewport);
+
+        match existing_name_text_entity {
+            Some(text_entity) => {
+                // Update existing glyph name text entity
+                if let Ok(mut entity_commands) = commands.get_entity(text_entity) {
+                    entity_commands.insert((
+                        Text2d(glyph_name_content),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: 48.0,
+                            ..default()
+                        },
+                        TextColor(text_color),
+                        TextLayout::new_with_justify(JustifyText::Left),
+                        Anchor::TopLeft,
+                        name_transform,
+                    ));
+                }
+            }
+            None => {
+                // Create new glyph name text entity
+                commands.spawn((
+                    Text2d(glyph_name_content),
+                    TextFont {
+                        font: asset_server.load(MONO_FONT_PATH),
+                        font_size: 48.0,
+                        ..default()
+                    },
+                    TextColor(text_color),
+                    TextLayout::new_with_justify(JustifyText::Left),
+                    Anchor::TopLeft,
+                    name_transform,
+                    GlobalTransform::default(),
+                    Visibility::Visible,
+                    InheritedVisibility::default(),
+                    ViewVisibility::default(),
+                    SortGlyphNameText { sort_entity },
+                    Name::new(format!("GlyphNameText_{:?}", sort_entity)),
+                ));
+            }
+        }
+
+        // Handle unicode text (second line)
+        let existing_unicode_text_entity = existing_unicode_text_query.iter()
             .find(|(_, sort_unicode_text)| sort_unicode_text.sort_entity == sort_entity)
             .map(|(entity, _)| entity);
 
         if let Some(unicode_value) = get_unicode_for_glyph(&sort.glyph_name, &app_state) {
-            let text_content = format!("U+{}", unicode_value);
-            
-            // Determine text color based on sort state (match metrics line colors)
-            let text_color = if active_sorts_query.get(sort_entity).is_ok() {
-                SORT_ACTIVE_METRICS_COLOR // Green for active sorts
-            } else {
-                Color::srgba(0.8, 0.8, 0.8, 0.9) // Light gray for better readability on dark background
-            };
-            
-            match existing_text_entity {
+            let unicode_content = format!("U+{}", unicode_value);
+            let unicode_transform = calculate_unicode_transform(sort, &app_state.workspace.info.metrics, &viewport);
+
+            match existing_unicode_text_entity {
                 Some(text_entity) => {
-                    // Update existing text entity
+                    // Update existing unicode text entity
                     if let Ok(mut entity_commands) = commands.get_entity(text_entity) {
                         entity_commands.insert((
-                            Text2d(text_content),
+                            Text2d(unicode_content),
                             TextFont {
                                 font: asset_server.load(MONO_FONT_PATH),
-                                font_size: 48.0, // Reduced from 128.0 to fit within sort boundaries
+                                font_size: 48.0,
                                 ..default()
                             },
                             TextColor(text_color),
-                            TextLayout::new_with_justify(JustifyText::Right), // Right-align the text
-                            Anchor::TopRight, // Anchor the text at its top-right corner
-                            calculate_text_transform(sort, &app_state.workspace.info.metrics),
+                            TextLayout::new_with_justify(JustifyText::Left),
+                            Anchor::TopLeft,
+                            unicode_transform,
                         ));
                     }
                 }
-                 None => {
-                     // Create new text entity
-                     commands.spawn((
-                         Text2d(text_content),
-                         TextFont {
-                             font: asset_server.load(MONO_FONT_PATH),
-                             font_size: 48.0, // Reduced from 128.0 to fit within sort boundaries
-                             ..default()
-                         },
-                         TextColor(text_color),
-                         TextLayout::new_with_justify(JustifyText::Right), // Right-align the text
-                         Anchor::TopRight, // Anchor the text at its top-right corner
-                         calculate_text_transform(sort, &app_state.workspace.info.metrics),
-                         GlobalTransform::default(),
-                         Visibility::Visible,
-                         InheritedVisibility::default(),
-                         ViewVisibility::default(),
-                         SortUnicodeText { sort_entity },
-                         Name::new(format!("UnicodeText_{:?}", sort_entity)),
-                     ));
-                 }
+                None => {
+                    // Create new unicode text entity
+                    commands.spawn((
+                        Text2d(unicode_content),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: 48.0,
+                            ..default()
+                        },
+                        TextColor(text_color),
+                        TextLayout::new_with_justify(JustifyText::Left),
+                        Anchor::TopLeft,
+                        unicode_transform,
+                        GlobalTransform::default(),
+                        Visibility::Visible,
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
+                        SortUnicodeText { sort_entity },
+                        Name::new(format!("UnicodeText_{:?}", sort_entity)),
+                    ));
+                }
             }
-        } else if let Some(text_entity) = existing_text_entity {
-            // Remove text entity if glyph has no unicode value
+        } else if let Some(text_entity) = existing_unicode_text_entity {
+            // Remove unicode text entity if glyph has no unicode value
             commands.entity(text_entity).despawn();
         }
     }
 }
 
-/// System to update positions of unicode text when sorts move
-pub fn update_sort_unicode_text_positions(
+/// System to update positions of text labels when sorts move
+pub fn update_sort_label_positions(
     app_state: Res<AppState>,
     sorts_query: Query<&Sort, Changed<Sort>>,
-    mut text_query: Query<(&mut Transform, &SortUnicodeText)>,
+    mut text_queries: ParamSet<(
+        Query<(&mut Transform, &SortGlyphNameText)>,
+        Query<(&mut Transform, &SortUnicodeText)>,
+    )>,
+    viewports: Query<&crate::ui::panes::design_space::ViewPort>,
 ) {
     let font_metrics = &app_state.workspace.info.metrics;
     
-    for (mut text_transform, sort_unicode_text) in text_query.iter_mut() {
+    // Get viewport for coordinate transformations
+    let viewport = match viewports.single() {
+        Ok(viewport) => *viewport,
+        Err(_) => crate::ui::panes::design_space::ViewPort::default(),
+    };
+    
+    // Update glyph name text positions
+    for (mut text_transform, sort_name_text) in text_queries.p0().iter_mut() {
+        if let Ok(sort) = sorts_query.get(sort_name_text.sort_entity) {
+            *text_transform = calculate_glyph_name_transform(sort, font_metrics, &viewport);
+        }
+    }
+    
+    // Update unicode text positions
+    for (mut text_transform, sort_unicode_text) in text_queries.p1().iter_mut() {
         if let Ok(sort) = sorts_query.get(sort_unicode_text.sort_entity) {
-            *text_transform = calculate_text_transform(sort, font_metrics);
+            *text_transform = calculate_unicode_transform(sort, font_metrics, &viewport);
         }
     }
 }
 
-/// System to update unicode text colors when sorts change state (active/inactive)
-pub fn update_sort_unicode_text_colors(
+/// System to update text label colors when sorts change state (active/inactive)
+pub fn update_sort_label_colors(
     active_sorts_query: Query<Entity, (With<Sort>, With<ActiveSort>)>,
     inactive_sorts_query: Query<Entity, (With<Sort>, With<InactiveSort>)>,
-    mut text_query: Query<(&mut TextColor, &SortUnicodeText)>,
+    mut text_queries: ParamSet<(
+        Query<(&mut TextColor, &SortGlyphNameText)>,
+        Query<(&mut TextColor, &SortUnicodeText)>,
+    )>,
 ) {
-    for (mut text_color, sort_unicode_text) in text_query.iter_mut() {
-        // Determine the color based on whether the sort is active or inactive
-        let new_color = if active_sorts_query.get(sort_unicode_text.sort_entity).is_ok() {
+    // Helper function to determine color
+    let get_color = |sort_entity: Entity| -> Color {
+        if active_sorts_query.get(sort_entity).is_ok() {
             SORT_ACTIVE_METRICS_COLOR // Green for active sorts
-        } else if inactive_sorts_query.get(sort_unicode_text.sort_entity).is_ok() {
-            Color::srgba(0.8, 0.8, 0.8, 0.9) // Light gray for better readability on dark background
+        } else if inactive_sorts_query.get(sort_entity).is_ok() {
+            Color::srgba(0.8, 0.8, 0.8, 0.9) // Light gray for inactive sorts
         } else {
-            continue; // Sort doesn't exist, skip
-        };
-        
-        *text_color = TextColor(new_color);
+            Color::srgba(0.8, 0.8, 0.8, 0.9) // Default color
+        }
+    };
+    
+    // Update glyph name text colors
+    for (mut text_color, sort_name_text) in text_queries.p0().iter_mut() {
+        *text_color = TextColor(get_color(sort_name_text.sort_entity));
+    }
+    
+    // Update unicode text colors
+    for (mut text_color, sort_unicode_text) in text_queries.p1().iter_mut() {
+        *text_color = TextColor(get_color(sort_unicode_text.sort_entity));
     }
 }
 
-/// Calculate the transform for positioning unicode text in the upper right corner of the sort
-fn calculate_text_transform(sort: &Sort, font_metrics: &FontMetrics) -> Transform {
+/// Calculate the transform for positioning glyph name text in the upper left corner (first line)
+fn calculate_glyph_name_transform(sort: &Sort, font_metrics: &FontMetrics, viewport: &crate::ui::panes::design_space::ViewPort) -> Transform {
     let upm = font_metrics.units_per_em as f32;
-    let width = sort.advance_width;
     
-    // Position text in upper right corner with larger margins to ensure it stays within sort bounds
-    // Since we're using TopRight anchor, position at the exact spot where we want the top-right of text
-    let text_x = sort.position.x + width - 48.0; // Increased margin from right edge (was 32.0)
-    let text_y = sort.position.y + upm - 32.0; // Increased margin from top of UPM
+    // Position text in upper left corner of the UPM box (like metrics rendering)
+    // sort.position.y is the baseline, so UPM top is at sort.position.y + upm
+    let design_x = sort.position.x + 16.0; // Small margin from left edge of sort
+    let design_y = sort.position.y + upm + 16.0; // Position above the UPM top
     
-    Transform::from_translation(Vec3::new(text_x, text_y, 10.0)) // Higher Z to render above sorts
+    // Convert from design space to screen space using the viewport
+    let design_point = crate::ui::panes::design_space::DPoint::new(design_x, design_y);
+    let screen_point = viewport.to_screen(design_point);
+    
+    Transform::from_translation(Vec3::new(screen_point.x, screen_point.y, 10.0)) // Higher Z to render above sorts
+}
+
+/// Calculate the transform for positioning unicode text in the upper left corner (second line)
+fn calculate_unicode_transform(sort: &Sort, font_metrics: &FontMetrics, viewport: &crate::ui::panes::design_space::ViewPort) -> Transform {
+    let upm = font_metrics.units_per_em as f32;
+    
+    // Position text in upper left corner, below the glyph name
+    // sort.position.y is the baseline, so UPM top is at sort.position.y + upm
+    let design_x = sort.position.x + 16.0; // Small margin from left edge of sort
+    let design_y = sort.position.y + upm + 16.0 - 52.0; // Below glyph name (font size + small gap)
+    
+    // Convert from design space to screen space using the viewport
+    let design_point = crate::ui::panes::design_space::DPoint::new(design_x, design_y);
+    let screen_point = viewport.to_screen(design_point);
+    
+    Transform::from_translation(Vec3::new(screen_point.x, screen_point.y, 10.0)) // Higher Z to render above sorts
 }
 
 /// Get the unicode value for a given glyph name

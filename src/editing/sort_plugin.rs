@@ -6,8 +6,8 @@ use crate::editing::selection::SelectionPlugin;
 use crate::editing::sort::ActiveSortState;
 use crate::editing::sort::SortEvent;
 use crate::rendering::sort_renderer::{
-    render_sorts_system, manage_sort_unicode_text, update_sort_unicode_text_positions,
-    update_sort_unicode_text_colors,
+    render_sorts_system, manage_sort_labels, update_sort_label_positions,
+    update_sort_label_colors,
 };
 use crate::systems::sort_manager::{
     enforce_single_active_sort, handle_sort_events, create_startup_sorts,
@@ -36,9 +36,9 @@ impl Plugin for SortPlugin {
                     spawn_sort_point_entities,
                     respawn_sort_points_on_glyph_change,
                     render_sorts_system,
-                    manage_sort_unicode_text,
-                    update_sort_unicode_text_positions,
-                    update_sort_unicode_text_colors,
+                    manage_sort_labels,
+                    update_sort_label_positions,
+                    update_sort_label_colors,
                 ),
             );
     }
