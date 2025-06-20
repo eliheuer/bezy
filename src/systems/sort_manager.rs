@@ -411,37 +411,49 @@ pub fn create_startup_sorts(
     if sorts_query.is_empty() {
         info!("No sorts found, creating startup sorts from font glyphs");
         
-        // Use font metrics for proper spacing
+        // Use font metrics for proper spacing (match backup version exactly)
         let font_metrics = &app_state.workspace.info.metrics;
         let upm = font_metrics.units_per_em as f32;
-        let ascender = font_metrics.ascender.unwrap_or(800.0) as f32;
-        let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
-        let total_height = ascender - descender;
+        let descender = font_metrics.descender.unwrap_or(-(upm as f64 * 0.2)) as f32;
         
-        // Calculate spacing based on font metrics for even margins
-        let vertical_margin = total_height * 0.3; // 30% margin between rows
-        let horizontal_margin = upm * 0.2; // 20% margin between columns
-        let row_height = total_height + vertical_margin;
-        let col_width = upm + horizontal_margin;
+        // The backup version uses UPM - descender for metrics box height (not ascender - descender)
+        let metrics_box_height = upm - descender;
         
-        let start_x = 100.0;
-        let start_y = 100.0;
-        let max_cols = 12; // Reduced to fit better on screen
+        // Use consistent fixed spacing from theme (like the backup version)
+        let vertical_padding = crate::ui::theme::SORT_VERTICAL_PADDING;
+        let horizontal_padding = crate::ui::theme::SORT_HORIZONTAL_PADDING;
+        let row_height = metrics_box_height + vertical_padding;
+        let col_width = upm + horizontal_padding;
         
-        // Create sorts for all glyphs, arranged in a grid with proper spacing
-        for (index, glyph_name) in app_state.workspace.font.glyphs.keys().enumerate() {
-            let col = index % max_cols;
-            let row = index / max_cols;
-            
-            let position = Vec2::new(
-                start_x + col as f32 * col_width,
-                start_y - row as f32 * row_height,
-            );
+        let mut current_x = 0.0;
+        let mut current_y = 0.0;
+        let mut glyph_count_in_row = 0;
+        const GLYPHS_PER_ROW: usize = 16; // Match the backup version
+        
+        // Create sorts for all glyphs, arranged in a grid with proper spacing (match backup logic)
+        for glyph_name in app_state.workspace.font.glyphs.keys() {
+            if glyph_count_in_row >= GLYPHS_PER_ROW {
+                // Move to the next row, dropping by the full height of the metrics
+                // box plus the desired padding (exactly like backup version)
+                current_y -= row_height;
+                current_x = 0.0;
+                glyph_count_in_row = 0;
+            }
             
             sort_events.write(SortEvent::CreateSort {
                 glyph_name: glyph_name.clone(),
-                position,
+                position: Vec2::new(current_x, current_y),
             });
+            
+            // Get advance width from glyph data (like backup version)
+            let advance_width = if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
+                glyph_data.advance_width as f32
+            } else {
+                600.0 // Default fallback
+            };
+            
+            current_x += advance_width + horizontal_padding;
+            glyph_count_in_row += 1;
         }
     }
 }

@@ -125,6 +125,10 @@ pub const SORT_INACTIVE_METRICS_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 0.5);
 pub const SORT_ACTIVE_OUTLINE_COLOR: Color = Color::srgb(1.0, 0.4, 0.0);
 pub const SORT_INACTIVE_OUTLINE_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
 
+// Sort Spacing - consistent gaps between sorts both horizontally and vertically
+pub const SORT_HORIZONTAL_PADDING: f32 = 256.0;
+pub const SORT_VERTICAL_PADDING: f32 = 256.0;
+
 // Knife Tool Colors
 pub const KNIFE_LINE_COLOR: Color = Color::srgba(1.0, 0.3, 0.3, 0.9);
 pub const KNIFE_INTERSECTION_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0);
