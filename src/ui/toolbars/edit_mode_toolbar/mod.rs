@@ -68,17 +68,23 @@ mod shapes;
 mod knife;
 mod hyper;
 
+// Add the temporary mode switching module
+mod temporary_mode;
+
 // Re-export the UI system
 pub use ui::{handle_toolbar_mode_selection, spawn_edit_mode_toolbar, update_current_edit_mode};
 
+// Re-export the temporary mode system
+pub use temporary_mode::{handle_temporary_mode_switching, TemporaryModeState};
+
 // Re-export tool plugins
-pub use select::SelectToolPlugin;
+pub use select::{SelectToolPlugin, SelectModeActive};
 pub use pan::PanToolPlugin;
 pub use measure::MeasureToolPlugin;
 pub use text::TextToolPlugin;
 pub use pen::PenToolPlugin;
 pub use shapes::ShapesToolPlugin;
-pub use knife::KnifeToolPlugin;
+pub use knife::{KnifeToolPlugin, KnifeModeActive};
 pub use hyper::HyperToolPlugin;
 
 /// Unique identifier for an edit tool
@@ -251,6 +257,7 @@ impl Plugin for EditModeToolbarPlugin {
             // Initialize resources
             .init_resource::<ToolRegistry>()
             .init_resource::<CurrentTool>()
+            .init_resource::<TemporaryModeState>()
             // Add tool plugins
             .add_plugins((
                 SelectToolPlugin,
@@ -268,6 +275,9 @@ impl Plugin for EditModeToolbarPlugin {
                 initialize_default_tool.after(spawn_edit_mode_toolbar),
             ))
             .add_systems(Update, (
+                // Temporary mode switching (should run first to potentially change current mode)
+                handle_temporary_mode_switching,
+                // UI systems
                 handle_toolbar_mode_selection,
                 update_current_edit_mode,
             ));

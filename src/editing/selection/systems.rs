@@ -37,10 +37,9 @@ pub fn handle_mouse_input(
     selection_rect_query: Query<Entity, With<SelectionRect>>,
     mut selection_state: ResMut<SelectionState>,
     nudge_state: Res<NudgeState>,
-    // TODO: Re-enable when toolbar is implemented
-    // select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>>,
-    // knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
-    // ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
+    select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::SelectModeActive>>,
+    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::KnifeModeActive>>,
+    ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
 ) {
     // Log at the beginning of each frame
     debug!(
@@ -48,28 +47,27 @@ pub fn handle_mouse_input(
         selection_state.selected.len()
     );
 
-    // TODO: Re-enable when toolbar is implemented
     // Skip if knife mode is active
-    // if let Some(knife_mode) = knife_mode {
-    //     if knife_mode.0 {
-    //         debug!("Selection skipped - knife mode active");
-    //         return;
-    //     }
-    // }
+    if let Some(knife_mode) = knife_mode {
+        if knife_mode.0 {
+            debug!("Selection skipped - knife mode active");
+            return;
+        }
+    }
 
     // Only process when in select mode
-    // if let Some(select_mode) = select_mode {
-    //     if !select_mode.0 {
-    //         debug!("Selection skipped - select mode not active");
-    //         return;
-    //     }
-    // }
+    if let Some(select_mode) = select_mode {
+        if !select_mode.0 {
+            debug!("Selection skipped - select mode not active");
+            return;
+        }
+    }
 
     // Don't process selection when hovering over UI
-    // if ui_hover_state.is_hovering_ui {
-    //     debug!("Selection skipped - hovering over UI");
-    //     return;
-    // }
+    if ui_hover_state.is_hovering_ui {
+        debug!("Selection skipped - hovering over UI");
+        return;
+    }
 
     // Early return if no window
     let Ok(window) = windows.single() else {
@@ -336,24 +334,22 @@ pub fn handle_selection_shortcuts(
     selectable_query: Query<Entity, With<Selectable>>,
     mut selection_state: ResMut<SelectionState>,
     mut event_writer: EventWriter<EditEvent>,
-    // TODO: Re-enable when toolbar is implemented
-    // select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>>,
-    // knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
+    select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::SelectModeActive>>,
+    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::KnifeModeActive>>,
 ) {
-    // TODO: Re-enable when toolbar is implemented
     // Skip processing shortcuts if knife mode is active
-    // if let Some(knife_mode) = knife_mode {
-    //     if knife_mode.0 {
-    //         return;
-    //     }
-    // }
+    if let Some(knife_mode) = knife_mode {
+        if knife_mode.0 {
+            return;
+        }
+    }
 
     // Only process shortcuts when in select mode
-    // if let Some(select_mode) = select_mode {
-    //     if !select_mode.0 {
-    //         return;
-    //     }
-    // }
+    if let Some(select_mode) = select_mode {
+        if !select_mode.0 {
+            return;
+        }
+    }
 
     // Handle Escape key to clear selection
     if keyboard_input.just_pressed(KeyCode::Escape) {
@@ -409,24 +405,22 @@ pub fn update_hover_state(
 pub fn render_selection_rect(
     mut gizmos: Gizmos,
     selection_rect_query: Query<&SelectionRect>,
-    // TODO: Re-enable when toolbar is implemented
-    // select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>>,
-    // knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
+    select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::SelectModeActive>>,
+    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::KnifeModeActive>>,
 ) {
-    // TODO: Re-enable when toolbar is implemented
     // Skip rendering the selection rectangle if knife mode is active
-    // if let Some(knife_mode) = knife_mode {
-    //     if knife_mode.0 {
-    //         return;
-    //     }
-    // }
+    if let Some(knife_mode) = knife_mode {
+        if knife_mode.0 {
+            return;
+        }
+    }
 
     // Only render the selection rectangle in select mode
-    // if let Some(select_mode) = select_mode {
-    //     if !select_mode.0 {
-    //         return;
-    //     }
-    // }
+    if let Some(select_mode) = select_mode {
+        if !select_mode.0 {
+            return;
+        }
+    }
 
     for rect in &selection_rect_query {
         let rect_bounds = Rect::from_corners(rect.start, rect.end);
@@ -524,24 +518,22 @@ pub fn render_selected_entities(
         With<Selected>,
     >,
     drag_point_state: Res<DragPointState>,
-    // TODO: Re-enable when toolbar is implemented
-    // select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>>,
-    // knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
+    select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::SelectModeActive>>,
+    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::KnifeModeActive>>,
 ) {
-    // TODO: Re-enable when toolbar is implemented
     // Skip rendering if knife mode is active
-    // if let Some(knife_mode) = knife_mode {
-    //     if knife_mode.0 {
-    //         return;
-    //     }
-    // }
+    if let Some(knife_mode) = knife_mode {
+        if knife_mode.0 {
+            return;
+        }
+    }
 
     // Only render selection in select mode
-    // if let Some(select_mode) = select_mode {
-    //     if !select_mode.0 {
-    //         return;
-    //     }
-    // }
+    if let Some(select_mode) = select_mode {
+        if !select_mode.0 {
+            return;
+        }
+    }
 
     for (transform, point_type) in &selected_query {
         let pos = transform.translation().truncate();
@@ -585,16 +577,14 @@ pub fn update_glyph_data_from_selection(
     mut app_state: ResMut<AppState>,
     // Track if we're in a nudging operation
     _nudge_state: Res<crate::editing::selection::nudge::NudgeState>,
-    // TODO: Re-enable when toolbar is implemented
-    // knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
+    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::KnifeModeActive>>,
 ) {
-    // TODO: Re-enable when toolbar is implemented
     // Skip processing if knife mode is active
-    // if let Some(knife_mode) = knife_mode {
-    //     if knife_mode.0 {
-    //         return;
-    //     }
-    // }
+    if let Some(knife_mode) = knife_mode {
+        if knife_mode.0 {
+            return;
+        }
+    }
 
     // Early return if no points were moved
     if query.is_empty() {

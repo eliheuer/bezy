@@ -13,6 +13,9 @@ use bevy::winit::WinitSettings;
 use crate::core::cli::CliArgs;
 use crate::core::state::{AppState, GlyphNavigation};
 
+// Systems and utilities
+use crate::systems::UiInteractionPlugin;
+
 // UI and theming - visual appearance and user interface
 use crate::ui::panes::design_space::DesignSpacePlugin;
 use crate::ui::toolbars::EditModeToolbarPlugin;
@@ -88,6 +91,7 @@ fn add_core_plugins(app: &mut App) {
     app.add_plugins((
         SortPlugin,             // Sort functionality
         UndoPlugin,             // Undo/redo system
+        UiInteractionPlugin,    // UI hover detection
         // Note: BezySystems, CommandsPlugin, etc. are not included
         // as they don't exist in the current codebase
     ));
