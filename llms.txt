@@ -1,0 +1,67 @@
+# Bezy Font Editor
+
+> Bezy is an open-source cross-platform font editor built with the Bevy game engine, Rust, and Linebender crates. It provides glyph editing capabilities with UFO (Unified Font Object) file support, featuring dual coordinate systems (design space and screen space) for precise font design work.
+
+Bezy uses a dual coordinate system architecture that is fundamental to understanding the codebase:
+
+- **Design Space**: The fixed coordinate space where glyphs, guides, and entities are described. This is the canonical coordinate system for font data, with (0,0) at the intersection of the baseline and left sidebearing.
+- **Screen Space**: The view coordinate space for rendering and user interaction, accounting for zoom, pan, and screen geometry.
+- **ViewPort**: Handles transformations between design space and screen space, including zoom level, pan offset, and Y-axis flipping.
+
+The application follows Bevy's Entity Component System (ECS) architecture with modular plugins for different functionality areas. Key architectural concepts include thread-safe data structures optimized for font editing, norad library integration for UFO file I/O, and a dynamic toolbar system for editing tools.
+
+## Code Style
+
+- the Rust files should be a max of 80 character wide.
+- Readability and ease of modification for junior programmers is prioritized over clever tricks
+
+## Core Architecture
+
+- [Application setup and configuration](src/core/app.rs): Main app creation, plugin registration, and startup systems
+- [Application state management](src/core/state.rs): Thread-safe font data structures and UFO file handling
+- [Command line interface](src/core/cli.rs): CLI argument parsing and configuration
+- [Settings and configuration](src/core/settings.rs): User preferences and editor settings
+
+## Coordinate Systems and Geometry
+
+- [Design space and coordinate transformations](src/ui/panes/design_space.rs): Core coordinate system definitions, ViewPort, DPoint, and DVec2 types
+- [Point and entity management](src/geometry/point.rs): EditPoint, EntityId, and entity types for glyph editing
+- [Geometric paths and curves](src/geometry/path.rs): Path manipulation and curve handling
+- [Point collections](src/geometry/point_list.rs): Collections of points for outline management
+
+## Data Management
+
+- [UFO file operations](src/data/ufo.rs): UFO file loading, saving, and Unicode codepoint mapping
+- [Unicode handling](src/data/unicode.rs): Unicode codepoint utilities and sorting
+- [Data module](src/data/mod.rs): Data structure definitions and file I/O
+
+## Rendering System
+
+- [Camera system](src/rendering/cameras.rs): 2D camera setup with pan/zoom functionality using bevy_pancam
+- [Glyph outline rendering](src/rendering/glyph_outline.rs): Vector outline drawing and visualization
+- [Drawing utilities](src/rendering/draw.rs): Low-level drawing primitives and helpers
+- [Font metrics display](src/rendering/metrics.rs): Baseline, x-height, and other metric line rendering
+
+## User Interface
+
+- [Design space pane](src/ui/panes/design_space.rs): Main glyph editing viewport and coordinate handling
+- [Glyph navigation pane](src/ui/panes/glyph_pane.rs): Glyph selection and navigation interface
+- [Coordinate display pane](src/ui/panes/coord_pane.rs): Point coordinate information display
+- [Edit mode toolbar](src/ui/toolbars/edit_mode_toolbar/mod.rs): Dynamic toolbar system for editing tools
+- [UI theme and styling](src/ui/theme.rs): Color schemes and visual styling definitions
+
+## Editing Features
+
+- [Selection system](src/editing/selection/mod.rs): Point and entity selection with multi-select support
+- [Undo/redo system](src/editing/undo_plugin.rs): Command pattern implementation for undoable operations
+- [Point nudging](src/editing/selection/nudge.rs): Keyboard-based point movement with configurable increments
+- [Sort functionality](src/editing/sort.rs): Glyph and point sorting utilities
+
+## Optional
+
+- [Main library entry point](src/lib.rs): Module declarations and public API
+- [Application entry point](src/main.rs): Main function and startup
+- [System interactions](src/systems/mod.rs): High-level system coordination
+- [Utilities and helpers](src/utils/mod.rs): Common utility functions and debugging tools
+- [Project documentation](README.md): Installation, usage, and development instructions
+- [Cargo configuration](Cargo.toml): Dependencies and build configuration 
