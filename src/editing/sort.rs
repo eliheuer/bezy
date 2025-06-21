@@ -75,14 +75,15 @@ impl Sort {
     }
 
     /// Get the metrics box bounds for this sort
+    /// This matches the backup implementation: from descender to ascender, full glyph width
     pub fn get_metrics_bounds(&self, font_metrics: &crate::core::state::FontMetrics) -> SortBounds {
         let width = self.advance_width;
-        let ascender = font_metrics.ascender;
-        let descender = font_metrics.descender;
+        let ascender = font_metrics.ascender.unwrap_or(font_metrics.units_per_em * 0.8) as f32;
+        let descender = font_metrics.descender.unwrap_or(-(font_metrics.units_per_em * 0.2)) as f32;
 
         SortBounds {
-            min: self.position + Vec2::new(0.0, descender.unwrap_or(-200.0) as f32),
-            max: self.position + Vec2::new(width, ascender.unwrap_or(800.0) as f32),
+            min: self.position + Vec2::new(0.0, descender),
+            max: self.position + Vec2::new(width, ascender),
         }
     }
 

@@ -17,7 +17,7 @@ This software is designed and built in the modernist tradition. Less is more. Fo
 
 It is a loose port of a previous font editor called Runebender, the major difference being that Runbender uses the Druid GUI framework and Bezy uses the Bevy ECS game engine.
 
-Besy is designed to feel like a video game, it should be fast, fun, and engaging to use, like being immersed in a uniqe world.
+Bezy is designed to feel like a video game, it should be fast, fun, and engaging to use, like being immersed in a uniqe world.
 
 I am porting code from Runbender to Bezy, that means I am porting from Druid to Bevy. The Runebender and Bevy repos are in the ai_context directory for refrance when porting.
 

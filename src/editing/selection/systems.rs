@@ -40,6 +40,7 @@ pub fn handle_mouse_input(
     select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::SelectModeActive>>,
     knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::KnifeModeActive>>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
+    active_sort_state: Res<crate::editing::sort::ActiveSortState>,
 ) {
     // Log at the beginning of each frame
     debug!(
@@ -66,6 +67,12 @@ pub fn handle_mouse_input(
     // Don't process selection when hovering over UI
     if ui_hover_state.is_hovering_ui {
         debug!("Selection skipped - hovering over UI");
+        return;
+    }
+
+    // Only allow selection when there's an active sort
+    if active_sort_state.active_sort_entity.is_none() {
+        debug!("Selection skipped - no active sort");
         return;
     }
 
@@ -336,6 +343,7 @@ pub fn handle_selection_shortcuts(
     mut event_writer: EventWriter<EditEvent>,
     select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::SelectModeActive>>,
     knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::KnifeModeActive>>,
+    active_sort_state: Res<crate::editing::sort::ActiveSortState>,
 ) {
     // Skip processing shortcuts if knife mode is active
     if let Some(knife_mode) = knife_mode {
@@ -349,6 +357,11 @@ pub fn handle_selection_shortcuts(
         if !select_mode.0 {
             return;
         }
+    }
+
+    // Only allow selection shortcuts when there's an active sort
+    if active_sort_state.active_sort_entity.is_none() {
+        return;
     }
 
     // Handle Escape key to clear selection

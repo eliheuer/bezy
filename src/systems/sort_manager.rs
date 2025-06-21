@@ -4,12 +4,21 @@
 //! Ensures only one sort can be active at a time and manages the state transitions.
 
 use crate::core::state::{AppState, GlyphNavigation};
-use crate::editing::selection::components::{
-    GlyphPointReference, PointType, Selectable, SelectionState,
-};
+use crate::rendering::cameras::DesignCamera;
+// use crate::editing::selection::components::{
+//     GlyphPointReference, PointType, Selectable, SelectionState,
+// };
 use crate::editing::sort::{ActiveSort, ActiveSortState, InactiveSort, Sort, SortEvent};
+
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use std::collections::HashMap;
+use crate::ui::theme::{SORT_VERTICAL_PADDING, SORT_HORIZONTAL_PADDING};
+
+/// Resource to track when a click has been claimed by another system
+/// This prevents multiple systems from reacting to the same click event
+#[derive(Resource)]
+pub struct ClickWorldPosition;
 
 /// Helper to calculate the desired position of the crosshair.
 /// Places it at the lower-left of the sort's metrics box, offset inward by 64 units.
@@ -55,12 +64,13 @@ pub fn handle_sort_events(
     mut sort_events: EventReader<SortEvent>,
     mut active_sort_state: ResMut<ActiveSortState>,
     app_state: Res<AppState>,
-    _sorts_query: Query<(Entity, &Sort)>,
+    sorts_query: Query<&Sort>,
     active_sorts_query: Query<Entity, With<ActiveSort>>,
 ) {
     for event in sort_events.read() {
         match event {
             SortEvent::CreateSort { glyph_name, position } => {
+                info!("Handling CreateSort event for '{}' at {:?}", glyph_name, position);
                 // Get advance width from the virtual font
                 let advance_width = if let Some(glyph_data) = app_state.workspace.font.get_glyph(glyph_name) {
                     glyph_data.advance_width as f32
@@ -68,7 +78,8 @@ pub fn handle_sort_events(
                     600.0 // Default fallback
                 };
 
-                create_sort(&mut commands, glyph_name.clone(), *position, advance_width);
+                let entity = create_sort(&mut commands, glyph_name.clone(), *position, advance_width);
+                info!("Created sort entity {:?} for '{}'", entity, glyph_name);
             }
             SortEvent::ActivateSort { sort_entity } => {
                 activate_sort(
@@ -76,6 +87,7 @@ pub fn handle_sort_events(
                     &mut active_sort_state,
                     *sort_entity,
                     &active_sorts_query,
+                    &sorts_query,
                 );
             }
             SortEvent::DeactivateSort => {
@@ -100,7 +112,7 @@ fn create_sort(
     glyph_name: String,
     position: Vec2,
     advance_width: f32,
-) {
+) -> Entity {
     let sort = Sort::new(glyph_name.clone(), position, advance_width);
 
     info!(
@@ -117,8 +129,8 @@ fn create_sort(
         Visibility::Visible,
         InheritedVisibility::default(),
         ViewVisibility::default(),
-        Selectable, // Make the sort entity itself selectable
-    ));
+        // Selectable, // Make the sort entity itself selectable
+    )).id()
 }
 
 /// Activate a sort for editing
@@ -127,6 +139,7 @@ fn activate_sort(
     active_sort_state: &mut ResMut<ActiveSortState>,
     sort_entity: Entity,
     active_sorts_query: &Query<Entity, With<ActiveSort>>,
+    sorts_query: &Query<&Sort>,
 ) {
     // First deactivate any currently active sort
     for active_entity in active_sorts_query.iter() {
@@ -233,14 +246,16 @@ pub fn handle_glyph_navigation_changes(
 
 /// System to respawn sort points when the glyph changes
 pub fn respawn_sort_points_on_glyph_change(
-    mut commands: Commands,
-    changed_sorts: Query<(Entity, &Sort), (With<ActiveSort>, Changed<Sort>)>,
-    sort_point_entities: Query<(Entity, &SortPointEntity)>,
-    mut selection_state: ResMut<SelectionState>,
-    app_state: Res<AppState>,
-    mut local_previous_glyphs: Local<HashMap<Entity, String>>,
-    newly_spawned_crosshairs: Query<&SortCrosshair, With<NewlySpawnedCrosshair>>,
+    _commands: Commands,
+    _changed_sorts: Query<(Entity, &Sort), (With<ActiveSort>, Changed<Sort>)>,
+    _sort_point_entities: Query<(Entity, &SortPointEntity)>,
+    // mut selection_state: ResMut<SelectionState>,
+    _app_state: Res<AppState>,
+    mut _local_previous_glyphs: Local<HashMap<Entity, String>>,
+    _newly_spawned_crosshairs: Query<&SortCrosshair, With<NewlySpawnedCrosshair>>,
 ) {
+    // TODO: Re-enable when selection is working
+    /*
     for (sort_entity, sort) in changed_sorts.iter() {
         // Skip if this sort has a newly spawned crosshair (to avoid conflicts during initial setup)
         let has_newly_spawned_crosshair = newly_spawned_crosshairs.iter()
@@ -283,16 +298,19 @@ pub fn respawn_sort_points_on_glyph_change(
                    sort_entity, current_glyph_name);
         }
     }
+    */
 }
 
 /// Spawn point entities for a sort's glyph outline
 fn spawn_point_entities_for_sort(
-    commands: &mut Commands,
-    sort_entity: Entity,
-    sort: &Sort,
-    app_state: &AppState,
-    _selection_state: &mut ResMut<SelectionState>,
+    _commands: &mut Commands,
+    _sort_entity: Entity,
+    _sort: &Sort,
+    _app_state: &AppState,
+    // _selection_state: &mut ResMut<SelectionState>,
 ) {
+    // TODO: Re-enable when selection is working
+    /*
     // Get the glyph from the virtual font
     let glyph_data = app_state.workspace.font.get_glyph(&sort.glyph_name);
 
@@ -334,15 +352,18 @@ fn spawn_point_entities_for_sort(
             }
         }
     }
+    */
 }
 
 /// Despawn point entities for a sort
 fn despawn_point_entities_for_sort(
-    commands: &mut Commands,
-    sort_entity: Entity,
-    sort_point_entities: &Query<(Entity, &SortPointEntity)>,
-    selection_state: &mut ResMut<SelectionState>,
+    _commands: &mut Commands,
+    _sort_entity: Entity,
+    _sort_point_entities: &Query<(Entity, &SortPointEntity)>,
+    // selection_state: &mut ResMut<SelectionState>,
 ) {
+    // TODO: Re-enable when selection is working
+    /*
     for (entity, sort_point_entity) in sort_point_entities.iter() {
         if sort_point_entity.sort_entity == sort_entity {
             // Remove from selection if selected
@@ -353,20 +374,23 @@ fn despawn_point_entities_for_sort(
             debug!("Despawned point entity {:?} for sort {:?}", entity, sort_entity);
         }
     }
+    */
 }
 
 /// System to spawn/despawn point entities when sorts become active/inactive
 pub fn spawn_sort_point_entities(
-    mut commands: Commands,
+    _commands: Commands,
     // Detect when sorts change from inactive to active
-    added_active_sorts: Query<(Entity, &Sort), Added<ActiveSort>>,
+    _added_active_sorts: Query<(Entity, &Sort), Added<ActiveSort>>,
     // Detect when sorts change from active to inactive
-    mut removed_active_sorts: RemovedComponents<ActiveSort>,
+    mut _removed_active_sorts: RemovedComponents<ActiveSort>,
     // Find existing point entities for sorts
-    sort_point_entities: Query<(Entity, &SortPointEntity)>,
-    mut selection_state: ResMut<SelectionState>,
-    app_state: Res<AppState>,
+    _sort_point_entities: Query<(Entity, &SortPointEntity)>,
+    // mut selection_state: ResMut<SelectionState>,
+    _app_state: Res<AppState>,
 ) {
+    // TODO: Re-enable when selection is working
+    /*
     // Spawn point entities for newly active sorts
     for (sort_entity, sort) in added_active_sorts.iter() {
         info!("Spawning point entities for newly active sort {:?}", sort_entity);
@@ -389,6 +413,7 @@ pub fn spawn_sort_point_entities(
             &mut selection_state,
         );
     }
+    */
 }
 
 // Placeholder systems for features not yet implemented
@@ -406,10 +431,16 @@ pub fn create_startup_sorts(
     mut sort_events: EventWriter<SortEvent>,
     sorts_query: Query<Entity, With<Sort>>,
     app_state: Res<AppState>,
+    mut has_run: Local<bool>,
 ) {
-    // Only create sorts if none exist
+    // Only create sorts if none exist and we haven't run before
+    if *has_run {
+        return;
+    }
+    
     if sorts_query.is_empty() {
         info!("No sorts found, creating startup sorts from font glyphs");
+        *has_run = true;
         
         // Use font metrics for proper spacing (match backup version exactly)
         let font_metrics = &app_state.workspace.info.metrics;
@@ -430,14 +461,43 @@ pub fn create_startup_sorts(
         let mut glyph_count_in_row = 0;
         const GLYPHS_PER_ROW: usize = 16; // Match the backup version
         
+        // Collect and sort glyph names by their Unicode codepoints
+        let mut glyph_names: Vec<_> = app_state.workspace.font.glyphs.keys().collect();
+        glyph_names.sort_by(|a, b| {
+            // Get Unicode codepoint for each glyph name
+            let codepoint_a = app_state.workspace.font.get_glyph(a)
+                .and_then(|g| g.unicode_values.first().copied())
+                .unwrap_or(char::MAX); // Put glyphs without Unicode at the end
+            let codepoint_b = app_state.workspace.font.get_glyph(b)
+                .and_then(|g| g.unicode_values.first().copied())
+                .unwrap_or(char::MAX);
+            codepoint_a.cmp(&codepoint_b)
+        });
+        
+        info!("Creating {} sorts in Unicode order", glyph_names.len());
+        
         // Create sorts for all glyphs, arranged in a grid with proper spacing (match backup logic)
-        for glyph_name in app_state.workspace.font.glyphs.keys() {
+        for glyph_name in glyph_names {
             if glyph_count_in_row >= GLYPHS_PER_ROW {
                 // Move to the next row, dropping by the full height of the metrics
                 // box plus the desired padding (exactly like backup version)
                 current_y -= row_height;
                 current_x = 0.0;
                 glyph_count_in_row = 0;
+            }
+            
+            // Get Unicode codepoint for logging
+            let codepoint = app_state.workspace.font.get_glyph(glyph_name)
+                .and_then(|g| g.unicode_values.first().copied());
+            
+            if glyph_count_in_row < 5 { // Log first few in each row
+                if let Some(cp) = codepoint {
+                    info!("Creating sort '{}' (U+{:04X}) at position ({:.1}, {:.1})", 
+                        glyph_name, cp as u32, current_x, current_y);
+                } else {
+                    info!("Creating sort '{}' (no Unicode) at position ({:.1}, {:.1})", 
+                        glyph_name, current_x, current_y);
+                }
             }
             
             sort_events.write(SortEvent::CreateSort {
@@ -455,17 +515,27 @@ pub fn create_startup_sorts(
             current_x += advance_width + horizontal_padding;
             glyph_count_in_row += 1;
         }
+    } else {
+        let sort_count = sorts_query.iter().count();
+        info!("create_startup_sorts: Skipping because sorts_query is not empty (count={})", sort_count);
     }
 }
 
 /// System to auto-activate the first sort if no sort is active
+/// Only runs when sorts are first created, not during normal operation
 pub fn make_first_sort_active_system(
     mut commands: Commands,
     mut active_sort_state: ResMut<ActiveSortState>,
     sorts_query: Query<Entity, (With<Sort>, With<InactiveSort>)>,
     active_sorts_query: Query<Entity, With<ActiveSort>>,
+    mut has_run: Local<bool>,
 ) {
-    // Only activate if no sort is currently active
+    // Only run once at startup when sorts are first created
+    if *has_run {
+        return;
+    }
+
+    // Only activate if no sort is currently active and we have sorts
     if active_sorts_query.is_empty() && !sorts_query.is_empty() {
         if let Some(first_sort_entity) = sorts_query.iter().next() {
             commands
@@ -476,6 +546,122 @@ pub fn make_first_sort_active_system(
             active_sort_state.active_sort_entity = Some(first_sort_entity);
             
             info!("Auto-activating first sort: {:?}", first_sort_entity);
+            *has_run = true;
         }
     }
-} 
+}
+
+/// System to handle sort activation via mouse clicks
+/// Matches the backup implementation exactly
+pub fn handle_sort_activation_clicks(
+    mut commands: Commands,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<crate::rendering::cameras::DesignCamera>>,
+    sorts_query: Query<(Entity, &Sort, Has<ActiveSort>)>,
+    app_state: Res<AppState>,
+    mut sort_events: EventWriter<SortEvent>,
+    select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::SelectModeActive>>,
+    ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
+    click_pos: Option<Res<ClickWorldPosition>>,
+) {
+    // Only handle clicks when in select mode
+    if let Some(select_mode) = select_mode {
+        if !select_mode.0 {
+            return;
+        }
+    } else {
+        return;
+    }
+
+    if ui_hover_state.is_hovering_ui {
+        return;
+    }
+
+    // If the click was already handled by another system (e.g., selection), do nothing
+    if click_pos.is_some() {
+        return;
+    }
+
+    if !mouse_button_input.just_pressed(MouseButton::Left) {
+        return;
+    }
+
+    let Ok(window) = window_query.get_single() else {
+        return;
+    };
+
+    let Ok((camera, camera_transform)) = camera_query.get_single() else {
+        return;
+    };
+
+    let Some(cursor_pos) = window.cursor_position() else {
+        return;
+    };
+
+    let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_pos) else {
+        return;
+    };
+
+    info!("Click at cursor_pos: {:?} -> world_position: {:?}", cursor_pos, world_position);
+
+    // Collect and filter the query results to only include sorts in the visible grid
+    // Filter out any sorts that are at weird positions (likely duplicates)
+    let mut sorts_vec: Vec<_> = sorts_query.iter()
+        .filter(|(_, sort, _)| {
+            // Only include sorts that are in reasonable grid positions
+            // Grid starts at (0,0) and goes down and right
+            sort.position.x >= 0.0 && sort.position.x < 15000.0 && 
+            sort.position.y <= 0.0 && sort.position.y > -30000.0
+        })
+        .collect();
+    
+    sorts_vec.sort_by(|a, b| {
+        // Sort by position: top-to-bottom, then left-to-right
+        let pos_a = a.1.position;
+        let pos_b = b.1.position;
+        
+        // First by Y (top to bottom, so higher Y values first)
+        match pos_b.y.partial_cmp(&pos_a.y) {
+            Some(std::cmp::Ordering::Equal) => {
+                // If Y is the same, sort by X (left to right)
+                pos_a.x.partial_cmp(&pos_b.x).unwrap_or(std::cmp::Ordering::Equal)
+            }
+            Some(ordering) => ordering,
+            None => std::cmp::Ordering::Equal,
+        }
+    });
+    
+    // Check if the click is within any sort's bounds
+    for (entity, sort, is_active) in sorts_vec.iter() {
+        if sort.contains_point(world_position, &app_state.workspace.info.metrics) {
+            // Claim this click to prevent other systems from handling it
+            commands.insert_resource(ClickWorldPosition);
+            
+            if *is_active {
+                // Sort is already active - keep it active (allow editing)
+                info!("Clicked on already active sort '{}' - keeping active", sort.glyph_name);
+                return; // Don't deactivate, allow editing to continue
+            } else {
+                // Sort is inactive - activate it
+                sort_events.send(SortEvent::ActivateSort {
+                    sort_entity: *entity,
+                });
+                info!("Activated sort '{}' by clicking", sort.glyph_name);
+            }
+            return; // Only handle one sort per click
+        }
+    }
+
+    // If we didn't click on any sort AND no other system claimed the click, deactivate the current active sort
+    if click_pos.is_none() {
+        sort_events.send(SortEvent::DeactivateSort);
+    }
+}
+
+/// System to clean up the ClickWorldPosition resource at the end of the frame
+pub fn cleanup_click_resource(mut commands: Commands) {
+    commands.remove_resource::<ClickWorldPosition>();
+}
+
+ 

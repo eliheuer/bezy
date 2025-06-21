@@ -64,48 +64,16 @@ impl Plugin for SelectionPlugin {
             .init_resource::<DragSelectionState>()
             .init_resource::<DragPointState>()
             // Add core selection systems
-            .configure_sets(
-                Update,
-                (
-                    SelectionSystemSet::Input,
-                    SelectionSystemSet::Processing,
-                    SelectionSystemSet::Render,
-                )
-                    .chain(),
-            )
-            .add_systems(
-                Update,
-                (
-                    // Mouse input must run first to handle clicks and drag start/end
-                    systems::handle_mouse_input,
-                    // Point drag runs after mouse input to process ongoing drags
-                    systems::handle_point_drag.after(systems::handle_mouse_input),
-                    // Other input systems can run in parallel
-                    systems::handle_selection_shortcuts,
-                    systems::handle_key_releases,
-                )
-                    .in_set(SelectionSystemSet::Input),
-            )
-            .add_systems(
-                Update,
-                (
-                    systems::update_glyph_data_from_selection,
-                    sync_selected_components,
-                    systems::clear_selection_on_app_change,
-                    systems::cleanup_click_resource.after(SelectionSystemSet::Input),
-                )
-                    .in_set(SelectionSystemSet::Processing)
-                    .after(SelectionSystemSet::Input),
-            )
-            .add_systems(
-                Update,
-                (
-                    systems::render_selection_rect,
-                    systems::render_selected_entities,
-                )
-                    .in_set(SelectionSystemSet::Render)
-                    .after(SelectionSystemSet::Processing),
-            )
+            .add_systems(Update, systems::handle_mouse_input)
+            .add_systems(Update, systems::handle_point_drag)
+            .add_systems(Update, systems::handle_selection_shortcuts)
+            .add_systems(Update, systems::handle_key_releases)
+            .add_systems(Update, systems::update_glyph_data_from_selection)
+            .add_systems(Update, sync_selected_components)
+            .add_systems(Update, systems::clear_selection_on_app_change)
+            .add_systems(Update, systems::cleanup_click_resource)
+            .add_systems(Update, systems::render_selection_rect)
+            .add_systems(Update, systems::render_selected_entities)
             // Add the nudge plugin
             .add_plugins(NudgePlugin);
     }
