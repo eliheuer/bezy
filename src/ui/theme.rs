@@ -12,6 +12,7 @@ pub const WIDGET_TEXT_FONT_SIZE: f32 = 24.0;
 
 // Widget Visual Style Constants
 pub const WIDGET_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
+pub const WIDGET_BG_COLOR: Color = WIDGET_BACKGROUND_COLOR; // Alias for compatibility
 pub const WIDGET_BORDER_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
 pub const WIDGET_BORDER_RADIUS: f32 = 0.0;
 pub const WIDGET_BORDER_WIDTH: f32 = 2.0;
@@ -138,12 +139,45 @@ pub const KNIFE_GAP_LENGTH: f32 = 4.0;
 pub const KNIFE_CROSS_SIZE: f32 = 8.0;
 
 /// Creates a consistent styled container for UI widgets/panes
-pub fn create_widget_style() -> Node {
-    Node {
-        // Set fields directly here
-        // e.g., size, color, etc.
-        ..Default::default()
-    }
+///
+/// Returns a bundle of components that can be used to spawn a widget with
+/// consistent styling across the application.
+pub fn create_widget_style<T: Component + Default>(
+    _asset_server: &Res<AssetServer>,
+    position: PositionType,
+    position_props: UiRect,
+    marker: T,
+    name: &str,
+) -> impl Bundle {
+    (
+        Node {
+            position_type: position,
+            left: position_props.left,
+            right: position_props.right,
+            top: position_props.top,
+            bottom: position_props.bottom,
+            padding: UiRect::all(Val::Px(WIDGET_PADDING)),
+            margin: UiRect::all(Val::Px(0.0)),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(WIDGET_ROW_GAP),
+            border: UiRect::all(Val::Px(WIDGET_BORDER_WIDTH)),
+            // Add size constraints to keep widgets compact
+            width: Val::Auto,
+            height: Val::Auto,
+            min_width: Val::Auto,
+            min_height: Val::Auto,
+            max_width: Val::Px(256.0), // Reduced maximum width for more compact widgets
+            max_height: Val::Percent(50.0), // Limit height to prevent stretching to top of screen
+            justify_content: JustifyContent::FlexStart,
+            align_items: AlignItems::FlexStart,
+            ..default()
+        },
+        BackgroundColor(WIDGET_BACKGROUND_COLOR),
+        BorderColor(WIDGET_BORDER_COLOR),
+        BorderRadius::all(Val::Px(WIDGET_BORDER_RADIUS)),
+        marker,
+        Name::new(name.to_string()),
+    )
 }
 
 /// Creates a text component with the mono font and standard styling

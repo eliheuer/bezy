@@ -1,6 +1,6 @@
 # Bezy Font Editor
 
-> Bezy is an open-source cross-platform font editor built with the Bevy game engine, Rust, and Linebender crates. It provides glyph editing capabilities with UFO (Unified Font Object) file support, featuring dual coordinate systems (design space and screen space) for precise font design work.
+> Bezy is a free and open-source (GPL licensed) cross-platform font editor built with the Bevy game engine, Rust, and Linebender crates. It started as a port of Runebender. It provides glyph editing capabilities with UFO (Unified Font Object) file support. It is more like a full text editor for virtual fonts than other font editors, allowing for more of the work of visual proofing to happen in the editor. a distinguishing feature vs other font editors is that everything happens on one large grid vs having seprate grid overview and edit modes. It has a system of lego-like entities called sorts that resembel how metal typesetting worked in some ways.
 
 Bezy uses a dual coordinate system architecture that is fundamental to understanding the codebase:
 

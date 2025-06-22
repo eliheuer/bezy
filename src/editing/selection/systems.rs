@@ -37,8 +37,8 @@ pub fn handle_mouse_input(
     selection_rect_query: Query<Entity, With<SelectionRect>>,
     mut selection_state: ResMut<SelectionState>,
     nudge_state: Res<NudgeState>,
-    select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::SelectModeActive>>,
-    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::KnifeModeActive>>,
+    select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>>,
+    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
     active_sort_state: Res<crate::editing::sort::ActiveSortState>,
 ) {
@@ -341,8 +341,8 @@ pub fn handle_selection_shortcuts(
     selectable_query: Query<Entity, With<Selectable>>,
     mut selection_state: ResMut<SelectionState>,
     mut event_writer: EventWriter<EditEvent>,
-    select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::SelectModeActive>>,
-    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::KnifeModeActive>>,
+    select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>>,
+    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
     active_sort_state: Res<crate::editing::sort::ActiveSortState>,
 ) {
     // Skip processing shortcuts if knife mode is active
@@ -418,8 +418,8 @@ pub fn update_hover_state(
 pub fn render_selection_rect(
     mut gizmos: Gizmos,
     selection_rect_query: Query<&SelectionRect>,
-    select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::SelectModeActive>>,
-    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::KnifeModeActive>>,
+    select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>>,
+    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
 ) {
     // Skip rendering the selection rectangle if knife mode is active
     if let Some(knife_mode) = knife_mode {
@@ -531,8 +531,8 @@ pub fn render_selected_entities(
         With<Selected>,
     >,
     drag_point_state: Res<DragPointState>,
-    select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::SelectModeActive>>,
-    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::KnifeModeActive>>,
+    select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>>,
+    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
 ) {
     // Skip rendering if knife mode is active
     if let Some(knife_mode) = knife_mode {
@@ -585,12 +585,12 @@ pub fn render_hovered_entities(
 pub fn update_glyph_data_from_selection(
     query: Query<
         (&Transform, &GlyphPointReference),
-        (With<Selected>, Changed<Transform>),
+        (With<Selected>, Changed<Transform>, Without<crate::systems::sort_manager::SortPointEntity>),
     >,
     mut app_state: ResMut<AppState>,
     // Track if we're in a nudging operation
     _nudge_state: Res<crate::editing::selection::nudge::NudgeState>,
-    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::KnifeModeActive>>,
+    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
 ) {
     // Skip processing if knife mode is active
     if let Some(knife_mode) = knife_mode {
@@ -682,6 +682,7 @@ pub fn handle_point_drag(
             &mut Transform,
             &mut crate::editing::selection::nudge::PointCoordinates,
             Option<&GlyphPointReference>,
+            Option<&crate::systems::sort_manager::SortCrosshair>,
         ),
         With<Selected>,
     >,
@@ -727,28 +728,36 @@ pub fn handle_point_drag(
 
             let mut updated_count = 0;
 
-            for (entity, mut transform, mut coordinates, point_ref) in &mut query {
+            for (entity, mut transform, mut coordinates, point_ref, sort_crosshair) in &mut query {
                 if let Some(original_pos) = drag_point_state.original_positions.get(&entity) {
                     let new_pos = *original_pos + movement;
                     
-                    // Apply grid snapping if enabled
-                    let snapped_pos = if SNAP_TO_GRID_ENABLED {
-                        let grid_size = SNAP_TO_GRID_VALUE;
-                        Vec2::new(
-                            (new_pos.x / grid_size).round() * grid_size,
-                            (new_pos.y / grid_size).round() * grid_size,
-                        )
-                    } else {
-                        new_pos
-                    };
+                    // Handle sort crosshair drag (no snapping, keep on top)
+                    if sort_crosshair.is_some() {
+                        transform.translation.x = new_pos.x;
+                        transform.translation.y = new_pos.y;
+                        transform.translation.z = 25.0; // Keep crosshairs on top
+                        coordinates.position = new_pos;
+                    }
+                    // Handle glyph point drag (with snapping)
+                    else if let Some(point_ref) = point_ref {
+                        // Apply grid snapping if enabled
+                        let snapped_pos = if SNAP_TO_GRID_ENABLED {
+                            let grid_size = SNAP_TO_GRID_VALUE;
+                            Vec2::new(
+                                (new_pos.x / grid_size).round() * grid_size,
+                                (new_pos.y / grid_size).round() * grid_size,
+                            )
+                        } else {
+                            new_pos
+                        };
 
-                    transform.translation.x = snapped_pos.x;
-                    transform.translation.y = snapped_pos.y;
-                    transform.translation.z = 5.0; // Keep glyph points above background
-                    coordinates.position = snapped_pos;
+                        transform.translation.x = snapped_pos.x;
+                        transform.translation.y = snapped_pos.y;
+                        transform.translation.z = 5.0; // Keep glyph points above background
+                        coordinates.position = snapped_pos;
 
-                    // Update UFO data if this is a glyph point
-                    if let Some(point_ref) = point_ref {
+                        // Update UFO data for glyph points
                         let updated = app_state.set_point_position(
                             &point_ref.glyph_name,
                             point_ref.contour_index,
@@ -759,6 +768,13 @@ pub fn handle_point_drag(
                         if updated {
                             updated_count += 1;
                         }
+                    }
+                    // Handle other draggable entities (no snapping, normal Z layer)
+                    else {
+                        transform.translation.x = new_pos.x;
+                        transform.translation.y = new_pos.y;
+                        transform.translation.z = 10.0; // Middle layer
+                        coordinates.position = new_pos;
                     }
                 }
             }

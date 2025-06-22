@@ -4,23 +4,24 @@
 //! zoomable design space, including toolbars and information panels.
 
 use bevy::prelude::*;
+use crate::ui::panes::glyph_pane::spawn_glyph_pane;
 
 /// Spawns all non-debug HUD elements (toolbars, etc.)
 /// 
 /// Note: Many components are now spawned automatically by their respective plugins.
 /// This function serves as a coordination point for UI elements that need manual spawning.
 pub fn spawn_hud(commands: &mut Commands, asset_server: &Res<AssetServer>) {
-    // HUD components will be added as we port more UI modules
     debug!("HUD spawning initiated");
     
+    // Spawn glyph information pane
+    spawn_glyph_pane(commands, asset_server);
+    
     // Placeholder for future HUD components:
-    // - Glyph navigation pane
     // - Coordinate display pane  
     // - Status bar
     // - Menu system
     
-    // For now, just log that we're setting up the HUD
-    info!("HUD setup complete - components will be added during port");
+    info!("HUD setup complete with glyph pane");
 }
 
 /// Plugin to manage HUD-related systems

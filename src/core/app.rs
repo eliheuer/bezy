@@ -15,11 +15,14 @@ use crate::core::state::{AppState, GlyphNavigation};
 use crate::core::settings::BezySettings;
 
 // Systems and utilities
-use crate::systems::UiInteractionPlugin;
+use crate::systems::{UiInteractionPlugin, CommandsPlugin, BezySystems};
 
 // UI and theming - visual appearance and user interface
 use crate::ui::panes::design_space::DesignSpacePlugin;
+use crate::ui::panes::glyph_pane::GlyphPanePlugin;
+use crate::ui::panes::coord_pane::CoordinatePanePlugin;
 use crate::ui::toolbars::EditModeToolbarPlugin;
+use crate::ui::hud::HudPlugin;
 use crate::ui::theme::BACKGROUND_COLOR;
 
 // Editing functionality - tools for modifying fonts
@@ -94,7 +97,10 @@ fn add_rendering_plugins(app: &mut App) {
 fn add_editor_plugins(app: &mut App) {
     app.add_plugins((
         DesignSpacePlugin,      // Main design area
+        GlyphPanePlugin,        // Glyph information panel
+        CoordinatePanePlugin,   // Coordinate display panel
         EditModeToolbarPlugin,  // Edit mode toolbar
+        HudPlugin,              // HUD management
     ));
 }
 
@@ -105,8 +111,8 @@ fn add_core_plugins(app: &mut App) {
         SortPlugin,             // Sort functionality
         UndoPlugin,             // Undo/redo system
         UiInteractionPlugin,    // UI hover detection
-        // Note: BezySystems, CommandsPlugin, etc. are not included
-        // as they don't exist in the current codebase
+        CommandsPlugin,         // Command system for file operations and shortcuts
+        BezySystems,            // Core Bezy systems
     ));
 }
 

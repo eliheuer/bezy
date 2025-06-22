@@ -6,7 +6,6 @@
 use bevy::gizmos::{config::DefaultGizmoConfigGroup, config::GizmoConfigStore};
 use bevy::prelude::*;
 
-use crate::rendering::cameras::setup_camera;
 use crate::ui::theme::{GIZMO_LINE_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::utils::setup::setup;
 
@@ -37,15 +36,7 @@ fn configure_gizmos(mut gizmo_store: ResMut<GizmoConfigStore>) {
     info!("Configured gizmo line width to {}px", GIZMO_LINE_WIDTH);
 }
 
-/// Plugin to organize camera-related systems
-pub struct CameraPlugin;
-
-impl Plugin for CameraPlugin {
-    fn build(&self, app: &mut App) {
-        // Camera controls will be added when we port the camera interaction systems
-        debug!("CameraPlugin loaded - camera controls pending full port");
-    }
-}
+// Camera plugin is now handled by src/rendering/cameras.rs
 
 /// Plugin to organize drawing-related systems
 pub struct DrawPlugin;
@@ -77,7 +68,6 @@ impl Plugin for SetupPlugin {
             (
                 setup,
                 configure_gizmos,
-                setup_camera,
             )
                 .chain(),
         );
@@ -91,10 +81,10 @@ impl Plugin for BezySystems {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             SetupPlugin,
-            CameraPlugin,
             DrawPlugin,
             ToolbarPlugin,
             // Additional plugins will be added as we port more components
+            // Note: CameraPlugin is now handled by src/rendering/cameras.rs
         ));
     }
 } 
