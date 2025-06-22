@@ -108,7 +108,7 @@ pub const OFF_CURVE_POINT_OUTER_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 pub const PATH_FILL_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
 
 // Background Color
-pub const BACKGROUND_COLOR: Color = Color::srgb(0.05, 0.05, 0.05);
+pub const BACKGROUND_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
 
 // Checkerboard Configuration
 pub const CHECKERBOARD_UNIT_SIZE: f32 = 16.0; // Width and height of each square in pixels

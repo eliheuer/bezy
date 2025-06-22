@@ -24,7 +24,7 @@ impl Plugin for CameraPlugin {
     }
 }
 
-fn setup_camera(mut commands: Commands) {
+pub fn setup_camera(mut commands: Commands) {
     // Create a 2D camera with proper configuration
     commands.spawn((
         Camera2d,

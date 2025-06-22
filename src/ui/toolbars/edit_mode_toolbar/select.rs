@@ -1,5 +1,19 @@
+//! Select tool for the edit mode toolbar
+//!
+//! This tool provides selection and manipulation functionality for objects in the design space.
+//! It's typically the default tool and allows users to select, move, and modify existing elements.
+
 use bevy::prelude::*;
-use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
+use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry, EditModeSystem};
+
+/// Plugin to register selection mode systems
+pub struct SelectModePlugin;
+
+impl Plugin for SelectModePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<SelectModeActive>();
+    }
+}
 
 /// Resource to track if select mode is active
 #[derive(Resource, Default, PartialEq, Eq)]
@@ -43,6 +57,15 @@ impl EditTool for SelectTool {
     
     fn on_exit(&self) {
         info!("Exited Select tool");
+    }
+}
+
+// Legacy compatibility struct
+pub struct SelectMode;
+
+impl EditModeSystem for SelectMode {
+    fn update(&self, _commands: &mut Commands) {
+        // Legacy implementation
     }
 }
 

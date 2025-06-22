@@ -2,11 +2,19 @@
 //!
 //! This module defines thread-safe data structures optimized for our font editor.
 //! We use norad only for loading/saving UFO files, not as runtime storage.
+//! 
+//! The main AppState resource contains all font data in a format optimized for
+//! real-time editing operations. Changes are batched and synchronized with the
+//! UFO format only when saving.
 
 use bevy::prelude::*;
 use norad::Font;
 use std::collections::HashMap;
 use std::path::PathBuf;
+
+use crate::core::errors::{BezyResult, BezyContext, validate_finite_coords, validate_ufo_path};
+use crate::{glyph_not_found, point_out_of_bounds, contour_out_of_bounds};
+use anyhow::{ensure, Context};
 
 /// The main application state - thread-safe for Bevy
 #[derive(Resource, Default, Clone)]
@@ -120,40 +128,56 @@ pub struct FontMetrics {
 
 impl AppState {
     /// Load a font from a UFO file path
-    pub fn load_font_from_path(&mut self, path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    /// 
+    /// This method loads a UFO font file and converts it into our optimized
+    /// internal representation for real-time editing.
+    pub fn load_font_from_path(&mut self, path: PathBuf) -> BezyResult<()> {
+        // Validate the UFO path
+        validate_ufo_path(&path)?;
+        
         // Load the font using norad
-        let font = Font::load(&path)?;
+        let font = Font::load(&path)
+            .with_file_context("load", &path)?;
         
         // Extract data into our thread-safe structures
         self.workspace.font = FontData::from_norad_font(&font, Some(path));
         self.workspace.info = FontInfo::from_norad_font(&font);
         
+        info!("Successfully loaded UFO font with {} glyphs", self.workspace.font.glyphs.len());
         Ok(())
     }
 
     /// Save the current font to its file path
-    pub fn save_font(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let path = self.workspace.font.path.clone()
-            .ok_or("No file path set - use Save As first")?;
+    /// 
+    /// This method converts our internal representation back to UFO format
+    /// and saves it to the file path that was used to load the font.
+    pub fn save_font(&self) -> BezyResult<()> {
+        let path = self.workspace.font.path.as_ref()
+            .context("No file path set - use Save As first")?;
         
         // Convert our internal data back to norad and save
         let norad_font = self.workspace.font.to_norad_font(&self.workspace.info);
-        norad_font.save(&path)?;
+        norad_font.save(path)
+            .with_file_context("save", path)?;
         
         info!("Saved font to {:?}", path);
         Ok(())
     }
 
     /// Save the font to a new path
-    pub fn save_font_as(&mut self, path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    /// 
+    /// This method saves the font to a new location and updates the internal
+    /// path reference for future save operations.
+    pub fn save_font_as(&mut self, path: PathBuf) -> BezyResult<()> {
         // Convert our internal data back to norad and save
         let norad_font = self.workspace.font.to_norad_font(&self.workspace.info);
-        norad_font.save(&path)?;
+        norad_font.save(&path)
+            .with_file_context("save", &path)?;
         
         // Update our stored path
         self.workspace.font.path = Some(path.clone());
         
-        info!("Saved font to {:?}", path);
+        info!("Saved font to new location: {:?}", path);
         Ok(())
     }
 
@@ -173,13 +197,39 @@ impl AppState {
     }
 
     /// Update a specific point in a glyph
-    pub fn update_point(&mut self, glyph_name: &str, contour_idx: usize, point_idx: usize, new_point: PointData) -> bool {
-        if let Some(point) = self.get_point_mut(glyph_name, contour_idx, point_idx) {
-            *point = new_point;
-            true
-        } else {
-            false
-        }
+    /// 
+    /// This method updates a point's data with comprehensive validation.
+    pub fn update_point(&mut self, glyph_name: &str, contour_idx: usize, point_idx: usize, new_point: PointData) -> BezyResult<()> {
+        // Validate coordinates first
+        validate_finite_coords(new_point.x, new_point.y)?;
+        
+        // Validate glyph exists
+        let glyph = self.workspace.font.glyphs.get(glyph_name)
+            .ok_or_else(|| glyph_not_found!(glyph_name, self.workspace.font.glyphs.len()))?;
+        
+        // Validate outline exists
+        let outline = glyph.outline.as_ref()
+            .context(format!("Glyph '{}' has no outline data", glyph_name))?;
+        
+        // Validate contour exists
+        ensure!(
+            contour_idx < outline.contours.len(),
+            contour_out_of_bounds!(glyph_name, contour_idx, outline.contours.len())
+        );
+        
+        // Validate point exists
+        let contour = &outline.contours[contour_idx];
+        ensure!(
+            point_idx < contour.points.len(),
+            point_out_of_bounds!(glyph_name, contour_idx, point_idx, contour.points.len())
+        );
+        
+        // Update the point (we know it exists after validation)
+        let point = self.get_point_mut(glyph_name, contour_idx, point_idx)
+            .context("Point should exist after validation")?;
+        *point = new_point;
+        
+        Ok(())
     }
 
     /// Get a point by reference (read-only)
@@ -407,7 +457,7 @@ impl FontInfo {
         let descender = font.font_info.descender.map(|v| v as f64);
         let x_height = font.font_info.x_height.map(|v| v as f64);
         let cap_height = font.font_info.cap_height.map(|v| v as f64);
-        let italic_angle = font.font_info.italic_angle.map(|v| v as f64);
+        let _italic_angle = font.font_info.italic_angle.map(|v| v as f64);
         
         let metrics = FontMetrics::from_ufo(font);
         

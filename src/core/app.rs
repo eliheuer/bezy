@@ -12,6 +12,7 @@ use bevy::winit::WinitSettings;
 // Core application modules - fundamental app structure
 use crate::core::cli::CliArgs;
 use crate::core::state::{AppState, GlyphNavigation};
+use crate::core::settings::BezySettings;
 
 // Systems and utilities
 use crate::systems::UiInteractionPlugin;
@@ -22,7 +23,7 @@ use crate::ui::toolbars::EditModeToolbarPlugin;
 use crate::ui::theme::BACKGROUND_COLOR;
 
 // Editing functionality - tools for modifying fonts
-use crate::editing::{sort_plugin::SortPlugin, undo_plugin::UndoPlugin};
+use crate::editing::{SelectionPlugin, SortPlugin, UndoPlugin};
 
 // Rendering - drawing glyphs and visual elements
 use crate::rendering::{
@@ -33,24 +34,35 @@ use crate::rendering::{
 // ------------------------------------------------------------
 
 /// Creates a fully configured Bevy application ready to run
-pub fn create_app(cli_args: CliArgs) -> App {
+/// 
+/// This function sets up all resources, plugins, and systems needed for
+/// the font editor. It validates CLI arguments before proceeding.
+pub fn create_app(cli_args: CliArgs) -> Result<App, String> {
+    // Validate CLI arguments first
+    cli_args.validate()?;
+    
     let mut app = App::new();
     configure_app_settings(&mut app, cli_args);
     add_all_plugins(&mut app);
-    app
+    
+    Ok(app)
 }
 
 // ------------------------------------------------------------
 
 /// Sets up application resources and configuration
+/// 
+/// This function initializes all the resources needed by the font editor,
+/// including settings, state, and Bevy configuration.
 fn configure_app_settings(app: &mut App, cli_args: CliArgs) {
-    // Create GlyphNavigation - for now we'll use a default since
-    // current CLI doesn't have load_unicode
+    // Initialize core resources
     let glyph_navigation = GlyphNavigation::default();
+    let settings = BezySettings::default();
     
     app.init_resource::<AppState>()
         .insert_resource(cli_args)
         .insert_resource(glyph_navigation)
+        .insert_resource(settings)
         .insert_resource(WinitSettings::desktop_app())
         .insert_resource(ClearColor(BACKGROUND_COLOR));
 }
@@ -89,6 +101,7 @@ fn add_editor_plugins(app: &mut App) {
 /// Adds core application logic plugins
 fn add_core_plugins(app: &mut App) {
     app.add_plugins((
+        SelectionPlugin,        // Selection handling and events
         SortPlugin,             // Sort functionality
         UndoPlugin,             // Undo/redo system
         UiInteractionPlugin,    // UI hover detection
@@ -110,6 +123,9 @@ fn exit_on_esc(
 }
 
 /// System to load UFO font on startup
+/// 
+/// This system runs once at startup to load the UFO font specified in the CLI arguments.
+/// It provides detailed error messages if the font cannot be loaded.
 fn load_ufo_font(cli_args: Res<CliArgs>, mut app_state: ResMut<AppState>) {
     // clap provides the default value, so ufo_path is guaranteed to be Some
     if let Some(path) = &cli_args.ufo_path {
@@ -118,8 +134,12 @@ fn load_ufo_font(cli_args: Res<CliArgs>, mut app_state: ResMut<AppState>) {
                 info!("Successfully loaded UFO font from: {}", path.display());
             }
             Err(e) => {
-                error!("Failed to load UFO font from {}: {}", path.display(), e);
+                error!("Failed to load UFO font: {}", e);
+                error!("Font path: {}", path.display());
+                error!("The application will continue but some features may not work correctly.");
             }
         }
+    } else {
+        warn!("No UFO font path specified, running without a font loaded.");
     }
 }

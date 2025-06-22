@@ -54,38 +54,38 @@
 //! 3. **Register plugin**: `app.add_plugins(MyToolPlugin);`
 //!
 //! The tool automatically appears in the toolbar with proper ordering and functionality.
+//!
+//! ## Key Features
+//!
+//! - **Dynamic Registration**: Tools register themselves at runtime
+//! - **Configurable Ordering**: Control the order tools appear in the toolbar
+//! - **Temporary Modes**: Support for temporary mode activation (e.g., holding spacebar for pan)
+//! - **State Management**: Proper enter/exit lifecycle for each tool
+//! - **UI Integration**: Visual feedback and interactive toolbar
+//! - **Extensibility**: Easy to add new tools with minimal code changes
 
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-mod select;
-mod ui;
-mod pan;
+mod hyper;
+pub mod knife;
 mod measure;
-mod text;
+mod pan;
 mod pen;
 mod shapes;
-mod knife;
-mod hyper;
+pub mod select;
+pub mod text;
+mod ui;
 
 // Add the temporary mode switching module
 mod temporary_mode;
 
-// Re-export the UI system
+// Re-export the new tool system
 pub use ui::{handle_toolbar_mode_selection, spawn_edit_mode_toolbar, update_current_edit_mode};
-
-// Re-export the temporary mode system
 pub use temporary_mode::{handle_temporary_mode_switching, TemporaryModeState};
 
-// Re-export tool plugins
-pub use select::{SelectToolPlugin, SelectModeActive};
-pub use pan::PanToolPlugin;
-pub use measure::MeasureToolPlugin;
-pub use text::TextToolPlugin;
-pub use pen::PenToolPlugin;
-pub use shapes::ShapesToolPlugin;
-pub use knife::{KnifeToolPlugin, KnifeModeActive};
-pub use hyper::HyperToolPlugin;
+// Re-export legacy types for backward compatibility (commented out until UI is ported)
+// pub use ui::{CurrentEditMode, EditMode};
 
 /// Unique identifier for an edit tool
 pub type ToolId = &'static str;
@@ -111,6 +111,41 @@ pub type ToolId = &'static str;
 /// - `on_enter()`: Setup when tool becomes active
 /// - `on_exit()`: Cleanup when switching away from tool
 /// - `supports_temporary_mode()`: Whether tool can be temporarily activated
+///
+/// # Example Implementation
+///
+/// ```rust
+/// use bevy::prelude::*;
+/// use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolId};
+///
+/// pub struct MyCustomTool {
+///     // Tool-specific state can go here
+///     pub some_setting: bool,
+/// }
+///
+/// impl EditTool for MyCustomTool {
+///     fn id(&self) -> ToolId { "my_custom_tool" }
+///     fn name(&self) -> &'static str { "Custom Tool" }
+///     fn icon(&self) -> &'static str { "\u{E020}" }
+///     fn shortcut_key(&self) -> Option<char> { Some('c') }
+///     fn default_order(&self) -> i32 { 75 }
+///     
+///     fn update(&self, commands: &mut Commands) {
+///         // Implement tool behavior (handle input, modify entities, etc.)
+///         // This runs every frame while the tool is active
+///     }
+///     
+///     fn on_enter(&self) {
+///         info!("Custom tool activated!");
+///         // Setup tool state, change cursor, etc.
+///     }
+///     
+///     fn on_exit(&self) {
+///         info!("Custom tool deactivated!");
+///         // Cleanup, restore cursor, etc.
+///     }
+/// }
+/// ```
 pub trait EditTool: Send + Sync + 'static {
     /// Unique identifier for this tool (used internally)
     fn id(&self) -> ToolId;
@@ -149,6 +184,18 @@ pub trait EditTool: Send + Sync + 'static {
 /// This resource manages all registered tools and their display order in the toolbar.
 /// Tools register themselves during app startup, and the registry handles ordering
 /// based on `default_order()` values and custom ordering preferences.
+///
+/// # Usage
+///
+/// Tools typically register themselves in their plugin's `build()` method:
+///
+/// ```rust
+/// fn register_my_tool(mut tool_registry: ResMut<ToolRegistry>) {
+///     tool_registry.register_tool(Box::new(MyTool));
+/// }
+/// ```
+///
+/// The registry automatically handles ordering and makes tools available to the UI system.
 #[derive(Resource, Default)]
 pub struct ToolRegistry {
     tools: HashMap<ToolId, Box<dyn EditTool>>,
@@ -164,25 +211,25 @@ impl ToolRegistry {
         self.tools.insert(id, tool);
         self.ordering_dirty = true;
     }
-
-    /// Get a tool by ID
+    
+    /// Get a tool by its ID
     pub fn get_tool(&self, id: ToolId) -> Option<&dyn EditTool> {
-        self.tools.get(id).map(|tool| tool.as_ref())
+        self.tools.get(id).map(|t| t.as_ref())
     }
-
-    /// Get all tools in their display order
+    
+    /// Get all tools in their proper display order
     pub fn get_ordered_tools(&mut self) -> &[ToolId] {
         if self.ordering_dirty {
             self.rebuild_ordering();
         }
         &self.ordered_tool_ids
     }
-
-    /// Get all tool IDs (unordered)
+    
+    /// Get all registered tool IDs (unordered)
     pub fn get_all_tool_ids(&self) -> Vec<ToolId> {
         self.tools.keys().copied().collect()
     }
-
+    
     /// Rebuild the tool ordering based on default_order() values
     fn rebuild_ordering(&mut self) {
         let mut tools_with_order: Vec<(ToolId, i32)> = self.tools
@@ -190,28 +237,53 @@ impl ToolRegistry {
             .map(|(id, tool)| (*id, tool.default_order()))
             .collect();
         
-        // Sort by order value, then by ID for consistent ordering
-        tools_with_order.sort_by(|a, b| {
-            a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0))
-        });
+        // Sort by order value (lower numbers first)
+        tools_with_order.sort_by_key(|(_, order)| *order);
         
-        self.ordered_tool_ids = tools_with_order.into_iter().map(|(id, _)| id).collect();
+        self.ordered_tool_ids = tools_with_order
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+        
         self.ordering_dirty = false;
-        
-        info!("Tool ordering rebuilt: {:?}", self.ordered_tool_ids);
     }
-
-    /// Apply custom ordering (for future extensibility)
-    pub fn apply_custom_ordering(&mut self, custom_order: &[ToolId]) {
-        // For now, just use the custom order if provided
-        if !custom_order.is_empty() {
-            self.ordered_tool_ids = custom_order.to_vec();
-            self.ordering_dirty = false;
+    
+    /// Apply custom ordering preferences
+    pub fn apply_custom_ordering(&mut self, custom_order: &ToolOrdering) {
+        if custom_order.custom_order.is_empty() {
+            // No custom order specified, use default
+            self.rebuild_ordering();
+            return;
         }
+        
+        let mut ordered_tools = Vec::new();
+        
+        // First, add tools in the custom order
+        for &tool_id in &custom_order.custom_order {
+            if self.tools.contains_key(tool_id) {
+                ordered_tools.push(tool_id);
+            }
+        }
+        
+        // Then add any remaining tools in their default order
+        let mut remaining_tools: Vec<(ToolId, i32)> = self.tools
+            .iter()
+            .filter(|(id, _)| !ordered_tools.contains(id))
+            .map(|(id, tool)| (*id, tool.default_order()))
+            .collect();
+        
+        remaining_tools.sort_by_key(|(_, order)| *order);
+        
+        for (id, _) in remaining_tools {
+            ordered_tools.push(id);
+        }
+        
+        self.ordered_tool_ids = ordered_tools;
+        self.ordering_dirty = false;
     }
 }
 
-/// Resource to track the current and previous tools
+/// Current active tool state
 #[derive(Resource, Default)]
 pub struct CurrentTool {
     pub current: Option<ToolId>,
@@ -223,63 +295,223 @@ impl CurrentTool {
     pub fn switch_to(&mut self, new_tool: ToolId) {
         self.previous = self.current;
         self.current = Some(new_tool);
-        info!("Switched from {:?} to {}", self.previous, new_tool);
+        info!("Switched to tool: {}", new_tool);
     }
-
-    /// Get the current tool ID
+    
+    /// Get the currently active tool
     pub fn get_current(&self) -> Option<ToolId> {
         self.current
     }
-
-    /// Get the previous tool ID
+    
+    /// Get the previously active tool
     pub fn get_previous(&self) -> Option<ToolId> {
         self.previous
     }
 }
 
-/// Initialize the default tool (Select)
+/// Custom tool ordering configuration (optional).
+///
+/// This resource allows you to override the default tool ordering in the toolbar.
+/// By default, tools are ordered by their `default_order()` values, but you can
+/// specify a custom order here.
+///
+/// # Usage Examples
+///
+/// ## Setting Custom Order
+///
+/// ```rust
+/// fn setup_toolbar_order(mut tool_ordering: ResMut<ToolOrdering>) {
+///     // Put select first, then pen, then custom tools
+///     tool_ordering.set_order(vec![
+///         "select",
+///         "pen",
+///         "my_custom_tool",
+///         "eraser",
+///         // Any unspecified tools will appear after these in default order
+///     ]);
+/// }
+/// ```
+///
+/// ## Using Preset Orders
+///
+/// ```rust
+/// fn setup_design_workflow(mut tool_ordering: ResMut<ToolOrdering>) {
+///     // Optimized for design-focused work
+///     tool_ordering.set_design_focused_order();
+/// }
+///
+/// fn setup_annotation_workflow(mut tool_ordering: ResMut<ToolOrdering>) {
+///     // Optimized for annotation and markup work
+///     tool_ordering.set_annotation_focused_order();
+/// }
+/// ```
+///
+/// ## Dynamic Ordering
+///
+/// ```rust
+/// fn setup_user_preference_order(
+///     mut tool_ordering: ResMut<ToolOrdering>,
+///     user_prefs: Res<UserPreferences>
+/// ) {
+///     match user_prefs.workflow_type {
+///         WorkflowType::Design => tool_ordering.set_design_focused_order(),
+///         WorkflowType::Annotation => tool_ordering.set_annotation_focused_order(),
+///         WorkflowType::Custom => tool_ordering.set_order(user_prefs.custom_tool_order.clone()),
+///     }
+/// }
+/// ```
+#[derive(Resource, Default)]
+pub struct ToolOrdering {
+    pub custom_order: Vec<ToolId>,
+}
+
+impl ToolOrdering {
+    /// Set a custom order for tools (tools not listed will use default ordering after these)
+    pub fn set_order(&mut self, order: Vec<ToolId>) {
+        self.custom_order = order;
+    }
+
+    /// Convenient method to set common tool orders
+    pub fn set_design_focused_order(&mut self) {
+        self.custom_order = vec![
+            "select",
+            "pen", 
+            "eraser",
+            "shapes",
+            "text",
+            "measure",
+            "knife",
+            "hyper",
+            "pan",
+        ];
+    }
+
+    /// Convenient method to set annotation-focused order  
+    pub fn set_annotation_focused_order(&mut self) {
+        self.custom_order = vec![
+            "select",
+            "text",
+            "pen",
+            "shapes", 
+            "measure",
+            "eraser",
+            "knife",
+            "hyper",
+            "pan",
+        ];
+    }
+}
+
+// New tool exports (using current available exports)
+pub use hyper::HyperToolPlugin;
+pub use knife::{KnifeModeActive, KnifeToolPlugin};
+pub use measure::MeasureToolPlugin;
+pub use text::TextToolPlugin;
+
+// Legacy compatibility exports (will be removed after migration)
+pub use hyper::HyperTool;
+pub use knife::KnifeTool;
+pub use pan::{PanMode, PanToolPlugin};
+pub use pen::{PenMode, PenToolPlugin};
+pub use shapes::ShapesToolPlugin;
+
+pub use select::{SelectMode, SelectModeActive, SelectToolPlugin};
+// pub use text::TextMode;  // Will be available after porting
+// pub use measure::MeasureMode;  // Will be available after porting
+
+// Shapes exports will be added as we port the shapes module
+// pub use shapes::{
+//     handle_primitive_mouse_events, render_active_primitive_drawing,
+//     ActivePrimitiveDrawing, CurrentCornerRadius, UiInteractionState,
+//     handle_primitive_selection, spawn_shapes_submenu, 
+//     toggle_shapes_submenu_visibility, CurrentPrimitiveType, 
+//     PrimitiveType, ShapesToolPlugin,
+// };
+
+// Legacy trait (will be removed after migration)
+pub trait EditModeSystem: Send + Sync + 'static {
+    fn update(&self, commands: &mut Commands);
+    fn on_enter(&self) {}
+    fn on_exit(&self) {}
+}
+
+// Legacy compatibility - will be removed after migration
+pub struct ShapesMode;
+impl EditModeSystem for ShapesMode {
+    fn update(&self, _commands: &mut Commands) {}
+}
+
+/// System to initialize the default tool (Select) on startup
 fn initialize_default_tool(
     mut current_tool: ResMut<CurrentTool>,
     tool_registry: Res<ToolRegistry>,
 ) {
-    // Set the default tool to Select if it's available
-    if tool_registry.get_tool("select").is_some() {
+    info!("Attempting to initialize default tool...");
+    // Set Select as the default tool
+    if let Some(_) = tool_registry.get_tool("select") {
         current_tool.switch_to("select");
+        info!("Initialized with default tool: select");
+    } else {
+        warn!("Select tool not found in registry! Will use first available tool.");
+        // Fallback to first available tool if select is not available
+        let all_tools = tool_registry.get_all_tool_ids();
+        if let Some(&first_tool) = all_tools.first() {
+            current_tool.switch_to(first_tool);
+            info!("Initialized with fallback tool: {}", first_tool);
+        }
     }
 }
 
-/// Main plugin for the edit mode toolbar system
+/// Plugin that adds all the toolbar functionality
 pub struct EditModeToolbarPlugin;
 
 impl Plugin for EditModeToolbarPlugin {
     fn build(&self, app: &mut App) {
+        info!("Building EditModeToolbarPlugin!");
         app
-            // Initialize resources
+            // Initialize the new tool system
             .init_resource::<ToolRegistry>()
             .init_resource::<CurrentTool>()
+            .init_resource::<ToolOrdering>()
+            
+            // Legacy resources (will be removed after migration)
+            // .init_resource::<CurrentPrimitiveType>()  // Will be added when shapes is ported
+            // .init_resource::<ActivePrimitiveDrawing>()  // Will be added when shapes is ported
+            // .init_resource::<CurrentCornerRadius>()  // Will be added when shapes is ported
+            // .init_resource::<UiInteractionState>()  // Will be added when shapes is ported
             .init_resource::<TemporaryModeState>()
-            // Add tool plugins
-            .add_plugins((
-                SelectToolPlugin,
-                PanToolPlugin,
-                MeasureToolPlugin,
-                TextToolPlugin,
-                PenToolPlugin,
-                ShapesToolPlugin,
-                KnifeToolPlugin,
-                HyperToolPlugin,
-            ))
-            // Add UI systems
-            .add_systems(Startup, (
+            
+            // Add tool plugins (they will register themselves)
+            .add_plugins(SelectToolPlugin)
+            .add_plugins(PanToolPlugin)
+            .add_plugins(MeasureToolPlugin)
+            .add_plugins(TextToolPlugin)
+            .add_plugins(PenToolPlugin)
+            .add_plugins(ShapesToolPlugin)
+            .add_plugins(knife::KnifeToolPlugin)
+            .add_plugins(hyper::HyperToolPlugin)
+            
+            .add_systems(PostStartup, (
                 spawn_edit_mode_toolbar,
                 initialize_default_tool.after(spawn_edit_mode_toolbar),
+                // handle_primitive_selection  // Will be added when shapes is ported
             ))
-            .add_systems(Update, (
-                // Temporary mode switching (should run first to potentially change current mode)
-                handle_temporary_mode_switching,
-                // UI systems
-                handle_toolbar_mode_selection,
-                update_current_edit_mode,
-            ));
+            .add_systems(
+                Update,
+                (
+                    // Temporary mode switching (should run first to potentially change current mode)
+                    handle_temporary_mode_switching,
+                    // UI systems
+                    handle_toolbar_mode_selection,
+                    update_current_edit_mode,
+                    // Shapes sub-menu systems (will be added when shapes is ported)
+                    // handle_primitive_selection,
+                    // toggle_shapes_submenu_visibility,
+                    // Mouse event handling for drawing shapes
+                    // handle_primitive_mouse_events,
+                    // Render the active shape while drawing
+                    // render_active_primitive_drawing,
+                ),
+            );
     }
 } 
