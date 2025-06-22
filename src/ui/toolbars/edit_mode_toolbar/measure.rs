@@ -30,6 +30,7 @@ impl EditTool for MeasureTool {
     
     fn update(&self, _commands: &mut Commands) {
         // Implementation for measure tool update
+        // TODO: Add distance and angle measurement functionality
     }
     
     fn on_enter(&self) {
