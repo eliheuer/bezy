@@ -35,76 +35,58 @@ pub fn initialize_text_editor_sorts(
 
 /// Handle mouse clicks on sorts in the text editor
 pub fn handle_text_editor_sort_clicks(
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    window_query: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
     mut text_editor_state: ResMut<TextEditorState>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
     ui_hover_state: Res<UiHoverState>,
 ) {
-    // Only handle left mouse button clicks
-    if !mouse_button_input.just_pressed(MouseButton::Left) {
-        return;
-    }
-    
-    // Don't handle clicks if hovering over UI
+    // Only handle clicks when not hovering over UI
     if ui_hover_state.is_hovering_ui {
         return;
     }
-    
-    // Get the primary window
-    let window = match window_query.get_single() {
-        Ok(window) => window,
-        Err(_) => return,
+
+    // Check for left mouse button press
+    if !mouse_button_input.just_pressed(MouseButton::Left) {
+        return;
+    }
+
+    let Ok(window) = windows.get_single() else {
+        return;
     };
-    
-    // Get cursor position in window
-    let cursor_pos = match window.cursor_position() {
-        Some(pos) => pos,
-        None => return,
+
+    let Ok((camera, camera_transform)) = camera_query.get_single() else {
+        return;
     };
-    
-    // Get camera and transform
-    let (camera, camera_transform) = match camera_query.get_single() {
-        Ok((camera, transform)) => (camera, transform),
-        Err(_) => return,
+
+    let Some(cursor_position) = window.cursor_position() else {
+        return;
     };
-    
-    // Convert cursor position to world coordinates
-    let world_position = match camera.viewport_to_world_2d(camera_transform, cursor_pos) {
-        Ok(pos) => pos,
-        Err(_) => return,
+
+    let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
+        return;
     };
-    
-    info!("Click at world position: ({:.1}, {:.1})", world_position.x, world_position.y);
-    
-    // Find which sort was clicked based on world position
-    if let Some(buffer_position) = text_editor_state.get_buffer_position_for_world_position(world_position) {
-        // Debug: calculate expected grid position
-        let relative_pos = world_position - text_editor_state.grid_config.grid_origin;
-        let expected_col = (relative_pos.x / (600.0 + text_editor_state.grid_config.horizontal_spacing)).floor() as usize;
-        let expected_row = if relative_pos.y <= 0.0 {
-            ((-relative_pos.y) / (1000.0 + text_editor_state.grid_config.vertical_spacing)).floor() as usize
-        } else {
-            0
-        };
-        info!("Calculated grid position: row={}, col={}, buffer_position={}", expected_row, expected_col, buffer_position);
-        if let Some(sort) = text_editor_state.get_sort_at_position(buffer_position) {
-            let glyph_name = sort.glyph_name.clone(); // Clone to avoid borrow checker issues
-            info!("Clicked on sort '{}' at buffer position {}", glyph_name, buffer_position);
-            
-            // Activate the clicked sort
-            text_editor_state.activate_sort_at_position(buffer_position);
-            
-            info!("Activated sort '{}' at buffer position {}", glyph_name, buffer_position);
+
+    debug!("Click at world position: ({:.1}, {:.1})", world_position.x, world_position.y);
+
+    // Find the sort at the clicked position (works for both buffer and freeform sorts)
+    let click_tolerance = 200.0; // Tolerance for click detection
+    if let Some(clicked_sort_index) = text_editor_state.find_sort_at_position(world_position, click_tolerance) {
+        // Activate the clicked sort
+        if text_editor_state.activate_sort(clicked_sort_index) {
+            if let Some(sort) = text_editor_state.get_sort_at_position(clicked_sort_index) {
+                info!("Clicked on sort '{}' at buffer position {} in {:?} mode", 
+                      sort.glyph_name, clicked_sort_index, sort.layout_mode);
+            }
         }
     } else {
-        info!("Click at ({:.1}, {:.1}) did not hit any sort", world_position.x, world_position.y);
-        
-        // Deactivate all sorts if clicking in empty space
-        for i in 0..text_editor_state.buffer.len() {
-            if let Some(sort) = text_editor_state.buffer.get_mut(i) {
-                sort.is_active = false;
-            }
+        // No sort clicked, try buffer grid click detection for buffer mode placement
+        if let Some(buffer_position) = text_editor_state.get_buffer_position_for_world_position(world_position) {
+            // Move cursor to clicked position in buffer
+            text_editor_state.move_cursor_to(buffer_position);
+            
+            debug!("Moved cursor to buffer position {} for grid click at ({:.1}, {:.1})", 
+                   buffer_position, world_position.x, world_position.y);
         }
     }
 }
@@ -123,91 +105,95 @@ pub fn render_text_editor_sorts(
         debug!("Rendering {} sorts from text editor buffer", text_editor_state.buffer.len());
     }
     
-    // Render each sort in the buffer
-    for (buffer_position, sort) in text_editor_state.buffer.iter().enumerate() {
-        // Skip empty glyph names (default entries in gap buffer)
-        if sort.glyph_name.is_empty() {
-            continue;
-        }
-        
-        let world_pos = text_editor_state.get_world_position_for_buffer_position(buffer_position);
-        
-        // Debug: Log first few sorts being rendered
-        if buffer_position < 5 {
-            debug!("Rendering sort {} '{}' at world position ({:.1}, {:.1})", 
-                   buffer_position, sort.glyph_name, world_pos.x, world_pos.y);
-        }
-        
-        // Get the glyph data from the app state
-        if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
-            // Convert to norad glyph for metrics rendering
-            let norad_glyph = glyph_data.to_norad_glyph();
+    // Render each sort in the buffer (both buffer and freeform)
+    for buffer_position in 0..text_editor_state.buffer.len() {
+        if let Some(sort) = text_editor_state.buffer.get(buffer_position) {
+            // Skip empty glyph names (default entries in gap buffer)
+            if sort.glyph_name.is_empty() {
+                continue;
+            }
             
-            // Choose colors based on active state
-            let metrics_color = if sort.is_active {
-                crate::ui::theme::SORT_ACTIVE_OUTLINE_COLOR // Orange for active
-            } else {
-                crate::ui::theme::SORT_INACTIVE_OUTLINE_COLOR // Gray for inactive
+            // Get the visual position based on the sort's layout mode
+            let world_pos = match text_editor_state.get_sort_visual_position(buffer_position) {
+                Some(pos) => pos,
+                None => continue,
             };
             
-            // Render the metrics box
-            crate::rendering::metrics::draw_metrics_at_position_with_color(
-                &mut gizmos,
-                &viewport,
-                &norad_glyph,
-                font_metrics,
-                world_pos,
-                metrics_color,
-            );
+            debug!("Rendering sort {} '{}' at world position ({:.1}, {:.1}) in {:?} mode", 
+                   buffer_position, sort.glyph_name, world_pos.x, world_pos.y, sort.layout_mode);
             
-            // Render the glyph outline if it exists
-            if let Some(outline_data) = &glyph_data.outline {
-                if sort.is_active {
-                    // For active sorts, draw full outline with control handles and points
-                    crate::rendering::glyph_outline::draw_glyph_outline_at_position(
-                        &mut gizmos,
-                        &viewport,
-                        outline_data,
-                        world_pos,
-                    );
-                    
-                    crate::rendering::glyph_outline::draw_glyph_points_at_position(
-                        &mut gizmos,
-                        &viewport,
-                        outline_data,
-                        world_pos,
-                    );
+            // Try to get glyph data for this sort
+            if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
+                // Convert to norad glyph for proper rendering
+                let norad_glyph = glyph_data.to_norad_glyph();
+                
+                // Render proper metrics box first
+                let metrics_color = if sort.is_active { 
+                    Color::srgba(0.3, 1.0, 0.5, 0.5) // Green for active (same as original)
                 } else {
-                    // For inactive sorts, draw only the path outline
-                    for contour_data in outline_data.contours.iter() {
-                        crate::rendering::glyph_outline::draw_contour_path_at_position(
+                    Color::srgba(0.5, 0.5, 0.5, 0.5) // Gray for inactive (same as original)
+                };
+                
+                crate::rendering::metrics::draw_metrics_at_position_with_color(
+                    &mut gizmos,
+                    &viewport,
+                    &norad_glyph,
+                    font_metrics,
+                    world_pos,
+                    metrics_color,
+                );
+                
+                // Then render the glyph outline properly using our internal outline data
+                if let Some(outline_data) = &glyph_data.outline {
+                    if sort.is_active {
+                        // Active sorts: full outline with control handles and points
+                        crate::rendering::glyph_outline::draw_glyph_outline_at_position(
                             &mut gizmos,
                             &viewport,
-                            contour_data,
+                            outline_data,
                             world_pos,
                         );
+                        
+                        crate::rendering::glyph_outline::draw_glyph_points_at_position(
+                            &mut gizmos,
+                            &viewport,
+                            outline_data,
+                            world_pos,
+                        );
+                    } else {
+                        // Inactive sorts: just the outline path (no control handles)
+                        for contour in &outline_data.contours {
+                            if !contour.points.is_empty() {
+                                crate::rendering::glyph_outline::draw_contour_path_at_position(
+                                    &mut gizmos,
+                                    &viewport,
+                                    contour,
+                                    world_pos,
+                                );
+                            }
+                        }
                     }
-                }
-            } else {
-                // Debug: Log glyphs without outlines
-                if buffer_position < 5 {
+                } else {
                     debug!("Glyph '{}' has no outline data", sort.glyph_name);
                 }
+                
+                // Draw a visual indicator for freeform sorts
+                if sort.layout_mode == crate::core::state::SortLayoutMode::Freeform {
+                    // Draw a small circle to indicate this is a freeform sort
+                    gizmos.circle_2d(
+                        world_pos + Vec2::new(0.0, 50.0), 
+                        8.0, 
+                        Color::srgb(0.0, 0.5, 1.0) // Blue indicator for freeform
+                    );
+                }
+                
+            } else {
+                debug!("Glyph '{}' not found in font data", sort.glyph_name);
             }
-        } else {
-            // Debug: Log missing glyphs
-            if buffer_position < 5 {
-                warn!("Glyph '{}' not found in font data", sort.glyph_name);
-            }
-        }
-        
-        // Draw a small indicator for the buffer position (for debugging)
-        if buffer_position < 10 {
-            gizmos.circle_2d(world_pos + Vec2::new(10.0, 10.0), 5.0, Color::srgb(1.0, 0.0, 0.0));
         }
     }
     
-    // Draw cursor position indicator
+    // Render cursor for buffer mode (only show if we're in text tool mode)
     let cursor_world_pos = text_editor_state.get_world_position_for_buffer_position(text_editor_state.cursor_position);
     
     // Draw a blinking cursor line at the insertion point

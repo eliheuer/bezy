@@ -994,15 +994,40 @@ impl<'a> Iterator for SortBufferIterator<'a> {
     }
 }
 
-/// A single sort entry in the text buffer
+/// An entry in the sort buffer representing a glyph
 #[derive(Clone, Debug)]
 pub struct SortEntry {
-    /// The glyph name for this sort
+    /// The name of the glyph this sort represents
     pub glyph_name: String,
-    /// Visual width of this sort (for layout)
+    /// The advance width of the glyph (for spacing)
     pub advance_width: f32,
     /// Whether this sort is currently active/selected
     pub is_active: bool,
+    /// Layout mode for this sort
+    pub layout_mode: SortLayoutMode,
+    /// Freeform position (only used when layout_mode is Freeform)
+    pub freeform_position: Vec2,
+    /// Buffer index (only used when layout_mode is Buffer)
+    pub buffer_index: Option<usize>,
+}
+
+/// Layout mode for individual sorts
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum SortLayoutMode {
+    /// Sort follows the gap buffer layout in a grid
+    #[default]
+    Buffer,
+    /// Sort is positioned freely in the design space
+    Freeform,
+}
+
+/// Text mode configuration
+#[derive(Resource, Clone, Debug, Default)]
+pub struct TextModeConfig {
+    /// Whether new sorts should be placed in buffer or freeform mode
+    pub default_placement_mode: SortLayoutMode,
+    /// Whether to show the mode toggle UI
+    pub show_mode_toggle: bool,
 }
 
 impl Default for SortEntry {
@@ -1011,6 +1036,9 @@ impl Default for SortEntry {
             glyph_name: String::new(),
             advance_width: 0.0,
             is_active: false,
+            layout_mode: SortLayoutMode::Buffer,
+            freeform_position: Vec2::ZERO,
+            buffer_index: None,
         }
     }
 }
@@ -1032,8 +1060,8 @@ impl Default for GridConfig {
     fn default() -> Self {
         Self {
             sorts_per_row: 16,
-            horizontal_spacing: 64.0,
-            vertical_spacing: 64.0,
+            horizontal_spacing: 400.0,
+            vertical_spacing: 400.0,
             grid_origin: Vec2::ZERO,
         }
     }
@@ -1053,6 +1081,9 @@ impl TextEditorState {
                     glyph_name: glyph_name.clone(),
                     advance_width: glyph_data.advance_width as f32,
                     is_active: false,
+                    layout_mode: SortLayoutMode::Buffer,
+                    freeform_position: Vec2::ZERO,
+                    buffer_index: Some(sorts.len()),
                 });
             }
         }
@@ -1066,6 +1097,120 @@ impl TextEditorState {
             viewport_offset: Vec2::ZERO,
             grid_config: GridConfig::default(),
         }
+    }
+    
+    /// Get all sorts (both buffer and freeform)
+    pub fn get_all_sorts(&self) -> Vec<(usize, &SortEntry)> {
+        let mut all_sorts = Vec::new();
+        
+        // Add buffer sorts
+        for i in 0..self.buffer.len() {
+            if let Some(sort) = self.buffer.get(i) {
+                all_sorts.push((i, sort));
+            }
+        }
+        
+        all_sorts
+    }
+    
+    /// Get only buffer sorts
+    pub fn get_buffer_sorts(&self) -> Vec<(usize, &SortEntry)> {
+        let mut buffer_sorts = Vec::new();
+        
+        for i in 0..self.buffer.len() {
+            if let Some(sort) = self.buffer.get(i) {
+                if sort.layout_mode == SortLayoutMode::Buffer {
+                    buffer_sorts.push((i, sort));
+                }
+            }
+        }
+        
+        buffer_sorts
+    }
+    
+    /// Get only freeform sorts
+    pub fn get_freeform_sorts(&self) -> Vec<(usize, &SortEntry)> {
+        let mut freeform_sorts = Vec::new();
+        
+        for i in 0..self.buffer.len() {
+            if let Some(sort) = self.buffer.get(i) {
+                if sort.layout_mode == SortLayoutMode::Freeform {
+                    freeform_sorts.push((i, sort));
+                }
+            }
+        }
+        
+        freeform_sorts
+    }
+    
+    /// Convert a sort from buffer mode to freeform mode
+    pub fn convert_sort_to_freeform(&mut self, buffer_position: usize, freeform_position: Vec2) -> bool {
+        if let Some(sort) = self.buffer.get_mut(buffer_position) {
+            sort.layout_mode = SortLayoutMode::Freeform;
+            sort.freeform_position = freeform_position;
+            sort.buffer_index = None;
+            true
+        } else {
+            false
+        }
+    }
+    
+    /// Convert a sort from freeform mode to buffer mode
+    pub fn convert_sort_to_buffer(&mut self, buffer_position: usize, new_buffer_index: usize) -> bool {
+        if let Some(sort) = self.buffer.get_mut(buffer_position) {
+            sort.layout_mode = SortLayoutMode::Buffer;
+            sort.freeform_position = Vec2::ZERO;
+            sort.buffer_index = Some(new_buffer_index);
+            true
+        } else {
+            false
+        }
+    }
+    
+    /// Add a new freeform sort at the specified position
+    pub fn add_freeform_sort(&mut self, glyph_name: String, position: Vec2, advance_width: f32) {
+        let sort = SortEntry {
+            glyph_name,
+            advance_width,
+            is_active: false,
+            layout_mode: SortLayoutMode::Freeform,
+            freeform_position: position,
+            buffer_index: None,
+        };
+        
+        // Insert at the end of the buffer
+        let insert_index = self.buffer.len();
+        self.buffer.insert(insert_index, sort);
+    }
+    
+    /// Get the visual position for a sort based on its layout mode
+    pub fn get_sort_visual_position(&self, buffer_position: usize) -> Option<Vec2> {
+        if let Some(sort) = self.buffer.get(buffer_position) {
+            match sort.layout_mode {
+                SortLayoutMode::Buffer => {
+                    Some(self.get_world_position_for_buffer_position(buffer_position))
+                }
+                SortLayoutMode::Freeform => {
+                    Some(sort.freeform_position)
+                }
+            }
+        } else {
+            None
+        }
+    }
+    
+    /// Find the sort at a given world position (for click detection)
+    pub fn find_sort_at_position(&self, world_position: Vec2, tolerance: f32) -> Option<usize> {
+        // Check all sorts (both buffer and freeform)
+        for i in 0..self.buffer.len() {
+            if let Some(sort_pos) = self.get_sort_visual_position(i) {
+                let distance = world_position.distance(sort_pos);
+                if distance <= tolerance {
+                    return Some(i);
+                }
+            }
+        }
+        None
     }
     
     /// Get the sort at a specific buffer position
@@ -1086,18 +1231,21 @@ impl TextEditorState {
     }
     
     /// Activate a sort at the given buffer position
-    pub fn activate_sort_at_position(&mut self, position: usize) {
-        // Deactivate all sorts first
+    pub fn activate_sort(&mut self, position: usize) -> bool {
+        // First deactivate all sorts
         for i in 0..self.buffer.len() {
             if let Some(sort) = self.buffer.get_mut(i) {
                 sort.is_active = false;
             }
         }
         
-        // Activate the target sort
+        // Then activate the specified sort
         if let Some(sort) = self.buffer.get_mut(position) {
             sort.is_active = true;
-            self.cursor_position = position;
+            debug!("Activated sort '{}' at buffer position {}", sort.glyph_name, position);
+            true
+        } else {
+            false
         }
     }
     
@@ -1106,8 +1254,8 @@ impl TextEditorState {
         let row = buffer_position / self.grid_config.sorts_per_row;
         let col = buffer_position % self.grid_config.sorts_per_row;
         
-        let x = col as f32 * (600.0 + self.grid_config.horizontal_spacing);
-        let y = -(row as f32) * (1000.0 + self.grid_config.vertical_spacing);
+        let x = col as f32 * (1000.0 + self.grid_config.horizontal_spacing);
+        let y = -(row as f32) * (1200.0 + self.grid_config.vertical_spacing);
         
         self.grid_config.grid_origin + Vec2::new(x, y)
     }
@@ -1117,11 +1265,11 @@ impl TextEditorState {
         let relative_pos = world_pos - self.grid_config.grid_origin;
         
         // Calculate grid row and column
-        let col = (relative_pos.x / (600.0 + self.grid_config.horizontal_spacing)).floor() as usize;
+        let col = (relative_pos.x / (1000.0 + self.grid_config.horizontal_spacing)).floor() as usize;
         
         // Handle negative Y coordinates correctly for downward-growing grid
         let row = if relative_pos.y <= 0.0 {
-            ((-relative_pos.y) / (1000.0 + self.grid_config.vertical_spacing)).floor() as usize
+            ((-relative_pos.y) / (1200.0 + self.grid_config.vertical_spacing)).floor() as usize
         } else {
             0
         };
@@ -1143,6 +1291,9 @@ impl TextEditorState {
             glyph_name,
             advance_width,
             is_active: false,
+            layout_mode: SortLayoutMode::Buffer,
+            freeform_position: Vec2::ZERO,
+            buffer_index: Some(self.cursor_position),
         };
         
         self.buffer.insert(self.cursor_position, new_sort);
