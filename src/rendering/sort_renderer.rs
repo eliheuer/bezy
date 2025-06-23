@@ -31,7 +31,7 @@ pub fn render_sorts_system(
     app_state: Res<AppState>,
     viewports: Query<&crate::ui::panes::design_space::ViewPort>,
     _sorts_query: Query<&Sort>,
-    active_sorts_query: Query<&Sort, With<ActiveSort>>,
+    active_sorts_query: Query<(Entity, &Sort), With<ActiveSort>>,
     inactive_sorts_query: Query<&Sort, With<InactiveSort>>,
 ) {
     // Get viewport for coordinate transformations
@@ -48,7 +48,7 @@ pub fn render_sorts_system(
     }
 
     // Render active sorts with full outline detail
-    for sort in active_sorts_query.iter() {
+    for (entity, sort) in active_sorts_query.iter() {
         render_active_sort(&mut gizmos, &viewport, sort, font_metrics, &app_state);
     }
 }
@@ -62,7 +62,7 @@ pub fn manage_sort_labels(
     existing_name_text_query: Query<(Entity, &SortGlyphNameText)>,
     existing_unicode_text_query: Query<(Entity, &SortUnicodeText)>,
     all_sorts_query: Query<Entity, With<Sort>>,
-    active_sorts_query: Query<&Sort, With<ActiveSort>>,
+    active_sorts_query: Query<(Entity, &Sort), With<ActiveSort>>,
     viewports: Query<&crate::ui::panes::design_space::ViewPort>,
 ) {
     // Remove text for sorts that no longer exist
@@ -91,7 +91,7 @@ pub fn manage_sort_labels(
     // Create or update text labels for changed sorts
     for (sort_entity, sort) in sorts_query.iter() {
         // Determine text color based on sort state
-        let text_color = if active_sorts_query.get(sort_entity).is_ok() {
+        let text_color = if active_sorts_query.iter().any(|(entity, _)| entity == sort_entity) {
             SORT_ACTIVE_METRICS_COLOR // Green for active sorts
         } else {
             Color::srgba(0.8, 0.8, 0.8, 0.9) // Light gray for inactive sorts

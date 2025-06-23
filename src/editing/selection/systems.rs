@@ -40,7 +40,7 @@ pub fn handle_mouse_input(
     select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>>,
     knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
-    active_sort_state: Res<crate::editing::sort::ActiveSortState>,
+    text_editor_state: Option<Res<crate::core::state::TextEditorState>>,
 ) {
     // Log at the beginning of each frame
     debug!(
@@ -70,9 +70,14 @@ pub fn handle_mouse_input(
         return;
     }
 
-    // Only allow selection when there's an active sort
-    if active_sort_state.active_sort_entity.is_none() {
-        debug!("Selection skipped - no active sort");
+    // Only allow selection when there's an active sort in text editor
+    if let Some(text_editor_state) = text_editor_state.as_ref() {
+        if text_editor_state.get_active_sort().is_none() {
+            debug!("Selection skipped - no active sort");
+            return;
+        }
+    } else {
+        debug!("Selection skipped - no text editor state");
         return;
     }
 
@@ -343,7 +348,7 @@ pub fn handle_selection_shortcuts(
     mut event_writer: EventWriter<EditEvent>,
     select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>>,
     knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
-    active_sort_state: Res<crate::editing::sort::ActiveSortState>,
+    text_editor_state: Option<Res<crate::core::state::TextEditorState>>,
 ) {
     // Skip processing shortcuts if knife mode is active
     if let Some(knife_mode) = knife_mode {
@@ -359,8 +364,12 @@ pub fn handle_selection_shortcuts(
         }
     }
 
-    // Only allow selection shortcuts when there's an active sort
-    if active_sort_state.active_sort_entity.is_none() {
+    // Only allow selection shortcuts when there's an active sort in text editor
+    if let Some(text_editor_state) = text_editor_state.as_ref() {
+        if text_editor_state.get_active_sort().is_none() {
+            return;
+        }
+    } else {
         return;
     }
 

@@ -11,6 +11,7 @@ pub mod metrics;
 pub mod plugins;
 pub mod sort_interaction;
 pub mod sort_manager;
+pub mod text_editor_sorts;
 pub mod ui_interaction;
 
 // Re-export commonly used items

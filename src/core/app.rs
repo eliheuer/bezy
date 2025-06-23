@@ -26,7 +26,7 @@ use crate::ui::hud::HudPlugin;
 use crate::ui::theme::BACKGROUND_COLOR;
 
 // Editing functionality - tools for modifying fonts
-use crate::editing::{SelectionPlugin, SortPlugin, UndoPlugin};
+use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
 
 // Rendering - drawing glyphs and visual elements
 use crate::rendering::{
@@ -108,7 +108,7 @@ fn add_editor_plugins(app: &mut App) {
 fn add_core_plugins(app: &mut App) {
     app.add_plugins((
         SelectionPlugin,        // Selection handling and events
-        SortPlugin,             // Sort functionality
+                    TextEditorPlugin,       // Text editor-based sort functionality
         UndoPlugin,             // Undo/redo system
         UiInteractionPlugin,    // UI hover detection
         CommandsPlugin,         // Command system for file operations and shortcuts

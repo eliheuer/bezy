@@ -6,7 +6,7 @@ use crate::editing::sort::{Sort, SortEvent, ActiveSort};
 use crate::core::state::AppState;
 use crate::rendering::cameras::DesignCamera;
 use crate::systems::ui_interaction::UiHoverState;
-use crate::ui::toolbars::edit_mode_toolbar::CurrentTool;
+use crate::ui::toolbars::edit_mode_toolbar::SelectModeActive;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
@@ -18,12 +18,16 @@ pub fn handle_sort_clicks(
     sorts_query: Query<(Entity, &Sort, Has<ActiveSort>)>,
     app_state: Res<AppState>,
     mut sort_events: EventWriter<SortEvent>,
-    current_tool: Res<CurrentTool>,
+    select_mode: Option<Res<SelectModeActive>>,
     click_pos: Option<Res<crate::editing::selection::systems::ClickWorldPosition>>,
     ui_hover_state: Res<UiHoverState>,
 ) {
-    // If we're in pen mode, do nothing. Pen tool handles clicks.
-    if current_tool.get_current() == Some("pen") {
+    // Only handle clicks when in select mode
+    if let Some(select_mode) = select_mode {
+        if !select_mode.0 {
+            return;
+        }
+    } else {
         return;
     }
 
@@ -33,11 +37,6 @@ pub fn handle_sort_clicks(
 
     // If the click was already handled by another system (e.g., on a point or crosshair), do nothing.
     if click_pos.is_some() {
-        return;
-    }
-
-    // Only handle clicks when in select mode
-    if current_tool.get_current() != Some("select") {
         return;
     }
 
@@ -62,21 +61,34 @@ pub fn handle_sort_clicks(
     };
 
     // Check if the click is within any sort's bounds
-    for (entity, sort, is_active) in sorts_query.iter() {
-        if sort.contains_point(world_position, &app_state.workspace.info.metrics) {
-            if is_active {
-                // Sort is already active - keep it active (allow editing)
-                info!("Clicked on already active sort '{}' - keeping active", sort.glyph_name);
-                return; // Don't deactivate, allow editing to continue
-            } else {
-                // Sort is inactive - activate it
-                sort_events.send(SortEvent::ActivateSort {
-                    sort_entity: entity,
-                });
-                info!("Activated sort '{}' by clicking", sort.glyph_name);
-            }
-            return; // Only handle one sort per click
+    // Collect all sorts that contain the click point
+    let mut clicked_sorts: Vec<_> = sorts_query.iter()
+        .filter(|(_, sort, _)| sort.contains_point(world_position, &app_state.workspace.info.metrics))
+        .collect();
+    
+    // If multiple sorts overlap, pick the one with the smallest bounding box (most specific)
+    if !clicked_sorts.is_empty() {
+        // Sort by bounding box area (smallest first)
+        clicked_sorts.sort_by(|a, b| {
+            let area_a = a.1.advance_width * 1000.0; // Use advance width as proxy for area
+            let area_b = b.1.advance_width * 1000.0;
+            area_a.partial_cmp(&area_b).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        
+        let (entity, sort, is_active) = clicked_sorts[0];
+        
+        if is_active {
+            // Sort is already active - keep it active (allow editing)
+            info!("Clicked on already active sort '{}' - keeping active", sort.glyph_name);
+            return; // Don't deactivate, allow editing to continue
+        } else {
+            // Sort is inactive - activate it
+            sort_events.send(SortEvent::ActivateSort {
+                sort_entity: entity,
+            });
+            info!("Activated sort '{}' by clicking", sort.glyph_name);
         }
+        return; // Only handle one sort per click
     }
 
     // If we didn't click on any sort AND no other system claimed the click, deactivate the current active sort

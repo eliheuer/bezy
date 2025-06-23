@@ -7,7 +7,6 @@
 use bevy::prelude::*;
 use clap::Parser;
 use std::path::PathBuf;
-
 use crate::core::settings::DEFAULT_UFO_PATH;
 
 /// Bezy Font Editor - A UFO font design tool built with Rust and Bevy
@@ -67,6 +66,9 @@ impl CliArgs {
                     path.display()
                 ));
             }
+        } else {
+            // If no UFO path provided, use default
+            return Err("Please provide a UFO file path as an argument.\nExample: bezy assets/fonts/bezy-grotesk-regular.ufo".to_string());
         }
         
         Ok(())

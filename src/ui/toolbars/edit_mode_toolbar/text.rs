@@ -3,7 +3,7 @@
 //! The text mode allows users to place sorts by clicking in the design space.
 //! Sorts snap to grid when placed and show a metrics box preview while placing.
 
-use crate::editing::sort::SortEvent;
+use crate::core::state::TextEditorState;
 use crate::core::state::{AppState, GlyphNavigation};
 use crate::core::settings::BezySettings;
 use crate::ui::panes::design_space::ViewPort;
@@ -160,46 +160,21 @@ pub fn handle_text_mode_cursor(
 }
 
 /// System to handle mouse clicks in text mode for sort placement
+/// NOTE: This is currently disabled in favor of the new text editor system
 pub fn handle_text_mode_clicks(
     text_mode_active: Res<TextModeActive>,
-    text_mode_state: Res<TextModeState>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut sort_events: EventWriter<SortEvent>,
-    app_state: Res<AppState>,
-    glyph_navigation: Res<GlyphNavigation>,
-    ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
+    _text_mode_state: Res<TextModeState>,
+    _mouse_button_input: Res<ButtonInput<MouseButton>>,
+    _app_state: Res<AppState>,
+    _glyph_navigation: Res<GlyphNavigation>,
+    _ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
 ) {
     if !text_mode_active.0 {
         return;
     }
 
-    // Don't place sorts when hovering over or clicking on UI elements
-    if ui_hover_state.is_hovering_ui {
-        return;
-    }
-
-    if mouse_button_input.just_pressed(MouseButton::Left) {
-        if let Some(cursor_pos) = text_mode_state.cursor_position {
-            // Get the current glyph to place as a sort
-            if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state) {
-                // Check if glyph exists in our data
-                if app_state.workspace.font.glyphs.contains_key(&glyph_name) {
-                    info!("Placing sort for glyph '{}' at position ({:.1}, {:.1})", 
-                          glyph_name, cursor_pos.x, cursor_pos.y);
-                    
-                    // Send sort creation event
-                    sort_events.write(SortEvent::CreateSort {
-                        glyph_name: glyph_name.clone(),
-                        position: cursor_pos,
-                    });
-                } else {
-                    warn!("Glyph '{}' not found in font data", glyph_name);
-                }
-            } else {
-                warn!("No current glyph selected for sort placement");
-            }
-        }
-    }
+    // Text mode sort placement is handled by the new text editor system
+    // This function is kept for compatibility but does nothing
 }
 
 /// System to render sort preview while in text mode

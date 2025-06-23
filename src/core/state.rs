@@ -742,3 +742,462 @@ pub fn cycle_codepoint_in_list(
         codepoints.first().cloned()
     }
 }
+
+/// Text editor state for dynamic sort management
+#[derive(Resource, Clone, Default)]
+pub struct TextEditorState {
+    /// The text buffer containing sort content (like a rope or gap buffer)
+    pub buffer: SortBuffer,
+    /// Current cursor position in the buffer
+    pub cursor_position: usize,
+    /// Selection range (start, end) if any
+    pub selection: Option<(usize, usize)>,
+    /// Viewport offset for scrolling
+    pub viewport_offset: Vec2,
+    /// Grid layout configuration
+    pub grid_config: GridConfig,
+}
+
+/// A text buffer specifically for sort content using gap buffer for efficient editing
+#[derive(Clone)]
+pub struct SortBuffer {
+    /// The gap buffer storage
+    buffer: Vec<SortEntry>,
+    /// Gap start position
+    gap_start: usize,
+    /// Gap end position (exclusive)
+    gap_end: usize,
+}
+
+impl Default for SortBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SortBuffer {
+    /// Create a new gap buffer with initial capacity
+    pub fn new() -> Self {
+        let initial_capacity = 1024; // Start with room for plenty of sorts
+        let mut buffer = Vec::with_capacity(initial_capacity);
+        // Fill with default entries to create the gap
+        buffer.resize(initial_capacity, SortEntry::default());
+        
+        Self {
+            buffer,
+            gap_start: 0,
+            gap_end: initial_capacity,
+        }
+    }
+    
+    /// Create gap buffer from existing sorts (for font loading)
+    pub fn from_sorts(sorts: Vec<SortEntry>) -> Self {
+        let len = sorts.len();
+        let capacity = (len * 2).max(1024); // Double capacity for future edits
+        let mut buffer = Vec::with_capacity(capacity);
+        
+        // Add the existing sorts
+        buffer.extend(sorts);
+        // Fill the rest with default entries to create the gap
+        buffer.resize(capacity, SortEntry::default());
+        
+        Self {
+            buffer,
+            gap_start: len,
+            gap_end: capacity,
+        }
+    }
+    
+    /// Get the logical length (excluding gap)
+    pub fn len(&self) -> usize {
+        self.buffer.len() - (self.gap_end - self.gap_start)
+    }
+    
+    /// Check if buffer is empty
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    
+    /// Get sort at logical position
+    pub fn get(&self, index: usize) -> Option<&SortEntry> {
+        if index >= self.len() {
+            return None;
+        }
+        
+        if index < self.gap_start {
+            self.buffer.get(index)
+        } else {
+            self.buffer.get(index + (self.gap_end - self.gap_start))
+        }
+    }
+    
+    /// Get mutable sort at logical position
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut SortEntry> {
+        if index >= self.len() {
+            return None;
+        }
+        
+        if index < self.gap_start {
+            self.buffer.get_mut(index)
+        } else {
+            self.buffer.get_mut(index + (self.gap_end - self.gap_start))
+        }
+    }
+    
+    /// Move gap to position for efficient insertion/deletion
+    fn move_gap_to(&mut self, position: usize) {
+        if position == self.gap_start {
+            return;
+        }
+        
+        if position < self.gap_start {
+            // Move gap left
+            let move_count = self.gap_start - position;
+            let gap_size = self.gap_end - self.gap_start;
+            
+            // Move elements from before gap to after gap
+            for i in 0..move_count {
+                let src_idx = position + i;
+                let dst_idx = self.gap_end - move_count + i;
+                self.buffer[dst_idx] = self.buffer[src_idx].clone();
+            }
+            
+            self.gap_start = position;
+            self.gap_end = position + gap_size;
+        } else {
+            // Move gap right
+            let move_count = position - self.gap_start;
+            let gap_size = self.gap_end - self.gap_start;
+            
+            // Move elements from after gap to before gap
+            for i in 0..move_count {
+                let src_idx = self.gap_end + i;
+                let dst_idx = self.gap_start + i;
+                self.buffer[dst_idx] = self.buffer[src_idx].clone();
+            }
+            
+            self.gap_start = position;
+            self.gap_end = position + gap_size;
+        }
+    }
+    
+    /// Insert sort at position
+    pub fn insert(&mut self, index: usize, sort: SortEntry) {
+        if index > self.len() {
+            return;
+        }
+        
+        // Ensure we have space in the gap
+        if self.gap_start >= self.gap_end {
+            self.grow_gap();
+        }
+        
+        // Move gap to insertion point
+        self.move_gap_to(index);
+        
+        // Insert at gap start
+        self.buffer[self.gap_start] = sort;
+        self.gap_start += 1;
+    }
+    
+    /// Delete sort at position
+    pub fn delete(&mut self, index: usize) -> Option<SortEntry> {
+        if index >= self.len() {
+            return None;
+        }
+        
+        // Move gap to deletion point
+        self.move_gap_to(index);
+        
+        // The element to delete is now just before the gap
+        if self.gap_start > 0 {
+            self.gap_start -= 1;
+            let deleted = self.buffer[self.gap_start].clone();
+            self.buffer[self.gap_start] = SortEntry::default();
+            Some(deleted)
+        } else {
+            None
+        }
+    }
+    
+    /// Grow the gap when it gets too small
+    fn grow_gap(&mut self) {
+        let old_capacity = self.buffer.len();
+        let new_capacity = old_capacity * 2;
+        let gap_size = self.gap_end - self.gap_start;
+        let new_gap_size = gap_size + (new_capacity - old_capacity);
+        
+        // Extend buffer
+        self.buffer.resize(new_capacity, SortEntry::default());
+        
+        // Move elements after gap to end of new buffer
+        let elements_after_gap = old_capacity - self.gap_end;
+        if elements_after_gap > 0 {
+            for i in (0..elements_after_gap).rev() {
+                let src_idx = self.gap_end + i;
+                let dst_idx = new_capacity - elements_after_gap + i;
+                self.buffer[dst_idx] = self.buffer[src_idx].clone();
+                self.buffer[src_idx] = SortEntry::default();
+            }
+        }
+        
+        // Update gap end
+        self.gap_end = self.gap_start + new_gap_size;
+    }
+    
+    /// Get an iterator over all sorts (excluding gap)
+    pub fn iter(&self) -> SortBufferIterator {
+        SortBufferIterator {
+            buffer: self,
+            index: 0,
+        }
+    }
+    
+    /// Clear all sorts and reset gap
+    pub fn clear(&mut self) {
+        for item in &mut self.buffer {
+            *item = SortEntry::default();
+        }
+        self.gap_start = 0;
+        self.gap_end = self.buffer.len();
+    }
+    
+    /// Get all sorts as a vector (for debugging/serialization)
+    pub fn to_vec(&self) -> Vec<SortEntry> {
+        let mut result = Vec::with_capacity(self.len());
+        for i in 0..self.len() {
+            if let Some(sort) = self.get(i) {
+                result.push(sort.clone());
+            }
+        }
+        result
+    }
+}
+
+/// Iterator for gap buffer
+pub struct SortBufferIterator<'a> {
+    buffer: &'a SortBuffer,
+    index: usize,
+}
+
+impl<'a> Iterator for SortBufferIterator<'a> {
+    type Item = &'a SortEntry;
+    
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.buffer.len() {
+            None
+        } else {
+            let item = self.buffer.get(self.index);
+            self.index += 1;
+            item
+        }
+    }
+}
+
+/// A single sort entry in the text buffer
+#[derive(Clone, Debug)]
+pub struct SortEntry {
+    /// The glyph name for this sort
+    pub glyph_name: String,
+    /// Visual width of this sort (for layout)
+    pub advance_width: f32,
+    /// Whether this sort is currently active/selected
+    pub is_active: bool,
+}
+
+impl Default for SortEntry {
+    fn default() -> Self {
+        Self {
+            glyph_name: String::new(),
+            advance_width: 0.0,
+            is_active: false,
+        }
+    }
+}
+
+/// Grid layout configuration
+#[derive(Clone)]
+pub struct GridConfig {
+    /// Number of sorts per row
+    pub sorts_per_row: usize,
+    /// Horizontal spacing between sorts
+    pub horizontal_spacing: f32,
+    /// Vertical spacing between rows
+    pub vertical_spacing: f32,
+    /// Starting position for the grid
+    pub grid_origin: Vec2,
+}
+
+impl Default for GridConfig {
+    fn default() -> Self {
+        Self {
+            sorts_per_row: 16,
+            horizontal_spacing: 64.0,
+            vertical_spacing: 64.0,
+            grid_origin: Vec2::ZERO,
+        }
+    }
+}
+
+impl TextEditorState {
+    /// Create a new text editor state from font data
+    pub fn from_font_data(font_data: &FontData) -> Self {
+        // Convert font glyphs to sort entries in alphabetical order
+        let mut glyph_names: Vec<_> = font_data.glyphs.keys().collect();
+        glyph_names.sort();
+        
+        let mut sorts = Vec::new();
+        for glyph_name in glyph_names {
+            if let Some(glyph_data) = font_data.glyphs.get(glyph_name) {
+                sorts.push(SortEntry {
+                    glyph_name: glyph_name.clone(),
+                    advance_width: glyph_data.advance_width as f32,
+                    is_active: false,
+                });
+            }
+        }
+        
+        let buffer = SortBuffer::from_sorts(sorts);
+        
+        Self {
+            buffer,
+            cursor_position: 0,
+            selection: None,
+            viewport_offset: Vec2::ZERO,
+            grid_config: GridConfig::default(),
+        }
+    }
+    
+    /// Get the sort at a specific buffer position
+    pub fn get_sort_at_position(&self, position: usize) -> Option<&SortEntry> {
+        self.buffer.get(position)
+    }
+    
+    /// Get the currently active sort
+    pub fn get_active_sort(&self) -> Option<(usize, &SortEntry)> {
+        for i in 0..self.buffer.len() {
+            if let Some(sort) = self.buffer.get(i) {
+                if sort.is_active {
+                    return Some((i, sort));
+                }
+            }
+        }
+        None
+    }
+    
+    /// Activate a sort at the given buffer position
+    pub fn activate_sort_at_position(&mut self, position: usize) {
+        // Deactivate all sorts first
+        for i in 0..self.buffer.len() {
+            if let Some(sort) = self.buffer.get_mut(i) {
+                sort.is_active = false;
+            }
+        }
+        
+        // Activate the target sort
+        if let Some(sort) = self.buffer.get_mut(position) {
+            sort.is_active = true;
+            self.cursor_position = position;
+        }
+    }
+    
+    /// Get the visual position (world coordinates) for a buffer position
+    pub fn get_world_position_for_buffer_position(&self, buffer_position: usize) -> Vec2 {
+        let row = buffer_position / self.grid_config.sorts_per_row;
+        let col = buffer_position % self.grid_config.sorts_per_row;
+        
+        let x = col as f32 * (600.0 + self.grid_config.horizontal_spacing);
+        let y = -(row as f32) * (1000.0 + self.grid_config.vertical_spacing);
+        
+        self.grid_config.grid_origin + Vec2::new(x, y)
+    }
+    
+    /// Get the buffer position for a world coordinate (for click detection)
+    pub fn get_buffer_position_for_world_position(&self, world_pos: Vec2) -> Option<usize> {
+        let relative_pos = world_pos - self.grid_config.grid_origin;
+        
+        // Calculate grid row and column
+        let col = (relative_pos.x / (600.0 + self.grid_config.horizontal_spacing)).floor() as usize;
+        
+        // Handle negative Y coordinates correctly for downward-growing grid
+        let row = if relative_pos.y <= 0.0 {
+            ((-relative_pos.y) / (1000.0 + self.grid_config.vertical_spacing)).floor() as usize
+        } else {
+            0
+        };
+        
+        // Convert grid position to buffer position
+        let buffer_position = row * self.grid_config.sorts_per_row + col;
+        
+        // Validate the position is within bounds
+        if buffer_position < self.buffer.len() {
+            Some(buffer_position)
+        } else {
+            None
+        }
+    }
+    
+    /// Insert a new sort at the cursor position (for typing)
+    pub fn insert_sort_at_cursor(&mut self, glyph_name: String, advance_width: f32) {
+        let new_sort = SortEntry {
+            glyph_name,
+            advance_width,
+            is_active: false,
+        };
+        
+        self.buffer.insert(self.cursor_position, new_sort);
+        self.cursor_position += 1;
+    }
+    
+    /// Delete the sort at the cursor position
+    pub fn delete_sort_at_cursor(&mut self) {
+        if self.cursor_position < self.buffer.len() {
+            self.buffer.delete(self.cursor_position);
+            if self.cursor_position > 0 && self.cursor_position >= self.buffer.len() {
+                self.cursor_position -= 1;
+            }
+        }
+    }
+    
+    /// Move cursor to a specific position
+    pub fn move_cursor_to(&mut self, position: usize) {
+        if position <= self.buffer.len() {
+            self.cursor_position = position;
+        }
+    }
+    
+    /// Move cursor left by one position
+    pub fn move_cursor_left(&mut self) {
+        if self.cursor_position > 0 {
+            self.cursor_position -= 1;
+        }
+    }
+    
+    /// Move cursor right by one position
+    pub fn move_cursor_right(&mut self) {
+        if self.cursor_position < self.buffer.len() {
+            self.cursor_position += 1;
+        }
+    }
+    
+    /// Move cursor up by one row
+    pub fn move_cursor_up(&mut self) {
+        let current_row = self.cursor_position / self.grid_config.sorts_per_row;
+        if current_row > 0 {
+            let new_position = self.cursor_position - self.grid_config.sorts_per_row;
+            if new_position < self.buffer.len() {
+                self.cursor_position = new_position;
+            }
+        }
+    }
+    
+    /// Move cursor down by one row
+    pub fn move_cursor_down(&mut self) {
+        let new_position = self.cursor_position + self.grid_config.sorts_per_row;
+        if new_position < self.buffer.len() {
+            self.cursor_position = new_position;
+        }
+    }
+}
+
+
