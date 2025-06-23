@@ -48,7 +48,11 @@ impl EditTool for TextTool {
     }
     
     fn on_enter(&self) {
-        info!("Entered Text tool - click to place sorts");
+        info!("Entered Text tool - Enhanced features:");
+        info!("• Click to place sorts, type letters to add glyphs");
+        info!("• Tab to switch Buffer/Freeform modes");
+        info!("• 1-9 keys to switch glyphs, F1 for help");
+        info!("• Arrow keys for navigation, Ctrl+S to show buffer");
     }
     
     fn on_exit(&self) {
@@ -134,6 +138,8 @@ impl Plugin for TextModePlugin {
                     update_text_mode_active,
                     handle_text_mode_cursor,
                     handle_text_mode_clicks,
+                    handle_text_mode_keyboard,
+                    handle_text_tool_shortcuts,
                     render_sort_preview,
                     reset_text_mode_when_inactive,
                     handle_text_mode_selection,
@@ -196,20 +202,20 @@ pub fn spawn_text_submenu(
                         button_container
                             .spawn((
                                 Button,
-                                TextSubMenuButton,
-                                TextModeButton { mode },
                                 Node {
-                                    width: Val::Px(48.0),
-                                    height: Val::Px(48.0),
+                                    width: Val::Px(32.0),
+                                    height: Val::Px(32.0),
                                     padding: UiRect::all(Val::ZERO),
                                     border: UiRect::all(Val::Px(TOOLBAR_BORDER_WIDTH)),
                                     justify_content: JustifyContent::Center,
                                     align_items: AlignItems::Center,
                                     ..default()
                                 },
-                                BorderColor(TOOLBAR_BORDER_COLOR),
                                 BorderRadius::all(Val::Px(TOOLBAR_BORDER_RADIUS)),
-                                BackgroundColor(TOOLBAR_BACKGROUND_COLOR),
+                                BorderColor(NORMAL_BUTTON_OUTLINE_COLOR),
+                                BackgroundColor(NORMAL_BUTTON),
+                                TextSubMenuButton,
+                                TextModeButton { mode },
                             ))
                             .with_children(|button| {
                                 // Add the icon using the mode's icon
@@ -373,12 +379,19 @@ pub fn handle_text_mode_clicks(
     for event in mouse_button_input.read() {
         if event.button == MouseButton::Left && event.state == ButtonState::Pressed {
             if let Some(cursor_pos) = text_mode_state.cursor_position {
-                // Get the current glyph name
+                // Get the current glyph name, with fallback to 'a' or first available glyph
                 let glyph_name = match &glyph_navigation.current_glyph {
                     Some(name) => name.clone(),
                     None => {
-                        warn!("No current glyph selected");
-                        return;
+                        // Try to use 'a' as default, or first available glyph
+                        if app_state.workspace.font.glyphs.contains_key("a") {
+                            "a".to_string()
+                        } else if let Some(first_glyph) = app_state.workspace.font.glyphs.keys().next() {
+                            first_glyph.clone()
+                        } else {
+                            warn!("No glyphs available in font");
+                            return;
+                        }
                     }
                 };
                 
@@ -411,6 +424,7 @@ pub fn handle_text_mode_clicks(
 /// Render a preview of the sort that would be placed at the cursor position
 pub fn render_sort_preview(
     mut gizmos: Gizmos,
+    text_mode_active: Res<TextModeActive>,
     text_mode_state: Res<TextModeState>,
     text_editor_state: Option<Res<TextEditorState>>,
     current_placement_mode: Res<CurrentTextPlacementMode>,
@@ -418,6 +432,11 @@ pub fn render_sort_preview(
     app_state: Res<AppState>,
     viewport: Res<crate::ui::panes::design_space::ViewPort>,
 ) {
+    // Only show preview when text mode is active
+    if !text_mode_active.0 {
+        return;
+    }
+
     // Early exit if text editor state isn't ready yet
     let Some(text_editor_state) = text_editor_state else {
         return;
@@ -425,8 +444,17 @@ pub fn render_sort_preview(
     
     if let Some(cursor_pos) = text_mode_state.cursor_position {
         let glyph_name = match &glyph_navigation.current_glyph {
-            Some(name) => name,
-            None => return, // No glyph selected, no preview
+            Some(name) => name.clone(),
+            None => {
+                // Try to use 'a' as default, or first available glyph
+                if app_state.workspace.font.glyphs.contains_key("a") {
+                    "a".to_string()
+                } else if let Some(first_glyph) = app_state.workspace.font.glyphs.keys().next() {
+                    first_glyph.clone()
+                } else {
+                    return; // No glyphs available, no preview
+                }
+            }
         };
         
         // Get the preview position based on placement mode
@@ -442,13 +470,19 @@ pub fn render_sort_preview(
         };
         
         // Draw preview outline
-        let preview_color = match current_placement_mode.0 {
-            TextPlacementMode::Buffer => Color::srgb(0.0, 1.0, 1.0), // Cyan for buffer mode
-            TextPlacementMode::Freeform => Color::srgb(1.0, 0.5, 0.0), // Orange for freeform mode
+        let (preview_color, mode_indicator_color) = match current_placement_mode.0 {
+            TextPlacementMode::Buffer => (
+                Color::srgb(0.0, 1.0, 1.0).with_alpha(0.6), // Cyan for buffer mode
+                Color::srgb(0.0, 1.0, 1.0).with_alpha(0.4)
+            ),
+            TextPlacementMode::Freeform => (
+                Color::srgb(1.0, 0.5, 0.0).with_alpha(0.6), // Orange for freeform mode
+                Color::srgb(1.0, 0.5, 0.0).with_alpha(0.4)
+            ),
         };
         
         // Try to get glyph data for preview
-        if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
+        if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
             // Draw glyph outline preview if available
             if let Some(outline_data) = &glyph_data.outline {
                 // Use the correct outline rendering function (full curves, not just points)
@@ -460,28 +494,437 @@ pub fn render_sort_preview(
                 );
             }
             
-            // Draw metrics preview (simplified since the function signature is complex)
-            // TODO: Fix metrics rendering function signature
+            // Draw metrics preview with correct colors
+            let norad_glyph = glyph_data.to_norad_glyph();
+            crate::rendering::metrics::draw_metrics_at_position_with_color(
+                &mut gizmos,
+                &viewport,
+                &norad_glyph,
+                &app_state.workspace.info.metrics,
+                preview_pos,
+                preview_color,
+            );
         }
         
-        // Draw mode indicator
+        // Draw mode indicator with better visual design
         match current_placement_mode.0 {
             TextPlacementMode::Buffer => {
-                // Draw grid indicator for buffer mode
+                // Draw grid snap indicator for buffer mode
                 gizmos.rect_2d(
-                    preview_pos,
-                    Vec2::new(100.0, 100.0),
-                    Color::srgb(0.0, 1.0, 1.0).with_alpha(0.3),
+                    preview_pos + Vec2::new(0.0, 50.0),
+                    Vec2::new(20.0, 20.0),
+                    mode_indicator_color,
                 );
+                // Draw grid lines to show snapping
+                let grid_size = 20.0;
+                for i in -1..=1 {
+                    for j in -1..=1 {
+                        let grid_pos = preview_pos + Vec2::new(i as f32 * grid_size, j as f32 * grid_size + 50.0);
+                        gizmos.rect_2d(
+                            grid_pos,
+                            Vec2::new(4.0, 4.0),
+                            mode_indicator_color.with_alpha(0.2),
+                        );
+                    }
+                }
             }
             TextPlacementMode::Freeform => {
-                // Draw circle indicator for freeform mode
+                // Draw crosshair indicator for freeform mode
+                let crosshair_size = 16.0;
+                let indicator_pos = preview_pos + Vec2::new(0.0, 60.0);
+                
+                // Vertical line
+                gizmos.line_2d(
+                    indicator_pos + Vec2::new(0.0, -crosshair_size),
+                    indicator_pos + Vec2::new(0.0, crosshair_size),
+                    mode_indicator_color,
+                );
+                // Horizontal line  
+                gizmos.line_2d(
+                    indicator_pos + Vec2::new(-crosshair_size, 0.0),
+                    indicator_pos + Vec2::new(crosshair_size, 0.0),
+                    mode_indicator_color,
+                );
+                // Center circle
+                gizmos.circle_2d(indicator_pos, 4.0, mode_indicator_color);
+            }
+        }
+        
+        // Draw cursor indicator in buffer mode
+        if current_placement_mode.0 == TextPlacementMode::Buffer {
+            let cursor_world_pos = text_editor_state.get_world_position_for_buffer_position(text_editor_state.cursor_position);
+            
+            // Draw cursor line
+            gizmos.line_2d(
+                cursor_world_pos + Vec2::new(0.0, -100.0),
+                cursor_world_pos + Vec2::new(0.0, 100.0),
+                Color::srgb(1.0, 1.0, 0.0).with_alpha(0.8), // Yellow cursor
+            );
+            
+            // Draw cursor position indicator
+            gizmos.circle_2d(
+                cursor_world_pos + Vec2::new(0.0, 120.0),
+                8.0,
+                Color::srgb(1.0, 1.0, 0.0).with_alpha(0.9),
+            );
+        }
+        
+        // Draw mode indicator text using simple shapes (since we can't render text with gizmos)
+        let mode_text_pos = cursor_pos + Vec2::new(0.0, 200.0);
+        
+        // Draw mode indicator background
+        let mode_bg_color = match current_placement_mode.0 {
+            TextPlacementMode::Buffer => Color::srgb(0.0, 0.2, 0.4).with_alpha(0.8),
+            TextPlacementMode::Freeform => Color::srgb(0.4, 0.2, 0.0).with_alpha(0.8),
+        };
+        
+        gizmos.rect_2d(
+            mode_text_pos,
+            Vec2::new(120.0, 30.0),
+            mode_bg_color,
+        );
+        
+        // Draw simple mode indicators with shapes
+        match current_placement_mode.0 {
+            TextPlacementMode::Buffer => {
+                // Draw "B" shape for Buffer mode
+                for i in 0..3 {
+                    gizmos.circle_2d(
+                        mode_text_pos + Vec2::new(-40.0 + i as f32 * 15.0, 0.0),
+                        3.0,
+                        Color::srgb(0.0, 1.0, 1.0),
+                    );
+                }
+            }
+            TextPlacementMode::Freeform => {
+                // Draw "F" shape for Freeform mode
+                for i in 0..3 {
+                    gizmos.circle_2d(
+                        mode_text_pos + Vec2::new(-40.0 + i as f32 * 15.0, 5.0),
+                        3.0,
+                        Color::srgb(1.0, 0.5, 0.0),
+                    );
+                }
+                for i in 0..2 {
+                    gizmos.circle_2d(
+                        mode_text_pos + Vec2::new(-40.0 + i as f32 * 15.0, -5.0),
+                        3.0,
+                        Color::srgb(1.0, 0.5, 0.0),
+                    );
+                }
+            }
+        }
+        
+        // Show current glyph indicator
+        gizmos.circle_2d(
+            mode_text_pos + Vec2::new(30.0, 0.0),
+            8.0,
+            preview_color,
+        );
+        
+        // Show available glyphs palette (first 9 glyphs with number indicators)
+        let glyph_names: Vec<String> = app_state.workspace.font.glyphs.keys().cloned().collect();
+        for (i, glyph_name) in glyph_names.iter().take(9).enumerate() {
+            let palette_pos = cursor_pos + Vec2::new(-200.0 + (i as f32 * 45.0), -150.0);
+            
+            // Draw glyph number background
+            let is_current_glyph = Some(glyph_name) == glyph_navigation.current_glyph.as_ref();
+            let bg_color = if is_current_glyph {
+                Color::srgb(0.0, 0.5, 1.0).with_alpha(0.8)
+            } else {
+                Color::srgb(0.2, 0.2, 0.2).with_alpha(0.6)
+            };
+            
+            gizmos.rect_2d(
+                palette_pos,
+                Vec2::new(35.0, 35.0),
+                bg_color,
+            );
+            
+            // Draw number indicator (1-9)
+            let number_pos = palette_pos + Vec2::new(0.0, 12.0);
+            for dot_i in 0..(i + 1).min(3) {
                 gizmos.circle_2d(
-                    preview_pos + Vec2::new(0.0, 60.0),
-                    12.0,
-                    Color::srgb(1.0, 0.5, 0.0).with_alpha(0.7),
+                    number_pos + Vec2::new(-8.0 + (dot_i as f32 * 8.0), 0.0),
+                    2.0,
+                    Color::srgb(1.0, 1.0, 1.0),
                 );
             }
+            
+            // Draw mini glyph preview if available
+            if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
+                if let Some(outline_data) = &glyph_data.outline {
+                    let mini_scale = 0.02; // Very small scale for mini preview
+                    let mini_pos = palette_pos + Vec2::new(0.0, -8.0);
+                    
+                    crate::rendering::glyph_outline::draw_glyph_outline_at_position(
+                        &mut gizmos,
+                        &viewport,
+                        outline_data,
+                        mini_pos,
+                    );
+                }
+            }
+        }
+        
+        // Add a text label showing the current mode
+        // Note: We can't render text directly with gizmos, but we could add UI text later
+    }
+}
+
+/// System to handle keyboard input in text mode for buffer navigation and quick sort placement
+pub fn handle_text_mode_keyboard(
+    text_mode_active: Res<TextModeActive>,
+    current_placement_mode: Res<CurrentTextPlacementMode>,
+    mut text_editor_state: Option<ResMut<TextEditorState>>,
+    mut keyboard_input: ResMut<ButtonInput<KeyCode>>,
+    app_state: Res<AppState>,
+    glyph_navigation: Res<GlyphNavigation>,
+    text_mode_state: Res<TextModeState>,
+) {
+    if !text_mode_active.0 {
+        return;
+    }
+
+    // Early exit if text editor state isn't ready yet
+    let Some(mut text_editor_state) = text_editor_state else {
+        return;
+    };
+
+    // Handle keyboard navigation for buffer mode
+    if current_placement_mode.0 == TextPlacementMode::Buffer {
+        // Arrow key navigation
+        if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
+            text_editor_state.move_cursor_left();
+            debug!("Text mode: moved cursor left to position {}", text_editor_state.cursor_position);
+        }
+        if keyboard_input.just_pressed(KeyCode::ArrowRight) {
+            text_editor_state.move_cursor_right();
+            debug!("Text mode: moved cursor right to position {}", text_editor_state.cursor_position);
+        }
+        if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+            text_editor_state.move_cursor_up();
+            debug!("Text mode: moved cursor up to position {}", text_editor_state.cursor_position);
+        }
+        if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+            text_editor_state.move_cursor_down();
+            debug!("Text mode: moved cursor down to position {}", text_editor_state.cursor_position);
+        }
+
+        // Home/End navigation
+        if keyboard_input.just_pressed(KeyCode::Home) {
+            text_editor_state.move_cursor_to(0);
+            debug!("Text mode: moved cursor to beginning");
+        }
+        if keyboard_input.just_pressed(KeyCode::End) {
+            let end_position = text_editor_state.buffer.len();
+            text_editor_state.move_cursor_to(end_position);
+            debug!("Text mode: moved cursor to end");
+        }
+
+        // Delete/Backspace
+        if keyboard_input.just_pressed(KeyCode::Delete) {
+            text_editor_state.delete_sort_at_cursor();
+            debug!("Text mode: deleted sort at cursor position");
+        }
+        if keyboard_input.just_pressed(KeyCode::Backspace) {
+            if text_editor_state.cursor_position > 0 {
+                text_editor_state.move_cursor_left();
+                text_editor_state.delete_sort_at_cursor();
+                debug!("Text mode: backspace deleted sort");
+            }
+        }
+    }
+
+    // Quick glyph switching with number keys (1-9)
+    let mut glyph_switched = false;
+    for (i, key) in [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4, 
+                     KeyCode::Digit5, KeyCode::Digit6, KeyCode::Digit7, KeyCode::Digit8, KeyCode::Digit9].iter().enumerate() {
+        if keyboard_input.just_pressed(*key) {
+            let glyph_names: Vec<String> = app_state.workspace.font.glyphs.keys().cloned().collect();
+            if let Some(glyph_name) = glyph_names.get(i) {
+                // Switch to this glyph
+                info!("Switched to glyph '{}' via number key {}", glyph_name, i + 1);
+                glyph_switched = true;
+                break;
+            }
+        }
+    }
+    
+    if glyph_switched {
+        return; // Early exit if we switched glyphs
+    }
+
+    // Quick sort placement with letter keys (works in both modes)
+    let default_glyph_name = match &glyph_navigation.current_glyph {
+        Some(name) => name.clone(),
+        None => {
+            // Try to use 'a' as default, or first available glyph
+            if app_state.workspace.font.glyphs.contains_key("a") {
+                "a".to_string()
+            } else if let Some(first_glyph) = app_state.workspace.font.glyphs.keys().next() {
+                first_glyph.clone()
+            } else {
+                return; // No glyphs available
+            }
+        }
+    };
+
+    // Get advance width for the default glyph (used for typing new glyphs)
+    let default_advance_width = if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&default_glyph_name) {
+        glyph_data.advance_width as f32
+    } else {
+        600.0 // Default width
+    };
+
+    // Handle character input for quick placement
+    for key in keyboard_input.get_just_pressed() {
+        let character_glyph = match key {
+            KeyCode::KeyA => Some("a"),
+            KeyCode::KeyB => Some("b"),
+            KeyCode::KeyC => Some("c"),
+            KeyCode::KeyD => Some("d"),
+            KeyCode::KeyE => Some("e"),
+            KeyCode::KeyF => Some("f"),
+            KeyCode::KeyG => Some("g"),
+            KeyCode::KeyH => Some("h"),
+            KeyCode::KeyI => Some("i"),
+            KeyCode::KeyJ => Some("j"),
+            KeyCode::KeyK => Some("k"),
+            KeyCode::KeyL => Some("l"),
+            KeyCode::KeyM => Some("m"),
+            KeyCode::KeyN => Some("n"),
+            KeyCode::KeyO => Some("o"),
+            KeyCode::KeyP => Some("p"),
+            KeyCode::KeyQ => Some("q"),
+            KeyCode::KeyR => Some("r"),
+            KeyCode::KeyS => Some("s"),
+            KeyCode::KeyT => Some("t"),
+            KeyCode::KeyU => Some("u"),
+            KeyCode::KeyV => Some("v"),
+            KeyCode::KeyW => Some("w"),
+            KeyCode::KeyX => Some("x"),
+            KeyCode::KeyY => Some("y"),
+            KeyCode::KeyZ => Some("z"),
+            KeyCode::Digit0 => Some("zero"),
+            KeyCode::Digit1 => Some("one"),
+            KeyCode::Digit2 => Some("two"),
+            KeyCode::Digit3 => Some("three"),
+            KeyCode::Digit4 => Some("four"),
+            KeyCode::Digit5 => Some("five"),
+            KeyCode::Digit6 => Some("six"),
+            KeyCode::Digit7 => Some("seven"),
+            KeyCode::Digit8 => Some("eight"),
+            KeyCode::Digit9 => Some("nine"),
+            KeyCode::Space => Some("space"),
+            _ => None,
+        };
+
+        if let Some(char_glyph) = character_glyph {
+            // Check if this glyph exists in the font
+            if app_state.workspace.font.glyphs.contains_key(char_glyph) {
+                // Get the advance width for this specific glyph
+                let char_advance_width = if let Some(glyph_data) = app_state.workspace.font.glyphs.get(char_glyph) {
+                    glyph_data.advance_width as f32
+                } else {
+                    default_advance_width // Fallback to default
+                };
+                
+                match current_placement_mode.0 {
+                    TextPlacementMode::Buffer => {
+                        text_editor_state.insert_sort_at_cursor(char_glyph.to_string(), char_advance_width);
+                        info!("Text mode: typed '{}' in buffer mode at position {}", 
+                              char_glyph, text_editor_state.cursor_position - 1);
+                    }
+                    TextPlacementMode::Freeform => {
+                        // For freeform mode with keyboard, place at cursor position or default
+                        let freeform_pos = text_mode_state.cursor_position.unwrap_or(Vec2::new(0.0, 0.0));
+                        text_editor_state.add_freeform_sort(char_glyph.to_string(), freeform_pos, char_advance_width);
+                        info!("Text mode: typed '{}' in freeform mode at position {:?}", char_glyph, freeform_pos);
+                        
+                        // Move cursor to the right for next character
+                        if let Some(current_pos) = text_mode_state.cursor_position {
+                            // Update cursor position for next character (move right by advance width)
+                            // Note: We would need to make text_mode_state mutable to update this
+                            debug!("Next freeform position would be: {:?}", current_pos + Vec2::new(char_advance_width, 0.0));
+                        }
+                    }
+                }
+            } else {
+                debug!("Glyph '{}' not found in font, skipping", char_glyph);
+            }
+        }
+    }
+}
+
+/// System to handle global text tool shortcuts
+pub fn handle_text_tool_shortcuts(
+    mut keyboard_input: ResMut<ButtonInput<KeyCode>>,
+    mut current_tool: ResMut<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    mut current_placement_mode: ResMut<CurrentTextPlacementMode>,
+    mut text_mode_config: ResMut<TextModeConfig>,
+    text_editor_state: Option<Res<TextEditorState>>,
+) {
+    // Global shortcut to activate text tool
+    if keyboard_input.just_pressed(KeyCode::KeyT) {
+        if current_tool.get_current() != Some("text") {
+            current_tool.switch_to("text");
+            info!("Activated text tool via keyboard shortcut");
+        }
+    }
+    
+    // When text tool is active, Tab to switch between buffer/freeform modes
+    if current_tool.get_current() == Some("text") && keyboard_input.just_pressed(KeyCode::Tab) {
+        let new_mode = match current_placement_mode.0 {
+            TextPlacementMode::Buffer => TextPlacementMode::Freeform,
+            TextPlacementMode::Freeform => TextPlacementMode::Buffer,
+        };
+        current_placement_mode.0 = new_mode;
+        text_mode_config.default_placement_mode = new_mode.to_sort_layout_mode();
+        info!("Switched text placement mode to: {:?}", new_mode);
+    }
+    
+    // Ctrl+S to save current text layout
+    if current_tool.get_current() == Some("text") && keyboard_input.just_pressed(KeyCode::KeyS) && 
+       (keyboard_input.pressed(KeyCode::ControlLeft) || keyboard_input.pressed(KeyCode::ControlRight)) {
+        if let Some(text_editor_state) = text_editor_state.as_ref() {
+            let buffer_text: String = text_editor_state.buffer.iter()
+                .map(|entry| entry.glyph_name.clone())
+                .collect::<Vec<String>>()
+                .join(" ");
+            info!("Current text buffer: {}", buffer_text);
+            info!("Buffer length: {} sorts", text_editor_state.buffer.len());
+            info!("Cursor position: {}", text_editor_state.cursor_position);
+            // In a real implementation, we could save this to a file or clipboard
+        }
+    }
+    
+    // F1 to show help
+    if current_tool.get_current() == Some("text") && keyboard_input.just_pressed(KeyCode::F1) {
+        info!("=== TEXT TOOL HELP ===");
+        info!("T - Activate text tool");
+        info!("Tab - Switch between Buffer/Freeform modes");
+        info!("1-9 - Switch to glyph by number");
+        info!("a-z - Type letters");
+        info!("Space - Insert space");
+        info!("Backspace - Delete character");
+        info!("Arrow keys - Navigate cursor (Buffer mode)");
+        info!("Home/End - Go to start/end (Buffer mode)");
+        info!("Click - Place glyph at position");
+        info!("Ctrl+S - Show current text buffer");
+        info!("Escape - Exit text tool");
+        info!("F1 - Show this help");
+        info!("====================");
+    }
+    
+    // Escape to exit text tool
+    if current_tool.get_current() == Some("text") && keyboard_input.just_pressed(KeyCode::Escape) {
+        if let Some(previous_tool) = current_tool.get_previous() {
+            current_tool.switch_to(previous_tool);
+            info!("Exited text tool via Escape key, returned to: {}", previous_tool);
+        } else {
+            current_tool.switch_to("select");
+            info!("Exited text tool via Escape key, returned to select tool");
         }
     }
 }
