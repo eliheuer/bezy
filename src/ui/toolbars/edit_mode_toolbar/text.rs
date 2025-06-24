@@ -438,7 +438,7 @@ pub fn render_sort_preview(
     }
 
     // Early exit if text editor state isn't ready yet
-    let Some(text_editor_state) = text_editor_state else {
+    let Some(_text_editor_state) = text_editor_state else {
         return;
     };
     
@@ -457,35 +457,16 @@ pub fn render_sort_preview(
             }
         };
         
-        // Get the preview position based on placement mode
-        let preview_pos = match current_placement_mode.0 {
-            TextPlacementMode::Buffer => {
-                // In buffer mode, show preview at the mouse cursor position (where it will be placed)
-                cursor_pos
-            }
-            TextPlacementMode::Freeform => {
-                // In freeform mode, show preview at the mouse cursor position
-                cursor_pos
-            }
-        };
+        // Preview position is always at cursor for both modes
+        let preview_pos = cursor_pos;
         
-        // Draw preview outline
-        let (preview_color, mode_indicator_color) = match current_placement_mode.0 {
-            TextPlacementMode::Buffer => (
-                Color::srgb(0.0, 1.0, 1.0).with_alpha(0.6), // Cyan for buffer mode
-                Color::srgb(0.0, 1.0, 1.0).with_alpha(0.4)
-            ),
-            TextPlacementMode::Freeform => (
-                Color::srgb(1.0, 0.5, 0.0).with_alpha(0.6), // Orange for freeform mode
-                Color::srgb(1.0, 0.5, 0.0).with_alpha(0.4)
-            ),
-        };
+        // Use orange color for active preview (consistent with active sorts)
+        let preview_color = Color::srgb(1.0, 0.5, 0.0).with_alpha(0.8); // Orange for active
         
         // Try to get glyph data for preview
         if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
             // Draw glyph outline preview if available
             if let Some(outline_data) = &glyph_data.outline {
-                // Use the correct outline rendering function (full curves, not just points)
                 crate::rendering::glyph_outline::draw_glyph_outline_at_position(
                     &mut gizmos,
                     &viewport,
@@ -494,7 +475,7 @@ pub fn render_sort_preview(
                 );
             }
             
-            // Draw metrics preview with correct colors
+            // Draw metrics preview in orange
             let norad_glyph = glyph_data.to_norad_glyph();
             crate::rendering::metrics::draw_metrics_at_position_with_color(
                 &mut gizmos,
@@ -504,161 +485,103 @@ pub fn render_sort_preview(
                 preview_pos,
                 preview_color,
             );
-        }
-        
-        // Draw mode indicator with better visual design
-        match current_placement_mode.0 {
-            TextPlacementMode::Buffer => {
-                // Draw text flow indicator for buffer mode
-                gizmos.rect_2d(
-                    preview_pos + Vec2::new(0.0, 50.0),
-                    Vec2::new(20.0, 20.0),
-                    mode_indicator_color,
-                );
-                // Draw arrow to show text flow direction
-                let arrow_pos = preview_pos + Vec2::new(0.0, 50.0);
-                gizmos.line_2d(
-                    arrow_pos + Vec2::new(-15.0, 0.0),
-                    arrow_pos + Vec2::new(15.0, 0.0),
-                    mode_indicator_color,
-                );
-                // Arrow head
-                gizmos.line_2d(
-                    arrow_pos + Vec2::new(15.0, 0.0),
-                    arrow_pos + Vec2::new(10.0, -5.0),
-                    mode_indicator_color,
-                );
-                gizmos.line_2d(
-                    arrow_pos + Vec2::new(15.0, 0.0),
-                    arrow_pos + Vec2::new(10.0, 5.0),
-                    mode_indicator_color,
-                );
-            }
-            TextPlacementMode::Freeform => {
-                // Draw crosshair indicator for freeform mode
-                let crosshair_size = 16.0;
-                let indicator_pos = preview_pos + Vec2::new(0.0, 60.0);
-                
-                // Vertical line
-                gizmos.line_2d(
-                    indicator_pos + Vec2::new(0.0, -crosshair_size),
-                    indicator_pos + Vec2::new(0.0, crosshair_size),
-                    mode_indicator_color,
-                );
-                // Horizontal line  
-                gizmos.line_2d(
-                    indicator_pos + Vec2::new(-crosshair_size, 0.0),
-                    indicator_pos + Vec2::new(crosshair_size, 0.0),
-                    mode_indicator_color,
-                );
-                // Center circle
-                gizmos.circle_2d(indicator_pos, 4.0, mode_indicator_color);
-            }
-        }
-        
-        // Note: Removed old grid cursor indicator since buffer sorts now use click positioning
-        
-        // Draw mode indicator text using simple shapes (since we can't render text with gizmos)
-        let mode_text_pos = cursor_pos + Vec2::new(0.0, 200.0);
-        
-        // Draw mode indicator background
-        let mode_bg_color = match current_placement_mode.0 {
-            TextPlacementMode::Buffer => Color::srgb(0.0, 0.2, 0.4).with_alpha(0.8),
-            TextPlacementMode::Freeform => Color::srgb(0.4, 0.2, 0.0).with_alpha(0.8),
-        };
-        
-        gizmos.rect_2d(
-            mode_text_pos,
-            Vec2::new(120.0, 30.0),
-            mode_bg_color,
-        );
-        
-        // Draw simple mode indicators with shapes
-        match current_placement_mode.0 {
-            TextPlacementMode::Buffer => {
-                // Draw "B" shape for Buffer mode
-                for i in 0..3 {
-                    gizmos.circle_2d(
-                        mode_text_pos + Vec2::new(-40.0 + i as f32 * 15.0, 0.0),
-                        3.0,
-                        Color::srgb(0.0, 1.0, 1.0),
-                    );
-                }
-            }
-            TextPlacementMode::Freeform => {
-                // Draw "F" shape for Freeform mode
-                for i in 0..3 {
-                    gizmos.circle_2d(
-                        mode_text_pos + Vec2::new(-40.0 + i as f32 * 15.0, 5.0),
-                        3.0,
-                        Color::srgb(1.0, 0.5, 0.0),
-                    );
-                }
-                for i in 0..2 {
-                    gizmos.circle_2d(
-                        mode_text_pos + Vec2::new(-40.0 + i as f32 * 15.0, -5.0),
-                        3.0,
-                        Color::srgb(1.0, 0.5, 0.0),
-                    );
-                }
-            }
-        }
-        
-        // Show current glyph indicator
-        gizmos.circle_2d(
-            mode_text_pos + Vec2::new(30.0, 0.0),
-            8.0,
-            preview_color,
-        );
-        
-        // Show available glyphs palette (first 9 glyphs with number indicators)
-        let glyph_names: Vec<String> = app_state.workspace.font.glyphs.keys().cloned().collect();
-        for (i, glyph_name) in glyph_names.iter().take(9).enumerate() {
-            let palette_pos = cursor_pos + Vec2::new(-200.0 + (i as f32 * 45.0), -150.0);
             
-            // Draw glyph number background
-            let is_current_glyph = Some(glyph_name) == glyph_navigation.current_glyph.as_ref();
-            let bg_color = if is_current_glyph {
-                Color::srgb(0.0, 0.5, 1.0).with_alpha(0.8)
-            } else {
-                Color::srgb(0.2, 0.2, 0.2).with_alpha(0.6)
+            // Draw handle preview (similar to existing buffer root handles)
+            let descender = app_state.workspace.info.metrics
+                .descender.unwrap_or(-200.0) as f32;
+            let handle_position = preview_pos + Vec2::new(0.0, descender);
+            
+            // Draw handle for buffer root (larger size with green color when placing buffer sorts)
+            let (outer_color, inner_color, handle_size) = match current_placement_mode.0 {
+                TextPlacementMode::Buffer => {
+                    // Buffer root handles are green and larger
+                    (Color::srgb(0.0, 1.0, 0.0), Color::srgb(0.6, 1.0, 0.6), 28.0)
+                }
+                TextPlacementMode::Freeform => {
+                    // Freeform handles are orange and normal size
+                    (Color::srgb(1.0, 0.5, 0.0), Color::srgb(1.0, 0.8, 0.4), 20.0)
+                }
             };
             
-            gizmos.rect_2d(
-                palette_pos,
-                Vec2::new(35.0, 35.0),
-                bg_color,
+            // Draw the main handle circle
+            gizmos.circle_2d(
+                handle_position,
+                handle_size,
+                outer_color,
             );
             
-            // Draw number indicator (1-9)
-            let number_pos = palette_pos + Vec2::new(0.0, 12.0);
-            for dot_i in 0..(i + 1).min(3) {
-                gizmos.circle_2d(
-                    number_pos + Vec2::new(-8.0 + (dot_i as f32 * 8.0), 0.0),
-                    2.0,
-                    Color::srgb(1.0, 1.0, 1.0),
-                );
-            }
+            // Draw the inner circle for visual clarity
+            gizmos.circle_2d(
+                handle_position,
+                handle_size * 0.6,
+                inner_color,
+            );
             
-            // Draw mini glyph preview if available
-            if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
-                if let Some(outline_data) = &glyph_data.outline {
-                    let mini_scale = 0.02; // Very small scale for mini preview
-                    let mini_pos = palette_pos + Vec2::new(0.0, -8.0);
-                    
-                    crate::rendering::glyph_outline::draw_glyph_outline_at_position(
-                        &mut gizmos,
-                        &viewport,
-                        outline_data,
-                        mini_pos,
-                    );
-                }
+            // Draw buffer root indicator (small square) for buffer mode
+            if current_placement_mode.0 == TextPlacementMode::Buffer {
+                gizmos.rect_2d(
+                    handle_position,
+                    Vec2::new(8.0, 8.0),
+                    Color::srgb(1.0, 1.0, 1.0), // White square
+                );
             }
         }
         
-        // Add a text label showing the current mode
-        // Note: We can't render text directly with gizmos, but we could add UI text later
-    }
+        // Draw coordinate display
+        let coord_pos = cursor_pos + Vec2::new(40.0, 40.0); // Offset from cursor
+        
+        // Draw coordinate background
+        gizmos.rect_2d(
+            coord_pos,
+            Vec2::new(120.0, 40.0),
+            Color::srgb(0.0, 0.0, 0.0).with_alpha(0.7), // Semi-transparent black background
+        );
+        
+        // Draw coordinate text using simple visual representation
+        // Since we can't render actual text with gizmos, we'll use a simple indicator
+        // and the actual coordinates will be visible in the coordinate pane
+        
+        // Draw "X:" indicator
+        for i in 0..2 {
+            gizmos.line_2d(
+                coord_pos + Vec2::new(-50.0 + i as f32 * 10.0, 10.0),
+                coord_pos + Vec2::new(-40.0 + i as f32 * 10.0, -10.0),
+                Color::srgb(1.0, 1.0, 1.0),
+            );
+            gizmos.line_2d(
+                coord_pos + Vec2::new(-50.0 + i as f32 * 10.0, -10.0),
+                coord_pos + Vec2::new(-40.0 + i as f32 * 10.0, 10.0),
+                Color::srgb(1.0, 1.0, 1.0),
+            );
+        }
+        
+        // Draw "Y:" indicator  
+        for i in 0..2 {
+            gizmos.line_2d(
+                coord_pos + Vec2::new(-20.0 + i as f32 * 10.0, 10.0),
+                coord_pos + Vec2::new(-15.0 + i as f32 * 10.0, 0.0),
+                Color::srgb(1.0, 1.0, 1.0),
+            );
+            gizmos.line_2d(
+                coord_pos + Vec2::new(-15.0 + i as f32 * 10.0, 0.0),
+                coord_pos + Vec2::new(-10.0 + i as f32 * 10.0, -10.0),
+                Color::srgb(1.0, 1.0, 1.0),
+            );
+        }
+        
+        // Draw coordinate values as dots (the actual values will be in the coordinate pane)
+        let x_rounded = (cursor_pos.x / 100.0).round() as i32;
+        let y_rounded = (cursor_pos.y / 100.0).round() as i32;
+        
+                 // Show a simple visual indicator for the coordinate magnitude
+         for i in 0..3 {
+             gizmos.circle_2d(
+                 coord_pos + Vec2::new(10.0 + i as f32 * 8.0, 0.0),
+                 2.0,
+                 Color::srgb(0.8, 0.8, 1.0),
+             );
+         }
+     }
 }
 
 /// System to handle keyboard input in text mode for buffer navigation and quick sort placement
