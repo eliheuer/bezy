@@ -1268,49 +1268,24 @@ impl TextEditorState {
     
     /// Create a buffer sort at a specific world position (for text tool)
     pub fn create_buffer_sort_at_position(&mut self, glyph_name: String, world_position: Vec2, advance_width: f32) {
-        // Check if this is the first buffer sort or if we need to create a new buffer root
-        let buffer_sorts = self.get_buffer_sorts();
+        // Always create each clicked buffer sort as a new buffer root to preserve exact positioning
+        // This ensures buffer sorts stay exactly where clicked, just like freeform sorts
+        let buffer_root = SortEntry {
+            glyph_name: glyph_name.clone(),
+            advance_width,
+            is_active: false,
+            is_selected: true, // Select the new buffer root
+            layout_mode: SortLayoutMode::Buffer,
+            freeform_position: world_position,
+            buffer_index: Some(self.buffer.len()),
+            is_buffer_root: true, // Always make clicked buffer sorts into roots
+        };
         
-        if buffer_sorts.is_empty() {
-            // No buffer sorts exist, create a buffer root at this position
-            let buffer_root = SortEntry {
-                glyph_name: glyph_name.clone(),
-                advance_width,
-                is_active: false,
-                is_selected: true, // Select the new buffer root
-                layout_mode: SortLayoutMode::Buffer,
-                freeform_position: world_position,
-                buffer_index: Some(self.buffer.len()),
-                is_buffer_root: true,
-            };
-            
-            let insert_index = self.buffer.len();
-            self.buffer.insert(insert_index, buffer_root);
-            self.cursor_position = insert_index + 1; // Position cursor after the new sort
-            
-            info!("Created new buffer root '{}' at world position ({:.1}, {:.1})", glyph_name, world_position.x, world_position.y);
-        } else {
-            // Buffer sorts exist, find the closest buffer root and add to that sequence
-            // For now, just add to the end of the buffer - TODO: improve to find closest buffer root
-            let position = world_position; // For now, use the exact click position
-            
-            let new_sort = SortEntry {
-                glyph_name: glyph_name.clone(),
-                advance_width,
-                is_active: false,
-                is_selected: false,
-                layout_mode: SortLayoutMode::Buffer,
-                freeform_position: position,
-                buffer_index: Some(self.buffer.len()),
-                is_buffer_root: false,
-            };
-            
-            let insert_index = self.buffer.len();
-            self.buffer.insert(insert_index, new_sort);
-            self.cursor_position = insert_index + 1;
-            
-            info!("Created buffer sort '{}' at world position ({:.1}, {:.1})", glyph_name, world_position.x, world_position.y);
-        }
+        let insert_index = self.buffer.len();
+        self.buffer.insert(insert_index, buffer_root);
+        self.cursor_position = insert_index + 1; // Position cursor after the new sort
+        
+        info!("Created new buffer root '{}' at world position ({:.1}, {:.1})", glyph_name, world_position.x, world_position.y);
     }
     
     /// Get the visual position for a sort based on its layout mode

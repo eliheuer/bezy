@@ -398,33 +398,38 @@ pub fn handle_text_editor_keyboard_input(
     mut text_editor_state: ResMut<TextEditorState>,
     app_state: Res<AppState>,
 ) {
-    // Move cursor with arrow keys
-    if keyboard_input.just_pressed(KeyCode::ArrowRight) {
-        text_editor_state.move_cursor_right();
-    }
+    // Check if we have buffer sorts for various operations
+    let has_buffer_sorts = !text_editor_state.get_buffer_sorts().is_empty();
     
-    if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
-        text_editor_state.move_cursor_left();
-    }
-    
-    if keyboard_input.just_pressed(KeyCode::ArrowUp) {
-        text_editor_state.move_cursor_up();
-    }
-    
-    if keyboard_input.just_pressed(KeyCode::ArrowDown) {
-        text_editor_state.move_cursor_down();
-    }
-    
-    // Home/End keys
-    if keyboard_input.just_pressed(KeyCode::Home) {
-        text_editor_state.move_cursor_to(0);
-        info!("Moved cursor to beginning");
-    }
-    
-    if keyboard_input.just_pressed(KeyCode::End) {
-        let buffer_len = text_editor_state.buffer.len();
-        text_editor_state.move_cursor_to(buffer_len);
-        info!("Moved cursor to end");
+    // Move cursor with arrow keys - only work if we have buffer sorts
+    if has_buffer_sorts {
+        if keyboard_input.just_pressed(KeyCode::ArrowRight) {
+            text_editor_state.move_cursor_right();
+        }
+        
+        if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
+            text_editor_state.move_cursor_left();
+        }
+        
+        if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+            text_editor_state.move_cursor_up();
+        }
+        
+        if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+            text_editor_state.move_cursor_down();
+        }
+        
+        // Home/End keys
+        if keyboard_input.just_pressed(KeyCode::Home) {
+            text_editor_state.move_cursor_to(0);
+            info!("Moved cursor to beginning");
+        }
+        
+        if keyboard_input.just_pressed(KeyCode::End) {
+            let buffer_len = text_editor_state.buffer.len();
+            text_editor_state.move_cursor_to(buffer_len);
+            info!("Moved cursor to end");
+        }
     }
     
     // Ctrl+T to create a new text buffer
@@ -437,17 +442,19 @@ pub fn handle_text_editor_keyboard_input(
         info!("Created new text buffer");
     }
     
-    // Delete/Backspace
-    if keyboard_input.just_pressed(KeyCode::Delete) {
-        text_editor_state.delete_sort_at_cursor();
-        info!("Deleted sort at cursor position");
-    }
-    
-    if keyboard_input.just_pressed(KeyCode::Backspace) {
-        if text_editor_state.cursor_position > 0 {
-            text_editor_state.move_cursor_left();
+    // Delete/Backspace - only work if we have buffer sorts
+    if has_buffer_sorts {
+        if keyboard_input.just_pressed(KeyCode::Delete) {
             text_editor_state.delete_sort_at_cursor();
-            info!("Backspaced sort at cursor position");
+            info!("Deleted sort at cursor position");
+        }
+        
+        if keyboard_input.just_pressed(KeyCode::Backspace) {
+            if text_editor_state.cursor_position > 0 {
+                text_editor_state.move_cursor_left();
+                text_editor_state.delete_sort_at_cursor();
+                info!("Backspaced sort at cursor position");
+            }
         }
     }
     
@@ -516,14 +523,35 @@ pub fn handle_text_editor_keyboard_input(
                 if let Some(glyph_data) = 
                     app_state.workspace.font.glyphs.get(&glyph_name) {
                     let advance_width = glyph_data.advance_width as f32;
-                    text_editor_state.insert_sort_at_cursor(
-                        glyph_name.clone(), 
-                        advance_width
-                    );
-                    info!(
-                        "Inserted glyph '{}' at cursor position", 
-                        glyph_name
-                    );
+                    
+                    // Check if any buffer sorts exist
+                    if !has_buffer_sorts {
+                        // No buffer sorts exist, create a buffer root at center of screen
+                        // TODO: Use actual mouse/click position if available
+                        let center_position = Vec2::new(500.0, 0.0);
+                        text_editor_state.create_buffer_root(center_position);
+                        
+                        // Now insert the character at the new buffer root
+                        text_editor_state.insert_sort_at_cursor(
+                            glyph_name.clone(), 
+                            advance_width
+                        );
+                        
+                        info!(
+                            "Created new buffer root and inserted glyph '{}' at center", 
+                            glyph_name
+                        );
+                    } else {
+                        // Buffer sorts exist, use normal insertion logic
+                        text_editor_state.insert_sort_at_cursor(
+                            glyph_name.clone(), 
+                            advance_width
+                        );
+                        info!(
+                            "Inserted glyph '{}' at cursor position", 
+                            glyph_name
+                        );
+                    }
                 } else {
                     info!("Glyph '{}' not found in font", glyph_name);
                 }
