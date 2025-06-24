@@ -467,10 +467,10 @@ pub fn handle_text_mode_clicks(
                     600.0 // Default width
                 };
                 
-                // Calculate the sort position so that the handle ends up at the cursor
-                // Handle should be at cursor, handle = baseline + descender, so baseline = cursor - descender
+                // Position calculation must match preview exactly
                 let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
                 let cursor_design_pos = viewport.from_screen(raw_cursor_world_pos);
+                // Use the exact same calculation as preview: cursor - descender
                 let sort_position = Vec2::new(cursor_design_pos.x, cursor_design_pos.y) - Vec2::new(0.0, descender);
                 
                 match current_placement_mode.0 {

@@ -229,13 +229,9 @@ pub fn render_text_editor_sorts(
                 // Note: We'll skip glyph outline rendering for empty buffer roots
             } else if let Some(glyph_data) = 
                 app_state.workspace.font.glyphs.get(&sort.glyph_name) {
-                // The world_pos is where we want the handle to be (under the cursor)
-                // The handle should be at the descender line of the sort
-                // So the baseline position should be calculated to place the descender at world_pos
-                let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
-                // Since descender is negative, to place descender at world_pos, baseline = world_pos - descender
-                // This moves the baseline UP by the absolute value of the descender
-                let sort_baseline_position = world_pos - Vec2::new(0.0, descender);
+                // The world_pos is the baseline position (already offset correctly during placement)
+                // No additional descender offset needed here since placement already handled it
+                let sort_baseline_position = world_pos;
                 
                 // Convert to norad glyph for proper rendering
                 let norad_glyph = glyph_data.to_norad_glyph();
@@ -306,9 +302,9 @@ pub fn render_text_editor_sorts(
             // Note: Empty buffer roots are handled above and don't need glyph data
             
             // Draw handles for all sorts (regardless of glyph data)
-            // The handle should be positioned exactly at world_pos (where the cursor was clicked)
-            // This should align with the descender line of the metrics box
-            let handle_position = world_pos;
+            // The handle should be at the descender line relative to the baseline (world_pos)
+            let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
+            let handle_position = world_pos + Vec2::new(0.0, descender);
             
             info!("Sort '{}' handle: sort_pos=({:.1}, {:.1}), handle=({:.1}, {:.1})", 
                    sort.glyph_name, world_pos.x, world_pos.y, handle_position.x, handle_position.y);
