@@ -401,20 +401,56 @@ pub fn render_text_editor_sorts(
             crate::ui::panes::design_space::DPoint::from((cursor_bottom_design.x, cursor_bottom_design.y))
         );
         
-        // Draw a cursor line spanning from descender to ascender (full metrics height) in screen space
-        gizmos.line_2d(
-            cursor_top_screen,    // Top of cursor (at ascender)
-            cursor_bottom_screen, // Bottom of cursor (at descender)
+        // Draw a thicker cursor line using a rectangle for better visibility
+        let line_thickness = 2.0;
+        let line_center_x = (cursor_top_screen.x + cursor_bottom_screen.x) / 2.0;
+        let line_center_y = (cursor_top_screen.y + cursor_bottom_screen.y) / 2.0;
+        let line_height = (cursor_top_screen.y - cursor_bottom_screen.y).abs();
+        
+        gizmos.rect_2d(
+            Vec2::new(line_center_x, line_center_y),
+            Vec2::new(line_thickness, line_height),
             Color::srgb(1.0, 1.0, 0.0), // Yellow cursor
         );
         
-        // Draw a small circle indicator for the cursor position in screen space
+        // Draw larger outer circles (16px) for better visibility
+        gizmos.circle_2d(
+            cursor_top_screen,    // Top circle (at ascender)
+            16.0,
+            Color::srgb(1.0, 1.0, 0.0), // Yellow cursor
+        );
+        gizmos.circle_2d(
+            cursor_bottom_screen, // Bottom circle (at descender)
+            16.0,
+            Color::srgb(1.0, 1.0, 0.0), // Yellow cursor
+        );
+        
+        // Draw smaller inner circles (8px) on top
+        gizmos.circle_2d(
+            cursor_top_screen,    // Top circle (at ascender)
+            8.0,
+            Color::srgb(1.0, 1.0, 0.0), // Yellow cursor
+        );
+        gizmos.circle_2d(
+            cursor_bottom_screen, // Bottom circle (at descender)
+            8.0,
+            Color::srgb(1.0, 1.0, 0.0), // Yellow cursor
+        );
+        
+        // Draw a circle indicator for the cursor position in screen space (for debugging)
         let cursor_baseline_screen = viewport.to_screen(
             crate::ui::panes::design_space::DPoint::from((cursor_world_pos.x, cursor_world_pos.y))
         );
+        // Larger outer circle
         gizmos.circle_2d(
             cursor_baseline_screen, 
-            6.0, 
+            16.0, 
+            Color::srgb(1.0, 1.0, 0.0)
+        );
+        // Smaller inner circle
+        gizmos.circle_2d(
+            cursor_baseline_screen, 
+            8.0, 
             Color::srgb(1.0, 1.0, 0.0)
         );
     } else {
