@@ -1200,13 +1200,39 @@ impl TextEditorState {
     }
     
     /// Find the sort at a given world position (for click detection)
-    pub fn find_sort_at_position(&self, world_position: Vec2, tolerance: f32) -> Option<usize> {
+    pub fn find_sort_at_position(&self, world_position: Vec2, tolerance: f32, font_metrics: Option<&FontMetrics>) -> Option<usize> {
         // Check all sorts (both buffer and freeform)
         for i in 0..self.buffer.len() {
-            if let Some(sort_pos) = self.get_sort_visual_position(i) {
-                let distance = world_position.distance(sort_pos);
-                if distance <= tolerance {
-                    return Some(i);
+            if let Some(sort) = self.buffer.get(i) {
+                if let Some(sort_pos) = self.get_sort_visual_position(i) {
+                    // For freeform sorts, check both the sort position and the handle position
+                    if sort.layout_mode == SortLayoutMode::Freeform {
+                        // Check the handle position (at descender for freeform sorts)
+                        let descender = if let Some(metrics) = font_metrics {
+                            metrics.descender.unwrap_or(-200.0) as f32
+                        } else {
+                            -200.0 // Default descender value 
+                        };
+                        let handle_pos = sort_pos + Vec2::new(0.0, descender);
+                        let handle_distance = world_position.distance(handle_pos);
+                        
+                        // Check handle first (smaller tolerance for more precise interaction)
+                        if handle_distance <= 20.0 { // Handle radius is 16, so 20 gives some margin
+                            return Some(i);
+                        }
+                        
+                        // Also check the main sort area with larger tolerance
+                        let sort_distance = world_position.distance(sort_pos);
+                        if sort_distance <= tolerance {
+                            return Some(i);
+                        }
+                    } else {
+                        // For buffer sorts, check the main sort position
+                        let distance = world_position.distance(sort_pos);
+                        if distance <= tolerance {
+                            return Some(i);
+                        }
+                    }
                 }
             }
         }

@@ -40,6 +40,7 @@ pub fn handle_text_editor_sort_clicks(
     windows: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
     ui_hover_state: Res<UiHoverState>,
+    app_state: Res<crate::core::state::AppState>,
 ) {
     // Only handle clicks when not hovering over UI
     if ui_hover_state.is_hovering_ui {
@@ -70,8 +71,9 @@ pub fn handle_text_editor_sort_clicks(
     debug!("Click at world position: ({:.1}, {:.1})", world_position.x, world_position.y);
 
     // Find the sort at the clicked position (works for both buffer and freeform sorts)
-    let click_tolerance = 200.0; // Tolerance for click detection
-    if let Some(clicked_sort_index) = text_editor_state.find_sort_at_position(world_position, click_tolerance) {
+    // Increased tolerance to account for the larger freeform sort handles
+    let click_tolerance = 250.0; // Tolerance for click detection
+    if let Some(clicked_sort_index) = text_editor_state.find_sort_at_position(world_position, click_tolerance, Some(&app_state.workspace.info.metrics)) {
         // Activate the clicked sort
         if text_editor_state.activate_sort(clicked_sort_index) {
             if let Some(sort) = text_editor_state.get_sort_at_position(clicked_sort_index) {
@@ -179,11 +181,25 @@ pub fn render_text_editor_sorts(
                 
                 // Draw a visual indicator for freeform sorts
                 if sort.layout_mode == crate::core::state::SortLayoutMode::Freeform {
-                    // Draw a small circle to indicate this is a freeform sort
+                    // Position handle at lower-left corner of sort metrics, at bottom of descender
+                    let descender = app_state.workspace.info.metrics.descender.unwrap_or(-200.0) as f32;
+                    let handle_position = world_pos + Vec2::new(0.0, descender);
+                    
+                    info!("Drawing freeform handle for '{}' at handle position ({:.1}, {:.1})", 
+                          sort.glyph_name, handle_position.x, handle_position.y);
+                    
+                    // Draw a very prominent handle that should be easily visible
                     gizmos.circle_2d(
-                        world_pos + Vec2::new(0.0, 50.0), 
-                        8.0, 
-                        Color::srgb(0.0, 0.5, 1.0) // Blue indicator for freeform
+                        handle_position,
+                        24.0, // Even bigger for testing visibility
+                        Color::srgb(1.0, 0.0, 1.0) // Bright magenta for high visibility
+                    );
+                    
+                    // Add a smaller inner circle for visual clarity
+                    gizmos.circle_2d(
+                        handle_position,
+                        12.0,
+                        Color::srgb(1.0, 1.0, 0.0) // Bright yellow inner circle
                     );
                 }
                 
