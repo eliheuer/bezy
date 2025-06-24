@@ -451,10 +451,10 @@ pub fn handle_text_mode_clicks(
                     600.0 // Default width
                 };
                 
-                // Calculate the sort position so that its lower-left corner is at the cursor
-                // This matches the preview positioning logic
+                // Calculate the sort position so that its handle (at descender line) is at the cursor
+                // Handle is at cursor, so sort baseline should be cursor - descender offset
                 let descender = app_state.workspace.info.metrics.descender.unwrap_or(-200.0) as f32;
-                let sort_position = cursor_pos + Vec2::new(0.0, -descender); // Move sort UP by descender distance (descender is negative)
+                let sort_position = cursor_pos - Vec2::new(0.0, descender); // Move sort baseline UP by descender amount
                 
                 match current_placement_mode.0 {
                     TextPlacementMode::Buffer => {
@@ -539,12 +539,10 @@ pub fn render_sort_preview(
         };
         
         // Preview position calculation:
-        // We want the lower-left corner of the sort metrics (descender line) to be under the cursor
-        // Since descender is negative (e.g., -256), and the sort origin is at the baseline,
-        // we need to move the sort origin UP by the descender distance so that
-        // the descender line ends up at the cursor position
+        // The handle should be directly under the cursor
+        // The sort baseline should be positioned so that the handle (at descender) is at the cursor
         let descender = app_state.workspace.info.metrics.descender.unwrap_or(-200.0) as f32;
-        let preview_pos = cursor_pos + Vec2::new(0.0, -descender); // Move sort UP by descender distance (descender is negative)
+        let preview_pos = cursor_pos - Vec2::new(0.0, descender); // Move sort baseline UP by descender amount
         
         info!("Preview positioning: cursor=({:.1}, {:.1}), descender={:.1}, preview_pos=({:.1}, {:.1})", 
               raw_cursor_world_pos.x, raw_cursor_world_pos.y, descender, preview_pos.x, preview_pos.y);

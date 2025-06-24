@@ -229,10 +229,18 @@ pub fn render_text_editor_sorts(
                 // Note: We'll skip glyph outline rendering for empty buffer roots
             } else if let Some(glyph_data) = 
                 app_state.workspace.font.glyphs.get(&sort.glyph_name) {
+                // The world_pos is where we want the handle to be (under the cursor)
+                // The handle should be at the descender line of the sort
+                // So the baseline position should be calculated to place the descender at world_pos
+                let descender = app_state.workspace.info.metrics.descender.unwrap_or(-200.0) as f32;
+                // Since descender is negative, to place descender at world_pos, baseline = world_pos - descender
+                // This moves the baseline UP by the absolute value of the descender
+                let sort_baseline_position = world_pos - Vec2::new(0.0, descender);
+                
                 // Convert to norad glyph for proper rendering
                 let norad_glyph = glyph_data.to_norad_glyph();
                 
-                // Render proper metrics box first
+                // Render proper metrics box at the baseline position
                 let metrics_color = if sort.is_active { 
                     Color::srgba(0.3, 1.0, 0.5, 0.5) // Green for active
                 } else {
@@ -244,12 +252,11 @@ pub fn render_text_editor_sorts(
                     &viewport,
                     &norad_glyph,
                     font_metrics,
-                    world_pos,
+                    sort_baseline_position,
                     metrics_color,
                 );
                 
-                // Then render the glyph outline properly using our internal 
-                // outline data
+                // Then render the glyph outline at the baseline position
                 if let Some(outline_data) = &glyph_data.outline {
                     if sort.is_active {
                         // Active sorts: full outline with control handles 
@@ -259,7 +266,7 @@ pub fn render_text_editor_sorts(
                                 &mut gizmos,
                                 &viewport,
                                 outline_data,
-                                world_pos,
+                                sort_baseline_position,
                             );
                         
                         crate::rendering::glyph_outline::
@@ -267,7 +274,7 @@ pub fn render_text_editor_sorts(
                                 &mut gizmos,
                                 &viewport,
                                 outline_data,
-                                world_pos,
+                                sort_baseline_position,
                             );
                     } else {
                         // Inactive sorts: just the outline path 
@@ -279,7 +286,7 @@ pub fn render_text_editor_sorts(
                                         &mut gizmos,
                                         &viewport,
                                         contour,
-                                        world_pos,
+                                        sort_baseline_position,
                                     );
                             }
                         }
@@ -299,11 +306,12 @@ pub fn render_text_editor_sorts(
             // Note: Empty buffer roots are handled above and don't need glyph data
             
             // Draw handles for all sorts (regardless of glyph data)
-            let descender = app_state.workspace.info.metrics.descender.unwrap_or(-200.0) as f32;
-            let handle_position = world_pos + Vec2::new(0.0, descender); // Lower-left corner of metrics box
+            // The handle should be positioned exactly at world_pos (where the cursor was clicked)
+            // This should align with the descender line of the metrics box
+            let handle_position = world_pos;
             
-            info!("Sort '{}' handle: sort_pos=({:.1}, {:.1}), descender={:.1}, handle=({:.1}, {:.1})", 
-                   sort.glyph_name, world_pos.x, world_pos.y, descender, handle_position.x, handle_position.y);
+            info!("Sort '{}' handle: sort_pos=({:.1}, {:.1}), handle=({:.1}, {:.1})", 
+                   sort.glyph_name, world_pos.x, world_pos.y, handle_position.x, handle_position.y);
             
             // Determine handle colors based on state
             let (outer_color, inner_color, handle_size) = if sort.is_buffer_root {
@@ -321,16 +329,21 @@ pub fn render_text_editor_sorts(
                 (Color::srgb(0.6, 0.6, 0.6), Color::srgb(0.8, 0.8, 0.8), 16.0) // Gray
             };
             
-            // Draw the main handle circle
+            // Convert handle position to screen space (same as metrics)
+            let handle_screen_pos = viewport.to_screen(
+                crate::ui::panes::design_space::DPoint::from((handle_position.x, handle_position.y))
+            );
+            
+            // Draw the main handle circle in screen space
             gizmos.circle_2d(
-                handle_position,
+                handle_screen_pos,
                 handle_size,
                 outer_color,
             );
             
             // Draw the inner circle for visual clarity
             gizmos.circle_2d(
-                handle_position,
+                handle_screen_pos,
                 handle_size * 0.6,
                 inner_color,
             );
@@ -339,7 +352,7 @@ pub fn render_text_editor_sorts(
             // Make it smaller and more subtle to reduce visual clutter
             if sort.is_buffer_root {
                 gizmos.rect_2d(
-                    handle_position,
+                    handle_screen_pos,
                     Vec2::new(4.0, 4.0), // Reduced from 8.0 to 4.0 for less visual clutter
                     Color::srgb(1.0, 1.0, 1.0).with_alpha(0.8), // Semi-transparent white square
                 );
