@@ -232,7 +232,7 @@ pub fn render_text_editor_sorts(
                 // The world_pos is where we want the handle to be (under the cursor)
                 // The handle should be at the descender line of the sort
                 // So the baseline position should be calculated to place the descender at world_pos
-                let descender = app_state.workspace.info.metrics.descender.unwrap_or(-200.0) as f32;
+                let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
                 // Since descender is negative, to place descender at world_pos, baseline = world_pos - descender
                 // This moves the baseline UP by the absolute value of the descender
                 let sort_baseline_position = world_pos - Vec2::new(0.0, descender);

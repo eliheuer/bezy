@@ -409,6 +409,9 @@ pub fn handle_text_mode_clicks(
     app_state: Res<AppState>,
     glyph_navigation: Res<GlyphNavigation>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
+    viewport: Res<crate::ui::panes::design_space::ViewPort>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
 ) {
     if !text_mode_active.0 {
         return;
@@ -424,10 +427,23 @@ pub fn handle_text_mode_clicks(
         return;
     };
 
+    // Get the actual mouse cursor position in world coordinates (same as preview)
+    let raw_cursor_world_pos = {
+        if let (Ok(window), Ok((camera, camera_transform))) = (windows.get_single(), camera_query.get_single()) {
+            if let Some(cursor_position) = window.cursor_position() {
+                camera.viewport_to_world_2d(camera_transform, cursor_position).ok()
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    };
+
     // Only handle left mouse button presses
     for event in mouse_button_input.read() {
         if event.button == MouseButton::Left && event.state == ButtonState::Pressed {
-            if let Some(cursor_pos) = text_mode_state.cursor_position {
+            if let Some(raw_cursor_world_pos) = raw_cursor_world_pos {
                 // Get the current glyph name, with fallback to 'a' or first available glyph
                 let glyph_name = match &glyph_navigation.current_glyph {
                     Some(name) => name.clone(),
@@ -451,10 +467,11 @@ pub fn handle_text_mode_clicks(
                     600.0 // Default width
                 };
                 
-                // Calculate the sort position so that its handle (at descender line) is at the cursor
-                // Handle is at cursor, so sort baseline should be cursor - descender offset
-                let descender = app_state.workspace.info.metrics.descender.unwrap_or(-200.0) as f32;
-                let sort_position = cursor_pos - Vec2::new(0.0, descender); // Move sort baseline UP by descender amount
+                // Calculate the sort position so that the handle ends up at the cursor
+                // Handle should be at cursor, handle = baseline + descender, so baseline = cursor - descender
+                let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
+                let cursor_design_pos = viewport.from_screen(raw_cursor_world_pos);
+                let sort_position = Vec2::new(cursor_design_pos.x, cursor_design_pos.y) - Vec2::new(0.0, descender);
                 
                 match current_placement_mode.0 {
                     TextPlacementMode::Buffer => {
@@ -539,10 +556,12 @@ pub fn render_sort_preview(
         };
         
         // Preview position calculation:
-        // The handle should be directly under the cursor
-        // The sort baseline should be positioned so that the handle (at descender) is at the cursor
-        let descender = app_state.workspace.info.metrics.descender.unwrap_or(-200.0) as f32;
-        let preview_pos = cursor_pos - Vec2::new(0.0, descender); // Move sort baseline UP by descender amount
+        // The handle should be directly under the cursor (at descender line)
+        // So the sort baseline should be positioned so that baseline + descender = cursor
+        // Therefore: baseline = cursor - descender
+        let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
+        let cursor_design_pos = viewport.from_screen(raw_cursor_world_pos);
+        let preview_pos = Vec2::new(cursor_design_pos.x, cursor_design_pos.y) - Vec2::new(0.0, descender);
         
         info!("Preview positioning: cursor=({:.1}, {:.1}), descender={:.1}, preview_pos=({:.1}, {:.1})", 
               raw_cursor_world_pos.x, raw_cursor_world_pos.y, descender, preview_pos.x, preview_pos.y);
@@ -573,9 +592,12 @@ pub fn render_sort_preview(
                 preview_color,
             );
             
-            // FIXED: Simple handle positioning
-            // The handle should be directly under the mouse cursor
-            let handle_position = raw_cursor_world_pos;
+            // Convert mouse position to design space coordinates (same as metrics)
+            let cursor_design_pos = viewport.from_screen(raw_cursor_world_pos);
+            
+            // The handle should be directly under the cursor
+            // preview_pos is the baseline, so handle = baseline + descender = cursor
+            let handle_position = Vec2::new(cursor_design_pos.x, cursor_design_pos.y);
             
             // Log every 60 frames (roughly once per second at 60 FPS)
             static FRAME_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -598,16 +620,21 @@ pub fn render_sort_preview(
                 }
             };
             
-            // Draw the main handle circle
+            // Convert handle position to screen space (same coordinate system as metrics)
+            let handle_screen_pos = viewport.to_screen(
+                crate::ui::panes::design_space::DPoint::from((handle_position.x, handle_position.y))
+            );
+            
+            // Draw the main handle circle in screen space
             gizmos.circle_2d(
-                handle_position,
+                handle_screen_pos,
                 handle_size,
                 outer_color,
             );
             
             // Draw the inner circle for visual clarity
             gizmos.circle_2d(
-                handle_position,
+                handle_screen_pos,
                 handle_size * 0.6,
                 inner_color,
             );
@@ -616,7 +643,7 @@ pub fn render_sort_preview(
             // Make it much smaller and more subtle to avoid visual clutter
             if current_placement_mode.0 == TextPlacementMode::Buffer {
                 gizmos.rect_2d(
-                    handle_position,
+                    handle_screen_pos,
                     Vec2::new(4.0, 4.0), // Small white square indicator
                     Color::srgb(1.0, 1.0, 1.0).with_alpha(0.8), // Semi-transparent white square
                 );
