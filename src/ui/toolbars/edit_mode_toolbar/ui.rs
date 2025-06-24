@@ -87,7 +87,7 @@ fn spawn_tool_button(
                         Text::new(tool.icon()),
                         TextFont {
                             font: asset_server.load(DEFAULT_FONT_PATH),
-                            font_size: 32.0,
+                            font_size: 48.0,
                             ..default()
                         },
                         TextColor(TOOLBAR_ICON_COLOR),
@@ -104,52 +104,72 @@ pub fn handle_toolbar_mode_selection(
             &mut BackgroundColor,
             &mut BorderColor,
             &ToolButton,
+            Entity,
         ),
         With<EditModeToolbarButton>,
     >,
+    mut text_query: Query<&mut TextColor>,
+    children_query: Query<&Children>,
     mut current_tool: ResMut<CurrentTool>,
     tool_registry: Res<ToolRegistry>,
 ) {
-    for (interaction, mut background_color, mut border_color, tool_button) in
-        interaction_query.iter_mut()
-    {
-        let is_current_tool = current_tool.get_current() == Some(tool_button.tool_id);
-        
-        match *interaction {
-            Interaction::Pressed => {
-                // Switch to this tool
-                if let Some(previous_tool_id) = current_tool.get_current() {
-                    if let Some(previous_tool) = tool_registry.get_tool(previous_tool_id) {
-                        previous_tool.on_exit();
+    // First handle any new interactions
+    for (interaction, _color, _border_color, tool_button, _entity) in &mut interaction_query {
+        if *interaction == Interaction::Pressed {
+            let new_tool_id = tool_button.tool_id;
+
+            // Only process if the tool is actually changing
+            if current_tool.get_current() != Some(new_tool_id) {
+                // Call on_exit for the current tool
+                if let Some(current_id) = current_tool.get_current() {
+                    if let Some(current_tool_impl) = tool_registry.get_tool(current_id) {
+                        current_tool_impl.on_exit();
                     }
                 }
-                
-                current_tool.switch_to(tool_button.tool_id);
-                
-                if let Some(new_tool) = tool_registry.get_tool(tool_button.tool_id) {
-                    new_tool.on_enter();
+
+                // Call on_enter for the new tool
+                if let Some(new_tool_impl) = tool_registry.get_tool(new_tool_id) {
+                    new_tool_impl.on_enter();
                 }
-                
-                // Visual feedback
+
+                // Save the new tool
+                current_tool.switch_to(new_tool_id);
+
+                // Log only when tool actually changes
+                info!("Switched to tool: {}", new_tool_id);
+            }
+        }
+    }
+
+    // Then update all button appearances based on the current tool
+    for (interaction, mut background_color, mut border_color, tool_button, entity) in &mut interaction_query {
+        let is_current_tool = current_tool.get_current() == Some(tool_button.tool_id);
+        
+        // Update button colors
+        match (*interaction, is_current_tool) {
+            (Interaction::Pressed, _) | (_, true) => {
                 *background_color = BackgroundColor(PRESSED_BUTTON);
                 *border_color = BorderColor(PRESSED_BUTTON_OUTLINE_COLOR);
             }
-            Interaction::Hovered => {
-                if is_current_tool {
-                    *background_color = BackgroundColor(PRESSED_BUTTON);
-                    *border_color = BorderColor(PRESSED_BUTTON_OUTLINE_COLOR);
-                } else {
-                    *background_color = BackgroundColor(HOVERED_BUTTON);
-                    *border_color = BorderColor(HOVERED_BUTTON_OUTLINE_COLOR);
-                }
+            (Interaction::Hovered, false) => {
+                *background_color = BackgroundColor(HOVERED_BUTTON);
+                *border_color = BorderColor(HOVERED_BUTTON_OUTLINE_COLOR);
             }
-            Interaction::None => {
-                if is_current_tool {
-                    *background_color = BackgroundColor(PRESSED_BUTTON);
-                    *border_color = BorderColor(PRESSED_BUTTON_OUTLINE_COLOR);
-                } else {
-                    *background_color = BackgroundColor(NORMAL_BUTTON);
-                    *border_color = BorderColor(NORMAL_BUTTON_OUTLINE_COLOR);
+            (Interaction::None, false) => {
+                *background_color = BackgroundColor(NORMAL_BUTTON);
+                *border_color = BorderColor(NORMAL_BUTTON_OUTLINE_COLOR);
+            }
+        }
+
+        // Update text color for this button's children
+        if let Ok(children) = children_query.get(entity) {
+            for child in children {
+                if let Ok(mut text_color) = text_query.get_mut(*child) {
+                    text_color.0 = if is_current_tool {
+                        PRESSED_BUTTON_ICON_COLOR
+                    } else {
+                        TOOLBAR_ICON_COLOR
+                    };
                 }
             }
         }

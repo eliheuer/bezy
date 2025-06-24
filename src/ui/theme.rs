@@ -48,7 +48,7 @@ pub const PRESSED_BUTTON: Color = Color::srgb(1.0, 0.4, 0.0);
 pub const NORMAL_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 pub const HOVERED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
 pub const PRESSED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(1.0, 0.8, 0.3);
-pub const PRESSED_BUTTON_ICON_COLOR: Color = Color::srgb(1.0, 0.9, 0.8);
+pub const PRESSED_BUTTON_ICON_COLOR: Color = Color::srgb(1.0, 1.0, 1.0); // Pure white for active toolbar icons
 
 // Glyph Point Rendering
 pub const ON_CURVE_POINT_RADIUS: f32 = 4.0;

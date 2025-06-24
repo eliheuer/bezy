@@ -70,7 +70,7 @@ fn update_glyph_pane(world: &mut World) {
 
     // Format the values for display
     let glyph_name = if metrics.glyph_name.is_empty() {
-        "(No glyph selected)".to_string()
+        "None".to_string()
     } else {
         metrics.glyph_name.clone()
     };

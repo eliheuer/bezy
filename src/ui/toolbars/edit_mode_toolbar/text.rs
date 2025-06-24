@@ -88,8 +88,8 @@ impl TextPlacementMode {
     /// Get the icon for each placement mode
     pub fn get_icon(&self) -> &'static str {
         match self {
-            TextPlacementMode::Buffer => "\u{E021}", // Grid icon
-            TextPlacementMode::Freeform => "\u{E022}", // Free placement icon
+            TextPlacementMode::Buffer => "\u{E004}", // Buffer sorts icon
+            TextPlacementMode::Freeform => "\u{E006}", // Freeform sorts icon
         }
     }
 
@@ -181,11 +181,11 @@ pub fn spawn_text_submenu(
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(TOOLBAR_MARGIN + 74.0), // Position below the main toolbar
-                left: Val::Px(TOOLBAR_MARGIN + (40 * 4) as f32), // Position under the text tool (4th position)
+                left: Val::Px(TOOLBAR_MARGIN), // Align to the left like main toolbar
                 flex_direction: FlexDirection::Row,
                 padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),
                 margin: UiRect::all(Val::ZERO),
-                row_gap: Val::Px(TOOLBAR_ROW_GAP),
+                row_gap: Val::Px(TOOLBAR_PADDING), // Use 8.0 pixel spacing like horizontal spacing
                 display: Display::None, // Start hidden
                 ..default()
             },
@@ -204,8 +204,8 @@ pub fn spawn_text_submenu(
                             .spawn((
                                 Button,
                                 Node {
-                                    width: Val::Px(32.0),
-                                    height: Val::Px(32.0),
+                                    width: Val::Px(64.0), // Same size as main toolbar buttons
+                                    height: Val::Px(64.0), // Same size as main toolbar buttons
                                     padding: UiRect::all(Val::ZERO),
                                     border: UiRect::all(Val::Px(TOOLBAR_BORDER_WIDTH)),
                                     justify_content: JustifyContent::Center,
@@ -224,7 +224,7 @@ pub fn spawn_text_submenu(
                                     Text::new(mode.get_icon().to_string()),
                                     TextFont {
                                         font: asset_server.load(DEFAULT_FONT_PATH),
-                                        font_size: 32.0,
+                                        font_size: 48.0,
                                         ..default()
                                     },
                                     TextColor(TOOLBAR_ICON_COLOR),
