@@ -15,6 +15,7 @@ use crate::ui::theme::*;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy::input::ButtonState;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub struct TextTool;
 
@@ -309,7 +310,16 @@ pub fn update_text_mode_active(
     }
 }
 
-/// System to handle cursor movement in text mode
+/// System to handle mouse cursor tracking in text mode
+/// 
+/// The cursor position is tracked for two different purposes:
+/// 1. Snapped position - used for sort placement and metrics preview (grid-aligned)
+/// 2. Raw position - used for the handle preview (exact mouse tracking)
+/// 
+/// This dual-tracking approach ensures:
+/// - Sort placement happens on a predictable grid
+/// - Handle preview follows the mouse pointer exactly
+/// - Visual feedback is clear and responsive
 pub fn handle_text_mode_cursor(
     text_mode_active: Res<TextModeActive>,
     mut text_mode_state: ResMut<TextModeState>,
@@ -317,6 +327,7 @@ pub fn handle_text_mode_cursor(
     windows: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
+    viewport: Res<crate::ui::panes::design_space::ViewPort>,
 ) {
     if !text_mode_active.0 {
         return;
@@ -341,25 +352,50 @@ pub fn handle_text_mode_cursor(
 
     if let Some(cursor_position) = window.cursor_position() {
         if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
-            // Apply sort-specific grid snapping
+            // Apply sort-specific grid snapping for placement position
+            // This ensures sorts are placed on a predictable grid for alignment
             let settings = BezySettings::default();
             let snapped_position = settings.apply_sort_grid_snap(world_position);
 
-            // Update state
+            // Update state with snapped position for sort placement
             let position_changed = text_mode_state.cursor_position != Some(snapped_position);
             text_mode_state.cursor_position = Some(snapped_position);
             text_mode_state.showing_preview = true;
             
             // Debug logging (only when position changes or cursor moved)
             if cursor_moved || position_changed {
-                debug!("Text mode cursor updated: pos=({:.1}, {:.1}), showing_preview={}", 
-                       snapped_position.x, snapped_position.y, text_mode_state.showing_preview);
+                debug!("Text mode cursor updated: snapped=({:.1}, {:.1}), raw=({:.1}, {:.1})", 
+                       snapped_position.x, snapped_position.y, world_position.x, world_position.y);
             }
         } else {
             debug!("Failed to convert cursor position to world coordinates");
         }
     } else {
         debug!("No cursor position available");
+    }
+
+    // Get the actual mouse cursor position in world coordinates (unsnapped)
+    let raw_cursor_world_pos = {
+        if let (Ok(window), Ok((camera, camera_transform))) = (windows.get_single(), camera_query.get_single()) {
+            if let Some(cursor_position) = window.cursor_position() {
+                let world_pos = camera.viewport_to_world_2d(camera_transform, cursor_position).ok();
+                // Debug logging
+                if let Some(pos) = world_pos {
+                    info!("Raw cursor: screen=({:.1}, {:.1}) -> world=({:.1}, {:.1})", 
+                           cursor_position.x, cursor_position.y, pos.x, pos.y);
+                }
+                world_pos
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    };
+    
+    if let (Some(cursor_pos), Some(raw_cursor_world_pos)) = (text_mode_state.cursor_position, raw_cursor_world_pos) {
+        // For preview mode, the handle should always be directly under the mouse cursor in screen space
+        // Use screen coordinates directly for the handle
     }
 }
 
@@ -415,18 +451,23 @@ pub fn handle_text_mode_clicks(
                     600.0 // Default width
                 };
                 
+                // Calculate the sort position so that its lower-left corner is at the cursor
+                // This matches the preview positioning logic
+                let descender = app_state.workspace.info.metrics.descender.unwrap_or(-200.0) as f32;
+                let sort_position = cursor_pos + Vec2::new(0.0, -descender); // Move sort UP by descender distance (descender is negative)
+                
                 match current_placement_mode.0 {
                     TextPlacementMode::Buffer => {
-                        // Buffer mode: Create buffer sort at the clicked position
-                        text_editor_state.create_buffer_sort_at_position(glyph_name.clone(), cursor_pos, advance_width);
-                        info!("Placed sort '{}' in buffer mode at position ({:.1}, {:.1})", 
-                              glyph_name, cursor_pos.x, cursor_pos.y);
+                        // Buffer mode: Create buffer sort at the calculated position
+                        text_editor_state.create_buffer_sort_at_position(glyph_name.clone(), sort_position, advance_width);
+                        info!("Placed sort '{}' in buffer mode at position ({:.1}, {:.1}) with descender offset {:.1}", 
+                              glyph_name, sort_position.x, sort_position.y, descender);
                     }
                     TextPlacementMode::Freeform => {
-                        // Freeform mode: Add sort at the clicked position
-                        text_editor_state.add_freeform_sort(glyph_name.clone(), cursor_pos, advance_width);
-                        info!("Placed sort '{}' in freeform mode at position ({:.1}, {:.1})", 
-                              glyph_name, cursor_pos.x, cursor_pos.y);
+                        // Freeform mode: Add sort at the calculated position
+                        text_editor_state.add_freeform_sort(glyph_name.clone(), sort_position, advance_width);
+                        info!("Placed sort '{}' in freeform mode at position ({:.1}, {:.1}) with descender offset {:.1}", 
+                              glyph_name, sort_position.x, sort_position.y, descender);
                     }
                 }
             }
@@ -445,6 +486,8 @@ pub fn render_sort_preview(
     app_state: Res<AppState>,
     viewport: Res<crate::ui::panes::design_space::ViewPort>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
 ) {
     // Only show preview when text mode is active
     if !text_mode_active.0 {
@@ -461,7 +504,26 @@ pub fn render_sort_preview(
         return;
     };
     
-    if let Some(cursor_pos) = text_mode_state.cursor_position {
+    // Get the actual mouse cursor position in world coordinates (unsnapped)
+    let raw_cursor_world_pos = {
+        if let (Ok(window), Ok((camera, camera_transform))) = (windows.get_single(), camera_query.get_single()) {
+            if let Some(cursor_position) = window.cursor_position() {
+                let world_pos = camera.viewport_to_world_2d(camera_transform, cursor_position).ok();
+                // Debug logging
+                if let Some(pos) = world_pos {
+                    info!("Raw cursor: screen=({:.1}, {:.1}) -> world=({:.1}, {:.1})", 
+                           cursor_position.x, cursor_position.y, pos.x, pos.y);
+                }
+                world_pos
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    };
+    
+    if let (Some(cursor_pos), Some(raw_cursor_world_pos)) = (text_mode_state.cursor_position, raw_cursor_world_pos) {
         let glyph_name = match &glyph_navigation.current_glyph {
             Some(name) => name.clone(),
             None => {
@@ -476,8 +538,16 @@ pub fn render_sort_preview(
             }
         };
         
-        // Preview position is always at cursor for both modes
-        let preview_pos = cursor_pos;
+        // Preview position calculation:
+        // We want the lower-left corner of the sort metrics (descender line) to be under the cursor
+        // Since descender is negative (e.g., -256), and the sort origin is at the baseline,
+        // we need to move the sort origin UP by the descender distance so that
+        // the descender line ends up at the cursor position
+        let descender = app_state.workspace.info.metrics.descender.unwrap_or(-200.0) as f32;
+        let preview_pos = cursor_pos + Vec2::new(0.0, -descender); // Move sort UP by descender distance (descender is negative)
+        
+        info!("Preview positioning: cursor=({:.1}, {:.1}), descender={:.1}, preview_pos=({:.1}, {:.1})", 
+              raw_cursor_world_pos.x, raw_cursor_world_pos.y, descender, preview_pos.x, preview_pos.y);
         
         // Use orange color for active preview (consistent with active sorts)
         let preview_color = Color::srgb(1.0, 0.5, 0.0).with_alpha(0.8); // Orange for active
@@ -505,10 +575,18 @@ pub fn render_sort_preview(
                 preview_color,
             );
             
-            // Draw handle preview (similar to existing buffer root handles)
-            let descender = app_state.workspace.info.metrics
-                .descender.unwrap_or(-200.0) as f32;
-            let handle_position = preview_pos + Vec2::new(0.0, descender);
+            // FIXED: Simple handle positioning
+            // The handle should be directly under the mouse cursor
+            let handle_position = raw_cursor_world_pos;
+            
+            // Log every 60 frames (roughly once per second at 60 FPS)
+            static FRAME_COUNTER: AtomicU64 = AtomicU64::new(0);
+            let frame = FRAME_COUNTER.fetch_add(1, Ordering::Relaxed);
+            if frame % 60 == 0 {
+                info!("Preview handle: cursor=({:.1}, {:.1}), handle=({:.1}, {:.1}), preview_pos=({:.1}, {:.1})", 
+                       raw_cursor_world_pos.x, raw_cursor_world_pos.y, handle_position.x, handle_position.y, 
+                       preview_pos.x, preview_pos.y);
+            }
             
             // Draw handle for buffer root (larger size with green color when placing buffer sorts)
             let (outer_color, inner_color, handle_size) = match current_placement_mode.0 {
@@ -536,12 +614,13 @@ pub fn render_sort_preview(
                 inner_color,
             );
             
-            // Draw buffer root indicator (small square) for buffer mode
+            // FIXED: Draw buffer root indicator (small square) for buffer mode
+            // Make it much smaller and more subtle to avoid visual clutter
             if current_placement_mode.0 == TextPlacementMode::Buffer {
                 gizmos.rect_2d(
                     handle_position,
-                    Vec2::new(8.0, 8.0),
-                    Color::srgb(1.0, 1.0, 1.0), // White square
+                    Vec2::new(4.0, 4.0), // Small white square indicator
+                    Color::srgb(1.0, 1.0, 1.0).with_alpha(0.8), // Semi-transparent white square
                 );
             }
         }
@@ -592,15 +671,15 @@ pub fn render_sort_preview(
         let x_rounded = (cursor_pos.x / 100.0).round() as i32;
         let y_rounded = (cursor_pos.y / 100.0).round() as i32;
         
-                 // Show a simple visual indicator for the coordinate magnitude
-         for i in 0..3 {
-             gizmos.circle_2d(
-                 coord_pos + Vec2::new(10.0 + i as f32 * 8.0, 0.0),
-                 2.0,
-                 Color::srgb(0.8, 0.8, 1.0),
-             );
-         }
-     }
+        // Show a simple visual indicator for the coordinate magnitude
+        for i in 0..3 {
+            gizmos.circle_2d(
+                coord_pos + Vec2::new(10.0 + i as f32 * 8.0, 0.0),
+                2.0,
+                Color::srgb(0.8, 0.8, 1.0),
+            );
+        }
+    }
 }
 
 /// System to handle keyboard input in text mode for buffer navigation and quick sort placement

@@ -299,9 +299,11 @@ pub fn render_text_editor_sorts(
             // Note: Empty buffer roots are handled above and don't need glyph data
             
             // Draw handles for all sorts (regardless of glyph data)
-            let descender = app_state.workspace.info.metrics
-                .descender.unwrap_or(-200.0) as f32;
-            let handle_position = world_pos + Vec2::new(0.0, descender);
+            let descender = app_state.workspace.info.metrics.descender.unwrap_or(-200.0) as f32;
+            let handle_position = world_pos + Vec2::new(0.0, descender); // Lower-left corner of metrics box
+            
+            info!("Sort '{}' handle: sort_pos=({:.1}, {:.1}), descender={:.1}, handle=({:.1}, {:.1})", 
+                   sort.glyph_name, world_pos.x, world_pos.y, descender, handle_position.x, handle_position.y);
             
             // Determine handle colors based on state
             let (outer_color, inner_color, handle_size) = if sort.is_buffer_root {
@@ -333,12 +335,13 @@ pub fn render_text_editor_sorts(
                 inner_color,
             );
             
-            // Draw buffer root indicator (small square)
+            // Draw buffer root indicator (small square) for buffer mode
+            // Make it smaller and more subtle to reduce visual clutter
             if sort.is_buffer_root {
                 gizmos.rect_2d(
                     handle_position,
-                    Vec2::new(8.0, 8.0),
-                    Color::srgb(1.0, 1.0, 1.0), // White square
+                    Vec2::new(4.0, 4.0), // Reduced from 8.0 to 4.0 for less visual clutter
+                    Color::srgb(1.0, 1.0, 1.0).with_alpha(0.8), // Semi-transparent white square
                 );
             }
         }
