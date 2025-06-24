@@ -666,8 +666,10 @@ pub fn handle_text_mode_keyboard(
     app_state: Res<AppState>,
     glyph_navigation: Res<GlyphNavigation>,
     text_mode_state: Res<TextModeState>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
 ) {
-    if !text_mode_active.0 {
+    // Only handle keyboard input when text tool is active (prevents double sorts)
+    if !text_mode_active.0 || current_tool.get_current() != Some("text") {
         return;
     }
 
@@ -682,35 +684,42 @@ pub fn handle_text_mode_keyboard(
         if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
             text_editor_state.move_cursor_left();
             debug!("Text mode: moved cursor left to position {}", text_editor_state.cursor_position);
+            keyboard_input.clear_just_pressed(KeyCode::ArrowLeft);
         }
         if keyboard_input.just_pressed(KeyCode::ArrowRight) {
             text_editor_state.move_cursor_right();
             debug!("Text mode: moved cursor right to position {}", text_editor_state.cursor_position);
+            keyboard_input.clear_just_pressed(KeyCode::ArrowRight);
         }
         if keyboard_input.just_pressed(KeyCode::ArrowUp) {
             text_editor_state.move_cursor_up();
             debug!("Text mode: moved cursor up to position {}", text_editor_state.cursor_position);
+            keyboard_input.clear_just_pressed(KeyCode::ArrowUp);
         }
         if keyboard_input.just_pressed(KeyCode::ArrowDown) {
             text_editor_state.move_cursor_down();
             debug!("Text mode: moved cursor down to position {}", text_editor_state.cursor_position);
+            keyboard_input.clear_just_pressed(KeyCode::ArrowDown);
         }
 
         // Home/End navigation
         if keyboard_input.just_pressed(KeyCode::Home) {
             text_editor_state.move_cursor_to(0);
             debug!("Text mode: moved cursor to beginning");
+            keyboard_input.clear_just_pressed(KeyCode::Home);
         }
         if keyboard_input.just_pressed(KeyCode::End) {
             let end_position = text_editor_state.buffer.len();
             text_editor_state.move_cursor_to(end_position);
             debug!("Text mode: moved cursor to end");
+            keyboard_input.clear_just_pressed(KeyCode::End);
         }
 
         // Delete/Backspace
         if keyboard_input.just_pressed(KeyCode::Delete) {
             text_editor_state.delete_sort_at_cursor();
             debug!("Text mode: deleted sort at cursor position");
+            keyboard_input.clear_just_pressed(KeyCode::Delete);
         }
         if keyboard_input.just_pressed(KeyCode::Backspace) {
             if text_editor_state.cursor_position > 0 {
@@ -718,6 +727,7 @@ pub fn handle_text_mode_keyboard(
                 text_editor_state.delete_sort_at_cursor();
                 debug!("Text mode: backspace deleted sort");
             }
+            keyboard_input.clear_just_pressed(KeyCode::Backspace);
         }
     }
 
@@ -763,7 +773,11 @@ pub fn handle_text_mode_keyboard(
     };
 
     // Handle character input for quick placement
-    for key in keyboard_input.get_just_pressed() {
+    // Collect keys to process and clear after the loop to avoid borrow checker issues
+    let pressed_keys: Vec<KeyCode> = keyboard_input.get_just_pressed().cloned().collect();
+    let mut keys_to_clear = Vec::new();
+    
+    for key in pressed_keys {
         let character_glyph = match key {
             KeyCode::KeyA => Some("a"),
             KeyCode::KeyB => Some("b"),
@@ -835,10 +849,18 @@ pub fn handle_text_mode_keyboard(
                         }
                     }
                 }
+                
+                // Mark key for clearing
+                keys_to_clear.push(key);
             } else {
                 debug!("Glyph '{}' not found in font, skipping", char_glyph);
             }
         }
+    }
+    
+    // Clear all processed keys
+    for key in keys_to_clear {
+        keyboard_input.clear_just_pressed(key);
     }
 }
 
