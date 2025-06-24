@@ -367,10 +367,11 @@ pub fn render_text_editor_sorts(
             text_editor_state.get_sort_visual_position(text_editor_state.cursor_position)
                 .unwrap_or(Vec2::ZERO)
         } else if text_editor_state.cursor_position > 0 {
-            // Cursor is at end - position after last buffer sort
+            // Cursor is at end - position after last buffer sort (at the right edge)
             if let Some(last_sort_pos) = text_editor_state.get_sort_visual_position(text_editor_state.cursor_position - 1) {
                 if let Some(last_sort) = text_editor_state.buffer.get(text_editor_state.cursor_position - 1) {
                     if last_sort.layout_mode == SortLayoutMode::Buffer {
+                        // Position cursor at the far right edge of the last sort
                         last_sort_pos + Vec2::new(last_sort.advance_width, 0.0)
                     } else {
                         last_sort_pos
@@ -385,17 +386,34 @@ pub fn render_text_editor_sorts(
             Vec2::ZERO
         };
         
-        // Draw a blinking cursor line at the insertion point
+        // Get font metrics for proper cursor height spanning
+        let ascender = font_metrics.ascender.unwrap_or(800.0) as f32;
+        let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
+        
+        // Convert cursor position from design space to screen space (like the handles and metrics)
+        let cursor_top_design = cursor_world_pos + Vec2::new(0.0, ascender);
+        let cursor_bottom_design = cursor_world_pos + Vec2::new(0.0, descender);
+        
+        let cursor_top_screen = viewport.to_screen(
+            crate::ui::panes::design_space::DPoint::from((cursor_top_design.x, cursor_top_design.y))
+        );
+        let cursor_bottom_screen = viewport.to_screen(
+            crate::ui::panes::design_space::DPoint::from((cursor_bottom_design.x, cursor_bottom_design.y))
+        );
+        
+        // Draw a cursor line spanning from descender to ascender (full metrics height) in screen space
         gizmos.line_2d(
-            cursor_world_pos + Vec2::new(-5.0, 400.0),  // Top of cursor
-            cursor_world_pos + Vec2::new(-5.0, -200.0), // Bottom of cursor
+            cursor_top_screen,    // Top of cursor (at ascender)
+            cursor_bottom_screen, // Bottom of cursor (at descender)
             Color::srgb(1.0, 1.0, 0.0), // Yellow cursor
         );
         
-        // Draw a small circle indicator for the cursor position 
-        // (for debugging)
+        // Draw a small circle indicator for the cursor position in screen space
+        let cursor_baseline_screen = viewport.to_screen(
+            crate::ui::panes::design_space::DPoint::from((cursor_world_pos.x, cursor_world_pos.y))
+        );
         gizmos.circle_2d(
-            cursor_world_pos + Vec2::new(0.0, 20.0), 
+            cursor_baseline_screen, 
             6.0, 
             Color::srgb(1.0, 1.0, 0.0)
         );
