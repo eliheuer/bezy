@@ -4,7 +4,7 @@
 //! similar to how text editors work. Sorts are stored in a linear buffer
 //! and mapped to a visual grid for display.
 
-use crate::core::state::{AppState, TextEditorState, SortEntry};
+use crate::core::state::{AppState, TextEditorState, SortEntry, SortLayoutMode};
 use crate::rendering::cameras::DesignCamera;
 use crate::systems::ui_interaction::UiHoverState;
 
@@ -27,16 +27,27 @@ pub fn initialize_text_editor_sorts(
         return;
     }
     
-    let text_editor_state = TextEditorState::from_font_data(&app_state.workspace.font);
-    commands.insert_resource(text_editor_state);
+    let text_editor_state = 
+        TextEditorState::from_font_data(&app_state.workspace.font);
     
-    info!("Initialized text editor with {} sorts", app_state.workspace.font.glyphs.len());
+    // Debug: Check how many buffer vs freeform sorts we have
+    let buffer_sorts = text_editor_state.get_buffer_sorts();
+    let freeform_sorts = text_editor_state.get_freeform_sorts();
+    info!(
+        "Initialized text editor with {} total sorts ({} buffer, {} freeform)", 
+        app_state.workspace.font.glyphs.len(),
+        buffer_sorts.len(),
+        freeform_sorts.len()
+    );
+    
+    commands.insert_resource(text_editor_state);
 }
 
 /// Handle mouse clicks on sorts in the text editor
 pub fn handle_text_editor_sort_clicks(
     mut text_editor_state: ResMut<TextEditorState>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
     ui_hover_state: Res<UiHoverState>,
@@ -64,31 +75,101 @@ pub fn handle_text_editor_sort_clicks(
         return;
     };
 
-    let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
+    let Ok(world_position) = 
+        camera.viewport_to_world_2d(camera_transform, cursor_position) else {
         return;
     };
 
-    debug!("Click at world position: ({:.1}, {:.1})", world_position.x, world_position.y);
+    debug!(
+        "Click at world position: ({:.1}, {:.1})", 
+        world_position.x, 
+        world_position.y
+    );
 
-    // Find the sort at the clicked position (works for both buffer and freeform sorts)
-    // Increased tolerance to account for the larger freeform sort handles
-    let click_tolerance = 250.0; // Tolerance for click detection
-    if let Some(clicked_sort_index) = text_editor_state.find_sort_at_position(world_position, click_tolerance, Some(&app_state.workspace.info.metrics)) {
-        // Activate the clicked sort
-        if text_editor_state.activate_sort(clicked_sort_index) {
-            if let Some(sort) = text_editor_state.get_sort_at_position(clicked_sort_index) {
-                info!("Clicked on sort '{}' at buffer position {} in {:?} mode", 
-                      sort.glyph_name, clicked_sort_index, sort.layout_mode);
+    // Check for handle clicks first (more precise)
+    let handle_tolerance = 30.0; // Smaller tolerance for precise handle clicks
+    if let Some(clicked_sort_index) = text_editor_state.find_sort_at_position(
+        world_position, 
+        handle_tolerance, 
+        Some(&app_state.workspace.info.metrics)
+    ) {
+        // Handle click - manage selection and active state relationship
+        let is_ctrl_held = keyboard_input.pressed(KeyCode::ControlLeft) || 
+                          keyboard_input.pressed(KeyCode::ControlRight);
+        
+        if is_ctrl_held {
+            // Ctrl+click toggles selection without affecting other selections
+            text_editor_state.toggle_sort_selection(clicked_sort_index);
+            
+            // Update active state based on selection count
+            let selected_sorts = text_editor_state.get_selected_sorts();
+            if selected_sorts.len() == 1 {
+                // Only one sort selected → make it active
+                let (selected_index, _) = selected_sorts[0];
+                text_editor_state.activate_sort(selected_index);
+            } else {
+                // Multiple sorts selected → clear active state
+                text_editor_state.clear_active_state();
             }
+        } else {
+            // Regular click: clear other selections, select this one, and make it active
+            text_editor_state.clear_selections();
+            text_editor_state.select_sort(clicked_sort_index);
+            text_editor_state.activate_sort(clicked_sort_index);
+        }
+        
+        if let Some(sort) = 
+            text_editor_state.get_sort_at_position(clicked_sort_index) {
+            let selected_count = text_editor_state.get_selected_sorts().len();
+            let is_active = sort.is_active;
+            let selection_action = if is_ctrl_held { "toggled" } else { "selected" };
+            
+            info!(
+                "Handle click: {} sort '{}' at position {} ({} selected, active: {})", 
+                selection_action,
+                sort.glyph_name, 
+                clicked_sort_index,
+                selected_count,
+                is_active
+            );
         }
     } else {
-        // No sort clicked, try buffer grid click detection for buffer mode placement
-        if let Some(buffer_position) = text_editor_state.get_buffer_position_for_world_position(world_position) {
-            // Move cursor to clicked position in buffer
-            text_editor_state.move_cursor_to(buffer_position);
+        // Check for general sort area clicks (larger tolerance)
+        let sort_tolerance = 250.0; 
+        if let Some(clicked_sort_index) = text_editor_state.find_sort_at_position(
+            world_position, 
+            sort_tolerance, 
+            Some(&app_state.workspace.info.metrics)
+        ) {
+            // Sort area click - just activate for editing
+            text_editor_state.activate_sort(clicked_sort_index);
             
-            debug!("Moved cursor to buffer position {} for grid click at ({:.1}, {:.1})", 
-                   buffer_position, world_position.x, world_position.y);
+            if let Some(sort) = 
+                text_editor_state.get_sort_at_position(clicked_sort_index) {
+                info!(
+                    "Sort area click: activated '{}' for editing", 
+                    sort.glyph_name
+                );
+            }
+        } else {
+            // Empty area click - clear selections and active state
+            text_editor_state.clear_selections();
+            text_editor_state.clear_active_state();
+            
+            if let Some(buffer_position) = text_editor_state
+                .get_buffer_position_for_world_position(world_position) {
+                // Move cursor to clicked position in buffer
+                text_editor_state.move_cursor_to(buffer_position);
+                
+                debug!(
+                    "Empty area click: cleared all selections, moved cursor to buffer position {} at ({:.1}, {:.1})", 
+                    buffer_position, 
+                    world_position.x, 
+                    world_position.y
+                );
+            } else {
+                debug!("Empty area click: cleared all selections and active state");
+            }
         }
     }
 }
@@ -104,36 +185,58 @@ pub fn render_text_editor_sorts(
     
     // Debug: Log rendering info
     if text_editor_state.buffer.len() > 0 {
-        debug!("Rendering {} sorts from text editor buffer", text_editor_state.buffer.len());
+        debug!(
+            "Rendering {} sorts from text editor buffer", 
+            text_editor_state.buffer.len()
+        );
     }
     
     // Render each sort in the buffer (both buffer and freeform)
     for buffer_position in 0..text_editor_state.buffer.len() {
         if let Some(sort) = text_editor_state.buffer.get(buffer_position) {
-            // Skip empty glyph names (default entries in gap buffer)
-            if sort.glyph_name.is_empty() {
+            // Skip empty glyph names unless it's a buffer root (which we want to show)
+            if sort.glyph_name.is_empty() && !sort.is_buffer_root {
                 continue;
             }
             
             // Get the visual position based on the sort's layout mode
-            let world_pos = match text_editor_state.get_sort_visual_position(buffer_position) {
+            let world_pos = match text_editor_state
+                .get_sort_visual_position(buffer_position) {
                 Some(pos) => pos,
                 None => continue,
             };
             
-            debug!("Rendering sort {} '{}' at world position ({:.1}, {:.1}) in {:?} mode", 
-                   buffer_position, sort.glyph_name, world_pos.x, world_pos.y, sort.layout_mode);
+            debug!(
+                "Rendering sort {} '{}' at world pos ({:.1}, {:.1}) in {:?} mode", 
+                buffer_position, 
+                sort.glyph_name, 
+                world_pos.x, 
+                world_pos.y, 
+                sort.layout_mode
+            );
             
-            // Try to get glyph data for this sort
-            if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
+            // Handle empty buffer roots (show placeholder)
+            if sort.glyph_name.is_empty() && sort.is_buffer_root {
+                // Draw a placeholder rectangle for empty buffer root
+                let placeholder_size = Vec2::new(50.0, 100.0);
+                gizmos.rect_2d(
+                    world_pos,
+                    placeholder_size,
+                    Color::srgba(0.5, 0.5, 0.5, 0.3), // Semi-transparent gray
+                );
+                
+                                // Draw text "Empty" as indicator
+                // Note: We'll skip glyph outline rendering for empty buffer roots
+            } else if let Some(glyph_data) = 
+                app_state.workspace.font.glyphs.get(&sort.glyph_name) {
                 // Convert to norad glyph for proper rendering
                 let norad_glyph = glyph_data.to_norad_glyph();
                 
                 // Render proper metrics box first
                 let metrics_color = if sort.is_active { 
-                    Color::srgba(0.3, 1.0, 0.5, 0.5) // Green for active (same as original)
+                    Color::srgba(0.3, 1.0, 0.5, 0.5) // Green for active
                 } else {
-                    Color::srgba(0.5, 0.5, 0.5, 0.5) // Gray for inactive (same as original)
+                    Color::srgba(0.5, 0.5, 0.5, 0.5) // Gray for inactive
                 };
                 
                 crate::rendering::metrics::draw_metrics_at_position_with_color(
@@ -145,82 +248,148 @@ pub fn render_text_editor_sorts(
                     metrics_color,
                 );
                 
-                // Then render the glyph outline properly using our internal outline data
+                // Then render the glyph outline properly using our internal 
+                // outline data
                 if let Some(outline_data) = &glyph_data.outline {
                     if sort.is_active {
-                        // Active sorts: full outline with control handles and points
-                        crate::rendering::glyph_outline::draw_glyph_outline_at_position(
-                            &mut gizmos,
-                            &viewport,
-                            outline_data,
-                            world_pos,
-                        );
+                        // Active sorts: full outline with control handles 
+                        // and points
+                        crate::rendering::glyph_outline::
+                            draw_glyph_outline_at_position(
+                                &mut gizmos,
+                                &viewport,
+                                outline_data,
+                                world_pos,
+                            );
                         
-                        crate::rendering::glyph_outline::draw_glyph_points_at_position(
-                            &mut gizmos,
-                            &viewport,
-                            outline_data,
-                            world_pos,
-                        );
+                        crate::rendering::glyph_outline::
+                            draw_glyph_points_at_position(
+                                &mut gizmos,
+                                &viewport,
+                                outline_data,
+                                world_pos,
+                            );
                     } else {
-                        // Inactive sorts: just the outline path (no control handles)
+                        // Inactive sorts: just the outline path 
+                        // (no control handles)
                         for contour in &outline_data.contours {
                             if !contour.points.is_empty() {
-                                crate::rendering::glyph_outline::draw_contour_path_at_position(
-                                    &mut gizmos,
-                                    &viewport,
-                                    contour,
-                                    world_pos,
-                                );
+                                crate::rendering::glyph_outline::
+                                    draw_contour_path_at_position(
+                                        &mut gizmos,
+                                        &viewport,
+                                        contour,
+                                        world_pos,
+                                    );
                             }
                         }
                     }
                 } else {
-                    debug!("Glyph '{}' has no outline data", sort.glyph_name);
-                }
-                
-                // Draw a visual indicator for freeform sorts
-                if sort.layout_mode == crate::core::state::SortLayoutMode::Freeform {
-                    // Position handle at lower-left corner of sort metrics, at bottom of descender
-                    let descender = app_state.workspace.info.metrics.descender.unwrap_or(-200.0) as f32;
-                    let handle_position = world_pos + Vec2::new(0.0, descender);
-                    
-                    info!("Drawing freeform handle for '{}' at handle position ({:.1}, {:.1})", 
-                          sort.glyph_name, handle_position.x, handle_position.y);
-                    
-                    // Draw a very prominent handle that should be easily visible
-                    gizmos.circle_2d(
-                        handle_position,
-                        24.0, // Even bigger for testing visibility
-                        Color::srgb(1.0, 0.0, 1.0) // Bright magenta for high visibility
-                    );
-                    
-                    // Add a smaller inner circle for visual clarity
-                    gizmos.circle_2d(
-                        handle_position,
-                        12.0,
-                        Color::srgb(1.0, 1.0, 0.0) // Bright yellow inner circle
+                    debug!(
+                        "Glyph '{}' has no outline data", 
+                        sort.glyph_name
                     );
                 }
-                
+            } else if !sort.glyph_name.is_empty() {
+                debug!(
+                    "Glyph '{}' not found in font data", 
+                    sort.glyph_name
+                );
+            }
+            // Note: Empty buffer roots are handled above and don't need glyph data
+            
+            // Draw handles for all sorts (regardless of glyph data)
+            let descender = app_state.workspace.info.metrics
+                .descender.unwrap_or(-200.0) as f32;
+            let handle_position = world_pos + Vec2::new(0.0, descender);
+            
+            // Determine handle colors based on state
+            let (outer_color, inner_color, handle_size) = if sort.is_buffer_root {
+                // Buffer root handles are larger and have special colors
+                if sort.is_selected {
+                    (Color::srgb(0.0, 1.0, 0.0), Color::srgb(0.8, 1.0, 0.8), 28.0) // Green
+                } else {
+                    (Color::srgb(0.0, 0.8, 0.0), Color::srgb(0.6, 0.8, 0.6), 24.0) // Dark green
+                }
+            } else if sort.is_selected {
+                // Selected handles are highlighted
+                (Color::srgb(1.0, 0.5, 0.0), Color::srgb(1.0, 0.8, 0.4), 20.0) // Orange
             } else {
-                debug!("Glyph '{}' not found in font data", sort.glyph_name);
+                // Unselected handles are subtle
+                (Color::srgb(0.6, 0.6, 0.6), Color::srgb(0.8, 0.8, 0.8), 16.0) // Gray
+            };
+            
+            // Draw the main handle circle
+            gizmos.circle_2d(
+                handle_position,
+                handle_size,
+                outer_color,
+            );
+            
+            // Draw the inner circle for visual clarity
+            gizmos.circle_2d(
+                handle_position,
+                handle_size * 0.6,
+                inner_color,
+            );
+            
+            // Draw buffer root indicator (small square)
+            if sort.is_buffer_root {
+                gizmos.rect_2d(
+                    handle_position,
+                    Vec2::new(8.0, 8.0),
+                    Color::srgb(1.0, 1.0, 1.0), // White square
+                );
             }
         }
     }
     
-    // Render cursor for buffer mode (only show if we're in text tool mode)
-    let cursor_world_pos = text_editor_state.get_world_position_for_buffer_position(text_editor_state.cursor_position);
-    
-    // Draw a blinking cursor line at the insertion point
-    gizmos.line_2d(
-        cursor_world_pos + Vec2::new(-5.0, 400.0),  // Top of cursor line
-        cursor_world_pos + Vec2::new(-5.0, -200.0), // Bottom of cursor line
-        Color::srgb(1.0, 1.0, 0.0), // Yellow cursor
-    );
-    
-    // Draw a small circle indicator for the cursor position (for debugging)
-    gizmos.circle_2d(cursor_world_pos + Vec2::new(0.0, 20.0), 6.0, Color::srgb(1.0, 1.0, 0.0));
+    // Render cursor for buffer mode (only show if we have buffer sorts)
+    let buffer_sorts = text_editor_state.get_buffer_sorts();
+    if !buffer_sorts.is_empty() {
+        debug!("Rendering cursor: {} buffer sorts found", buffer_sorts.len());
+        
+        // Calculate cursor position based on buffer text flow
+        let cursor_world_pos = if text_editor_state.cursor_position < text_editor_state.buffer.len() {
+            // Cursor is between sorts - use the position of the sort at cursor
+            text_editor_state.get_sort_visual_position(text_editor_state.cursor_position)
+                .unwrap_or(Vec2::ZERO)
+        } else if text_editor_state.cursor_position > 0 {
+            // Cursor is at end - position after last buffer sort
+            if let Some(last_sort_pos) = text_editor_state.get_sort_visual_position(text_editor_state.cursor_position - 1) {
+                if let Some(last_sort) = text_editor_state.buffer.get(text_editor_state.cursor_position - 1) {
+                    if last_sort.layout_mode == SortLayoutMode::Buffer {
+                        last_sort_pos + Vec2::new(last_sort.advance_width, 0.0)
+                    } else {
+                        last_sort_pos
+                    }
+                } else {
+                    last_sort_pos
+                }
+            } else {
+                Vec2::ZERO
+            }
+        } else {
+            Vec2::ZERO
+        };
+        
+        // Draw a blinking cursor line at the insertion point
+        gizmos.line_2d(
+            cursor_world_pos + Vec2::new(-5.0, 400.0),  // Top of cursor
+            cursor_world_pos + Vec2::new(-5.0, -200.0), // Bottom of cursor
+            Color::srgb(1.0, 1.0, 0.0), // Yellow cursor
+        );
+        
+        // Draw a small circle indicator for the cursor position 
+        // (for debugging)
+        gizmos.circle_2d(
+            cursor_world_pos + Vec2::new(0.0, 20.0), 
+            6.0, 
+            Color::srgb(1.0, 1.0, 0.0)
+        );
+    } else {
+        debug!("No cursor rendered: {} buffer sorts found", buffer_sorts.len());
+    }
 }
 
 /// Handle keyboard input for text editing
@@ -256,6 +425,16 @@ pub fn handle_text_editor_keyboard_input(
         let buffer_len = text_editor_state.buffer.len();
         text_editor_state.move_cursor_to(buffer_len);
         info!("Moved cursor to end");
+    }
+    
+    // Ctrl+T to create a new text buffer
+    if keyboard_input.just_pressed(KeyCode::KeyT) && 
+       (keyboard_input.pressed(KeyCode::ControlLeft) || 
+        keyboard_input.pressed(KeyCode::ControlRight)) {
+        // For now, create buffer root at center of screen
+        // TODO: Use actual mouse/click position from text tool
+        text_editor_state.create_buffer_root(Vec2::new(500.0, 0.0));
+        info!("Created new text buffer");
     }
     
     // Delete/Backspace
@@ -319,22 +498,32 @@ pub fn handle_text_editor_keyboard_input(
     
     // Handle character input
     for key in [
-        KeyCode::KeyA, KeyCode::KeyB, KeyCode::KeyC, KeyCode::KeyD, KeyCode::KeyE,
-        KeyCode::KeyF, KeyCode::KeyG, KeyCode::KeyH, KeyCode::KeyI, KeyCode::KeyJ,
-        KeyCode::KeyK, KeyCode::KeyL, KeyCode::KeyM, KeyCode::KeyN, KeyCode::KeyO,
-        KeyCode::KeyP, KeyCode::KeyQ, KeyCode::KeyR, KeyCode::KeyS, KeyCode::KeyT,
-        KeyCode::KeyU, KeyCode::KeyV, KeyCode::KeyW, KeyCode::KeyX, KeyCode::KeyY,
-        KeyCode::KeyZ, KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4,
-        KeyCode::Digit5, KeyCode::Digit6, KeyCode::Digit7, KeyCode::Digit8, KeyCode::Digit9,
-        KeyCode::Digit0, KeyCode::Space,
+        KeyCode::KeyA, KeyCode::KeyB, KeyCode::KeyC, KeyCode::KeyD, 
+        KeyCode::KeyE, KeyCode::KeyF, KeyCode::KeyG, KeyCode::KeyH, 
+        KeyCode::KeyI, KeyCode::KeyJ, KeyCode::KeyK, KeyCode::KeyL, 
+        KeyCode::KeyM, KeyCode::KeyN, KeyCode::KeyO, KeyCode::KeyP, 
+        KeyCode::KeyQ, KeyCode::KeyR, KeyCode::KeyS, KeyCode::KeyT,
+        KeyCode::KeyU, KeyCode::KeyV, KeyCode::KeyW, KeyCode::KeyX, 
+        KeyCode::KeyY, KeyCode::KeyZ, KeyCode::Digit1, KeyCode::Digit2, 
+        KeyCode::Digit3, KeyCode::Digit4, KeyCode::Digit5, 
+        KeyCode::Digit6, KeyCode::Digit7, KeyCode::Digit8, 
+        KeyCode::Digit9, KeyCode::Digit0, 
+        KeyCode::Space,
     ] {
         if keyboard_input.just_pressed(key) {
             if let Some(glyph_name) = character_to_glyph(key) {
                 // Check if the glyph exists in the font
-                if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
+                if let Some(glyph_data) = 
+                    app_state.workspace.font.glyphs.get(&glyph_name) {
                     let advance_width = glyph_data.advance_width as f32;
-                    text_editor_state.insert_sort_at_cursor(glyph_name.clone(), advance_width);
-                    info!("Inserted glyph '{}' at cursor position", glyph_name);
+                    text_editor_state.insert_sort_at_cursor(
+                        glyph_name.clone(), 
+                        advance_width
+                    );
+                    info!(
+                        "Inserted glyph '{}' at cursor position", 
+                        glyph_name
+                    );
                 } else {
                     info!("Glyph '{}' not found in font", glyph_name);
                 }
@@ -353,15 +542,25 @@ pub fn debug_text_editor_state(
         info!("Buffer length: {}", text_editor_state.buffer.len());
         info!("Cursor position: {}", text_editor_state.cursor_position);
         
-        if let Some((active_pos, active_sort)) = text_editor_state.get_active_sort() {
-            info!("Active sort: '{}' at position {}", active_sort.glyph_name, active_pos);
+        if let Some((active_pos, active_sort)) = 
+            text_editor_state.get_active_sort() {
+            info!(
+                "Active sort: '{}' at position {}", 
+                active_sort.glyph_name, 
+                active_pos
+            );
         } else {
             info!("No active sort");
         }
         
         // Log first few sorts
         for (i, sort) in text_editor_state.buffer.iter().take(5).enumerate() {
-            info!("Sort {}: '{}' (active: {})", i, sort.glyph_name, sort.is_active);
+            info!(
+                "Sort {}: '{}' (active: {})", 
+                i, 
+                sort.glyph_name, 
+                sort.is_active
+            );
         }
     }
 } 

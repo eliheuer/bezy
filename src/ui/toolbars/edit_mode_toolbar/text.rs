@@ -404,10 +404,10 @@ pub fn handle_text_mode_clicks(
                 
                 match current_placement_mode.0 {
                     TextPlacementMode::Buffer => {
-                        // Buffer mode: Add sort to the gap buffer at cursor position
-                        text_editor_state.insert_sort_at_cursor(glyph_name.clone(), advance_width);
-                        info!("Placed sort '{}' in buffer mode at cursor position {}", 
-                              glyph_name, text_editor_state.cursor_position - 1);
+                        // Buffer mode: Create buffer sort at the clicked position
+                        text_editor_state.create_buffer_sort_at_position(glyph_name.clone(), cursor_pos, advance_width);
+                        info!("Placed sort '{}' in buffer mode at position ({:.1}, {:.1})", 
+                              glyph_name, cursor_pos.x, cursor_pos.y);
                     }
                     TextPlacementMode::Freeform => {
                         // Freeform mode: Add sort at the clicked position
@@ -460,8 +460,8 @@ pub fn render_sort_preview(
         // Get the preview position based on placement mode
         let preview_pos = match current_placement_mode.0 {
             TextPlacementMode::Buffer => {
-                // In buffer mode, show preview at the cursor position in the grid
-                text_editor_state.get_world_position_for_buffer_position(text_editor_state.cursor_position)
+                // In buffer mode, show preview at the mouse cursor position (where it will be placed)
+                cursor_pos
             }
             TextPlacementMode::Freeform => {
                 // In freeform mode, show preview at the mouse cursor position
@@ -509,24 +509,30 @@ pub fn render_sort_preview(
         // Draw mode indicator with better visual design
         match current_placement_mode.0 {
             TextPlacementMode::Buffer => {
-                // Draw grid snap indicator for buffer mode
+                // Draw text flow indicator for buffer mode
                 gizmos.rect_2d(
                     preview_pos + Vec2::new(0.0, 50.0),
                     Vec2::new(20.0, 20.0),
                     mode_indicator_color,
                 );
-                // Draw grid lines to show snapping
-                let grid_size = 20.0;
-                for i in -1..=1 {
-                    for j in -1..=1 {
-                        let grid_pos = preview_pos + Vec2::new(i as f32 * grid_size, j as f32 * grid_size + 50.0);
-                        gizmos.rect_2d(
-                            grid_pos,
-                            Vec2::new(4.0, 4.0),
-                            mode_indicator_color.with_alpha(0.2),
-                        );
-                    }
-                }
+                // Draw arrow to show text flow direction
+                let arrow_pos = preview_pos + Vec2::new(0.0, 50.0);
+                gizmos.line_2d(
+                    arrow_pos + Vec2::new(-15.0, 0.0),
+                    arrow_pos + Vec2::new(15.0, 0.0),
+                    mode_indicator_color,
+                );
+                // Arrow head
+                gizmos.line_2d(
+                    arrow_pos + Vec2::new(15.0, 0.0),
+                    arrow_pos + Vec2::new(10.0, -5.0),
+                    mode_indicator_color,
+                );
+                gizmos.line_2d(
+                    arrow_pos + Vec2::new(15.0, 0.0),
+                    arrow_pos + Vec2::new(10.0, 5.0),
+                    mode_indicator_color,
+                );
             }
             TextPlacementMode::Freeform => {
                 // Draw crosshair indicator for freeform mode
@@ -550,24 +556,7 @@ pub fn render_sort_preview(
             }
         }
         
-        // Draw cursor indicator in buffer mode
-        if current_placement_mode.0 == TextPlacementMode::Buffer {
-            let cursor_world_pos = text_editor_state.get_world_position_for_buffer_position(text_editor_state.cursor_position);
-            
-            // Draw cursor line
-            gizmos.line_2d(
-                cursor_world_pos + Vec2::new(0.0, -100.0),
-                cursor_world_pos + Vec2::new(0.0, 100.0),
-                Color::srgb(1.0, 1.0, 0.0).with_alpha(0.8), // Yellow cursor
-            );
-            
-            // Draw cursor position indicator
-            gizmos.circle_2d(
-                cursor_world_pos + Vec2::new(0.0, 120.0),
-                8.0,
-                Color::srgb(1.0, 1.0, 0.0).with_alpha(0.9),
-            );
-        }
+        // Note: Removed old grid cursor indicator since buffer sorts now use click positioning
         
         // Draw mode indicator text using simple shapes (since we can't render text with gizmos)
         let mode_text_pos = cursor_pos + Vec2::new(0.0, 200.0);
