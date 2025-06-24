@@ -316,8 +316,15 @@ pub fn handle_text_mode_cursor(
     mut cursor_moved_events: EventReader<CursorMoved>,
     windows: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
+    ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
 ) {
     if !text_mode_active.0 {
+        return;
+    }
+
+    // Don't update cursor position when hovering over UI
+    if ui_hover_state.is_hovering_ui {
+        text_mode_state.showing_preview = false;
         return;
     }
 
@@ -365,8 +372,14 @@ pub fn handle_text_mode_clicks(
     mut mouse_button_input: EventReader<bevy::input::mouse::MouseButtonInput>,
     app_state: Res<AppState>,
     glyph_navigation: Res<GlyphNavigation>,
+    ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
 ) {
     if !text_mode_active.0 {
+        return;
+    }
+
+    // Don't handle clicks when hovering over UI
+    if ui_hover_state.is_hovering_ui {
         return;
     }
 
@@ -431,9 +444,15 @@ pub fn render_sort_preview(
     glyph_navigation: Res<GlyphNavigation>,
     app_state: Res<AppState>,
     viewport: Res<crate::ui::panes::design_space::ViewPort>,
+    ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
 ) {
     // Only show preview when text mode is active
     if !text_mode_active.0 {
+        return;
+    }
+
+    // Don't show preview when hovering over UI
+    if ui_hover_state.is_hovering_ui {
         return;
     }
 
