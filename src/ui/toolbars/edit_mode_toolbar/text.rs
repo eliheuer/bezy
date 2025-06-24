@@ -471,7 +471,11 @@ pub fn handle_text_mode_clicks(
                 let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
                 let cursor_design_pos = viewport.from_screen(raw_cursor_world_pos);
                 // Use the exact same calculation as preview: cursor - descender
-                let sort_position = Vec2::new(cursor_design_pos.x, cursor_design_pos.y) - Vec2::new(0.0, descender);
+                let raw_sort_position = Vec2::new(cursor_design_pos.x, cursor_design_pos.y) - Vec2::new(0.0, descender);
+                
+                // Apply grid snapping to the final sort position  
+                let settings = crate::core::settings::BezySettings::default();
+                let sort_position = settings.apply_sort_grid_snap(raw_sort_position);
                 
                 match current_placement_mode.0 {
                     TextPlacementMode::Buffer => {
@@ -561,7 +565,11 @@ pub fn render_sort_preview(
         // Therefore: baseline = cursor - descender
         let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
         let cursor_design_pos = viewport.from_screen(raw_cursor_world_pos);
-        let preview_pos = Vec2::new(cursor_design_pos.x, cursor_design_pos.y) - Vec2::new(0.0, descender);
+        let raw_preview_pos = Vec2::new(cursor_design_pos.x, cursor_design_pos.y) - Vec2::new(0.0, descender);
+        
+        // Apply grid snapping to preview position to match final placement
+        let settings = crate::core::settings::BezySettings::default();
+        let preview_pos = settings.apply_sort_grid_snap(raw_preview_pos);
         
         info!("Preview positioning: cursor=({:.1}, {:.1}), descender={:.1}, preview_pos=({:.1}, {:.1})", 
               raw_cursor_world_pos.x, raw_cursor_world_pos.y, descender, preview_pos.x, preview_pos.y);
@@ -592,12 +600,9 @@ pub fn render_sort_preview(
                 preview_color,
             );
             
-            // Convert mouse position to design space coordinates (same as metrics)
-            let cursor_design_pos = viewport.from_screen(raw_cursor_world_pos);
-            
-            // The handle should be directly under the cursor
-            // preview_pos is the baseline, so handle = baseline + descender = cursor
-            let handle_position = Vec2::new(cursor_design_pos.x, cursor_design_pos.y);
+            // The handle should be at the descender line relative to the snapped baseline position
+            // preview_pos is the snapped baseline, so handle = baseline + descender
+            let handle_position = preview_pos + Vec2::new(0.0, descender);
             
             // Log every 60 frames (roughly once per second at 60 FPS)
             static FRAME_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -648,61 +653,6 @@ pub fn render_sort_preview(
                     Color::srgb(1.0, 1.0, 1.0).with_alpha(0.8), // Semi-transparent white square
                 );
             }
-        }
-        
-        // Draw coordinate display
-        let coord_pos = cursor_pos + Vec2::new(40.0, 40.0); // Offset from cursor
-        
-        // Draw coordinate background
-        gizmos.rect_2d(
-            coord_pos,
-            Vec2::new(120.0, 40.0),
-            Color::srgb(0.0, 0.0, 0.0).with_alpha(0.7), // Semi-transparent black background
-        );
-        
-        // Draw coordinate text using simple visual representation
-        // Since we can't render actual text with gizmos, we'll use a simple indicator
-        // and the actual coordinates will be visible in the coordinate pane
-        
-        // Draw "X:" indicator
-        for i in 0..2 {
-            gizmos.line_2d(
-                coord_pos + Vec2::new(-50.0 + i as f32 * 10.0, 10.0),
-                coord_pos + Vec2::new(-40.0 + i as f32 * 10.0, -10.0),
-                Color::srgb(1.0, 1.0, 1.0),
-            );
-            gizmos.line_2d(
-                coord_pos + Vec2::new(-50.0 + i as f32 * 10.0, -10.0),
-                coord_pos + Vec2::new(-40.0 + i as f32 * 10.0, 10.0),
-                Color::srgb(1.0, 1.0, 1.0),
-            );
-        }
-        
-        // Draw "Y:" indicator  
-        for i in 0..2 {
-            gizmos.line_2d(
-                coord_pos + Vec2::new(-20.0 + i as f32 * 10.0, 10.0),
-                coord_pos + Vec2::new(-15.0 + i as f32 * 10.0, 0.0),
-                Color::srgb(1.0, 1.0, 1.0),
-            );
-            gizmos.line_2d(
-                coord_pos + Vec2::new(-15.0 + i as f32 * 10.0, 0.0),
-                coord_pos + Vec2::new(-10.0 + i as f32 * 10.0, -10.0),
-                Color::srgb(1.0, 1.0, 1.0),
-            );
-        }
-        
-        // Draw coordinate values as dots (the actual values will be in the coordinate pane)
-        let x_rounded = (cursor_pos.x / 100.0).round() as i32;
-        let y_rounded = (cursor_pos.y / 100.0).round() as i32;
-        
-        // Show a simple visual indicator for the coordinate magnitude
-        for i in 0..3 {
-            gizmos.circle_2d(
-                coord_pos + Vec2::new(10.0 + i as f32 * 8.0, 0.0),
-                2.0,
-                Color::srgb(0.8, 0.8, 1.0),
-            );
         }
     }
 }
