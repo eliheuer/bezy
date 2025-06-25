@@ -374,28 +374,18 @@ pub fn render_text_editor_sorts(
     if !buffer_sorts.is_empty() {
         debug!("Rendering cursor: {} buffer sorts found", buffer_sorts.len());
         
-        // Calculate cursor position based on buffer text flow
-        let cursor_world_pos = if text_editor_state.cursor_position < text_editor_state.buffer.len() {
-            // Cursor is between sorts - use the position of the sort at cursor
-            text_editor_state.get_sort_visual_position(text_editor_state.cursor_position)
-                .unwrap_or(Vec2::ZERO)
-        } else if text_editor_state.cursor_position > 0 {
-            // Cursor is at end - position after last buffer sort (at the right edge)
-            if let Some(last_sort_pos) = text_editor_state.get_sort_visual_position(text_editor_state.cursor_position - 1) {
-                if let Some(last_sort) = text_editor_state.buffer.get(text_editor_state.cursor_position - 1) {
-                    if last_sort.layout_mode == SortLayoutMode::Buffer {
-                        // Position cursor at the far right edge of the last sort
-                        last_sort_pos + Vec2::new(last_sort.advance_width, 0.0)
-                    } else {
-                        last_sort_pos
-                    }
-                } else {
-                    last_sort_pos
-                }
-            } else {
-                Vec2::ZERO
-            }
+        // Find the active buffer root and calculate cursor position within that buffer
+        let cursor_world_pos = if let Some(active_buffer_root) = find_active_buffer_root(&text_editor_state) {
+            let (root_index, root_sort) = active_buffer_root;
+            let cursor_pos_in_buffer = root_sort.buffer_cursor_position.unwrap_or(0);
+            
+            debug!("Active buffer root '{}' at index {}, cursor position in buffer: {}", 
+                   root_sort.glyph_name, root_index, cursor_pos_in_buffer);
+            
+            // Calculate position within this buffer sequence
+            calculate_cursor_position_in_buffer(&text_editor_state, root_index, cursor_pos_in_buffer)
         } else {
+            debug!("No active buffer root found, positioning cursor at zero");
             Vec2::ZERO
         };
         
@@ -657,6 +647,83 @@ pub fn handle_text_editor_keyboard_input(
     }
 }
 
+/// Find the currently active buffer root (selected or in insert mode)
+fn find_active_buffer_root(text_editor_state: &TextEditorState) -> Option<(usize, &SortEntry)> {
+    // FIXED: Use more robust logic to find active buffer root
+    // First try to find a selected buffer root
+    for i in 0..text_editor_state.buffer.len() {
+        if let Some(sort) = text_editor_state.buffer.get(i) {
+            if sort.is_buffer_root && sort.is_selected {
+                return Some((i, sort));
+            }
+        }
+    }
+    
+    // If no selected buffer root, look for any buffer root with a cursor position
+    for i in 0..text_editor_state.buffer.len() {
+        if let Some(sort) = text_editor_state.buffer.get(i) {
+            if sort.is_buffer_root && sort.buffer_cursor_position.is_some() {
+                return Some((i, sort));
+            }
+        }
+    }
+    
+    // If still no buffer root found, look for the most recently added buffer root
+    for i in (0..text_editor_state.buffer.len()).rev() {
+        if let Some(sort) = text_editor_state.buffer.get(i) {
+            if sort.is_buffer_root {
+                return Some((i, sort));
+            }
+        }
+    }
+    
+    None
+}
+
+/// Calculate cursor position within a buffer sequence
+fn calculate_cursor_position_in_buffer(
+    text_editor_state: &TextEditorState, 
+    root_index: usize, 
+    cursor_pos_in_buffer: usize
+) -> Vec2 {
+    if let Some(root_sort) = text_editor_state.buffer.get(root_index) {
+        let root_position = root_sort.freeform_position;
+        
+        if cursor_pos_in_buffer == 0 {
+            // Cursor is at the root position (for empty roots or at the start)
+            if root_sort.glyph_name.is_empty() {
+                // Empty root - cursor at root position for replacement
+                root_position
+            } else {
+                // Non-empty root - cursor at left edge
+                root_position
+            }
+        } else {
+            // Cursor is after one or more sorts - calculate cumulative x offset
+            let mut x_offset = 0.0;
+            
+            // Sum up advance widths from the root up to the cursor position
+            for i in 0..cursor_pos_in_buffer {
+                let sort_index = root_index + i;
+                if let Some(sort) = text_editor_state.buffer.get(sort_index) {
+                    if sort.layout_mode == SortLayoutMode::Buffer && !sort.glyph_name.is_empty() {
+                        x_offset += sort.advance_width;
+                        debug!("Adding advance width {:.1} for sort '{}' at index {}", 
+                               sort.advance_width, sort.glyph_name, sort_index);
+                    }
+                }
+            }
+            
+            let cursor_pos = root_position + Vec2::new(x_offset, 0.0);
+            debug!("Cursor position: root=({:.1}, {:.1}), offset={:.1}, final=({:.1}, {:.1})", 
+                   root_position.x, root_position.y, x_offset, cursor_pos.x, cursor_pos.y);
+            cursor_pos
+        }
+    } else {
+        Vec2::ZERO
+    }
+}
+
 /// Debug system to log text editor state
 pub fn debug_text_editor_state(
     text_editor_state: Res<TextEditorState>,
@@ -681,10 +748,12 @@ pub fn debug_text_editor_state(
         // Log first few sorts
         for (i, sort) in text_editor_state.buffer.iter().take(5).enumerate() {
             info!(
-                "Sort {}: '{}' (active: {})", 
+                "Sort {}: '{}' (active: {}, buffer_root: {}, cursor: {:?})", 
                 i, 
                 sort.glyph_name, 
-                sort.is_active
+                sort.is_active,
+                sort.is_buffer_root,
+                sort.buffer_cursor_position
             );
         }
     }
