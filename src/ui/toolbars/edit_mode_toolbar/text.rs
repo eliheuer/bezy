@@ -80,6 +80,8 @@ pub enum TextPlacementMode {
     /// Place sorts in the buffer (grid layout)
     #[default]
     Buffer,
+    /// Insert and edit text within existing buffer sorts  
+    Insert,
     /// Place sorts freely in the design space
     Freeform,
 }
@@ -88,16 +90,18 @@ impl TextPlacementMode {
     /// Get the icon for each placement mode
     pub fn get_icon(&self) -> &'static str {
         match self {
-            TextPlacementMode::Buffer => "\u{E004}", // Buffer sorts icon
-            TextPlacementMode::Freeform => "\u{E006}", // Freeform sorts icon
+            TextPlacementMode::Buffer => "\u{E004}",    // Buffer sorts icon
+            TextPlacementMode::Insert => "\u{F001}",    // Insert/text editing icon
+            TextPlacementMode::Freeform => "\u{E006}",  // Freeform sorts icon
         }
     }
 
     /// Get the display name for each placement mode
     pub fn display_name(&self) -> &'static str {
         match self {
-            TextPlacementMode::Buffer => "Buffer Mode",
-            TextPlacementMode::Freeform => "Freeform Mode",
+            TextPlacementMode::Buffer => "Buffer",
+            TextPlacementMode::Insert => "Insert", 
+            TextPlacementMode::Freeform => "Freeform",
         }
     }
     
@@ -105,6 +109,7 @@ impl TextPlacementMode {
     pub fn to_sort_layout_mode(&self) -> SortLayoutMode {
         match self {
             TextPlacementMode::Buffer => SortLayoutMode::Buffer,
+            TextPlacementMode::Insert => SortLayoutMode::Buffer,
             TextPlacementMode::Freeform => SortLayoutMode::Freeform,
         }
     }
@@ -137,15 +142,16 @@ impl Plugin for TextModePlugin {
                 Update,
                 (
                     update_text_mode_active,
+                    // Text tool shortcuts should run first to handle tool switching
+                    handle_text_tool_shortcuts,
                     handle_text_mode_cursor,
                     handle_text_mode_clicks,
                     handle_text_mode_keyboard,
-                    handle_text_tool_shortcuts,
                     render_sort_preview,
                     reset_text_mode_when_inactive,
                     handle_text_mode_selection,
                     toggle_text_submenu_visibility,
-                ),
+                ).chain(), // Run in sequence to prevent input conflicts
             );
     }
 }
@@ -172,6 +178,7 @@ pub fn spawn_text_submenu(
 ) {
     let modes = [
         TextPlacementMode::Buffer,
+        TextPlacementMode::Insert,
         TextPlacementMode::Freeform,
     ];
 
@@ -403,7 +410,7 @@ pub fn handle_text_mode_cursor(
 pub fn handle_text_mode_clicks(
     text_mode_active: Res<TextModeActive>,
     text_mode_state: Res<TextModeState>,
-    current_placement_mode: Res<CurrentTextPlacementMode>,
+    mut current_placement_mode: ResMut<CurrentTextPlacementMode>,
     mut text_editor_state: Option<ResMut<TextEditorState>>,
     mut mouse_button_input: EventReader<bevy::input::mouse::MouseButtonInput>,
     app_state: Res<AppState>,
@@ -412,6 +419,7 @@ pub fn handle_text_mode_clicks(
     viewport: Res<crate::ui::panes::design_space::ViewPort>,
     windows: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
+    mut text_mode_config: ResMut<TextModeConfig>,
 ) {
     if !text_mode_active.0 {
         return;
@@ -483,6 +491,14 @@ pub fn handle_text_mode_clicks(
                         text_editor_state.create_buffer_sort_at_position(glyph_name.clone(), sort_position, advance_width);
                         info!("Placed sort '{}' in buffer mode at position ({:.1}, {:.1}) with descender offset {:.1}", 
                               glyph_name, sort_position.x, sort_position.y, descender);
+                        // Automatically switch to Insert mode after placing a buffer sort
+                        current_placement_mode.0 = TextPlacementMode::Insert;
+                        text_mode_config.default_placement_mode = TextPlacementMode::Insert.to_sort_layout_mode();
+                    }
+                    TextPlacementMode::Insert => {
+                        // Insert mode: Don't place new sorts, this mode is for editing existing buffer sorts
+                        // User should use arrow keys and typing to edit buffer content
+                        info!("Insert mode: Use keyboard to edit buffer sorts, not mouse clicks");
                     }
                     TextPlacementMode::Freeform => {
                         // Freeform mode: Add sort at the calculated position
@@ -510,21 +526,27 @@ pub fn render_sort_preview(
     windows: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
 ) {
-    // Only show preview when text mode is active
+    // Don't render preview if text mode is not active
     if !text_mode_active.0 {
         return;
     }
 
-    // Don't show preview when hovering over UI
+    // CRITICAL: Don't show sort placement preview in Insert mode
+    // Insert mode is purely for editing existing text, not placing new sorts
+    if current_placement_mode.0 == TextPlacementMode::Insert {
+        return;
+    }
+
+    // Don't render preview when hovering over UI
     if ui_hover_state.is_hovering_ui {
         return;
     }
 
-    // Early exit if text editor state isn't ready yet
-    let Some(_text_editor_state) = text_editor_state else {
+    // Don't render preview if no cursor position is available
+    let Some(cursor_world_pos) = text_mode_state.cursor_position else {
         return;
     };
-    
+
     // Get the actual mouse cursor position in world coordinates (unsnapped)
     let raw_cursor_world_pos = {
         if let (Ok(window), Ok((camera, camera_transform))) = (windows.get_single(), camera_query.get_single()) {
@@ -616,13 +638,17 @@ pub fn render_sort_preview(
             // Draw handle for buffer root (larger size with green color when placing buffer sorts)
             let (outer_color, inner_color, handle_size) = match current_placement_mode.0 {
                 TextPlacementMode::Buffer => {
-                    // Buffer root handles are green and larger
-                    (Color::srgb(0.0, 1.0, 0.0), Color::srgb(0.6, 1.0, 0.6), 28.0)
-                }
+                    // Buffer mode: Blue colors for buffer sorts
+                    (Color::srgb(0.2, 0.4, 1.0).with_alpha(0.6), Color::srgb(0.4, 0.6, 1.0).with_alpha(0.4), 20.0)
+                },
+                TextPlacementMode::Insert => {
+                    // Insert mode: Green colors to indicate editing mode
+                    (Color::srgb(0.2, 1.0, 0.4).with_alpha(0.6), Color::srgb(0.4, 1.0, 0.6).with_alpha(0.4), 20.0)
+                },
                 TextPlacementMode::Freeform => {
-                    // Freeform handles are orange and normal size
-                    (Color::srgb(1.0, 0.5, 0.0), Color::srgb(1.0, 0.8, 0.4), 20.0)
-                }
+                    // Freeform mode: Orange colors for freeform sorts  
+                    (Color::srgb(1.0, 0.5, 0.0).with_alpha(0.6), Color::srgb(1.0, 0.7, 0.2).with_alpha(0.4), 16.0)
+                },
             };
             
             // Convert handle position to screen space (same coordinate system as metrics)
@@ -673,11 +699,19 @@ pub fn handle_text_mode_keyboard(
         return;
     }
 
+    // CRITICAL: In Insert mode, don't handle any keyboard input here
+    // Let the text_editor_sorts.rs system handle all text editing
+    if current_placement_mode.0 == TextPlacementMode::Insert {
+        return;
+    }
+
     // Early exit if text editor state isn't ready yet
     let Some(mut text_editor_state) = text_editor_state else {
         return;
     };
 
+    // The rest of this function only handles Buffer and Freeform modes for sort placement
+    
     // Handle keyboard navigation for buffer mode
     if current_placement_mode.0 == TextPlacementMode::Buffer {
         // Arrow key navigation
@@ -731,7 +765,7 @@ pub fn handle_text_mode_keyboard(
         }
     }
 
-    // Quick glyph switching with number keys (1-9)
+    // Quick glyph switching with number keys (1-9) - works in Buffer and Freeform modes
     let mut glyph_switched = false;
     for (i, key) in [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4, 
                      KeyCode::Digit5, KeyCode::Digit6, KeyCode::Digit7, KeyCode::Digit8, KeyCode::Digit9].iter().enumerate() {
@@ -750,7 +784,7 @@ pub fn handle_text_mode_keyboard(
         return; // Early exit if we switched glyphs
     }
 
-    // Quick sort placement with letter keys (works in both modes)
+    // Quick sort placement with letter keys - only works in Buffer and Freeform modes
     let default_glyph_name = match &glyph_navigation.current_glyph {
         Some(name) => name.clone(),
         None => {
@@ -772,7 +806,7 @@ pub fn handle_text_mode_keyboard(
         600.0 // Default width
     };
 
-    // Handle character input for quick placement
+    // Handle character input for quick placement - only for Buffer and Freeform modes
     // Collect keys to process and clear after the loop to avoid borrow checker issues
     let pressed_keys: Vec<KeyCode> = keyboard_input.get_just_pressed().cloned().collect();
     let mut keys_to_clear = Vec::new();
@@ -831,22 +865,23 @@ pub fn handle_text_mode_keyboard(
                 
                 match current_placement_mode.0 {
                     TextPlacementMode::Buffer => {
-                        text_editor_state.insert_sort_at_cursor(char_glyph.to_string(), char_advance_width);
-                        info!("Text mode: typed '{}' in buffer mode at position {}", 
-                              char_glyph, text_editor_state.cursor_position - 1);
+                        // Buffer mode: Place sort at cursor position or center if no position tracked
+                        let position = text_mode_state.cursor_position.unwrap_or(Vec2::ZERO);
+                        text_editor_state.create_buffer_sort_at_position(char_glyph.to_string(), position, char_advance_width);
+                        info!("Placed sort '{}' in buffer mode via keyboard at position ({:.1}, {:.1})", 
+                              char_glyph, position.x, position.y);
+                    }
+                    TextPlacementMode::Insert => {
+                        // This should never be reached due to early return above
+                        // But keeping for safety
+                        info!("Insert mode: Keyboard typing should be handled by text editor system");
                     }
                     TextPlacementMode::Freeform => {
-                        // For freeform mode with keyboard, place at cursor position or default
-                        let freeform_pos = text_mode_state.cursor_position.unwrap_or(Vec2::new(0.0, 0.0));
-                        text_editor_state.add_freeform_sort(char_glyph.to_string(), freeform_pos, char_advance_width);
-                        info!("Text mode: typed '{}' in freeform mode at position {:?}", char_glyph, freeform_pos);
-                        
-                        // Move cursor to the right for next character
-                        if let Some(current_pos) = text_mode_state.cursor_position {
-                            // Update cursor position for next character (move right by advance width)
-                            // Note: We would need to make text_mode_state mutable to update this
-                            debug!("Next freeform position would be: {:?}", current_pos + Vec2::new(char_advance_width, 0.0));
-                        }
+                        // Freeform mode: Place sort at cursor position or center if no position tracked
+                        let position = text_mode_state.cursor_position.unwrap_or(Vec2::ZERO);
+                        text_editor_state.add_freeform_sort(char_glyph.to_string(), position, char_advance_width);
+                        info!("Placed sort '{}' in freeform mode via keyboard at position ({:.1}, {:.1})", 
+                              char_glyph, position.x, position.y);
                     }
                 }
                 
@@ -872,26 +907,28 @@ pub fn handle_text_tool_shortcuts(
     mut text_mode_config: ResMut<TextModeConfig>,
     text_editor_state: Option<Res<TextEditorState>>,
 ) {
-    // Global shortcut to activate text tool
-    if keyboard_input.just_pressed(KeyCode::KeyT) {
-        if current_tool.get_current() != Some("text") {
-            current_tool.switch_to("text");
-            info!("Activated text tool via keyboard shortcut");
-        }
+    // Global shortcut to activate text tool - only when not already active
+    if keyboard_input.just_pressed(KeyCode::KeyT) && current_tool.get_current() != Some("text") {
+        current_tool.switch_to("text");
+        info!("Activated text tool via keyboard shortcut");
+        keyboard_input.clear_just_pressed(KeyCode::KeyT); // Prevent interference with text input
     }
     
-    // When text tool is active, Tab to switch between buffer/freeform modes
+    // When text tool is active, Tab to switch between placement modes
+    // Only process Tab if the text tool is currently active
     if current_tool.get_current() == Some("text") && keyboard_input.just_pressed(KeyCode::Tab) {
         let new_mode = match current_placement_mode.0 {
-            TextPlacementMode::Buffer => TextPlacementMode::Freeform,
+            TextPlacementMode::Buffer => TextPlacementMode::Insert,
+            TextPlacementMode::Insert => TextPlacementMode::Freeform,
             TextPlacementMode::Freeform => TextPlacementMode::Buffer,
         };
         current_placement_mode.0 = new_mode;
         text_mode_config.default_placement_mode = new_mode.to_sort_layout_mode();
         info!("Switched text placement mode to: {:?}", new_mode);
+        keyboard_input.clear_just_pressed(KeyCode::Tab); // Prevent interference
     }
     
-    // Ctrl+S to save current text layout
+    // Ctrl+S to save current text layout - only when text tool is active
     if current_tool.get_current() == Some("text") && keyboard_input.just_pressed(KeyCode::KeyS) && 
        (keyboard_input.pressed(KeyCode::ControlLeft) || keyboard_input.pressed(KeyCode::ControlRight)) {
         if let Some(text_editor_state) = text_editor_state.as_ref() {
@@ -902,29 +939,37 @@ pub fn handle_text_tool_shortcuts(
             info!("Current text buffer: {}", buffer_text);
             info!("Buffer length: {} sorts", text_editor_state.buffer.len());
             info!("Cursor position: {}", text_editor_state.cursor_position);
+            info!("Current mode: {:?}", current_placement_mode.0);
             // In a real implementation, we could save this to a file or clipboard
         }
     }
     
-    // F1 to show help
+    // F1 to show help - only when text tool is active
     if current_tool.get_current() == Some("text") && keyboard_input.just_pressed(KeyCode::F1) {
         info!("=== TEXT TOOL HELP ===");
         info!("T - Activate text tool");
-        info!("Tab - Switch between Buffer/Freeform modes");
+        info!("Tab - Switch between Buffer/Insert/Freeform modes");
+        info!("BUFFER MODE:");
+        info!("  • Click to place glyphs");
+        info!("  • Type letters to create sorts");
+        info!("  • Arrow keys for navigation");
+        info!("INSERT MODE:");
+        info!("  • Arrow keys to move cursor");
+        info!("  • Type to insert text at cursor");
+        info!("  • Backspace/Delete to edit text");
+        info!("  • No sort placement preview");
+        info!("FREEFORM MODE:");
+        info!("  • Click to place glyphs freely");
+        info!("  • Type letters to create sorts");
         info!("1-9 - Switch to glyph by number");
-        info!("a-z - Type letters");
-        info!("Space - Insert space");
-        info!("Backspace - Delete character");
-        info!("Arrow keys - Navigate cursor (Buffer mode)");
-        info!("Home/End - Go to start/end (Buffer mode)");
-        info!("Click - Place glyph at position");
+        info!("Home/End - Go to start/end (Insert mode)");
         info!("Ctrl+S - Show current text buffer");
         info!("Escape - Exit text tool");
         info!("F1 - Show this help");
         info!("====================");
     }
     
-    // Escape to exit text tool
+    // Escape to exit text tool - only when text tool is active
     if current_tool.get_current() == Some("text") && keyboard_input.just_pressed(KeyCode::Escape) {
         if let Some(previous_tool) = current_tool.get_previous() {
             current_tool.switch_to(previous_tool);

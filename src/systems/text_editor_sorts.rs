@@ -4,21 +4,23 @@
 //! similar to how text editors work. Sorts are stored in a linear buffer
 //! and mapped to a visual grid for display.
 
-use crate::core::state::{AppState, TextEditorState, SortEntry, SortLayoutMode};
+use crate::core::state::{AppState, TextEditorState, SortEntry, SortLayoutMode, SortBuffer, GridConfig};
 use crate::rendering::cameras::DesignCamera;
 use crate::systems::ui_interaction::UiHoverState;
 
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-/// Initialize the text editor state when a font is loaded
+/// System to initialize text editor sorts when the font is loaded
+/// This creates an empty TextEditorState for the text tool to work with
 pub fn initialize_text_editor_sorts(
     mut commands: Commands,
     app_state: Res<AppState>,
-    text_editor_state: Option<Res<TextEditorState>>,
+    text_editor_state: Option<ResMut<TextEditorState>>,
+    mut has_initialized: Local<bool>,
 ) {
-    // Only initialize if we don't already have a text editor state
-    if text_editor_state.is_some() {
+    // Only run once on startup
+    if *has_initialized {
         return;
     }
     
@@ -27,20 +29,31 @@ pub fn initialize_text_editor_sorts(
         return;
     }
     
-    let text_editor_state = 
-        TextEditorState::from_font_data(&app_state.workspace.font);
+    if let Some(mut existing_state) = text_editor_state {
+        // FORCE CLEAR all existing sorts completely - this prevents old glyph grid
+        existing_state.buffer.clear();
+        existing_state.cursor_position = 0;
+        existing_state.selection = None;
+        existing_state.viewport_offset = Vec2::ZERO;
+        existing_state.grid_config = GridConfig::default();
+        info!("FORCE CLEARED all existing sorts and text editor state for clean workspace");
+    } else {
+        // Create a completely empty text editor state with no sorts
+        let empty_buffer = SortBuffer::new();
+        
+        let text_editor_state = TextEditorState {
+            buffer: empty_buffer,
+            cursor_position: 0,
+            selection: None,
+            viewport_offset: Vec2::ZERO,
+            grid_config: GridConfig::default(),
+        };
+        
+        commands.insert_resource(text_editor_state);
+        info!("Created completely empty TextEditorState for clean workspace");
+    }
     
-    // Debug: Check how many buffer vs freeform sorts we have
-    let buffer_sorts = text_editor_state.get_buffer_sorts();
-    let freeform_sorts = text_editor_state.get_freeform_sorts();
-    info!(
-        "Initialized text editor with {} total sorts ({} buffer, {} freeform)", 
-        app_state.workspace.font.glyphs.len(),
-        buffer_sorts.len(),
-        freeform_sorts.len()
-    );
-    
-    commands.insert_resource(text_editor_state);
+    *has_initialized = true;
 }
 
 /// Handle mouse clicks on sorts in the text editor
@@ -463,7 +476,15 @@ pub fn handle_text_editor_keyboard_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut text_editor_state: ResMut<TextEditorState>,
     app_state: Res<AppState>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    current_placement_mode: Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
 ) {
+    // Only handle keyboard input when text tool is active AND in Insert mode
+    if current_tool.get_current() != Some("text") || 
+       current_placement_mode.0 != crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Insert {
+        return;
+    }
+    
     // Check if we have buffer sorts for various operations
     let has_buffer_sorts = !text_editor_state.get_buffer_sorts().is_empty();
     
@@ -471,55 +492,59 @@ pub fn handle_text_editor_keyboard_input(
     if has_buffer_sorts {
         if keyboard_input.just_pressed(KeyCode::ArrowRight) {
             text_editor_state.move_cursor_right();
+            info!("Insert mode: moved cursor right to position {}", text_editor_state.cursor_position);
         }
         
         if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
             text_editor_state.move_cursor_left();
+            info!("Insert mode: moved cursor left to position {}", text_editor_state.cursor_position);
         }
         
         if keyboard_input.just_pressed(KeyCode::ArrowUp) {
             text_editor_state.move_cursor_up();
+            info!("Insert mode: moved cursor up to position {}", text_editor_state.cursor_position);
         }
         
         if keyboard_input.just_pressed(KeyCode::ArrowDown) {
             text_editor_state.move_cursor_down();
+            info!("Insert mode: moved cursor down to position {}", text_editor_state.cursor_position);
         }
         
         // Home/End keys
         if keyboard_input.just_pressed(KeyCode::Home) {
             text_editor_state.move_cursor_to(0);
-            info!("Moved cursor to beginning");
+            info!("Insert mode: moved cursor to beginning");
         }
         
         if keyboard_input.just_pressed(KeyCode::End) {
             let buffer_len = text_editor_state.buffer.len();
             text_editor_state.move_cursor_to(buffer_len);
-            info!("Moved cursor to end");
+            info!("Insert mode: moved cursor to end");
         }
     }
     
-    // Ctrl+T to create a new text buffer
+    // Ctrl+T to create a new text buffer - avoid conflict with 'T' tool shortcut
     if keyboard_input.just_pressed(KeyCode::KeyT) && 
        (keyboard_input.pressed(KeyCode::ControlLeft) || 
         keyboard_input.pressed(KeyCode::ControlRight)) {
         // For now, create buffer root at center of screen
         // TODO: Use actual mouse/click position from text tool
         text_editor_state.create_buffer_root(Vec2::new(500.0, 0.0));
-        info!("Created new text buffer");
+        info!("Insert mode: created new text buffer");
     }
     
     // Delete/Backspace - only work if we have buffer sorts
     if has_buffer_sorts {
         if keyboard_input.just_pressed(KeyCode::Delete) {
             text_editor_state.delete_sort_at_cursor();
-            info!("Deleted sort at cursor position");
+            info!("Insert mode: deleted sort at cursor position");
         }
         
         if keyboard_input.just_pressed(KeyCode::Backspace) {
             if text_editor_state.cursor_position > 0 {
                 text_editor_state.move_cursor_left();
                 text_editor_state.delete_sort_at_cursor();
-                info!("Backspaced sort at cursor position");
+                info!("Insert mode: backspaced sort at cursor position");
             }
         }
     }
@@ -547,7 +572,7 @@ pub fn handle_text_editor_keyboard_input(
             KeyCode::KeyQ => Some("q".to_string()),
             KeyCode::KeyR => Some("r".to_string()),
             KeyCode::KeyS => Some("s".to_string()),
-            KeyCode::KeyT => Some("t".to_string()),
+            KeyCode::KeyT => Some("t".to_string()), // Allow T for typing when not conflicting
             KeyCode::KeyU => Some("u".to_string()),
             KeyCode::KeyV => Some("v".to_string()),
             KeyCode::KeyW => Some("w".to_string()),
@@ -583,6 +608,11 @@ pub fn handle_text_editor_keyboard_input(
         KeyCode::Digit9, KeyCode::Digit0, 
         KeyCode::Space,
     ] {
+        // Skip T key if pressed without modifiers to avoid conflict with tool shortcut
+        if key == KeyCode::KeyT && !(keyboard_input.pressed(KeyCode::ControlLeft) || keyboard_input.pressed(KeyCode::ControlRight)) {
+            continue;
+        }
+        
         if keyboard_input.just_pressed(key) {
             if let Some(glyph_name) = character_to_glyph(key) {
                 // Check if the glyph exists in the font
@@ -604,7 +634,7 @@ pub fn handle_text_editor_keyboard_input(
                         );
                         
                         info!(
-                            "Created new buffer root and inserted glyph '{}' at center", 
+                            "Insert mode: created new buffer root and inserted glyph '{}' at center", 
                             glyph_name
                         );
                     } else {
@@ -614,12 +644,13 @@ pub fn handle_text_editor_keyboard_input(
                             advance_width
                         );
                         info!(
-                            "Inserted glyph '{}' at cursor position", 
-                            glyph_name
+                            "Insert mode: inserted glyph '{}' at cursor position {}", 
+                            glyph_name,
+                            text_editor_state.cursor_position
                         );
                     }
                 } else {
-                    info!("Glyph '{}' not found in font", glyph_name);
+                    info!("Insert mode: glyph '{}' not found in font", glyph_name);
                 }
             }
         }

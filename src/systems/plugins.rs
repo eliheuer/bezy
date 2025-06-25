@@ -43,8 +43,11 @@ pub struct DrawPlugin;
 
 impl Plugin for DrawPlugin {
     fn build(&self, app: &mut App) {
-        // Drawing systems will be added when we port the rendering modules
-        debug!("DrawPlugin loaded - drawing systems pending full port");
+        app.add_systems(
+            Update,
+            crate::rendering::draw::draw_origin_cross,
+        );
+        debug!("DrawPlugin loaded - added draw_origin_cross system");
     }
 }
 

@@ -445,11 +445,19 @@ pub fn spawn_initial_sort(
     app_state: Res<AppState>,
     mut has_run: Local<bool>,
 ) {
+    // DISABLED: Skip creating initial sorts grid to keep design space clean
     // Only create sorts if none exist and we haven't run before
     if *has_run {
         return;
     }
     
+    // Set has_run to true to prevent this system from running again
+    *has_run = true;
+    
+    info!("spawn_initial_sort: Skipped creating initial sorts grid for clean workspace");
+    
+    // Original implementation commented out:
+    /*
     if sorts_query.is_empty() {
         info!("No sorts found, creating startup sorts from font glyphs");
         *has_run = true;
@@ -522,6 +530,7 @@ pub fn spawn_initial_sort(
         let sort_count = sorts_query.iter().count();
         info!("create_startup_sorts: Skipping because sorts_query is not empty (count={})", sort_count);
     }
+    */
 }
 
 /// System to automatically activate the first sort that is created
@@ -531,6 +540,9 @@ pub fn auto_activate_first_sort(
     sorts_query: Query<Entity, (With<Sort>, With<InactiveSort>)>,
     active_sorts_query: Query<Entity, With<ActiveSort>>,
 ) {
+    // DISABLED: Skip auto-activating sorts to keep design space clean
+    // Original implementation commented out:
+    /*
     if active_sorts_query.is_empty() && sorts_query.iter().count() == 1 {
         if let Ok(sort_entity) = sorts_query.get_single() {
             info!("Auto-activating first sort: {:?}", sort_entity);
@@ -551,6 +563,7 @@ pub fn auto_activate_first_sort(
             debug!("auto_activate_first_sort: Have {} total sorts", sorts_query.iter().count());
         }
     }
+    */
 }
 
 
