@@ -11,10 +11,12 @@ use std::time::{Duration, Instant};
 #[derive(Resource, Default)]
 pub struct PerformanceMetrics {
     /// System execution times over the last N frames
+    #[allow(dead_code)]
     pub system_times: HashMap<String, Vec<Duration>>,
     /// Frame times over the last N frames
     pub frame_times: Vec<Duration>,
     /// Memory usage snapshots
+    #[allow(dead_code)]
     pub memory_snapshots: Vec<MemorySnapshot>,
     /// Maximum number of samples to keep
     pub max_samples: usize,
@@ -24,12 +26,16 @@ pub struct PerformanceMetrics {
 
 #[derive(Debug, Clone)]
 pub struct MemorySnapshot {
+    #[allow(dead_code)]
     pub timestamp: Instant,
+    #[allow(dead_code)]
     pub entities_count: usize,
+    #[allow(dead_code)]
     pub components_count: usize,
 }
 
 impl PerformanceMetrics {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             max_samples: 120, // Keep 2 seconds of data at 60 FPS
@@ -38,6 +44,7 @@ impl PerformanceMetrics {
     }
     
     /// Record a system execution time
+    #[allow(dead_code)]
     pub fn record_system_time(&mut self, system_name: String, duration: Duration) {
         let times = self.system_times.entry(system_name).or_insert_with(Vec::new);
         times.push(duration);
@@ -59,6 +66,7 @@ impl PerformanceMetrics {
     }
     
     /// Get average system execution time
+    #[allow(dead_code)]
     pub fn get_average_system_time(&self, system_name: &str) -> Option<Duration> {
         let times = self.system_times.get(system_name)?;
         if times.is_empty() {
@@ -107,6 +115,7 @@ pub struct PerformanceSummary {
     pub average_fps: Option<f64>,
     pub average_frame_time: Option<Duration>,
     pub slowest_systems: Vec<(String, Duration)>,
+    #[allow(dead_code)]
     pub total_systems: usize,
 }
 

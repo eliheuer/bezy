@@ -11,15 +11,16 @@ type UndoableState = Vec<(Entity, Sort)>;
 #[derive(Resource, Debug)]
 pub struct UndoStateResource {
     /// The undo stack containing all edit session states
-    undo_stack: UndoState<Arc<UndoableState>>,
+    pub undos: UndoState<Arc<UndoableState>>,
     /// The last edit type that was processed
+    #[allow(dead_code)]
     last_edit_type: Option<EditType>,
 }
 
 impl Default for UndoStateResource {
     fn default() -> Self {
         Self {
-            undo_stack: UndoState::new(Arc::new(vec![])),
+            undos: UndoState::new(Arc::new(vec![])),
             last_edit_type: None,
         }
     }
@@ -27,23 +28,26 @@ impl Default for UndoStateResource {
 
 impl UndoStateResource {
     /// Get the last edit type
+    #[allow(dead_code)]
     pub fn last_edit_type(&self) -> Option<EditType> {
         self.last_edit_type
     }
 
     /// Set the last edit type
+    #[allow(dead_code)]
     pub fn set_last_edit_type(&mut self, edit_type: EditType) {
         self.last_edit_type = Some(edit_type);
     }
 
     /// Push a new state onto the undo stack
     pub fn push_undo_state(&mut self, state: Arc<UndoableState>) {
-        self.undo_stack.push(state);
+        self.undos.push(state);
     }
 
-    /// Update the current undo state
+    /// Update the current undo state without adding a new history item
+    #[allow(dead_code)]
     pub fn update_current_undo(&mut self, state: Arc<UndoableState>) {
-        self.undo_stack.update_current(state);
+        self.undos.update_current(state);
     }
 }
 
@@ -60,7 +64,7 @@ pub fn initialize_undo_stack(
     let initial_state: Vec<(Entity, Sort)> = sorts.iter().map(|(e, s)| (e, s.clone())).collect();
     if !initial_state.is_empty() {
         debug!("Initializing undo stack with initial sort state");
-        undo_resource.undo_stack = UndoState::new(Arc::new(initial_state));
+        undo_resource.undos = UndoState::new(Arc::new(initial_state));
         *initialized = true;
     }
 }
@@ -102,10 +106,10 @@ pub fn handle_undo_redo_shortcuts(
 
     let state_to_restore = if keyboard.just_pressed(KeyCode::KeyZ) && !shift_pressed {
         debug!("Undo shortcut detected (Cmd+Z)");
-        undo_state.undo_stack.undo()
+        undo_state.undos.undo()
     } else if keyboard.just_pressed(KeyCode::KeyZ) && shift_pressed {
         debug!("Redo shortcut detected (Cmd+Shift+Z)");
-        undo_state.undo_stack.redo()
+        undo_state.undos.redo()
     } else {
         None
     };
@@ -116,17 +120,6 @@ pub fn handle_undo_redo_shortcuts(
             if let Ok(mut sort) = sorts.get_mut(*entity) {
                 *sort = sort_state.clone();
             }
-        }
-    }
-}
-
-/// System to synchronize the `Transform` of a `Sort` with its `position` field.
-pub fn sync_sort_to_transform(mut query: Query<(&mut Transform, &Sort), Changed<Sort>>) {
-    for (mut transform, sort) in query.iter_mut() {
-        if transform.translation.x != sort.position.x || transform.translation.y != sort.position.y {
-            transform.translation.x = sort.position.x;
-            transform.translation.y = sort.position.y;
-            debug!("Synced transform for sort {:?}", sort.glyph_name);
         }
     }
 }
@@ -146,9 +139,8 @@ impl Plugin for UndoPlugin {
                     initialize_undo_stack,
                     handle_undo_redo_shortcuts,
                     save_sort_state.after(initialize_undo_stack),
-                    sync_sort_to_transform,
                 )
                     .chain(),
             );
     }
-} 
+}

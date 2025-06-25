@@ -72,6 +72,7 @@ impl<T: Clone> UndoState<T> {
     ///
     /// This might be done if an edit occurs that combines with the previous undo,
     /// or if we want to save selection state.
+    #[allow(dead_code)]
     pub fn update_current(&mut self, item: T) {
         if let Some(state) = self.stack.get_mut(self.live_index) {
             *state = item;
@@ -79,11 +80,13 @@ impl<T: Clone> UndoState<T> {
     }
 
     /// Get the number of states in the undo stack.
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.stack.len()
     }
 
     /// Get the current index position in the undo stack.
+    #[allow(dead_code)]
     pub fn current_index(&self) -> usize {
         self.live_index
     }

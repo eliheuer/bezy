@@ -8,7 +8,12 @@ use crate::editing::selection::nudge::{EditEvent, NudgeState};
 use crate::rendering::cameras::DesignCamera;
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
+#[allow(unused_imports)]
 use bevy::window::PrimaryWindow;
+#[allow(unused_imports)]
+use crate::geometry::point::{EditPoint, EntityId, EntityKind};
+#[allow(unused_imports)]
+use crate::ui::panes::design_space::{DPoint, ViewPort};
 
 /// Event to signal that app state has changed
 #[derive(Event, Debug, Clone)]
@@ -20,9 +25,11 @@ pub struct AppStateChanged;
 pub struct ClickWorldPosition;
 
 // Constants for selection
+#[allow(dead_code)]
 const SELECTION_MARGIN: f32 = 16.0; // Distance in pixels for selection hit testing
 
 /// System to handle mouse input for selection and hovering
+#[allow(dead_code)]
 pub fn handle_mouse_input(
     mut commands: Commands,
     windows: Query<&Window, With<PrimaryWindow>>,
@@ -412,7 +419,8 @@ pub fn handle_selection_shortcuts(
     }
 }
 
-/// System to update hover state (disabled for now)
+/// System to update which entities are being hovered over by the mouse
+#[allow(dead_code)]
 pub fn update_hover_state(
     mut _commands: Commands,
     _windows: Query<&Window, With<PrimaryWindow>>,
@@ -577,6 +585,7 @@ pub fn render_selected_entities(
 }
 
 /// System to render hovered entities (disabled for now)
+#[allow(dead_code)]
 pub fn render_hovered_entities(
     mut _gizmos: Gizmos,
     _hovered_query: Query<

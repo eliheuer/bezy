@@ -119,9 +119,10 @@ impl SortBounds {
 }
 
 /// Events for sort management
-#[derive(Event)]
+#[derive(Event, Debug)]
 pub enum SortEvent {
     /// Create a new sort
+    #[allow(dead_code)]
     CreateSort {
         glyph_name: String,
         position: Vec2,

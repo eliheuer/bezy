@@ -4,6 +4,8 @@
 //! - Edit mode toolbar with tool selection
 //! - Access toolbar with connection controls
 
+#![allow(unused_imports)]
+
 pub mod access_toolbar;
 pub mod edit_mode_toolbar;
 

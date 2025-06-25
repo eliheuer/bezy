@@ -48,7 +48,7 @@ pub fn render_sorts_system(
     }
 
     // Render active sorts with full outline detail
-    for (entity, sort) in active_sorts_query.iter() {
+    for (_entity, sort) in active_sorts_query.iter() {
         render_active_sort(&mut gizmos, &viewport, sort, font_metrics, &app_state);
     }
 }

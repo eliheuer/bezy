@@ -7,8 +7,12 @@ use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use crate::data::unicode::sort_and_deduplicate_codepoints;
 use crate::core::state::AppState;
+#[allow(unused_imports)]
+use crate::core::cli::CliArgs;
+use bevy::prelude::Res;
 
 /// Load a UFO font file from disk
+#[allow(dead_code)]
 pub fn load_ufo_from_path(path: impl AsRef<Path>) -> Result<Font> {
     let font = Font::load(path)?;
     Ok(font)
@@ -16,6 +20,7 @@ pub fn load_ufo_from_path(path: impl AsRef<Path>) -> Result<Font> {
 
 /// Load a UFO font file from disk (compatibility version)
 /// This version matches the old API signature for compatibility
+#[allow(dead_code)]
 pub fn load_ufo_from_path_compat(
     path: &str
 ) -> Result<Font, Box<dyn std::error::Error>> {
@@ -23,6 +28,7 @@ pub fn load_ufo_from_path_compat(
     
     if !font_path.exists() {
         let error_msg = format!("File not found: {}", font_path.display());
+        error!("{}", error_msg);
         return Err(error_msg.into());
     }
 
@@ -63,6 +69,7 @@ fn build_codepoint_glyph_map(font: &Font) -> HashMap<String, String> {
 // Public Glyph Lookup API ---------------------------------------------------
 
 /// Find a glyph by its Unicode codepoint (like "0041" for letter A)
+#[allow(dead_code)]
 pub fn find_glyph_by_unicode(
     font: &Font,
     codepoint_hex: &str
@@ -71,6 +78,7 @@ pub fn find_glyph_by_unicode(
 }
 
 /// Get all Unicode codepoints that have glyphs in this font
+#[allow(dead_code)]
 pub fn get_all_codepoints(font: &Font) -> Vec<String> {
     let map = build_codepoint_glyph_map(font);
     let mut codepoints: Vec<String> = map.keys().cloned().collect();
@@ -84,12 +92,14 @@ pub fn get_all_codepoints(font: &Font) -> Vec<String> {
 
 /// Direction for cycling through codepoints
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub enum CycleDirection {
     Next,
     Previous,
 }
 
 /// Get the appropriate starting position based on direction
+#[allow(dead_code)]
 fn get_direction_default(
     codepoints: &[String],
     direction: CycleDirection
@@ -101,6 +111,7 @@ fn get_direction_default(
 }
 
 /// Find the position of a codepoint in the list
+#[allow(dead_code)]
 fn find_codepoint_position(
     codepoints: &[String],
     target: &str
@@ -109,6 +120,7 @@ fn find_codepoint_position(
 }
 
 /// Cycle to the next or previous codepoint in the font
+#[allow(dead_code)]
 pub fn cycle_codepoint_in_list(
     available_codepoints: &[String],
     current_codepoint: &str,
@@ -156,6 +168,7 @@ pub fn cycle_codepoint_in_list(
 }
 
 /// Move to the next codepoint in the font
+#[allow(dead_code)]
 pub fn find_next_codepoint_in_list(
     available_codepoints: &[String],
     current_codepoint: &str
@@ -168,6 +181,7 @@ pub fn find_next_codepoint_in_list(
 }
 
 /// Move to the previous codepoint in the font
+#[allow(dead_code)]
 pub fn find_previous_codepoint_in_list(
     available_codepoints: &[String],
     current_codepoint: &str
@@ -183,6 +197,7 @@ pub fn find_previous_codepoint_in_list(
 
 /// Set up the font when the app starts (compatibility function)
 /// This provides the same API as the old version but works with the new architecture
+#[allow(dead_code)]
 pub fn initialize_font_state(
     mut commands: Commands,
     cli_args: Res<crate::core::cli::CliArgs>,
@@ -197,6 +212,7 @@ pub fn initialize_font_state(
 
 /// Load and set up a font when the app starts (compatibility function)
 /// This provides the same API as the old version but works with the new architecture
+#[allow(dead_code)]
 fn load_font_at_startup(commands: &mut Commands, font_path: &PathBuf) {
     let path_string = font_path.to_str().unwrap_or_default();
     

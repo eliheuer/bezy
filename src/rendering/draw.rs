@@ -1,5 +1,7 @@
 //! Drawing algorithms and helpers
 
+#![allow(deprecated)]
+
 use crate::core::state::{AppState, FontMetrics, GlyphNavigation};
 use crate::ui::panes::design_space::ViewPort;
 use crate::ui::theme::DEBUG_SHOW_ORIGIN_CROSS;
@@ -33,7 +35,8 @@ pub fn draw_origin_cross(mut gizmos: Gizmos) {
     }
 }
 
-/// System that draws font metrics lines (baseline, x-height, cap-height, etc.)
+/// System to draw metric lines (baseline, x-height, etc.) on the design canvas
+#[allow(dead_code)]
 pub fn draw_metrics_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
@@ -69,12 +72,8 @@ pub fn draw_metrics_system(
     );
 }
 
-/// Selects a glyph to determine the width for drawing font metrics lines.
-///
-/// The metrics lines (baseline, x-height, etc.) need a horizontal extent.
-/// This function prioritizes the glyph currently active via `glyph_navigation`.
-/// If no specific glyph is active or found, it falls back to a standard
-/// placeholder glyph whose width is based on the font's units_per_em value.
+/// Finds the best glyph to use for determining the width of metric lines
+#[allow(dead_code)]
 fn find_glyph_for_metrics(
     glyph_navigation: &GlyphNavigation,
     app_state: &AppState,
@@ -91,7 +90,8 @@ fn find_glyph_for_metrics(
     create_placeholder_glyph(&app_state.workspace.info.metrics)
 }
 
-/// Create a placeholder glyph when no real glyphs are available
+/// Creates a placeholder glyph when no suitable glyph is found for metrics
+#[allow(dead_code)]
 fn create_placeholder_glyph(
     metrics: &crate::core::state::FontMetrics
 ) -> Glyph {
@@ -102,7 +102,8 @@ fn create_placeholder_glyph(
     placeholder
 }
 
-/// Draw font metrics lines (baseline, x-height, cap-height, ascender, descender, and bounding box)
+/// Draws the actual metric lines using the glyph and viewport
+#[allow(dead_code)]
 fn draw_metrics(
     gizmos: &mut Gizmos,
     viewport: &ViewPort,
@@ -113,16 +114,18 @@ fn draw_metrics(
     crate::rendering::metrics::draw_metrics_at_position(gizmos, viewport, glyph, metrics, Vec2::ZERO);
 }
 
-/// Event that will be triggered when the AppState changes
+/// Event for signaling app state changes that might affect rendering
 #[derive(Event)]
+#[allow(dead_code)]
 pub struct AppStateChanged;
 
-/// System that detects changes in the main AppState resource and fires an event
+/// System to detect when app state changes
+#[allow(dead_code)]
 pub fn detect_app_state_changes(
     app_state: Res<AppState>,
     mut event_writer: EventWriter<AppStateChanged>,
 ) {
     if app_state.is_changed() {
-        event_writer.send(AppStateChanged);
+        event_writer.write(AppStateChanged);
     }
 }

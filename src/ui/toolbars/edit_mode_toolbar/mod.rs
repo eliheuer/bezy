@@ -64,6 +64,8 @@
 //! - **UI Integration**: Visual feedback and interactive toolbar
 //! - **Extensibility**: Easy to add new tools with minimal code changes
 
+#![allow(unused_imports)]
+
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -157,6 +159,7 @@ pub trait EditTool: Send + Sync + 'static {
     fn icon(&self) -> &'static str;
     
     /// Optional keyboard shortcut (e.g., Some('v') for Select tool)
+    #[allow(dead_code)]
     fn shortcut_key(&self) -> Option<char> { None }
     
     /// Default ordering priority (lower numbers appear first)
@@ -164,6 +167,7 @@ pub trait EditTool: Send + Sync + 'static {
     fn default_order(&self) -> i32 { 100 }
     
     /// Description for tooltips/help
+    #[allow(dead_code)]
     fn description(&self) -> &'static str { "" }
     
     /// Called every frame while this tool is active
@@ -176,6 +180,7 @@ pub trait EditTool: Send + Sync + 'static {
     fn on_exit(&self) {}
     
     /// Whether this tool supports temporary activation (e.g., spacebar for pan)
+    #[allow(dead_code)]
     fn supports_temporary_mode(&self) -> bool { false }
 }
 
@@ -249,6 +254,7 @@ impl ToolRegistry {
     }
     
     /// Apply custom ordering preferences
+    #[allow(dead_code)]
     pub fn apply_custom_ordering(&mut self, custom_order: &ToolOrdering) {
         if custom_order.custom_order.is_empty() {
             // No custom order specified, use default
@@ -362,31 +368,34 @@ impl CurrentTool {
 /// ```
 #[derive(Resource, Default)]
 pub struct ToolOrdering {
+    #[allow(dead_code)]
     pub custom_order: Vec<ToolId>,
 }
 
 impl ToolOrdering {
     /// Set a custom order for tools (tools not listed will use default ordering after these)
+    #[allow(dead_code)]
     pub fn set_order(&mut self, order: Vec<ToolId>) {
         self.custom_order = order;
     }
-
-    /// Convenient method to set common tool orders
+    
+    /// Preset order optimized for design-focused work
+    #[allow(dead_code)]
     pub fn set_design_focused_order(&mut self) {
         self.custom_order = vec![
-            "select",
-            "pen", 
-            "eraser",
-            "shapes",
-            "text",
-            "measure",
-            "knife",
-            "hyper",
-            "pan",
+            "select",  // Primary selection tool
+            "pen",     // Drawing/editing paths
+            "shapes",  // Creating geometric shapes  
+            "text",    // Text handling
+            "measure", // Measurement and guides
+            "hyper",   // Advanced editing
+            "pan",     // Navigation
+            "knife",   // Path cutting (less common in design)
         ];
     }
-
-    /// Convenient method to set annotation-focused order  
+    
+    /// Preset order optimized for annotation and markup work
+    #[allow(dead_code)]
     pub fn set_annotation_focused_order(&mut self) {
         self.custom_order = vec![
             "select",
@@ -430,8 +439,11 @@ pub use select::{SelectMode, SelectModeActive, SelectToolPlugin};
 
 // Legacy trait (will be removed after migration)
 pub trait EditModeSystem: Send + Sync + 'static {
+    #[allow(dead_code)]
     fn update(&self, commands: &mut Commands);
+    #[allow(dead_code)]
     fn on_enter(&self) {}
+    #[allow(dead_code)]
     fn on_exit(&self) {}
 }
 

@@ -208,7 +208,7 @@ fn try_commit_current_path(
     }
 
     if let Some(_contour) = create_contour_from_points(&pen_state.points, Vec2::ZERO) {
-        app_state_changed.send(AppStateChanged);
+        app_state_changed.write(AppStateChanged);
         info!("Auto-committing path when switching modes");
     }
 }
@@ -540,7 +540,7 @@ fn add_contour_to_glyph(
         
         // Notify that the app state has changed
         info!("PEN TOOL: Sending AppStateChanged event");
-        app_state_changed.send(AppStateChanged);
+        app_state_changed.write(AppStateChanged);
     } else {
         warn!("PEN TOOL: Could not find glyph {} in font data", glyph_name);
     }

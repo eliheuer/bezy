@@ -9,7 +9,8 @@ use bevy::prelude::*;
 use crate::ui::theme::{GIZMO_LINE_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::utils::setup::setup;
 
-/// Configure the default Bevy plugins with custom settings
+/// Configure default Bevy plugins for the application
+#[allow(dead_code)]
 pub fn configure_default_plugins() -> bevy::app::PluginGroupBuilder {
     DefaultPlugins
         .set(WindowPlugin {
@@ -55,7 +56,7 @@ impl Plugin for DrawPlugin {
 pub struct ToolbarPlugin;
 
 impl Plugin for ToolbarPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         // Toolbar systems will be added when we port the UI toolbars
         debug!("ToolbarPlugin loaded - toolbar systems pending full port");
     }

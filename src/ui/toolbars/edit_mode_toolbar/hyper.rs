@@ -133,11 +133,11 @@ pub fn handle_hyper_mouse_events(
         return;
     }
     
-    let Ok(window) = windows.get_single() else {
+        let Ok(window) = windows.single() else {
         return;
     };
-    
-    let Ok((camera, camera_transform)) = camera_query.get_single() else {
+
+    let Ok((camera, camera_transform)) = camera_query.single() else {
         return;
     };
     

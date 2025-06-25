@@ -9,6 +9,7 @@
 //! glyph as a base and add an acute accent component positioned above it.
 
 use bevy::prelude::*;
+#[allow(unused_imports)]
 use norad::Component as NoradComponent;
 
 /// A simple 2D transformation that's easy to understand

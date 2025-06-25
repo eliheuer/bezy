@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 pub mod components;
 pub mod nudge;
 pub mod systems;
@@ -6,6 +8,7 @@ use bevy::prelude::*;
 pub use components::*;
 pub use nudge::*;
 pub use systems::*;
+
 use std::collections::HashMap;
 
 /// Resource to track the drag selection state
@@ -82,8 +85,11 @@ impl Plugin for SelectionPlugin {
 /// System sets for Selection
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SelectionSystemSet {
+    #[allow(dead_code)]
     Input,
+    #[allow(dead_code)]
     Processing,
+    #[allow(dead_code)]
     Render,
 }
 

@@ -2,6 +2,9 @@
 //!
 //! This module implements a floating panel that displays coordinates and dimensions of selected elements.
 
+#![allow(unused_mut)]
+
+#[allow(unused_imports)]
 use crate::editing::selection::SelectionState;
 use crate::geometry::quadrant::Quadrant;
 use crate::ui::theme::*;
@@ -325,30 +328,30 @@ fn update_coordinate_display(
         let reference_point = get_quadrant_point(&coord_selection.frame, coord_selection.quadrant);
         
         // Update coordinate values
-        if let Ok(mut text) = x_query.get_single_mut() {
+        if let Ok(mut text) = x_query.single_mut() {
             *text = Text::new(format!("{}", reference_point.x as i32));
         }
-        if let Ok(mut text) = y_query.get_single_mut() {
+        if let Ok(mut text) = y_query.single_mut() {
             *text = Text::new(format!("{}", reference_point.y as i32));
         }
-        if let Ok(mut text) = w_query.get_single_mut() {
+        if let Ok(mut text) = w_query.single_mut() {
             *text = Text::new(format!("{}", coord_selection.frame.width() as i32));
         }
-        if let Ok(mut text) = h_query.get_single_mut() {
+        if let Ok(mut text) = h_query.single_mut() {
             *text = Text::new(format!("{}", coord_selection.frame.height() as i32));
         }
     } else {
         // Show dashes when nothing is selected
-        if let Ok(mut text) = x_query.get_single_mut() {
+        if let Ok(mut text) = x_query.single_mut() {
             *text = Text::new("--");
         }
-        if let Ok(mut text) = y_query.get_single_mut() {
+        if let Ok(mut text) = y_query.single_mut() {
             *text = Text::new("--");
         }
-        if let Ok(mut text) = w_query.get_single_mut() {
+        if let Ok(mut text) = w_query.single_mut() {
             *text = Text::new("--");
         }
-        if let Ok(mut text) = h_query.get_single_mut() {
+        if let Ok(mut text) = h_query.single_mut() {
             *text = Text::new("--");
         }
     }

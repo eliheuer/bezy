@@ -79,5 +79,6 @@ impl Workspace {
     }
 }
 
-/// Type alias for compatibility with backup code
+/// Simplified font info type for compatibility
+#[allow(dead_code)]
 pub type SimpleFontInfo = FontInfo; 

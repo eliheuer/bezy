@@ -49,7 +49,7 @@ pub fn handle_text_input(
     mut text_editor: Query<&mut TextEditor>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
-    let Ok(mut editor) = text_editor.get_single_mut() else {
+    let Ok(mut editor) = text_editor.single_mut() else {
         return;
     };
     let cursor_pos = editor.cursor_position;

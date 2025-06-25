@@ -75,6 +75,7 @@ impl CliArgs {
     }
     
     /// Get the UFO path, guaranteed to be Some after validation
+    #[allow(dead_code)]
     pub fn get_ufo_path(&self) -> &PathBuf {
         self.ufo_path.as_ref().expect("UFO path should be validated")
     }

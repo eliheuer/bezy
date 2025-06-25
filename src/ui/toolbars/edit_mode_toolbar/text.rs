@@ -5,9 +5,13 @@
 //! - Buffer mode: Sorts follow the gap buffer layout in a grid
 //! - Freeform mode: Sorts are positioned freely in the design space
 
+#![allow(unused_mut)]
+#![allow(unused_variables)]
+
 use crate::core::state::{TextEditorState, TextModeConfig, SortLayoutMode};
 use crate::core::state::{AppState, GlyphNavigation};
 use crate::core::settings::BezySettings;
+#[allow(unused_imports)]
 use crate::ui::panes::design_space::ViewPort;
 use crate::rendering::cameras::DesignCamera;
 use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
@@ -96,7 +100,8 @@ impl TextPlacementMode {
         }
     }
 
-    /// Get the display name for each placement mode
+    /// Get a human-readable name for this placement mode
+    #[allow(dead_code)]
     pub fn display_name(&self) -> &'static str {
         match self {
             TextPlacementMode::Buffer => "Buffer",
@@ -346,11 +351,11 @@ pub fn handle_text_mode_cursor(
         return;
     }
 
-    let Ok(window) = windows.get_single() else {
+    let Ok(window) = windows.single() else {
         return;
     };
 
-    let Ok((camera, camera_transform)) = camera_query.get_single() else {
+    let Ok((camera, camera_transform)) = camera_query.single() else {
         return;
     };
 
@@ -383,7 +388,7 @@ pub fn handle_text_mode_cursor(
 
     // Get the actual mouse cursor position in world coordinates (unsnapped)
     let raw_cursor_world_pos = {
-        if let (Ok(window), Ok((camera, camera_transform))) = (windows.get_single(), camera_query.get_single()) {
+        if let (Ok(window), Ok((camera, camera_transform))) = (windows.single(), camera_query.single()) {
             if let Some(cursor_position) = window.cursor_position() {
                 let world_pos = camera.viewport_to_world_2d(camera_transform, cursor_position).ok();
                 // Debug logging
@@ -437,7 +442,7 @@ pub fn handle_text_mode_clicks(
 
     // Get the actual mouse cursor position in world coordinates (same as preview)
     let raw_cursor_world_pos = {
-        if let (Ok(window), Ok((camera, camera_transform))) = (windows.get_single(), camera_query.get_single()) {
+        if let (Ok(window), Ok((camera, camera_transform))) = (windows.single(), camera_query.single()) {
             if let Some(cursor_position) = window.cursor_position() {
                 camera.viewport_to_world_2d(camera_transform, cursor_position).ok()
             } else {
@@ -549,7 +554,7 @@ pub fn render_sort_preview(
 
     // Get the actual mouse cursor position in world coordinates (unsnapped)
     let raw_cursor_world_pos = {
-        if let (Ok(window), Ok((camera, camera_transform))) = (windows.get_single(), camera_query.get_single()) {
+        if let (Ok(window), Ok((camera, camera_transform))) = (windows.single(), camera_query.single()) {
             if let Some(cursor_position) = window.cursor_position() {
                 let world_pos = camera.viewport_to_world_2d(camera_transform, cursor_position).ok();
                 // Debug logging

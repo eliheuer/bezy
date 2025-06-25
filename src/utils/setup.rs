@@ -1,3 +1,6 @@
+#![allow(unused_variables)]
+#![allow(unused_mut)]
+
 use bevy::prelude::*;
 
 /// Initial setup system that runs on startup.

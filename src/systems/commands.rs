@@ -8,6 +8,9 @@
 //! To add new functionality, define a new event struct and corresponding handler,
 //! then register both in the CommandsPlugin::build method.
 
+#![allow(deprecated)]
+#![allow(unused_mut)]
+
 use crate::core::state::{AppState, GlyphNavigation};
 // BezyResult not used in current implementation
 use bevy::prelude::*;
@@ -59,6 +62,7 @@ pub enum CodepointDirection {
 
 #[derive(Event)]
 pub struct CreateContourEvent {
+    #[allow(dead_code)]
     pub contour: norad::Contour,
 }
 
@@ -253,17 +257,17 @@ pub fn handle_codepoint_cycling(
             debug!(
                 "Detected Shift+= key combination, cycling to next codepoint"
             );
-            cycle_event.send(CycleCodepointEvent {
-                direction: CodepointDirection::Next,
-            });
+                    cycle_event.write(CycleCodepointEvent {
+            direction: CodepointDirection::Next,
+        });
         }
 
         // Check for Shift+- (Minus) to move to previous codepoint
         if keyboard.just_pressed(KeyCode::Minus) {
             debug!("Detected Shift+- key combination, cycling to previous codepoint");
-            cycle_event.send(CycleCodepointEvent {
-                direction: CodepointDirection::Previous,
-            });
+                    cycle_event.write(CycleCodepointEvent {
+            direction: CodepointDirection::Previous,
+        });
         }
     }
 }
@@ -285,7 +289,7 @@ pub fn handle_save_shortcuts(
     // If modifier is pressed and S is just pressed, trigger save
     if modifier_pressed && keyboard.just_pressed(KeyCode::KeyS) {
         debug!("Detected Command+S / Ctrl+S key combination, saving font");
-        save_event.send(SaveFileEvent);
+        save_event.write(SaveFileEvent);
     }
 }
 
@@ -295,7 +299,7 @@ fn handle_create_contour(
     mut app_state: ResMut<AppState>,
     glyph_navigation: Res<GlyphNavigation>,
 ) {
-    for event in event_reader.read() {
+    for _event in event_reader.read() {
         debug!("Handling CreateContourEvent");
 
         // Get the glyph name first

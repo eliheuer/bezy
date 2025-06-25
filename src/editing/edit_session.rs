@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use crate::editing::selection::components::Selected;
 use bevy::prelude::*;
 use std::collections::HashMap;

@@ -12,26 +12,24 @@ mod ufo_tests {
         let ufo = result.unwrap();
 
         // Test basic font info
-        assert!(ufo.font_info.is_some(), "Font info should be present");
-
-        if let Some(font_info) = ufo.font_info.as_ref() {
-            assert_eq!(
-                font_info.family_name.as_deref(),
-                Some("Bezy Grotesk"),
-                "Family name should match"
-            );
-            assert_eq!(
-                font_info.style_name.as_deref(),
-                Some("Regular"),
-                "Style name should match"
-            );
-        }
+        let font_info = &ufo.font_info;
+        
+        assert_eq!(
+            font_info.family_name.as_deref(),
+            Some("Bezy Grotesk"),
+            "Family name should match"
+        );
+        assert_eq!(
+            font_info.style_name.as_deref(),
+            Some("Regular"),
+            "Style name should match"
+        );
     }
 }
 
 #[cfg(test)]
 mod workspace_tests {
-    use crate::core::state::{AppState, Workspace};
+    use crate::core::state::AppState;
     use crate::data::ufo;
     use std::path::PathBuf;
 
@@ -39,25 +37,28 @@ mod workspace_tests {
     fn test_workspace_loads_ufo() {
         // First load the UFO file
         let test_path = "assets/fonts/bezy-grotesk-regular.ufo";
-        let ufo = ufo::load_ufo_from_path(test_path)
+        let _ufo = ufo::load_ufo_from_path(test_path)
             .expect("Failed to load UFO file");
 
-        // Create a new workspace and set the font
-        let mut workspace = Workspace::default();
-        workspace.set_file(ufo, Some(PathBuf::from(test_path)));
+        // Create a new app state and load the font
+        let mut app_state = AppState::default();
+        let path = PathBuf::from(test_path);
+        
+        // Load the font into app state
+        app_state.load_font_from_path(path)
+            .expect("Failed to load font into app state");
 
         // Verify the workspace state
         assert_eq!(
-            workspace.info.family_name, "Bezy Grotesk",
+            app_state.workspace.info.family_name, "Bezy Grotesk",
             "Workspace family name should match"
         );
         assert_eq!(
-            workspace.info.style_name, "Regular",
+            app_state.workspace.info.style_name, "Regular",
             "Workspace style name should match"
         );
 
-        // Test that we can create an AppState with this workspace
-        let app_state = AppState { workspace };
+        // Test that the display name is correct
         assert_eq!(
             app_state.get_font_display_name(),
             "Bezy Grotesk Regular",

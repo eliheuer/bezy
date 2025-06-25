@@ -92,6 +92,7 @@ pub fn draw_glyph_points_at_position(
 }
 
 /// Draw control handles for off-curve points at a specific position
+#[allow(dead_code)]
 pub fn draw_control_handles_at_position(
     gizmos: &mut Gizmos,
     viewport: &ViewPort,
@@ -186,6 +187,7 @@ pub fn draw_contour_path_at_position(
 }
 
 /// Draw control handles for off-curve points in a contour at a specific position
+#[allow(dead_code)]
 fn draw_contour_handles_at_position(
     gizmos: &mut Gizmos,
     viewport: &ViewPort,

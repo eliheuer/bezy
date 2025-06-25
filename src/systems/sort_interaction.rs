@@ -2,6 +2,8 @@
 //!
 //! Handles mouse interactions with sorts, such as clicking to activate them.
 
+#![allow(deprecated)]
+
 use crate::editing::sort::{Sort, SortEvent, ActiveSort};
 use crate::core::state::AppState;
 use crate::rendering::cameras::DesignCamera;
@@ -83,9 +85,9 @@ pub fn handle_sort_clicks(
             return; // Don't deactivate, allow editing to continue
         } else {
             // Sort is inactive - activate it
-            sort_events.send(SortEvent::ActivateSort {
-                sort_entity: entity,
-            });
+                    sort_events.write(SortEvent::ActivateSort {
+            sort_entity: entity,
+        });
             info!("Activated sort '{}' by clicking", sort.glyph_name);
         }
         return; // Only handle one sort per click
@@ -94,6 +96,6 @@ pub fn handle_sort_clicks(
     // If we didn't click on any sort AND no other system claimed the click, deactivate the current active sort
     // This prevents deactivation when clicking on crosshairs or other UI elements
     if click_pos.is_none() {
-        sort_events.send(SortEvent::DeactivateSort);
+        sort_events.write(SortEvent::DeactivateSort);
     }
 } 

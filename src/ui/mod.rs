@@ -16,5 +16,7 @@ pub mod theme;
 pub mod toolbars;
 
 // Re-export commonly used items
+#[allow(unused_imports)]
 pub use hud::{HudPlugin, spawn_hud};
+#[allow(unused_imports)]
 pub use text_editor::TextEditorPlugin;

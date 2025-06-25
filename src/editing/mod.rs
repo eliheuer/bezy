@@ -7,6 +7,8 @@
 //! - Undo/redo system for reversible operations
 //! - Sort system for movable type placement and editing
 
+#![allow(unused_imports)]
+
 pub mod edit_session;
 pub mod edit_type;
 pub mod selection;

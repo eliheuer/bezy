@@ -5,6 +5,7 @@
 //! complex error type hierarchies.
 
 use anyhow::{Context, Result};
+#[allow(unused_imports)]
 pub use anyhow::{anyhow, bail, ensure, Error};
 
 /// Result type alias for convenience throughout the application
@@ -16,9 +17,11 @@ pub trait BezyContext<T> {
     fn with_file_context<P: AsRef<std::path::Path>>(self, operation: &str, path: P) -> BezyResult<T>;
     
     /// Add glyph operation context to an error
+    #[allow(dead_code)]
     fn with_glyph_context(self, operation: &str, glyph_name: &str) -> BezyResult<T>;
     
     /// Add point operation context to an error
+    #[allow(dead_code)]
     fn with_point_context(
         self, 
         operation: &str, 
@@ -98,6 +101,7 @@ macro_rules! contour_out_of_bounds {
 }
 
 /// Validation helpers that return anyhow errors
+#[allow(dead_code)]
 pub fn validate_finite_coords(x: f64, y: f64) -> BezyResult<()> {
     ensure!(x.is_finite(), "X coordinate must be finite, got: {}", x);
     ensure!(y.is_finite(), "Y coordinate must be finite, got: {}", y);

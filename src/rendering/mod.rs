@@ -6,6 +6,8 @@
 //! - Background patterns and visual aids
 //! - Debug visualization tools
 
+#![allow(unused_imports)]
+
 pub mod cameras;
 pub mod checkerboard;
 pub mod debug;

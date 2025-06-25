@@ -3,6 +3,8 @@
 //! This tool allows users to draw basic geometric shapes like rectangles,
 //! ellipses, and rounded rectangles by clicking and dragging.
 
+#![allow(dead_code)]
+
 use crate::core::state::{AppState, GlyphNavigation};
 use crate::core::settings::BezySettings;
 use crate::editing::selection::systems::AppStateChanged;
@@ -139,11 +141,11 @@ pub fn handle_shape_mouse_events(
     // Only handle input if shapes tool is active
     // TODO: Add proper tool activation check
     
-    let Ok(window) = windows.get_single() else {
+        let Ok(window) = windows.single() else {
         return;
     };
-    
-    let Ok((camera, camera_transform)) = camera_query.get_single() else {
+
+    let Ok((camera, camera_transform)) = camera_query.single() else {
         return;
     };
     

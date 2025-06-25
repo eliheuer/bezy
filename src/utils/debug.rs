@@ -10,8 +10,8 @@ use norad::Glyph;
 
 /// Debug font metrics information
 ///
-/// Logs detailed information about the current font's metrics
-/// including units per em, x-height, cap-height, ascender, and descender.
+/// Logs key metrics from the font info for troubleshooting.
+#[allow(dead_code)]
 pub fn debug_font_metrics(app_state: &AppState) {
     debug!("=== Font Metrics Debug ===");
     let metrics = &app_state.workspace.info.metrics;
@@ -24,8 +24,8 @@ pub fn debug_font_metrics(app_state: &AppState) {
 
 /// Debug glyph information
 ///
-/// Logs information about a specific glyph including its name,
-/// advance width, and outline status.
+/// Logs detailed information about a specific glyph.
+#[allow(dead_code)]
 pub fn debug_glyph_info(glyph: &Glyph, context: &str) {
     debug!(
         "{}: Glyph '{}' - advance width: {:?}, has outline: {}",
@@ -38,7 +38,8 @@ pub fn debug_glyph_info(glyph: &Glyph, context: &str) {
 
 /// Debug layer information
 ///
-/// Logs information about font layers and available glyphs.
+/// Logs information about font layers for troubleshooting.
+#[allow(dead_code)]
 pub fn debug_layer_info(app_state: &AppState) {
     let glyph_count = app_state.workspace.font.glyphs.len();
     debug!("Font found with {} glyphs", glyph_count);
@@ -58,6 +59,7 @@ pub fn debug_layer_info(app_state: &AppState) {
 /// Debug placeholder glyph creation
 ///
 /// Logs when a placeholder glyph is created due to missing glyphs.
+#[allow(dead_code)]
 pub fn debug_placeholder_creation(metrics: &FontMetrics) {
     warn!(
         "Creating placeholder glyph - no real glyphs found. \
@@ -70,6 +72,7 @@ pub fn debug_placeholder_creation(metrics: &FontMetrics) {
 /// Debug missing glyph information
 ///
 /// Logs when a specific glyph cannot be found.
+#[allow(dead_code)]
 pub fn debug_missing_glyph(glyph_name: &str) {
     warn!("Glyph '{}' not found in font", glyph_name);
 }
@@ -77,6 +80,7 @@ pub fn debug_missing_glyph(glyph_name: &str) {
 /// Debug codepoint lookup
 ///
 /// Logs information about codepoint-to-glyph mapping attempts.
+#[allow(dead_code)]
 pub fn debug_codepoint_lookup(codepoint: &str, found: bool) {
     if found {
         debug!("Successfully found glyph for codepoint U+{}", codepoint);

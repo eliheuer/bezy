@@ -30,11 +30,9 @@ pub enum EditType {
 }
 
 impl EditType {
-    /// Determines if this edit type should create a new undo group when followed by `other`.
-    ///
-    /// Returns `true` if a new undo group should be created, or `false` if the edits
-    /// should be combined into the same undo group.
-    #[allow(clippy::match_like_matches_macro)]
+    /// Check if two edit types require a new undo group
+    /// Different edit types or long pauses between edits should start new groups
+    #[allow(dead_code)]
     pub fn needs_new_undo_group(self, other: EditType) -> bool {
         match (self, other) {
             // Make each nudge operation its own undo group

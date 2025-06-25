@@ -3,7 +3,11 @@
 //! This tool allows users to cut paths by drawing a line across them.
 //! The tool shows a preview of the cutting line and intersection points.
 
-use crate::core::state::{AppState, GlyphNavigation};
+#![allow(unused_variables)]
+
+use crate::core::state::AppState;
+#[allow(unused_imports)]
+use crate::core::state::GlyphNavigation;
 use crate::editing::selection::systems::AppStateChanged;
 use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
 use bevy::prelude::*;
@@ -150,11 +154,11 @@ pub fn handle_knife_mouse_events(
         return;
     }
     
-    let Ok(window) = windows.get_single() else {
+    let Ok(window) = windows.single() else {
         return;
     };
     
-    let Ok((camera, camera_transform)) = camera_query.get_single() else {
+    let Ok((camera, camera_transform)) = camera_query.single() else {
         return;
     };
     

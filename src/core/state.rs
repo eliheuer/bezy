@@ -31,6 +31,7 @@ pub struct Workspace {
     /// Information about the font (name, metrics, etc.)
     pub info: FontInfo,
     /// The currently selected glyph (if any)
+    #[allow(dead_code)]
     pub selected: Option<String>,
 }
 
@@ -122,7 +123,9 @@ pub struct FontMetrics {
     pub x_height: Option<f64>,
     pub cap_height: Option<f64>,
     pub ascender: Option<f64>,
+    #[allow(dead_code)]
     pub italic_angle: Option<f64>,
+    #[allow(dead_code)]
     pub line_height: f64,
 }
 
@@ -199,6 +202,7 @@ impl AppState {
     /// Update a specific point in a glyph
     /// 
     /// This method updates a point's data with comprehensive validation.
+    #[allow(dead_code)]
     pub fn update_point(&mut self, glyph_name: &str, contour_idx: usize, point_idx: usize, new_point: PointData) -> BezyResult<()> {
         // Validate coordinates first
         validate_finite_coords(new_point.x, new_point.y)?;
@@ -233,6 +237,7 @@ impl AppState {
     }
 
     /// Get a point by reference (read-only)
+    #[allow(dead_code)]
     pub fn get_point(&self, glyph_name: &str, contour_idx: usize, point_idx: usize) 
         -> Option<&PointData> {
         self.workspace.font.glyphs
@@ -243,6 +248,7 @@ impl AppState {
     }
 
     /// Move a point by a delta amount
+    #[allow(dead_code)]
     pub fn move_point(&mut self, glyph_name: &str, contour_idx: usize, point_idx: usize, delta_x: f64, delta_y: f64) -> bool {
         if let Some(point) = self.get_point_mut(glyph_name, contour_idx, point_idx) {
             point.x += delta_x;
@@ -265,6 +271,7 @@ impl AppState {
     }
 
     /// Get all points in a contour (read-only)
+    #[allow(dead_code)]
     pub fn get_contour_points(&self, glyph_name: &str, contour_idx: usize) -> Option<&Vec<PointData>> {
         self.workspace.font.glyphs
             .get(glyph_name)?
@@ -274,6 +281,7 @@ impl AppState {
     }
 
     /// Get the number of contours in a glyph
+    #[allow(dead_code)]
     pub fn get_contour_count(&self, glyph_name: &str) -> Option<usize> {
         self.workspace.font.glyphs
             .get(glyph_name)?
@@ -282,6 +290,7 @@ impl AppState {
     }
 
     /// Get the number of points in a specific contour
+    #[allow(dead_code)]
     pub fn get_point_count(&self, glyph_name: &str, contour_idx: usize) -> Option<usize> {
         self.workspace.font.glyphs
             .get(glyph_name)?
@@ -527,6 +536,7 @@ impl FontInfo {
     }
     
     /// Get metrics for rendering
+    #[allow(dead_code)]
     pub fn get_metrics(&self) -> &FontMetrics {
         &self.metrics
     }
@@ -541,16 +551,20 @@ pub struct GlyphNavigation {
     pub codepoint_found: bool,
     /// Legacy fields for compatibility
     pub current_glyph: Option<String>,
+    #[allow(dead_code)]
     pub glyph_list: Vec<String>,
+    #[allow(dead_code)]
     pub current_index: usize,
 }
 
 impl GlyphNavigation {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self::default()
     }
     
     /// Create a new navigation state with a starting codepoint
+    #[allow(dead_code)]
     pub fn with_codepoint(initial_codepoint: Option<String>) -> Self {
         Self {
             current_codepoint: initial_codepoint,
@@ -580,10 +594,12 @@ impl GlyphNavigation {
     }
     
     /// Legacy methods for compatibility
+    #[allow(dead_code)]
     pub fn set_current_glyph(&mut self, glyph_name: String) {
         self.current_glyph = Some(glyph_name);
     }
     
+    #[allow(dead_code)]
     pub fn get_current_glyph(&self) -> Option<&String> {
         self.current_glyph.as_ref()
     }
@@ -627,7 +643,7 @@ impl FontMetrics {
             .or_else(|| Some(-(units_per_em * 0.2))); // -20% of UPM
         let x_height = font_info.x_height.map(|v| v as f64);
         let cap_height = font_info.cap_height.map(|v| v as f64);
-        let italic_angle = font_info.italic_angle.map(|v| v as f64);
+        let _italic_angle = font_info.italic_angle.map(|v| v as f64);
         
         let line_height = ascender.unwrap() - descender.unwrap();
 
@@ -637,20 +653,26 @@ impl FontMetrics {
             x_height,
             cap_height,
             ascender,
-            italic_angle,
+            italic_angle: None,
             line_height,
         }
     }
 }
 
 /// Create resource-compatible FontMetrics for rendering
-#[derive(Resource, Default, Clone)]
+#[derive(Resource, Debug, Clone)]
 pub struct FontMetricsResource {
+    #[allow(dead_code)]
     pub units_per_em: f64,
+    #[allow(dead_code)]
     pub ascender: f64,
+    #[allow(dead_code)]
     pub descender: f64,
+    #[allow(dead_code)]
     pub line_height: f64,
+    #[allow(dead_code)]
     pub x_height: Option<f64>,
+    #[allow(dead_code)]
     pub cap_height: Option<f64>,
 }
 
@@ -796,6 +818,7 @@ impl SortBuffer {
     }
     
     /// Create gap buffer from existing sorts (for font loading)
+    #[allow(dead_code)]
     pub fn from_sorts(sorts: Vec<SortEntry>) -> Self {
         let len = sorts.len();
         let capacity = (len * 2).max(1024); // Double capacity for future edits
@@ -819,6 +842,7 @@ impl SortBuffer {
     }
     
     /// Check if buffer is empty
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -968,6 +992,7 @@ impl SortBuffer {
     }
     
     /// Get all sorts as a vector (for debugging/serialization)
+    #[allow(dead_code)]
     pub fn to_vec(&self) -> Vec<SortEntry> {
         let mut result = Vec::with_capacity(self.len());
         for i in 0..self.len() {
@@ -1015,6 +1040,7 @@ pub struct SortEntry {
     /// Freeform position (only used when layout_mode is Freeform)
     pub freeform_position: Vec2,
     /// Buffer index (only used when layout_mode is Buffer)
+    #[allow(dead_code)]
     pub buffer_index: Option<usize>,
     /// Whether this sort is a buffer root (first sort in a text buffer)
     pub is_buffer_root: bool,
@@ -1038,6 +1064,7 @@ pub struct TextModeConfig {
     /// Whether new sorts should be placed in buffer or freeform mode
     pub default_placement_mode: SortLayoutMode,
     /// Whether to show the mode toggle UI
+    #[allow(dead_code)]
     pub show_mode_toggle: bool,
 }
 
@@ -1084,6 +1111,7 @@ impl Default for GridConfig {
 impl TextEditorState {
     /// Create a new text editor state from font data
     /// All initial sorts are created as freeform sorts arranged in a grid
+    #[allow(dead_code)]
     pub fn from_font_data(font_data: &FontData) -> Self {
         // Convert font glyphs to sort entries in alphabetical order
         let mut glyph_names: Vec<_> = font_data.glyphs.keys().collect();
@@ -1129,6 +1157,7 @@ impl TextEditorState {
     }
     
     /// Get all sorts (both buffer and freeform)
+    #[allow(dead_code)]
     pub fn get_all_sorts(&self) -> Vec<(usize, &SortEntry)> {
         let mut all_sorts = Vec::new();
         
@@ -1158,6 +1187,7 @@ impl TextEditorState {
     }
     
     /// Get only freeform sorts
+    #[allow(dead_code)]
     pub fn get_freeform_sorts(&self) -> Vec<(usize, &SortEntry)> {
         let mut freeform_sorts = Vec::new();
         
@@ -1173,6 +1203,7 @@ impl TextEditorState {
     }
     
     /// Convert a sort from buffer mode to freeform mode
+    #[allow(dead_code)]
     pub fn convert_sort_to_freeform(&mut self, buffer_position: usize, freeform_position: Vec2) -> bool {
         if let Some(sort) = self.buffer.get_mut(buffer_position) {
             sort.layout_mode = SortLayoutMode::Freeform;
@@ -1185,6 +1216,7 @@ impl TextEditorState {
     }
     
     /// Convert a sort from freeform mode to buffer mode
+    #[allow(dead_code)]
     pub fn convert_sort_to_buffer(&mut self, buffer_position: usize, new_buffer_index: usize) -> bool {
         if let Some(sort) = self.buffer.get_mut(buffer_position) {
             sort.layout_mode = SortLayoutMode::Buffer;
@@ -1418,6 +1450,7 @@ impl TextEditorState {
     }
     
     /// Deselect a sort at the given buffer position
+    #[allow(dead_code)]
     pub fn deselect_sort(&mut self, position: usize) -> bool {
         if let Some(sort) = self.buffer.get_mut(position) {
             sort.is_selected = false;
@@ -1464,6 +1497,7 @@ impl TextEditorState {
     }
     
     /// Check if a sort at the given position is selected
+    #[allow(dead_code)]
     pub fn is_sort_selected(&self, position: usize) -> bool {
         if let Some(sort) = self.buffer.get(position) {
             sort.is_selected
@@ -1483,6 +1517,7 @@ impl TextEditorState {
     }
     
     /// Get the visual position (world coordinates) for a buffer position
+    #[allow(dead_code)]
     pub fn get_world_position_for_buffer_position(&self, buffer_position: usize) -> Vec2 {
         let row = buffer_position / self.grid_config.sorts_per_row;
         let col = buffer_position % self.grid_config.sorts_per_row;
@@ -1633,52 +1668,220 @@ impl TextEditorState {
     
     /// Delete the sort at the cursor position
     pub fn delete_sort_at_cursor(&mut self) {
-        if self.cursor_position < self.buffer.len() {
-            self.buffer.delete(self.cursor_position);
-            if self.cursor_position > 0 && self.cursor_position >= self.buffer.len() {
-                self.cursor_position -= 1;
+        // FIXED: Use per-buffer-root cursor system instead of global cursor position
+        // Find the active buffer root and delete from its cursor position
+        let mut buffer_root_index = None;
+        let mut cursor_pos_in_buffer = 0;
+        
+        // Find active buffer root using the same logic as insert_sort_at_cursor
+        for i in 0..self.buffer.len() {
+            if let Some(sort) = self.buffer.get(i) {
+                if sort.is_buffer_root && sort.is_selected {
+                    buffer_root_index = Some(i);
+                    cursor_pos_in_buffer = sort.buffer_cursor_position.unwrap_or(0);
+                    break;
+                }
+            }
+        }
+        
+        if buffer_root_index.is_none() {
+            for i in 0..self.buffer.len() {
+                if let Some(sort) = self.buffer.get(i) {
+                    if sort.is_buffer_root && sort.buffer_cursor_position.is_some() {
+                        buffer_root_index = Some(i);
+                        cursor_pos_in_buffer = sort.buffer_cursor_position.unwrap_or(0);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if buffer_root_index.is_none() {
+            for i in (0..self.buffer.len()).rev() {
+                if let Some(sort) = self.buffer.get(i) {
+                    if sort.is_buffer_root {
+                        buffer_root_index = Some(i);
+                        cursor_pos_in_buffer = 0;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if let Some(root_index) = buffer_root_index {
+            if cursor_pos_in_buffer > 0 {
+                let delete_position = root_index + cursor_pos_in_buffer - 1;
+                if delete_position < self.buffer.len() {
+                    self.buffer.delete(delete_position);
+                    // Update the buffer root's cursor position
+                    if let Some(root_sort) = self.buffer.get_mut(root_index) {
+                        root_sort.buffer_cursor_position = Some(cursor_pos_in_buffer - 1);
+                    }
+                    info!("Deleted sort at position {}, cursor now at position {}", 
+                          delete_position, cursor_pos_in_buffer - 1);
+                }
+            } else {
+                // At position 0 - check if this is an empty buffer root we can delete
+                if let Some(root_sort) = self.buffer.get(root_index) {
+                    if root_sort.glyph_name.is_empty() && root_sort.is_buffer_root {
+                        self.buffer.delete(root_index);
+                        info!("Deleted empty buffer root at position {}", root_index);
+                    }
+                }
             }
         }
     }
     
-    /// Move cursor to a specific position
+    /// Move cursor to a specific position (now works with per-buffer-root cursors)
     pub fn move_cursor_to(&mut self, position: usize) {
-        if position <= self.buffer.len() {
-            self.cursor_position = position;
+        // FIXED: Update the active buffer root's cursor position instead of global cursor
+        if let Some(root_index) = self.find_active_buffer_root_index() {
+            // Get max_pos before getting mutable reference to avoid borrow conflicts
+            let max_pos = self.get_buffer_sequence_length(root_index);
+            if let Some(root_sort) = self.buffer.get_mut(root_index) {
+                // Clamp the position to valid range for this buffer sequence
+                let clamped_position = position.min(max_pos);
+                root_sort.buffer_cursor_position = Some(clamped_position);
+                info!("Moved cursor to position {} in buffer root at index {}", 
+                      clamped_position, root_index);
+            }
         }
     }
     
     /// Move cursor left by one position
     pub fn move_cursor_left(&mut self) {
-        if self.cursor_position > 0 {
-            self.cursor_position -= 1;
+        // FIXED: Update the active buffer root's cursor position
+        if let Some(root_index) = self.find_active_buffer_root_index() {
+            if let Some(root_sort) = self.buffer.get_mut(root_index) {
+                let current_pos = root_sort.buffer_cursor_position.unwrap_or(0);
+                if current_pos > 0 {
+                    root_sort.buffer_cursor_position = Some(current_pos - 1);
+                    info!("Moved cursor left to position {} in buffer root at index {}", 
+                          current_pos - 1, root_index);
+                }
+            }
         }
     }
     
     /// Move cursor right by one position
     pub fn move_cursor_right(&mut self) {
-        if self.cursor_position < self.buffer.len() {
-            self.cursor_position += 1;
-        }
-    }
-    
-    /// Move cursor up by one row
-    pub fn move_cursor_up(&mut self) {
-        let current_row = self.cursor_position / self.grid_config.sorts_per_row;
-        if current_row > 0 {
-            let new_position = self.cursor_position - self.grid_config.sorts_per_row;
-            if new_position < self.buffer.len() {
-                self.cursor_position = new_position;
+        // FIXED: Update the active buffer root's cursor position
+        if let Some(root_index) = self.find_active_buffer_root_index() {
+            // Get max_pos before getting mutable reference to avoid borrow conflicts
+            let max_pos = self.get_buffer_sequence_length(root_index);
+            if let Some(root_sort) = self.buffer.get_mut(root_index) {
+                let current_pos = root_sort.buffer_cursor_position.unwrap_or(0);
+                if current_pos < max_pos {
+                    root_sort.buffer_cursor_position = Some(current_pos + 1);
+                    info!("Moved cursor right to position {} in buffer root at index {}", 
+                          current_pos + 1, root_index);
+                }
             }
         }
     }
     
-    /// Move cursor down by one row
-    pub fn move_cursor_down(&mut self) {
-        let new_position = self.cursor_position + self.grid_config.sorts_per_row;
-        if new_position < self.buffer.len() {
-            self.cursor_position = new_position;
+    /// Move cursor up by one row (for buffer mode, move to previous buffer root)
+    pub fn move_cursor_up(&mut self) {
+        // FIXED: In buffer mode, move to previous buffer root
+        if let Some(current_root_index) = self.find_active_buffer_root_index() {
+            // Find the previous buffer root
+            for i in (0..current_root_index).rev() {
+                if let Some(sort) = self.buffer.get(i) {
+                    if sort.is_buffer_root {
+                        // Deselect current buffer root and select previous one
+                        if let Some(current_root) = self.buffer.get_mut(current_root_index) {
+                            current_root.is_selected = false;
+                        }
+                        // Get buffer_length before getting mutable reference to avoid borrow conflicts
+                        let buffer_length = self.get_buffer_sequence_length(i);
+                        if let Some(prev_root) = self.buffer.get_mut(i) {
+                            prev_root.is_selected = true;
+                            // Set cursor to end of previous buffer
+                            prev_root.buffer_cursor_position = Some(buffer_length);
+                            info!("Moved up to buffer root at index {}, cursor at position {}", 
+                                  i, buffer_length);
+                        }
+                        return;
+                    }
+                }
+            }
         }
+    }
+    
+    /// Move cursor down by one row (for buffer mode, move to next buffer root)
+    pub fn move_cursor_down(&mut self) {
+        // FIXED: In buffer mode, move to next buffer root
+        if let Some(current_root_index) = self.find_active_buffer_root_index() {
+            // Find the next buffer root
+            for i in (current_root_index + 1)..self.buffer.len() {
+                if let Some(sort) = self.buffer.get(i) {
+                    if sort.is_buffer_root {
+                        // Deselect current buffer root and select next one
+                        if let Some(current_root) = self.buffer.get_mut(current_root_index) {
+                            current_root.is_selected = false;
+                        }
+                        if let Some(next_root) = self.buffer.get_mut(i) {
+                            next_root.is_selected = true;
+                            // Set cursor to beginning of next buffer
+                            next_root.buffer_cursor_position = Some(0);
+                            info!("Moved down to buffer root at index {}, cursor at position 0", i);
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+    }
+    
+    /// Helper: Find the index of the active buffer root
+    fn find_active_buffer_root_index(&self) -> Option<usize> {
+        // Use same logic as insert_sort_at_cursor
+        for i in 0..self.buffer.len() {
+            if let Some(sort) = self.buffer.get(i) {
+                if sort.is_buffer_root && sort.is_selected {
+                    return Some(i);
+                }
+            }
+        }
+        
+        for i in 0..self.buffer.len() {
+            if let Some(sort) = self.buffer.get(i) {
+                if sort.is_buffer_root && sort.buffer_cursor_position.is_some() {
+                    return Some(i);
+                }
+            }
+        }
+        
+        for i in (0..self.buffer.len()).rev() {
+            if let Some(sort) = self.buffer.get(i) {
+                if sort.is_buffer_root {
+                    return Some(i);
+                }
+            }
+        }
+        
+        None
+    }
+    
+    /// Helper: Get the length of a buffer sequence starting from a buffer root
+    fn get_buffer_sequence_length(&self, root_index: usize) -> usize {
+        let mut length = 0;
+        for i in root_index..self.buffer.len() {
+            if let Some(sort) = self.buffer.get(i) {
+                if sort.layout_mode == SortLayoutMode::Buffer {
+                    if i == root_index || !sort.is_buffer_root {
+                        length += 1;
+                    } else {
+                        // Hit another buffer root, stop counting
+                        break;
+                    }
+                } else {
+                    // Hit a freeform sort, stop counting
+                    break;
+                }
+            }
+        }
+        length
     }
 }
 

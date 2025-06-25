@@ -5,6 +5,8 @@
 //! - Command handling for user actions
 //! - UI interaction detection and processing
 
+#![allow(unused_imports)]
+
 pub mod commands;
 pub mod debug;
 pub mod metrics;

@@ -3,8 +3,12 @@
 //! Handles the creation, activation, deactivation, and lifecycle of sorts.
 //! Ensures only one sort can be active at a time and manages the state transitions.
 
+#![allow(deprecated)]
+
 use crate::core::state::{AppState, GlyphNavigation};
+#[allow(unused_imports)]
 use crate::core::settings::apply_sort_grid_snap;
+#[allow(unused_imports)]
 use crate::rendering::cameras::DesignCamera;
 use crate::editing::selection::components::{
     GlyphPointReference, PointType, Selectable, Selected, SelectionState,
@@ -13,12 +17,15 @@ use crate::editing::selection::nudge::PointCoordinates;
 use crate::editing::sort::{ActiveSort, ActiveSortState, InactiveSort, Sort, SortEvent};
 
 use bevy::prelude::*;
+#[allow(unused_imports)]
 use bevy::window::PrimaryWindow;
 use std::collections::HashMap;
+#[allow(unused_imports)]
 use crate::ui::theme::{SORT_VERTICAL_PADDING, SORT_HORIZONTAL_PADDING};
 
 /// Helper to calculate the desired position of the crosshair.
 /// Places it at the lower-left of the sort's metrics box, offset inward by 64 units.
+#[allow(dead_code)]
 fn get_crosshair_position(sort: &Sort, app_state: &AppState) -> Vec2 {
     let metrics = &app_state.workspace.info.metrics;
     
@@ -45,6 +52,7 @@ pub struct SortPointEntity {
 #[derive(Component, Debug)]
 pub struct SortCrosshair {
     /// The sort entity this crosshair controls
+    #[allow(dead_code)]
     pub sort_entity: Entity,
 }
 
@@ -52,6 +60,7 @@ pub struct SortCrosshair {
 #[derive(Component, Debug)]
 pub struct NewlySpawnedCrosshair {
     /// Number of frames to wait before allowing movement
+    #[allow(dead_code)]
     pub frames_remaining: u32,
 }
 
@@ -136,7 +145,7 @@ fn activate_sort(
     active_sort_state: &mut ResMut<ActiveSortState>,
     sort_entity: Entity,
     active_sorts_query: &Query<Entity, With<ActiveSort>>,
-    sorts_query: &Query<&Sort>,
+    _sorts_query: &Query<&Sort>,
 ) {
     // First deactivate any currently active sort
     for active_entity in active_sorts_query.iter() {
@@ -427,22 +436,37 @@ pub fn spawn_sort_point_entities(
     }
 }
 
-// Placeholder systems for features not yet implemented
+/// Update glyph data for all sorts
+#[allow(dead_code)]
 pub fn update_sort_glyph_data() {}
+/// Manage crosshair visibility and positioning  
+#[allow(dead_code)]
 pub fn manage_sort_crosshairs() {}
+/// Update sort position when crosshair moves
+#[allow(dead_code)]
 pub fn update_sort_from_crosshair_move() {}
+/// Render crosshairs for active sorts
+#[allow(dead_code)]
 pub fn render_sort_crosshairs() {}
+/// Handle newly spawned crosshairs
+#[allow(dead_code)]
 pub fn manage_newly_spawned_crosshairs() {}
+/// Sync crosshair position when sort moves
+#[allow(dead_code)]
 pub fn sync_crosshair_to_sort_move() {}
+/// Sync point positions when sort moves
+#[allow(dead_code)]
 pub fn sync_points_to_sort_move() {}
+/// Debug function for sort point entities
+#[allow(dead_code)]
 pub fn debug_sort_point_entities() {}
 
 /// System to spawn initial sorts when the font is loaded.
 /// This preserves the natural UFO file order like the backup version.
 pub fn spawn_initial_sort(
-    mut commands: Commands,
-    sorts_query: Query<Entity, With<Sort>>,
-    app_state: Res<AppState>,
+    _commands: Commands,
+    _sorts_query: Query<Entity, With<Sort>>,
+    _app_state: Res<AppState>,
     mut has_run: Local<bool>,
 ) {
     // DISABLED: Skip creating initial sorts grid to keep design space clean
@@ -535,10 +559,10 @@ pub fn spawn_initial_sort(
 
 /// System to automatically activate the first sort that is created
 pub fn auto_activate_first_sort(
-    mut commands: Commands,
-    mut active_sort_state: ResMut<ActiveSortState>,
-    sorts_query: Query<Entity, (With<Sort>, With<InactiveSort>)>,
-    active_sorts_query: Query<Entity, With<ActiveSort>>,
+    _commands: Commands,
+    _active_sort_state: ResMut<ActiveSortState>,
+    _sorts_query: Query<Entity, (With<Sort>, With<InactiveSort>)>,
+    _active_sorts_query: Query<Entity, With<ActiveSort>>,
 ) {
     // DISABLED: Skip auto-activating sorts to keep design space clean
     // Original implementation commented out:
