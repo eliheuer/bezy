@@ -9,7 +9,9 @@
 **Unified Grid Workspace**: Everything happens on one continuous design space rather than switching between overview and edit modes.
 
 **Dual State Architecture**: The app maintains two representations of font data:
+
 - **Runtime State**: Thread-safe, ECS-optimized structures for real-time editing
+
 - **UFO Persistence**: Norad library used only for loading/saving, not runtime storage
 
 ## Coordinate Systems
@@ -17,7 +19,9 @@
 Bezy uses a dual coordinate system fundamental to all operations:
 
 - **Design Space**: Fixed coordinate space where glyphs and entities are described. Origin (0,0) is at the intersection of baseline and left sidebearing. This is the canonical coordinate system for font data.
+
 - **Screen Space**: View coordinate space for rendering and user interaction, accounting for zoom, pan, and screen geometry.
+
 - **ViewPort**: Handles transformations between spaces, including zoom level, pan offset, and Y-axis flipping (Y is always flipped in screen space).
 
 ## Architecture Overview
@@ -33,55 +37,81 @@ Bezy uses a dual coordinate system fundamental to all operations:
 ## Code Style
 
 - Rust files should be max 80 characters wide
+
 - Readability and ease of modification for junior programmers prioritized over clever tricks
+
 - Extensive use of type safety and validation
 
 ## Key Data Structures
 
 **AppState**: Main resource containing the entire font workspace
+
 **FontData**: Thread-safe representation of glyph data, contours, and points
+
 **Sorts**: Movable type entities with two layout modes:
   - Buffer mode: Grid-based layout following text flow
   - Freeform mode: Free positioning in design space
+
 **SortBuffer**: Gap buffer implementation for efficient text editing operations on both LTR scripts like Latin and RTL scripts like Arabic.
 
 ## Core Architecture Files
 
 ### Application Core
 - [Main app setup](src/core/app.rs): Plugin registration, startup systems, resource initialization
+
 - [Application state](src/core/state.rs): Thread-safe font data structures, UFO conversion, workspace management
+
 - [CLI interface](src/core/cli.rs): Command line argument parsing and configuration
+
 - [Settings management](src/core/settings.rs): User preferences and editor configuration
 
 ### Coordinate Systems & Geometry
 - [Design space](src/ui/panes/design_space.rs): Core coordinate definitions, ViewPort implementation, DPoint/DVec2 types
+
 - [Point management](src/geometry/point.rs): EditPoint, EntityId system for glyph components
+
 - [Path handling](src/geometry/path.rs): Geometric path operations and curve manipulation
+
 - [Point collections](src/geometry/point_list.rs): Efficient point collection management
 
 ### Data Management
 - [UFO operations](src/data/ufo.rs): UFO file I/O, Unicode codepoint mapping, norad integration
+
 - [Unicode utilities](src/data/unicode.rs): Character range handling and sorting
+
 - [Workspace management](src/data/workspace.rs): Project-level data organization
 
 ### Editing System
 - [Selection system](src/editing/selection/mod.rs): Multi-select, drag operations, selection state
+
 - [Point editing](src/editing/selection/components.rs): Selectable, Selected, Hovered components
+
 - [Point nudging](src/editing/selection/nudge.rs): Keyboard-based point movement with configurable increments
+
 - [Undo/redo](src/editing/undo_plugin.rs): Command pattern for undoable operations
+
 - [Sort management](src/editing/sort.rs): Sort entity lifecycle, active/inactive states
 
 ### Rendering System
+
 - [Camera control](src/rendering/cameras.rs): 2D camera with pan/zoom using bevy_pancam
+
 - [Glyph rendering](src/rendering/glyph_outline.rs): Vector outline drawing and visualization
+
 - [Drawing primitives](src/rendering/draw.rs): Low-level drawing utilities
+
 - [Font metrics](src/rendering/metrics.rs): Baseline, x-height, ascender/descender visualization
 
 ### User Interface
+
 - [Design space pane](src/ui/panes/design_space.rs): Main editing viewport, coordinate handling
+
 - [Glyph navigation](src/ui/panes/glyph_pane.rs): Glyph selection and browsing interface
+
 - [Coordinate display](src/ui/panes/coord_pane.rs): Real-time coordinate information
+
 - [Edit mode toolbar](src/ui/toolbars/edit_mode_toolbar/mod.rs): Dynamic tool system
+
 - [Theme system](src/ui/theme.rs): Color schemes and visual styling
 
 ### System Organization
