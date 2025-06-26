@@ -3,6 +3,8 @@
 //! This module provides workspace management functionality that was part of the
 //! original application design. It's adapted to work with our current AppState structure.
 
+// NOTE: is this used? 
+
 use bevy::prelude::*;
 use norad::{Font, Glyph};
 use std::collections::HashMap;

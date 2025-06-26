@@ -1,8 +1,8 @@
-//! Error handling for the Bezy font editor
+//!    Error handling
 //! 
-//! This module provides simple, effective error handling using anyhow.
+//! This module provides error handling using anyhow.
 //! As an application (not a library), we prioritize ease of use over
-//! complex error type hierarchies.
+//! complex error type hierarchies for now, that might change in the future.
 
 use anyhow::{Context, Result};
 #[allow(unused_imports)]
@@ -13,6 +13,7 @@ pub type BezyResult<T> = Result<T>;
 
 /// Helper functions for creating common error contexts
 pub trait BezyContext<T> {
+
     /// Add file operation context to an error
     fn with_file_context<P: AsRef<std::path::Path>>(self, operation: &str, path: P) -> BezyResult<T>;
     

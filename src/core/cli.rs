@@ -1,7 +1,7 @@
 //! Command line interface for the Bezy font editor
 //! 
-//! This module handles parsing command line arguments and provides
-//! validation for user inputs. All CLI options are documented with
+//! Handles parsing command line arguments and provides
+//! validation for user inputs. Many CLI options are documented with
 //! examples to help users understand the expected format.
 
 use bevy::prelude::*;
@@ -9,17 +9,17 @@ use clap::Parser;
 use std::path::PathBuf;
 use crate::core::settings::DEFAULT_UFO_PATH;
 
-/// Bezy Font Editor - A UFO font design tool built with Rust and Bevy
+/// Bezy CLI arguments
 /// 
 /// Examples:
-///   bezy                                    # Load default font
-///   bezy --load-ufo my-font.ufo            # Load specific font
-///   bezy --load-ufo ~/Fonts/MyFont.ufo     # Load font with full path
+///   bezy                                # Load default font
+///   bezy --load-ufo my-font.ufo         # Load specific font
+///   bezy --load-ufo ~/Fonts/MyFont.ufo  # Load font with full path
 #[derive(Parser, Debug, Resource)]
 #[clap(
     name = "bezy",
     version,
-    about = "A modern UFO font editor built with Rust and Bevy",
+    about = "A font editor built with Rust and Bevy",
     long_about = "Bezy is a cross-platform font editor that supports UFO (Unified Font Object) files. It provides glyph editing capabilities with a modern, game-engine-powered interface."
 )]
 pub struct CliArgs {

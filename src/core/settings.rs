@@ -6,16 +6,12 @@
 
 use bevy::prelude::*;
 
-// =============================================================================
 // FILE PATHS
-// =============================================================================
 
 /// Default UFO file to load if none is specified
 pub const DEFAULT_UFO_PATH: &str = "assets/fonts/bezy-grotesk-regular.ufo";
 
-// =============================================================================
 // GRID AND SNAPPING
-// =============================================================================
 
 /// Configuration for grid snapping behavior
 #[derive(Debug, Clone, Copy)]
@@ -38,9 +34,7 @@ impl Default for GridSettings {
     }
 }
 
-// =============================================================================
 // KEYBOARD CONTROLS
-// =============================================================================
 
 /// Configuration for keyboard-based editing
 #[derive(Debug, Clone, Copy)]
@@ -62,17 +56,15 @@ pub struct KeyboardSettings {
 impl Default for KeyboardSettings {
     fn default() -> Self {
         Self {
-            nudge_small: 1.0,
-            nudge_medium: 10.0,
-            nudge_large: 100.0,
+            nudge_small: 2.0,
+            nudge_medium: 8.0,
+            nudge_large: 64.0,
             zoom_step: 0.8,
         }
     }
 }
 
-// =============================================================================
 // CAMERA AND VIEWPORT
-// =============================================================================
 
 /// Configuration for camera behavior
 #[derive(Debug, Clone, Copy)]
@@ -98,9 +90,7 @@ impl Default for CameraSettings {
     }
 }
 
-// =============================================================================
 // GLOBAL SETTINGS RESOURCE
-// =============================================================================
 
 /// Main settings resource containing all configuration
 /// 
@@ -125,9 +115,7 @@ impl Default for BezySettings {
     }
 }
 
-// =============================================================================
 // HELPER FUNCTIONS
-// =============================================================================
 
 impl BezySettings {
     /// Apply grid snapping to a position based on current settings
@@ -182,9 +170,7 @@ impl BezySettings {
     }
 }
 
-// =============================================================================
 // LEGACY CONSTANTS (for backward compatibility)
-// =============================================================================
 
 // These constants are kept for backward compatibility but should be replaced
 // with the structured settings above in new code.

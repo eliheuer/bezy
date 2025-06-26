@@ -15,11 +15,8 @@ mod utils;
 use clap::Parser;
 use std::process;
 
-/// Main entry point for the Bezy font editor
-/// 
-/// This function initializes the application, handles CLI arguments,
-/// and provides clear error messages if something goes wrong.
 fn main() {
+
     // Initialize logging first so we can see error messages
     env_logger::init();
     
@@ -32,10 +29,12 @@ fn main() {
             app.run();
         }
         Err(error) => {
-            eprintln!("Error starting Bezy font editor:");
+            eprintln!();
+            eprintln!("Error starting Bezy:");
             eprintln!("{}", error);
             eprintln!();
             eprintln!("Try running with --help for usage information.");
+            eprintln!("Or visit: https://bezy.org");
             process::exit(1);
         }
     }

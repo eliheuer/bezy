@@ -4,6 +4,7 @@
 //! designed to be the backing data model for a text input field.
 //!
 //! NOTE: This is currently not used anywhere in the application.
+//! NOTE: Is the abobe note true, i am not sure?
 
 #[derive(Debug, Default)]
 #[allow(dead_code)]

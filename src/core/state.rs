@@ -1101,7 +1101,7 @@ impl Default for GridConfig {
     fn default() -> Self {
         Self {
             sorts_per_row: 16,
-            horizontal_spacing: 400.0,
+            horizontal_spacing: 64.0,
             vertical_spacing: 400.0,
             grid_origin: Vec2::ZERO,
         }
