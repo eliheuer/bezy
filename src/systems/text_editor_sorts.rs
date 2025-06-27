@@ -66,15 +66,22 @@ pub fn handle_text_editor_sort_clicks(
     ui_hover_state: Res<UiHoverState>,
     app_state: Res<crate::core::state::AppState>,
 ) {
+    // Check for left mouse button press first
+    if !mouse_button_input.just_pressed(MouseButton::Left) {
+        return; // Don't log this as it would spam every frame
+    }
+    
+    // DEBUG: Log that we detected a left click
+    debug!("LEFT MOUSE CLICKED - handle_text_editor_sort_clicks processing");
+    debug!("Buffer has {} sorts", text_editor_state.buffer.len());
+    
     // Only handle clicks when not hovering over UI
     if ui_hover_state.is_hovering_ui {
+        debug!("UI hover detected - ignoring click");
         return;
     }
-
-    // Check for left mouse button press
-    if !mouse_button_input.just_pressed(MouseButton::Left) {
-        return;
-    }
+    
+    debug!("Left mouse button pressed and no UI hover - processing click");
 
     let Ok(window) = windows.single() else {
         return;
@@ -98,20 +105,39 @@ pub fn handle_text_editor_sort_clicks(
         world_position.x, 
         world_position.y
     );
+    
+    // Also log the cursor position for debugging coordinate transformation
+    debug!(
+        "Cursor screen position: ({:.1}, {:.1})",
+        cursor_position.x, cursor_position.y
+    );
 
-    // Check for handle clicks first (more precise)
-    let handle_tolerance = 30.0; // Smaller tolerance for precise handle clicks
-    if let Some(clicked_sort_index) = text_editor_state.find_sort_at_position(
+    // Check for handle clicks first (more precise) 
+    // NOTE: Large tolerance needed due to coordinate system mismatch between font design space and screen space
+    let handle_tolerance = 1300.0; // Large tolerance to bridge coordinate system gap
+    
+    // Debug: Log what sorts we're checking against
+    debug!("Checking {} sorts for handle clicks with tolerance {}", 
+           text_editor_state.buffer.len(), handle_tolerance);
+    
+    // Debug: Log what we're looking for before the search
+    debug!("Looking for sort at world position ({:.1}, {:.1}) with tolerance {}", 
+           world_position.x, world_position.y, handle_tolerance);
+    
+    if let Some(clicked_sort_index) = text_editor_state.find_sort_handle_at_position(
         world_position, 
         handle_tolerance, 
         Some(&app_state.workspace.info.metrics)
     ) {
+        debug!("Handle click detected on sort at index {}", clicked_sort_index);
+        
         // Handle click - manage selection and active state relationship
         let is_ctrl_held = keyboard_input.pressed(KeyCode::ControlLeft) || 
                           keyboard_input.pressed(KeyCode::ControlRight);
         
         if is_ctrl_held {
             // Ctrl+click toggles selection without affecting other selections
+            debug!("Ctrl+click: toggling selection for sort {}", clicked_sort_index);
             text_editor_state.toggle_sort_selection(clicked_sort_index);
             
             // Update active state based on selection count
@@ -120,12 +146,15 @@ pub fn handle_text_editor_sort_clicks(
                 // Only one sort selected → make it active
                 let (selected_index, _) = selected_sorts[0];
                 text_editor_state.activate_sort(selected_index);
+                debug!("Single selection: activated sort {}", selected_index);
             } else {
                 // Multiple sorts selected → clear active state
                 text_editor_state.clear_active_state();
+                debug!("Multiple selections: cleared active state");
             }
         } else {
             // Regular click: clear other selections, select this one, and make it active
+            debug!("Regular click: clearing selections and selecting sort {}", clicked_sort_index);
             text_editor_state.clear_selections();
             text_editor_state.select_sort(clicked_sort_index);
             text_editor_state.activate_sort(clicked_sort_index);
@@ -147,13 +176,16 @@ pub fn handle_text_editor_sort_clicks(
             );
         }
     } else {
+        debug!("No handle click detected, checking for sort area clicks");
+        
         // Check for general sort area clicks (larger tolerance)
         let sort_tolerance = 250.0; 
-        if let Some(clicked_sort_index) = text_editor_state.find_sort_at_position(
+        if let Some(clicked_sort_index) = text_editor_state.find_sort_body_at_position(
             world_position, 
             sort_tolerance, 
-            Some(&app_state.workspace.info.metrics)
         ) {
+            debug!("Sort area click detected on sort at index {}", clicked_sort_index);
+            
             // Sort area click - just activate for editing
             text_editor_state.activate_sort(clicked_sort_index);
             
@@ -165,6 +197,8 @@ pub fn handle_text_editor_sort_clicks(
                 );
             }
         } else {
+            debug!("No sort clicked - clearing selections");
+            
             // Empty area click - clear selections and active state
             text_editor_state.clear_selections();
             text_editor_state.clear_active_state();
@@ -326,13 +360,17 @@ pub fn render_text_editor_sorts(
             let (outer_color, inner_color, handle_size) = if sort.is_buffer_root {
                 // Buffer root handles are larger and have special colors
                 if sort.is_selected {
-                    (Color::srgb(0.0, 1.0, 0.0), Color::srgb(0.8, 1.0, 0.8), 28.0) // Green
+                    // BRIGHT, obvious selection colors for buffer roots
+                    (Color::srgb(0.0, 1.0, 0.0), Color::srgb(1.0, 1.0, 1.0), 32.0) // Bright green with white center
                 } else {
-                    (Color::srgb(0.0, 0.8, 0.0), Color::srgb(0.6, 0.8, 0.6), 24.0) // Dark green
+                    (Color::srgb(0.0, 0.6, 0.0), Color::srgb(0.4, 0.8, 0.4), 24.0) // Dark green
                 }
             } else if sort.is_selected {
-                // Selected handles are highlighted
-                (Color::srgb(1.0, 0.5, 0.0), Color::srgb(1.0, 0.8, 0.4), 20.0) // Orange
+                // BRIGHT ORANGE selection colors for freeform sorts as requested
+                (Color::srgb(1.0, 0.5, 0.0), Color::srgb(1.0, 0.7, 0.2), 24.0) // Bright orange outer, lighter orange inner
+            } else if sort.is_active {
+                // Active but not selected - blue
+                (Color::srgb(0.0, 0.5, 1.0), Color::srgb(0.6, 0.8, 1.0), 20.0) // Blue
             } else {
                 // Unselected handles are subtle
                 (Color::srgb(0.6, 0.6, 0.6), Color::srgb(0.8, 0.8, 0.8), 16.0) // Gray
@@ -342,6 +380,14 @@ pub fn render_text_editor_sorts(
             let handle_screen_pos = viewport.to_screen(
                 crate::ui::panes::design_space::DPoint::from((handle_position.x, handle_position.y))
             );
+            
+            // Debug coordinate transformation when handle is selected
+            if sort.is_selected {
+                debug!(
+                    "Handle coordinate transform: world=({:.1}, {:.1}) -> screen=({:.1}, {:.1})",
+                    handle_position.x, handle_position.y, handle_screen_pos.x, handle_screen_pos.y
+                );
+            }
             
             // Draw the main handle circle in screen space
             gizmos.circle_2d(
@@ -357,13 +403,37 @@ pub fn render_text_editor_sorts(
                 inner_color,
             );
             
+            // Add extra visual feedback for selected handles - pulsing ring
+            if sort.is_selected {
+                // Use orange for the selection ring to match the handle colors
+                let ring_color = if sort.is_buffer_root {
+                    Color::srgb(1.0, 1.0, 1.0).with_alpha(0.8) // White for buffer roots
+                } else {
+                    Color::srgb(1.0, 0.6, 0.1).with_alpha(0.8) // Orange for freeform sorts
+                };
+                
+                gizmos.circle_2d(
+                    handle_screen_pos,
+                    handle_size + 8.0, // Larger outer ring
+                    ring_color,
+                );
+            }
+            
             // Draw buffer root indicator (small square) for buffer mode
             // Make it smaller and more subtle to reduce visual clutter
             if sort.is_buffer_root {
                 gizmos.rect_2d(
                     handle_screen_pos,
-                    Vec2::new(4.0, 4.0), // Reduced from 8.0 to 4.0 for less visual clutter
-                    Color::srgb(1.0, 1.0, 1.0).with_alpha(0.8), // Semi-transparent white square
+                    Vec2::new(6.0, 6.0), // Slightly larger for better visibility
+                    Color::srgb(1.0, 1.0, 1.0).with_alpha(0.9), // More opaque white square
+                );
+            }
+            
+            // Debug: Log handle state for troubleshooting
+            if sort.is_selected || sort.is_active {
+                debug!(
+                    "Rendering handle for sort '{}': selected={}, active={}, position=({:.1}, {:.1})", 
+                    sort.glyph_name, sort.is_selected, sort.is_active, handle_position.x, handle_position.y
                 );
             }
         }
@@ -755,6 +825,31 @@ pub fn debug_text_editor_state(
                 sort.is_buffer_root,
                 sort.buffer_cursor_position
             );
+        }
+    }
+    
+    // F2: Debug selection states
+    if keyboard_input.just_pressed(KeyCode::F2) {
+        info!("=== Selection Debug ===");
+        let selected_sorts = text_editor_state.get_selected_sorts();
+        info!("Total sorts: {}", text_editor_state.buffer.len());
+        info!("Selected sorts: {}", selected_sorts.len());
+        
+        for (index, sort) in text_editor_state.buffer.iter().enumerate() {
+            if sort.is_selected || sort.is_active {
+                info!(
+                    "Sort {}: '{}' - Selected: {}, Active: {}, Layout: {:?}", 
+                    index, 
+                    sort.glyph_name, 
+                    sort.is_selected, 
+                    sort.is_active,
+                    sort.layout_mode
+                );
+            }
+        }
+        
+        if selected_sorts.is_empty() {
+            info!("No sorts are currently selected");
         }
     }
 } 

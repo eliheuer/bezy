@@ -18,11 +18,22 @@
 
 Bezy uses a dual coordinate system fundamental to all operations:
 
-- **Design Space**: Fixed coordinate space where glyphs and entities are described. Origin (0,0) is at the intersection of baseline and left sidebearing. This is the canonical coordinate system for font data.
+- **Design Space**: Fixed coordinate space where glyphs and entities are described. Origin (0,0) is at the intersection of baseline and left sidebearing. This is the canonical coordinate system for font data. Font metrics like descender lines are at negative Y values (e.g., Y=-800).
 
 - **Screen Space**: View coordinate space for rendering and user interaction, accounting for zoom, pan, and screen geometry.
 
 - **ViewPort**: Handles transformations between spaces, including zoom level, pan offset, and Y-axis flipping (Y is always flipped in screen space).
+
+### Critical Coordinate System Gotchas
+
+**Camera Positioning**: The camera must be positioned to view the font design space, not just (0,0). Since font glyphs typically span from positive Y (ascenders) to negative Y (descenders), the camera should be centered around the font's typical glyph bounding box area.
+
+**Click Detection vs Rendering**: Always ensure that click detection and visual rendering use the same coordinate transformations. A common bug pattern is when:
+- Rendering uses: `world_pos + Vec2::new(0.0, descender)`
+- Click detection uses: `sort_pos + Vec2::new(0.0, descender - offset)` 
+This mismatch can cause clickable areas to be hundreds of units away from visual elements.
+
+**Tolerance Values**: Click tolerances must account for coordinate system gaps. If font elements are rendered in design space but clicks are detected in screen space with incomplete transformations, tolerances may need to be much larger (1000+ units) than expected (30 units) to bridge coordinate system mismatches.
 
 ## Architecture Overview
 
@@ -143,4 +154,30 @@ Bezy follows a modular plugin system:
 - Validation functions ensure data integrity
 - Thread-safe wrappers around norad types
 - Extensive use of Option<> for nullable values
-- Builder patterns for complex initialization 
+- Builder patterns for complex initialization
+
+## Debugging Guide for Coordinate Issues
+
+When encountering click detection problems or visual/interaction mismatches:
+
+1. **Add Debug Logging**: Use `info!` level logging to see:
+   - Actual click world positions: `world_position = ({:.1}, {:.1})`
+   - Element render positions: `element_position = ({:.1}, {:.1})`
+   - Calculated distances: `distance = {:.1}, tolerance = {:.1}`
+
+2. **Check Camera Setup**: Verify camera is positioned to view the design space:
+   - Font elements typically range from Y=+800 (ascenders) to Y=-800 (descenders)
+   - Camera should be centered around Y=0 or the font's center point
+
+3. **Verify Coordinate Consistency**: Ensure rendering and interaction use identical calculations:
+   - If rendering uses `pos + Vec2::new(0.0, descender)`, click detection must use the same
+   - Avoid hardcoded offsets that aren't applied to both systems
+
+4. **Tolerance Reality Check**: If distances are 1000+ units but tolerance is 30, either:
+   - Fix the coordinate transformation to reduce distances
+   - Increase tolerance to bridge legitimate coordinate gaps (as temporary measure)
+   - Prefer fixing the root coordinate issue over inflating tolerance
+
+5. **System Order**: Check if multiple click handling systems are interfering:
+   - Use `grep_search` to find all systems handling mouse input
+   - Verify only appropriate systems are loaded in app.rs 

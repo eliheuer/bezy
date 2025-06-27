@@ -25,14 +25,15 @@ impl Plugin for CameraPlugin {
 }
 
 pub fn setup_camera(mut commands: Commands) {
-    // Create a 2D camera with proper configuration
+    // Create a 2D camera with proper configuration positioned to view font design space
     commands.spawn((
         Camera2d,
         Camera {
             order: 0,
             ..default()
         },
-        Transform::from_xyz(0.0, 0.0, 1000.0).with_scale(Vec3::splat(INITIAL_ZOOM_SCALE)),
+        // Position camera to view the font design space (negative Y where fonts are positioned)
+        Transform::from_xyz(200.0, -500.0, 1000.0).with_scale(Vec3::splat(INITIAL_ZOOM_SCALE)),
         PanCam {
             grab_buttons: vec![MouseButton::Left, MouseButton::Middle],
             enabled: true,
