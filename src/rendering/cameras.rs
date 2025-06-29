@@ -5,10 +5,10 @@ use bevy::input::mouse::{MouseWheel, MouseScrollUnit};
 use bevy_pancam::{PanCam, PanCamPlugin};
 
 // Constants
-const MIN_ALLOWED_ZOOM_SCALE: f32 = 0.01;
-const MAX_ALLOWED_ZOOM_SCALE: f32 = 32.0;
-const INITIAL_ZOOM_SCALE: f32 = 1.0;
-const KEYBOARD_ZOOM_STEP: f32 = 0.9; // Smaller number = faster zoom (0.9 = 10% change per step)
+const MIN_ALLOWED_ZOOM_SCALE: f32 = 0.1;   // Don't zoom in beyond 8-unit grid usefulness
+const MAX_ALLOWED_ZOOM_SCALE: f32 = 64.0;  // Stop before 256-unit grid becomes too large  
+const INITIAL_ZOOM_SCALE: f32 = 1.0;       // Start at 32-unit grid level
+const KEYBOARD_ZOOM_STEP: f32 = 0.9;       // Smaller number = faster zoom (0.9 = 10% change per step)
 
 // Component to mark the main design camera
 #[derive(Component)]

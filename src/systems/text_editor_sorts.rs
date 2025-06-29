@@ -440,22 +440,22 @@ pub fn render_text_editor_sorts(
     }
     
     // Render cursor for buffer mode (only show if we have buffer sorts)
-    let buffer_sorts = text_editor_state.get_buffer_sorts();
-    if !buffer_sorts.is_empty() {
-        debug!("Rendering cursor: {} buffer sorts found", buffer_sorts.len());
+    let text_sorts = text_editor_state.get_text_sorts();
+    if !text_sorts.is_empty() {
+        debug!("Rendering cursor: {} text sorts found", text_sorts.len());
         
-        // Find the active buffer root and calculate cursor position within that buffer
-        let cursor_world_pos = if let Some(active_buffer_root) = find_active_buffer_root(&text_editor_state) {
-            let (root_index, root_sort) = active_buffer_root;
+        // Find the active text root and calculate cursor position within that text
+        let cursor_world_pos = if let Some(active_text_root) = find_active_text_root(&text_editor_state) {
+            let (root_index, root_sort) = active_text_root;
             let cursor_pos_in_buffer = root_sort.buffer_cursor_position.unwrap_or(0);
             
-            debug!("Active buffer root '{}' at index {}, cursor position in buffer: {}", 
+            debug!("Active text root '{}' at index {}, cursor position in text: {}", 
                    root_sort.glyph_name, root_index, cursor_pos_in_buffer);
             
-            // Calculate position within this buffer sequence
-            calculate_cursor_position_in_buffer(&text_editor_state, root_index, cursor_pos_in_buffer)
+            // Calculate position within this text sequence
+            calculate_cursor_position_in_text(&text_editor_state, root_index, cursor_pos_in_buffer)
         } else {
-            debug!("No active buffer root found, positioning cursor at zero");
+            debug!("No active text root found, positioning cursor at zero");
             Vec2::ZERO
         };
         
@@ -527,7 +527,7 @@ pub fn render_text_editor_sorts(
             Color::srgb(1.0, 1.0, 0.0)
         );
     } else {
-        debug!("No cursor rendered: {} buffer sorts found", buffer_sorts.len());
+        debug!("No cursor rendered: {} text sorts found", text_sorts.len());
     }
 }
 
@@ -546,10 +546,10 @@ pub fn handle_text_editor_keyboard_input(
     }
     
     // Check if we have buffer sorts for various operations
-    let has_buffer_sorts = !text_editor_state.get_buffer_sorts().is_empty();
+    let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
     
-    // Move cursor with arrow keys - only work if we have buffer sorts
-    if has_buffer_sorts {
+    // Move cursor with arrow keys - only work if we have text sorts
+    if has_text_sorts {
         if keyboard_input.just_pressed(KeyCode::ArrowRight) {
             text_editor_state.move_cursor_right();
             info!("Insert mode: moved cursor right to position {}", text_editor_state.cursor_position);
@@ -589,12 +589,12 @@ pub fn handle_text_editor_keyboard_input(
         keyboard_input.pressed(KeyCode::ControlRight)) {
         // For now, create buffer root at center of screen
         // TODO: Use actual mouse/click position from text tool
-        text_editor_state.create_buffer_root(Vec2::new(500.0, 0.0));
+        text_editor_state.create_text_root(Vec2::new(500.0, 0.0));
         info!("Insert mode: created new text buffer");
     }
     
-    // Delete/Backspace - only work if we have buffer sorts
-    if has_buffer_sorts {
+    // Delete/Backspace - only work if we have text sorts
+    if has_text_sorts {
         if keyboard_input.just_pressed(KeyCode::Delete) {
             text_editor_state.delete_sort_at_cursor();
             info!("Insert mode: deleted sort at cursor position");
@@ -680,12 +680,12 @@ pub fn handle_text_editor_keyboard_input(
                     app_state.workspace.font.glyphs.get(&glyph_name) {
                     let advance_width = glyph_data.advance_width as f32;
                     
-                    // Check if any buffer sorts exist
-                    if !has_buffer_sorts {
+                    // Check if any text sorts exist
+                    if !has_text_sorts {
                         // No buffer sorts exist, create a buffer root at center of screen
                         // TODO: Use actual mouse/click position if available
                         let center_position = Vec2::new(500.0, 0.0);
-                        text_editor_state.create_buffer_root(center_position);
+                        text_editor_state.create_text_root(center_position);
                         
                         // Now insert the character at the new buffer root
                         text_editor_state.insert_sort_at_cursor(
@@ -717,10 +717,10 @@ pub fn handle_text_editor_keyboard_input(
     }
 }
 
-/// Find the currently active buffer root (selected or in insert mode)
-fn find_active_buffer_root(text_editor_state: &TextEditorState) -> Option<(usize, &SortEntry)> {
-    // FIXED: Use more robust logic to find active buffer root
-    // First try to find a selected buffer root
+/// Find the currently active text root (selected or in insert mode)
+fn find_active_text_root(text_editor_state: &TextEditorState) -> Option<(usize, &SortEntry)> {
+    // FIXED: Use more robust logic to find active text root
+    // First try to find a selected text root
     for i in 0..text_editor_state.buffer.len() {
         if let Some(sort) = text_editor_state.buffer.get(i) {
             if sort.is_buffer_root && sort.is_selected {
@@ -729,7 +729,7 @@ fn find_active_buffer_root(text_editor_state: &TextEditorState) -> Option<(usize
         }
     }
     
-    // If no selected buffer root, look for any buffer root with a cursor position
+    // If no selected text root, look for any text root with a cursor position
     for i in 0..text_editor_state.buffer.len() {
         if let Some(sort) = text_editor_state.buffer.get(i) {
             if sort.is_buffer_root && sort.buffer_cursor_position.is_some() {
@@ -738,7 +738,7 @@ fn find_active_buffer_root(text_editor_state: &TextEditorState) -> Option<(usize
         }
     }
     
-    // If still no buffer root found, look for the most recently added buffer root
+    // If still no text root found, look for the most recently added text root
     for i in (0..text_editor_state.buffer.len()).rev() {
         if let Some(sort) = text_editor_state.buffer.get(i) {
             if sort.is_buffer_root {
@@ -750,16 +750,16 @@ fn find_active_buffer_root(text_editor_state: &TextEditorState) -> Option<(usize
     None
 }
 
-/// Calculate cursor position within a buffer sequence
-fn calculate_cursor_position_in_buffer(
+/// Calculate cursor position within a text sequence
+fn calculate_cursor_position_in_text(
     text_editor_state: &TextEditorState, 
     root_index: usize, 
-    cursor_pos_in_buffer: usize
+    cursor_pos_in_text: usize
 ) -> Vec2 {
     if let Some(root_sort) = text_editor_state.buffer.get(root_index) {
         let root_position = root_sort.freeform_position;
         
-        if cursor_pos_in_buffer == 0 {
+        if cursor_pos_in_text == 0 {
             // Cursor is at the root position (for empty roots or at the start)
             if root_sort.glyph_name.is_empty() {
                 // Empty root - cursor at root position for replacement
@@ -773,10 +773,10 @@ fn calculate_cursor_position_in_buffer(
             let mut x_offset = 0.0;
             
             // Sum up advance widths from the root up to the cursor position
-            for i in 0..cursor_pos_in_buffer {
+            for i in 0..cursor_pos_in_text {
                 let sort_index = root_index + i;
                 if let Some(sort) = text_editor_state.buffer.get(sort_index) {
-                    if sort.layout_mode == SortLayoutMode::Buffer && !sort.glyph_name.is_empty() {
+                    if sort.layout_mode == SortLayoutMode::Text && !sort.glyph_name.is_empty() {
                         x_offset += sort.advance_width;
                         debug!("Adding advance width {:.1} for sort '{}' at index {}", 
                                sort.advance_width, sort.glyph_name, sort_index);

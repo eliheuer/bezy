@@ -12,6 +12,7 @@
 #![allow(unused_mut)]
 
 use crate::core::state::{AppState, GlyphNavigation};
+use crate::rendering::checkerboard::CheckerboardEnabled;
 // BezyResult not used in current implementation
 use bevy::prelude::*;
 // Using String for glyph names in current norad version
@@ -99,6 +100,7 @@ fn register_event_handlers(app: &mut App) {
                 handle_create_contour,
                 handle_codepoint_cycling,
                 handle_save_shortcuts,
+                handle_checkerboard_toggle,
             ),
         );
 }
@@ -311,5 +313,32 @@ fn handle_create_contour(
         } else {
             warn!("No current glyph selected for contour creation");
         }
+    }
+}
+
+/// System to handle keyboard shortcuts for toggling the checkerboard grid
+///
+/// This system watches for Command+G (macOS) or Ctrl+G (Windows/Linux)
+/// and toggles the checkerboard visibility when detected
+pub fn handle_checkerboard_toggle(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut checkerboard_enabled: ResMut<CheckerboardEnabled>,
+) {
+    // Check for Command (macOS) or Control (Windows/Linux)
+    let modifier_pressed = keyboard.pressed(KeyCode::SuperLeft)
+        || keyboard.pressed(KeyCode::SuperRight)
+        || keyboard.pressed(KeyCode::ControlLeft)
+        || keyboard.pressed(KeyCode::ControlRight);
+
+    // If modifier is pressed and G is just pressed, toggle checkerboard
+    if modifier_pressed && keyboard.just_pressed(KeyCode::KeyG) {
+        checkerboard_enabled.enabled = !checkerboard_enabled.enabled;
+        let status = if checkerboard_enabled.enabled {
+            "enabled"
+        } else {
+            "disabled"
+        };
+        info!("Checkerboard grid {}", status);
+        debug!("Detected Command+G / Ctrl+G key combination, toggling checkerboard to: {}", status);
     }
 } 

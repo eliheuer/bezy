@@ -113,8 +113,8 @@ impl TextPlacementMode {
     /// Convert to SortLayoutMode
     pub fn to_sort_layout_mode(&self) -> SortLayoutMode {
         match self {
-            TextPlacementMode::Buffer => SortLayoutMode::Buffer,
-            TextPlacementMode::Insert => SortLayoutMode::Buffer,
+            TextPlacementMode::Buffer => SortLayoutMode::Text,
+            TextPlacementMode::Insert => SortLayoutMode::Text,
             TextPlacementMode::Freeform => SortLayoutMode::Freeform,
         }
     }
@@ -493,7 +493,7 @@ pub fn handle_text_mode_clicks(
                 match current_placement_mode.0 {
                     TextPlacementMode::Buffer => {
                         // Buffer mode: Create buffer sort at the calculated position
-                        text_editor_state.create_buffer_sort_at_position(glyph_name.clone(), sort_position, advance_width);
+                                                    text_editor_state.create_text_sort_at_position(glyph_name.clone(), sort_position, advance_width);
                         info!("Placed sort '{}' in buffer mode at position ({:.1}, {:.1}) with descender offset {:.1}", 
                               glyph_name, sort_position.x, sort_position.y, descender);
                         // Automatically switch to Insert mode after placing a buffer sort
@@ -872,7 +872,7 @@ pub fn handle_text_mode_keyboard(
                     TextPlacementMode::Buffer => {
                         // Buffer mode: Place sort at cursor position or center if no position tracked
                         let position = text_mode_state.cursor_position.unwrap_or(Vec2::ZERO);
-                        text_editor_state.create_buffer_sort_at_position(char_glyph.to_string(), position, char_advance_width);
+                        text_editor_state.create_text_sort_at_position(char_glyph.to_string(), position, char_advance_width);
                         info!("Placed sort '{}' in buffer mode via keyboard at position ({:.1}, {:.1})", 
                               char_glyph, position.x, position.y);
                     }

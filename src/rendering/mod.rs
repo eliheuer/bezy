@@ -17,4 +17,4 @@ pub mod metrics;
 pub mod sort_renderer;
 
 // Re-export commonly used items
-pub use checkerboard::CheckerboardPlugin;
+pub use checkerboard::{CheckerboardPlugin, CheckerboardEnabled};
