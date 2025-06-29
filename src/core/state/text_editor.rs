@@ -1,774 +1,10 @@
-//! Application state management.
+//! Text editor state and sort buffer management
 //!
-//! This module defines thread-safe data structures optimized for our font editor.
-//! We use norad only for loading/saving UFO files, not as runtime storage.
-//! 
-//! The main AppState resource contains all font data in a format optimized for
-//! real-time editing operations. Changes are batched and synchronized with the
-//! UFO format only when saving.
+//! This module contains all the text editing functionality for the font editor,
+//! including the gap buffer-based sort system that allows dynamic text composition.
 
 use bevy::prelude::*;
-use norad::Font;
-use std::collections::HashMap;
-use std::path::PathBuf;
-
-use crate::core::errors::{BezyResult, BezyContext, validate_finite_coords, validate_ufo_path};
-use crate::{glyph_not_found, point_out_of_bounds, contour_out_of_bounds};
-use anyhow::{ensure, Context};
-
-/// The main application state - thread-safe for Bevy
-#[derive(Resource, Default, Clone)]
-pub struct AppState {
-    /// The current font editing workspace
-    pub workspace: Workspace,
-}
-
-/// Represents a font editing session with thread-safe data
-#[derive(Clone, Default)]
-pub struct Workspace {
-    /// Thread-safe font data extracted from norad
-    pub font: FontData,
-    /// Information about the font (name, metrics, etc.)
-    pub info: FontInfo,
-    /// The currently selected glyph (if any)
-    #[allow(dead_code)]
-    pub selected: Option<String>,
-}
-
-/// Thread-safe font data structure
-#[derive(Clone, Default)]
-pub struct FontData {
-    /// All glyph data extracted from norad and stored thread-safely
-    pub glyphs: HashMap<String, GlyphData>,
-    /// Path to the UFO file (for saving)
-    pub path: Option<PathBuf>,
-}
-
-/// Thread-safe glyph data
-#[derive(Clone, Debug)]
-pub struct GlyphData {
-    /// Glyph name
-    pub name: String,
-    /// Advance width
-    pub advance_width: f64,
-    /// Advance height (optional)
-    pub advance_height: Option<f64>,
-    /// Unicode codepoints for this glyph
-    pub unicode_values: Vec<char>,
-    /// Glyph outline data
-    pub outline: Option<OutlineData>,
-}
-
-/// Thread-safe outline data
-#[derive(Clone, Debug)]
-pub struct OutlineData {
-    /// Contour data
-    pub contours: Vec<ContourData>,
-}
-
-/// Thread-safe contour data
-#[derive(Clone, Debug)]
-pub struct ContourData {
-    /// Points in this contour
-    pub points: Vec<PointData>,
-}
-
-/// Thread-safe point data
-#[derive(Clone, Debug)]
-pub struct PointData {
-    /// X coordinate
-    pub x: f64,
-    /// Y coordinate  
-    pub y: f64,
-    /// Point type
-    pub point_type: PointTypeData,
-}
-
-/// Thread-safe point type
-#[derive(Clone, Debug)]
-pub enum PointTypeData {
-    Move,
-    Line, 
-    OffCurve,
-    Curve,
-    QCurve,
-}
-
-/// Font information
-#[derive(Clone, Default)]
-pub struct FontInfo {
-    /// Family name
-    pub family_name: String,
-    /// Style name
-    pub style_name: String,
-    /// Units per em
-    pub units_per_em: f64,
-    /// Font metrics for spacing and positioning
-    pub metrics: FontMetrics,
-    /// Ascender value
-    pub ascender: Option<f64>,
-    /// Descender value
-    pub descender: Option<f64>,
-    /// x-height value
-    pub x_height: Option<f64>,
-    /// Cap height value
-    pub cap_height: Option<f64>,
-}
-
-/// Font metrics for spacing and positioning
-#[derive(Clone, Default)]
-pub struct FontMetrics {
-    pub units_per_em: f64,
-    pub descender: Option<f64>,
-    pub x_height: Option<f64>,
-    pub cap_height: Option<f64>,
-    pub ascender: Option<f64>,
-    #[allow(dead_code)]
-    pub italic_angle: Option<f64>,
-    #[allow(dead_code)]
-    pub line_height: f64,
-}
-
-impl AppState {
-    /// Load a font from a UFO file path
-    /// 
-    /// This method loads a UFO font file and converts it into our optimized
-    /// internal representation for real-time editing.
-    pub fn load_font_from_path(&mut self, path: PathBuf) -> BezyResult<()> {
-        // Validate the UFO path
-        validate_ufo_path(&path)?;
-        
-        // Load the font using norad
-        let font = Font::load(&path)
-            .with_file_context("load", &path)?;
-        
-        // Extract data into our thread-safe structures
-        self.workspace.font = FontData::from_norad_font(&font, Some(path));
-        self.workspace.info = FontInfo::from_norad_font(&font);
-        
-        info!("Successfully loaded UFO font with {} glyphs", self.workspace.font.glyphs.len());
-        Ok(())
-    }
-
-    /// Save the current font to its file path
-    /// 
-    /// This method converts our internal representation back to UFO format
-    /// and saves it to the file path that was used to load the font.
-    pub fn save_font(&self) -> BezyResult<()> {
-        let path = self.workspace.font.path.as_ref()
-            .context("No file path set - use Save As first")?;
-        
-        // Convert our internal data back to norad and save
-        let norad_font = self.workspace.font.to_norad_font(&self.workspace.info);
-        norad_font.save(path)
-            .with_file_context("save", path)?;
-        
-        info!("Saved font to {:?}", path);
-        Ok(())
-    }
-
-    /// Save the font to a new path
-    /// 
-    /// This method saves the font to a new location and updates the internal
-    /// path reference for future save operations.
-    pub fn save_font_as(&mut self, path: PathBuf) -> BezyResult<()> {
-        // Convert our internal data back to norad and save
-        let norad_font = self.workspace.font.to_norad_font(&self.workspace.info);
-        norad_font.save(&path)
-            .with_file_context("save", &path)?;
-        
-        // Update our stored path
-        self.workspace.font.path = Some(path.clone());
-        
-        info!("Saved font to new location: {:?}", path);
-        Ok(())
-    }
-
-    /// Get a display name for the current font
-    pub fn get_font_display_name(&self) -> String {
-        self.workspace.get_font_display_name()
-    }
-
-    /// Get a mutable reference to a specific point in a glyph
-    pub fn get_point_mut(&mut self, glyph_name: &str, contour_idx: usize, point_idx: usize) 
-        -> Option<&mut PointData> {
-        self.workspace.font.glyphs
-            .get_mut(glyph_name)?
-            .outline.as_mut()?
-            .contours.get_mut(contour_idx)?
-            .points.get_mut(point_idx)
-    }
-
-    /// Update a specific point in a glyph
-    /// 
-    /// This method updates a point's data with comprehensive validation.
-    #[allow(dead_code)]
-    pub fn update_point(&mut self, glyph_name: &str, contour_idx: usize, point_idx: usize, new_point: PointData) -> BezyResult<()> {
-        // Validate coordinates first
-        validate_finite_coords(new_point.x, new_point.y)?;
-        
-        // Validate glyph exists
-        let glyph = self.workspace.font.glyphs.get(glyph_name)
-            .ok_or_else(|| glyph_not_found!(glyph_name, self.workspace.font.glyphs.len()))?;
-        
-        // Validate outline exists
-        let outline = glyph.outline.as_ref()
-            .context(format!("Glyph '{}' has no outline data", glyph_name))?;
-        
-        // Validate contour exists
-        ensure!(
-            contour_idx < outline.contours.len(),
-            contour_out_of_bounds!(glyph_name, contour_idx, outline.contours.len())
-        );
-        
-        // Validate point exists
-        let contour = &outline.contours[contour_idx];
-        ensure!(
-            point_idx < contour.points.len(),
-            point_out_of_bounds!(glyph_name, contour_idx, point_idx, contour.points.len())
-        );
-        
-        // Update the point (we know it exists after validation)
-        let point = self.get_point_mut(glyph_name, contour_idx, point_idx)
-            .context("Point should exist after validation")?;
-        *point = new_point;
-        
-        Ok(())
-    }
-
-    /// Get a point by reference (read-only)
-    #[allow(dead_code)]
-    pub fn get_point(&self, glyph_name: &str, contour_idx: usize, point_idx: usize) 
-        -> Option<&PointData> {
-        self.workspace.font.glyphs
-            .get(glyph_name)?
-            .outline.as_ref()?
-            .contours.get(contour_idx)?
-            .points.get(point_idx)
-    }
-
-    /// Move a point by a delta amount
-    #[allow(dead_code)]
-    pub fn move_point(&mut self, glyph_name: &str, contour_idx: usize, point_idx: usize, delta_x: f64, delta_y: f64) -> bool {
-        if let Some(point) = self.get_point_mut(glyph_name, contour_idx, point_idx) {
-            point.x += delta_x;
-            point.y += delta_y;
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Set the position of a point
-    pub fn set_point_position(&mut self, glyph_name: &str, contour_idx: usize, point_idx: usize, x: f64, y: f64) -> bool {
-        if let Some(point) = self.get_point_mut(glyph_name, contour_idx, point_idx) {
-            point.x = x;
-            point.y = y;
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Get all points in a contour (read-only)
-    #[allow(dead_code)]
-    pub fn get_contour_points(&self, glyph_name: &str, contour_idx: usize) -> Option<&Vec<PointData>> {
-        self.workspace.font.glyphs
-            .get(glyph_name)?
-            .outline.as_ref()?
-            .contours.get(contour_idx)
-            .map(|contour| &contour.points)
-    }
-
-    /// Get the number of contours in a glyph
-    #[allow(dead_code)]
-    pub fn get_contour_count(&self, glyph_name: &str) -> Option<usize> {
-        self.workspace.font.glyphs
-            .get(glyph_name)?
-            .outline.as_ref()
-            .map(|outline| outline.contours.len())
-    }
-
-    /// Get the number of points in a specific contour
-    #[allow(dead_code)]
-    pub fn get_point_count(&self, glyph_name: &str, contour_idx: usize) -> Option<usize> {
-        self.workspace.font.glyphs
-            .get(glyph_name)?
-            .outline.as_ref()?
-            .contours.get(contour_idx)
-            .map(|contour| contour.points.len())
-    }
-}
-
-impl GlyphData {
-    /// Convert from norad glyph to our thread-safe version
-    pub fn from_norad_glyph(norad_glyph: &norad::Glyph) -> Self {
-        let outline = if !norad_glyph.contours.is_empty() {
-            Some(OutlineData::from_norad_contours(&norad_glyph.contours))
-        } else {
-            None
-        };
-
-        Self {
-            name: norad_glyph.name().to_string(),
-            advance_width: norad_glyph.width as f64,
-            advance_height: Some(norad_glyph.height as f64),
-            unicode_values: norad_glyph.codepoints.iter().collect(),
-            outline,
-        }
-    }
-
-    /// Convert back to norad glyph
-    pub fn to_norad_glyph(&self) -> norad::Glyph {
-        let mut glyph = norad::Glyph::new(&self.name);
-        glyph.width = self.advance_width;
-        glyph.height = self.advance_height.unwrap_or(0.0);
-        
-        // Convert Vec<char> to Codepoints
-        for &codepoint in &self.unicode_values {
-            glyph.codepoints.insert(codepoint);
-        }
-        
-        if let Some(outline_data) = &self.outline {
-            glyph.contours = outline_data.to_norad_contours();
-        }
-        
-        glyph
-    }
-}
-
-impl OutlineData {
-    pub fn from_norad_contours(norad_contours: &[norad::Contour]) -> Self {
-        let contours = norad_contours.iter()
-            .map(ContourData::from_norad_contour)
-            .collect();
-        
-        Self { contours }
-    }
-
-    pub fn to_norad_contours(&self) -> Vec<norad::Contour> {
-        self.contours.iter()
-            .map(ContourData::to_norad_contour)
-            .collect()
-    }
-}
-
-impl ContourData {
-    pub fn from_norad_contour(norad_contour: &norad::Contour) -> Self {
-        let points = norad_contour.points.iter()
-            .map(PointData::from_norad_point)
-            .collect();
-        
-        Self { points }
-    }
-
-    pub fn to_norad_contour(&self) -> norad::Contour {
-        let points = self.points.iter()
-            .map(PointData::to_norad_point)
-            .collect();
-        
-        // Use constructor with required arguments
-        norad::Contour::new(points, None)
-    }
-}
-
-impl PointData {
-    pub fn from_norad_point(norad_point: &norad::ContourPoint) -> Self {
-        Self {
-            x: norad_point.x as f64,
-            y: norad_point.y as f64,
-            point_type: PointTypeData::from_norad_point_type(&norad_point.typ),
-        }
-    }
-
-    pub fn to_norad_point(&self) -> norad::ContourPoint {
-        // Use constructor with all 6 required arguments
-        norad::ContourPoint::new(
-            self.x, // f64 is expected
-            self.y, // f64 is expected
-            self.point_type.to_norad_point_type(),
-            false, // smooth
-            None,  // name
-            None,  // identifier
-        )
-    }
-}
-
-impl PointTypeData {
-    pub fn from_norad_point_type(norad_type: &norad::PointType) -> Self {
-        match norad_type {
-            norad::PointType::Move => PointTypeData::Move,
-            norad::PointType::Line => PointTypeData::Line,
-            norad::PointType::OffCurve => PointTypeData::OffCurve,
-            norad::PointType::Curve => PointTypeData::Curve,
-            norad::PointType::QCurve => PointTypeData::QCurve,
-        }
-    }
-
-    pub fn to_norad_point_type(&self) -> norad::PointType {
-        match self {
-            PointTypeData::Move => norad::PointType::Move,
-            PointTypeData::Line => norad::PointType::Line,
-            PointTypeData::OffCurve => norad::PointType::OffCurve,
-            PointTypeData::Curve => norad::PointType::Curve,
-            PointTypeData::QCurve => norad::PointType::QCurve,
-        }
-    }
-}
-
-impl FontData {
-    /// Extract font data from norad Font 
-    pub fn from_norad_font(font: &Font, path: Option<PathBuf>) -> Self {
-        let mut glyphs = HashMap::new();
-        
-        // Extract all glyphs from the default layer
-        let layer = font.default_layer();
-        
-        // Iterate over glyphs in the layer
-        for glyph in layer.iter() {
-            let glyph_data = GlyphData::from_norad_glyph(glyph);
-            glyphs.insert(glyph.name().to_string(), glyph_data);
-        }
-        
-        Self { glyphs, path }
-    }
-    
-    /// Get a glyph by name
-    pub fn get_glyph(&self, name: &str) -> Option<&GlyphData> {
-        self.glyphs.get(name)
-    }
-
-    /// Convert back to a complete norad Font
-    pub fn to_norad_font(&self, info: &FontInfo) -> Font {
-        let mut font = Font::new();
-        
-        // Set font info using our conversion method
-        font.font_info = info.to_norad_font_info();
-        
-        // Add glyphs to the default layer
-        let layer = font.default_layer_mut();
-        for (_name, glyph_data) in &self.glyphs {
-            let glyph = glyph_data.to_norad_glyph();
-            layer.insert_glyph(glyph);
-        }
-        
-        font
-    }
-}
-
-impl FontInfo {
-    /// Extract font info from norad Font
-    pub fn from_norad_font(font: &Font) -> Self {
-        let units_per_em = font.font_info.units_per_em
-            .map(|v| v.to_string().parse().unwrap_or(1024.0))
-            .unwrap_or(1024.0);
-        let ascender = font.font_info.ascender.map(|v| v as f64);
-        let descender = font.font_info.descender.map(|v| v as f64);
-        let x_height = font.font_info.x_height.map(|v| v as f64);
-        let cap_height = font.font_info.cap_height.map(|v| v as f64);
-        let _italic_angle = font.font_info.italic_angle.map(|v| v as f64);
-        
-        let metrics = FontMetrics::from_ufo(font);
-        
-        Self {
-            family_name: Self::extract_string_field(&font.font_info, |info| &info.family_name, "Untitled"),
-            style_name: Self::extract_string_field(&font.font_info, |info| &info.style_name, "Regular"),
-            units_per_em,
-            metrics,
-            ascender,
-            descender,
-            x_height,
-            cap_height,
-        }
-    }
-    
-    /// Helper to extract string fields with defaults
-    fn extract_string_field<F>(
-        font_info: &norad::FontInfo,
-        getter: F,
-        default: &str,
-    ) -> String
-    where
-        F: Fn(&norad::FontInfo) -> &Option<String>,
-    {
-        getter(font_info)
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| default.to_string())
-    }
-    
-    /// Get a display name combining family and style names
-    pub fn get_display_name(&self) -> String {
-        let parts: Vec<&str> = [&self.family_name, &self.style_name]
-            .iter()
-            .filter(|s| !s.is_empty())
-            .map(|s| s.as_str())
-            .collect();
-
-        if parts.is_empty() {
-            "Untitled Font".to_string()
-        } else {
-            parts.join(" ")
-        }
-    }
-    
-    /// Convert back to norad FontInfo
-    pub fn to_norad_font_info(&self) -> norad::FontInfo {
-        let mut info = norad::FontInfo::default();
-        
-        // Set family and style names
-        if !self.family_name.is_empty() {
-            info.family_name = Some(self.family_name.clone());
-        }
-        if !self.style_name.is_empty() {
-            info.style_name = Some(self.style_name.clone());
-        }
-        
-        // Set numeric values
-        if let Some(units_per_em) = norad::fontinfo::NonNegativeIntegerOrFloat::new(self.units_per_em) {
-            info.units_per_em = Some(units_per_em);
-        }
-        info.ascender = self.ascender;
-        info.descender = self.descender;
-        info.x_height = self.x_height;
-        info.cap_height = self.cap_height;
-        info
-    }
-    
-    /// Get metrics for rendering
-    #[allow(dead_code)]
-    pub fn get_metrics(&self) -> &FontMetrics {
-        &self.metrics
-    }
-}
-
-/// Glyph navigation state
-#[derive(Resource, Default)]
-pub struct GlyphNavigation {
-    /// The current Unicode codepoint being viewed (like "0061" for 'a')
-    pub current_codepoint: Option<String>,
-    /// Whether we found this codepoint in the loaded font
-    pub codepoint_found: bool,
-    /// Legacy fields for compatibility
-    pub current_glyph: Option<String>,
-    #[allow(dead_code)]
-    pub glyph_list: Vec<String>,
-    #[allow(dead_code)]
-    pub current_index: usize,
-}
-
-impl GlyphNavigation {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self::default()
-    }
-    
-    /// Create a new navigation state with a starting codepoint
-    #[allow(dead_code)]
-    pub fn with_codepoint(initial_codepoint: Option<String>) -> Self {
-        Self {
-            current_codepoint: initial_codepoint,
-            codepoint_found: false,
-            current_glyph: None,
-            glyph_list: Vec::new(),
-            current_index: 0,
-        }
-    }
-
-    /// Change to a different codepoint
-    pub fn set_codepoint(&mut self, new_codepoint: String) {
-        self.current_codepoint = Some(new_codepoint);
-        self.codepoint_found = false; // We'll need to check if this exists
-    }
-
-    /// Get the current codepoint as a string for display
-    pub fn get_codepoint_string(&self) -> String {
-        self.current_codepoint.clone().unwrap_or_default()
-    }
-
-    /// Find the glyph name for the current codepoint
-    pub fn find_glyph(&self, app_state: &AppState) -> Option<String> {
-        self.current_codepoint
-            .as_ref()
-            .and_then(|codepoint| find_glyph_by_unicode_codepoint(app_state, codepoint))
-    }
-    
-    /// Legacy methods for compatibility
-    #[allow(dead_code)]
-    pub fn set_current_glyph(&mut self, glyph_name: String) {
-        self.current_glyph = Some(glyph_name);
-    }
-    
-    #[allow(dead_code)]
-    pub fn get_current_glyph(&self) -> Option<&String> {
-        self.current_glyph.as_ref()
-    }
-}
-
-impl Workspace {
-    /// Get a display name for the font
-    pub fn get_font_display_name(&self) -> String {
-        self.get_font_name()
-    }
-
-    /// Get a display name combining family and style names  
-    pub fn get_font_name(&self) -> String {
-        let parts: Vec<&str> = [&self.info.family_name, &self.info.style_name]
-            .iter()
-            .filter(|s| !s.is_empty())
-            .map(|s| s.as_str())
-            .collect();
-
-        if parts.is_empty() {
-            "Untitled Font".to_string()
-        } else {
-            parts.join(" ")
-        }
-    }
-}
-
-impl FontMetrics {
-    /// Extract metrics from a UFO
-    pub fn from_ufo(ufo: &Font) -> Self {
-        let font_info = &ufo.font_info;
-
-        let units_per_em = font_info
-            .units_per_em.map(|v| v.to_string().parse().unwrap_or(1024.0))
-            .unwrap_or(1024.0);
-        
-        // Load metrics from UFO, using reasonable defaults based on units_per_em if missing
-        let ascender = font_info.ascender.map(|v| v as f64)
-            .or_else(|| Some(units_per_em * 0.8)); // 80% of UPM
-        let descender = font_info.descender.map(|v| v as f64)
-            .or_else(|| Some(-(units_per_em * 0.2))); // -20% of UPM
-        let x_height = font_info.x_height.map(|v| v as f64);
-        let cap_height = font_info.cap_height.map(|v| v as f64);
-        let _italic_angle = font_info.italic_angle.map(|v| v as f64);
-        
-        let line_height = ascender.unwrap() - descender.unwrap();
-
-        Self {
-            units_per_em,
-            descender,
-            x_height,
-            cap_height,
-            ascender,
-            italic_angle: None,
-            line_height,
-        }
-    }
-}
-
-/// Create resource-compatible FontMetrics for rendering
-#[derive(Resource, Debug, Clone)]
-pub struct FontMetricsResource {
-    #[allow(dead_code)]
-    pub units_per_em: f64,
-    #[allow(dead_code)]
-    pub ascender: f64,
-    #[allow(dead_code)]
-    pub descender: f64,
-    #[allow(dead_code)]
-    pub line_height: f64,
-    #[allow(dead_code)]
-    pub x_height: Option<f64>,
-    #[allow(dead_code)]
-    pub cap_height: Option<f64>,
-}
-
-impl From<&FontInfo> for FontMetricsResource {
-    fn from(info: &FontInfo) -> Self {
-        Self {
-            units_per_em: info.units_per_em,
-            ascender: info.ascender.unwrap_or(800.0),
-            descender: info.descender.unwrap_or(-200.0),
-            line_height: info.ascender.unwrap_or(800.0) - info.descender.unwrap_or(-200.0),
-            x_height: info.x_height,
-            cap_height: info.cap_height,
-        }
-    }
-}
-
-/// Find a glyph by Unicode codepoint in the app state
-pub fn find_glyph_by_unicode_codepoint(app_state: &AppState, codepoint: &str) -> Option<String> {
-    // Parse the codepoint string to a character
-    if let Ok(codepoint_num) = u32::from_str_radix(codepoint, 16) {
-        if let Some(ch) = char::from_u32(codepoint_num) {
-            // Search through all glyphs for one with this unicode value
-            for (glyph_name, glyph_data) in &app_state.workspace.font.glyphs {
-                if glyph_data.unicode_values.contains(&ch) {
-                    return Some(glyph_name.clone());
-                }
-            }
-        }
-    }
-    None
-}
-
-/// Get all unicode codepoints available in the font
-pub fn get_all_codepoints(app_state: &AppState) -> Vec<String> {
-    let mut codepoints = Vec::new();
-    
-    for glyph_data in app_state.workspace.font.glyphs.values() {
-        for &unicode_char in &glyph_data.unicode_values {
-            let codepoint = format!("{:04X}", unicode_char as u32);
-            if !codepoints.contains(&codepoint) {
-                codepoints.push(codepoint);
-            }
-        }
-    }
-    
-    // Sort and return
-    codepoints.sort();
-    codepoints
-}
-
-/// Navigation direction for cycling through codepoints
-#[derive(Clone, Debug)]
-pub enum CycleDirection {
-    Next,
-    Previous,
-}
-
-/// Find the next or previous codepoint in the font's available codepoints
-pub fn cycle_codepoint_in_list(
-    current_codepoint: Option<String>, 
-    app_state: &AppState,
-    direction: CycleDirection,
-) -> Option<String> {
-    let codepoints = get_all_codepoints(app_state);
-    
-    if codepoints.is_empty() {
-        return None;
-    }
-    
-    // If no current codepoint, return the first one
-    let current = match current_codepoint {
-        Some(cp) => cp,
-        None => return codepoints.first().cloned(),
-    };
-    
-    // Find the position of the current codepoint
-    if let Some(current_index) = codepoints.iter().position(|cp| cp == &current) {
-        match direction {
-            CycleDirection::Next => {
-                let next_index = (current_index + 1) % codepoints.len();
-                codepoints.get(next_index).cloned()
-            }
-            CycleDirection::Previous => {
-                let prev_index = if current_index == 0 {
-                    codepoints.len() - 1
-                } else {
-                    current_index - 1
-                };
-                codepoints.get(prev_index).cloned()
-            }
-        }
-    } else {
-        // Current codepoint not found, return first
-        codepoints.first().cloned()
-    }
-}
+use crate::core::state::{FontData, FontMetrics};
 
 /// Text editor state for dynamic sort management
 #[derive(Resource, Clone, Default)]
@@ -816,9 +52,79 @@ pub struct SortBuffer {
     gap_end: usize,
 }
 
+/// An entry in the sort buffer representing a glyph
+#[derive(Clone, Debug)]
+pub struct SortEntry {
+    /// The name of the glyph this sort represents
+    pub glyph_name: String,
+    /// The advance width of the glyph (for spacing)
+    pub advance_width: f32,
+    /// Whether this sort is currently active (in edit mode with points showing)
+    pub is_active: bool,
+    /// Whether this sort is currently selected (handle is highlighted)
+    pub is_selected: bool,
+    /// Layout mode for this sort
+    pub layout_mode: SortLayoutMode,
+    /// Freeform position (only used when layout_mode is Freeform)
+    pub freeform_position: Vec2,
+    /// Buffer index (only used when layout_mode is Buffer)
+    #[allow(dead_code)]
+    pub buffer_index: Option<usize>,
+    /// Whether this sort is a buffer root (first sort in a text buffer)
+    pub is_buffer_root: bool,
+    /// Cursor position within this buffer sequence (only for buffer roots)
+    pub buffer_cursor_position: Option<usize>,
+}
+
+/// Grid layout configuration
+#[derive(Clone)]
+pub struct GridConfig {
+    /// Number of sorts per row
+    pub sorts_per_row: usize,
+    /// Horizontal spacing between sorts
+    pub horizontal_spacing: f32,
+    /// Vertical spacing between rows
+    pub vertical_spacing: f32,
+    /// Starting position for the grid
+    pub grid_origin: Vec2,
+}
+
+/// Iterator for gap buffer
+pub struct SortBufferIterator<'a> {
+    buffer: &'a SortBuffer,
+    index: usize,
+}
+
 impl Default for SortBuffer {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Default for SortEntry {
+    fn default() -> Self {
+        Self {
+            glyph_name: String::new(),
+            advance_width: 0.0,
+            is_active: false,
+            is_selected: false,
+            layout_mode: SortLayoutMode::Text,
+            freeform_position: Vec2::ZERO,
+            buffer_index: None,
+            is_buffer_root: false,
+            buffer_cursor_position: None,
+        }
+    }
+}
+
+impl Default for GridConfig {
+    fn default() -> Self {
+        Self {
+            sorts_per_row: 16,
+            horizontal_spacing: 64.0,
+            vertical_spacing: 400.0,
+            grid_origin: Vec2::ZERO,
+        }
     }
 }
 
@@ -1024,12 +330,6 @@ impl SortBuffer {
     }
 }
 
-/// Iterator for gap buffer
-pub struct SortBufferIterator<'a> {
-    buffer: &'a SortBuffer,
-    index: usize,
-}
-
 impl<'a> Iterator for SortBufferIterator<'a> {
     type Item = &'a SortEntry;
     
@@ -1040,70 +340,6 @@ impl<'a> Iterator for SortBufferIterator<'a> {
             let item = self.buffer.get(self.index);
             self.index += 1;
             item
-        }
-    }
-}
-
-/// An entry in the sort buffer representing a glyph
-#[derive(Clone, Debug)]
-pub struct SortEntry {
-    /// The name of the glyph this sort represents
-    pub glyph_name: String,
-    /// The advance width of the glyph (for spacing)
-    pub advance_width: f32,
-    /// Whether this sort is currently active (in edit mode with points showing)
-    pub is_active: bool,
-    /// Whether this sort is currently selected (handle is highlighted)
-    pub is_selected: bool,
-    /// Layout mode for this sort
-    pub layout_mode: SortLayoutMode,
-    /// Freeform position (only used when layout_mode is Freeform)
-    pub freeform_position: Vec2,
-    /// Buffer index (only used when layout_mode is Buffer)
-    #[allow(dead_code)]
-    pub buffer_index: Option<usize>,
-    /// Whether this sort is a buffer root (first sort in a text buffer)
-    pub is_buffer_root: bool,
-    /// Cursor position within this buffer sequence (only for buffer roots)
-    pub buffer_cursor_position: Option<usize>,
-}
-
-impl Default for SortEntry {
-    fn default() -> Self {
-        Self {
-            glyph_name: String::new(),
-            advance_width: 0.0,
-            is_active: false,
-            is_selected: false,
-            layout_mode: SortLayoutMode::Text,
-            freeform_position: Vec2::ZERO,
-            buffer_index: None,
-            is_buffer_root: false,
-            buffer_cursor_position: None,
-        }
-    }
-}
-
-/// Grid layout configuration
-#[derive(Clone)]
-pub struct GridConfig {
-    /// Number of sorts per row
-    pub sorts_per_row: usize,
-    /// Horizontal spacing between sorts
-    pub horizontal_spacing: f32,
-    /// Vertical spacing between rows
-    pub vertical_spacing: f32,
-    /// Starting position for the grid
-    pub grid_origin: Vec2,
-}
-
-impl Default for GridConfig {
-    fn default() -> Self {
-        Self {
-            sorts_per_row: 16,
-            horizontal_spacing: 64.0,
-            vertical_spacing: 400.0,
-            grid_origin: Vec2::ZERO,
         }
     }
 }
@@ -1230,8 +466,8 @@ impl TextEditorState {
     
     /// Add a new freeform sort at the specified position
     pub fn add_freeform_sort(&mut self, glyph_name: String, position: Vec2, advance_width: f32) {
-        let sort = SortEntry {
-            glyph_name,
+        let new_sort = SortEntry {
+            glyph_name: glyph_name.clone(),
             advance_width,
             is_active: false,
             is_selected: false,
@@ -1242,61 +478,56 @@ impl TextEditorState {
             buffer_cursor_position: None,
         };
         
-        // Insert at the end of the buffer
         let insert_index = self.buffer.len();
-        self.buffer.insert(insert_index, sort);
+        self.buffer.insert(insert_index, new_sort);
+        info!("Added freeform sort '{}' at position ({:.1}, {:.1})", glyph_name, position.x, position.y);
     }
     
-    /// Calculate position for text sorts that flow from their text root
+    /// Calculate flow position for text sorts
     fn get_text_sort_flow_position(&self, buffer_position: usize) -> Option<Vec2> {
-        // Find the text root for this sort
-        let mut text_root_position = None;
-        let mut text_root_pos = Vec2::ZERO;
-        
-        // Look backwards to find the text root
-        for i in (0..=buffer_position).rev() {
-            if let Some(sort) = self.buffer.get(i) {
-                if sort.layout_mode == SortLayoutMode::Text && sort.is_buffer_root {
-                    text_root_position = Some(i);
-                    text_root_pos = sort.freeform_position;
-                    break;
-                }
-            }
-        }
-        
-        if let Some(root_pos) = text_root_position {
-            // Calculate horizontal offset from text root
-            let mut x_offset = 0.0;
-            
-            // Sum up advance widths from root to current position
-            for i in root_pos..buffer_position {
-                if let Some(sort) = self.buffer.get(i) {
-                    if sort.layout_mode == SortLayoutMode::Text && !sort.glyph_name.is_empty() {
-                        x_offset += sort.advance_width;
+        if let Some(sort) = self.buffer.get(buffer_position) {
+            if sort.layout_mode == SortLayoutMode::Text {
+                // Find the text buffer root for this sort
+                let mut root_position = Vec2::ZERO;
+                let mut x_offset = 0.0;
+                
+                // Find the buffer root by searching backwards
+                for i in (0..=buffer_position).rev() {
+                    if let Some(candidate) = self.buffer.get(i) {
+                        if candidate.is_buffer_root && candidate.layout_mode == SortLayoutMode::Text {
+                            root_position = candidate.freeform_position;
+                            
+                            // Calculate cumulative advance width from root to current position
+                            for j in i..buffer_position {
+                                if let Some(text_sort) = self.buffer.get(j) {
+                                    if text_sort.layout_mode == SortLayoutMode::Text && !text_sort.glyph_name.is_empty() {
+                                        x_offset += text_sort.advance_width;
+                                    }
+                                }
+                            }
+                            break;
+                        }
                     }
                 }
+                
+                return Some(root_position + Vec2::new(x_offset, 0.0));
             }
-            
-            Some(text_root_pos + Vec2::new(x_offset, 0.0))
-        } else {
-            // Fallback to stored position if no text root found
-            self.buffer.get(buffer_position).map(|sort| sort.freeform_position)
         }
+        None
     }
-    
+
     /// Create a new text root at the specified world position
     pub fn create_text_root(&mut self, world_position: Vec2) {
-        // Create an empty text root sort
         let text_root = SortEntry {
-            glyph_name: String::new(), // Empty - will be populated when user types
+            glyph_name: String::new(), // Empty glyph name for text root placeholder
             advance_width: 0.0,
             is_active: false,
             is_selected: true, // Select the new text root
             layout_mode: SortLayoutMode::Text,
-            freeform_position: world_position, // Store the actual position for text sorts too
-            buffer_index: Some(self.buffer.len()), // Position in buffer
-            is_buffer_root: true, // This is a text root
-            buffer_cursor_position: Some(0), // Position cursor at the empty root for replacement
+            freeform_position: world_position,
+            buffer_index: Some(self.buffer.len()),
+            is_buffer_root: true,
+            buffer_cursor_position: Some(0), // Start with cursor at position 0
         };
         
         // Insert at the end of the buffer
@@ -1894,6 +1125,4 @@ impl TextEditorState {
         }
         length
     }
-}
-
-
+} 
