@@ -3,6 +3,15 @@
 //! This module handles the creation and visibility management of the
 //! checkerboard grid that provides visual context in the design space.
 //! Uses dynamic rendering to only show squares visible to the camera.
+//!
+//! ## CRITICAL: Zoom Logic
+//! 
+//! The grid scaling follows this relationship:
+//! - **ZOOMED OUT** (large projection scale) → **LARGE grid squares** (better performance)
+//! - **ZOOMED IN** (small projection scale) → **SMALL grid squares** (more detail)
+//!
+//! This prevents performance issues when viewing large areas while maintaining
+//! detail when editing at close zoom levels.
 
 use crate::rendering::cameras::DesignCamera;
 use crate::ui::theme::{
@@ -24,6 +33,13 @@ const VISIBILITY_PADDING: f32 = 512.0;
 /// Minimum zoom level where checkerboard is visible (very zoomed out)
 /// Lower values = more zoomed out before hiding checkerboard
 const MIN_VISIBILITY_ZOOM: f32 = 0.01;
+
+/// Performance tuning constants for dynamic grid scaling
+const GRID_SIZE_CHANGE_THRESHOLD: f32 = 1.25; // Very sensitive - trigger respawn when grid changes by 25%
+const VISIBLE_AREA_COVERAGE_MULTIPLIER: f32 = 1.2; // Reduced from 1.5 - less aggressive coverage
+const MINIMUM_GRID_SQUARES_COVERAGE: f32 = 6.0; // Reduced from 10.0 - fewer minimum squares
+const GRID_PADDING_SQUARES: f32 = 2.0; // Reduced from 3.0 - less padding around visible area
+const MAX_SQUARES_PER_FRAME: usize = 2000; // Safety limit to prevent performance issues
 
 // Resources -------------------
 
@@ -69,13 +85,36 @@ pub struct CheckerboardState {
 
 /// Calculates the appropriate grid size based on zoom level
 ///
-/// This function provides a fixed grid size using the theme's default unit size,
-/// ensuring consistent grid representation regardless of zoom level.
-fn calculate_dynamic_grid_size(_zoom_scale: f32) -> f32 {
-    // Use the theme's default grid size for consistent representation
-    // This provides consistent grid representation for font design work
-    // while reducing the number of squares for better performance
-    CHECKERBOARD_DEFAULT_UNIT_SIZE
+/// CRITICAL: This function implements the correct zoom-to-grid-size relationship:
+/// - When ZOOMED OUT (large projection scale): LARGE grid squares (better performance, fewer squares)
+/// - When ZOOMED IN (small projection scale): SMALL grid squares (more detail)
+///
+/// Bevy's OrthographicProjection.scale represents how much world space is visible:
+/// - LARGER scale = more world space visible = more ZOOMED OUT
+/// - SMALLER scale = less world space visible = more ZOOMED IN
+fn calculate_dynamic_grid_size(zoom_scale: f32) -> f32 {
+    let base_size = CHECKERBOARD_DEFAULT_UNIT_SIZE;
+    
+    // CORRECTED LOGIC: Higher zoom_scale (more zoomed out) = larger grid squares
+    // This prevents performance issues when viewing large areas
+    let zoom_thresholds = [
+        (15.0, 64.0),   // Very zoomed out: 2048 units per square
+        (8.0, 32.0),    // Zoomed out: 1024 units per square  
+        (4.0, 16.0),    // Moderately zoomed out: 512 units per square
+        (2.0, 8.0),     // Slightly zoomed out: 256 units per square
+        (1.5, 4.0),     // Just zoomed out: 128 units per square
+        (1.2, 2.0),     // Barely zoomed out: 64 units per square
+        (0.0, 1.0),     // Zoomed in or normal: 32 units per square (base size)
+    ];
+    
+    // Find the appropriate scale multiplier based on current zoom
+    // We iterate from highest zoom (most zoomed out) to lowest
+    let scale_multiplier = zoom_thresholds.iter()
+        .find(|(threshold, _)| zoom_scale >= *threshold)
+        .map(|(_, multiplier)| *multiplier)
+        .unwrap_or(1.0); // Default to base size for very zoomed in
+    
+    base_size * scale_multiplier
 }
 
 /// Updates the checkerboard based on camera position and zoom
@@ -131,6 +170,12 @@ pub fn update_checkerboard(
               projection_scale, transform_scale, camera_scale, 
               camera_transform.translation.x, camera_transform.translation.y, 
               camera_transform.translation.z, current_grid_size);
+              
+        // Also show what zoom threshold this should trigger
+        let expected_grid_size = calculate_dynamic_grid_size(camera_scale);
+        info!("Grid size calculation: zoom={:.3} → expected_size={:.0}, \
+               last_size={:?}", 
+              camera_scale, expected_grid_size, state.last_grid_size);
     }
 
     // Hide checkerboard if zoom is outside visible range
@@ -154,20 +199,50 @@ pub fn update_checkerboard(
               camera_transform.translation.x, 
               camera_transform.translation.y);
         
-        // Fixed grid level using theme default
-        info!("  grid level: Fixed ({:.0} units)", CHECKERBOARD_DEFAULT_UNIT_SIZE);
-        info!("  checkerboard visible: {}", 
+        // Calculate and show the actual grid level being used
+        let base_size = CHECKERBOARD_DEFAULT_UNIT_SIZE;
+        let scale_multiplier = current_grid_size / base_size;
+        if scale_multiplier == 1.0 {
+            info!("  → Grid: Base level ({:.0} units) at zoom ≥ 1.0", base_size);
+        } else {
+            // Show the zoom threshold for this level
+            let zoom_threshold = match scale_multiplier as i32 {
+                2 => "1.2",
+                4 => "1.5", 
+                8 => "2.0",
+                16 => "4.0",
+                32 => "8.0",
+                64 => "15.0",
+                _ => "very high"
+            };
+            info!("  → Grid: {}x scale ({:.0} units) at zoom ≥ {}", 
+                  scale_multiplier, current_grid_size, zoom_threshold);
+        }
+        info!("  → Checkerboard visible: {}", 
               is_checkerboard_visible(camera_scale));
     }
 
     // Check if grid size changed significantly - if so, respawn all squares
     let grid_size_changed = state.last_grid_size.map_or(true, |last_size| {
-        // Only trigger change if grid size doubled or halved to reduce flicker
+        // Use a more responsive threshold than just doubling/halving
+        // This prevents sudden jumps but still triggers when grid size changes meaningfully
         let ratio = current_grid_size / last_size;
-        ratio >= 2.0 || ratio <= 0.5
+        let should_change = ratio >= GRID_SIZE_CHANGE_THRESHOLD || ratio <= (1.0 / GRID_SIZE_CHANGE_THRESHOLD);
+        
+        // Debug why grid size change isn't happening
+        if !should_change && significant_scale_change {
+            info!("Grid size NOT changing: current={:.0}, last={:.0}, \
+                   ratio={:.2}, threshold={:.1}", 
+                  current_grid_size, last_size, ratio, GRID_SIZE_CHANGE_THRESHOLD);
+        }
+        
+        should_change
     });
 
     if grid_size_changed {
+        info!("🔄 GRID SIZE CHANGED! Respawning all squares: \
+               old={:?} → new={:.0}", 
+              state.last_grid_size, current_grid_size);
         // Clear all existing squares and state
         despawn_all_squares(&mut commands, &mut state, &square_query);
         state.last_grid_size = Some(current_grid_size);
@@ -223,10 +298,10 @@ fn update_visible_squares(
         let pos_diff = (camera_pos - last_pos).length();
         let scale_diff = (camera_scale - last_scale).abs();
         
-        // Only update if moved more than one grid unit or zoom changed >20%
-        // Increased thresholds to reduce update frequency
+        // Only update if moved more than one grid unit or zoom changed >5%
+        // Reduced zoom threshold from 10% to 5% for more responsive grid changes
         if pos_diff < current_grid_size 
-            && scale_diff < last_scale * 0.2 
+            && scale_diff < last_scale * 0.05 
         {
             return;
         }
@@ -269,31 +344,47 @@ fn calculate_visible_area(
 ) -> Rect {
     let camera_pos = camera_transform.translation.truncate();
     
-    // Use a very generous approach to ensure full screen coverage
-    // Make the area much larger than the window to guarantee coverage
+    // Calculate screen coverage in world space
     let screen_width = window_size.x;
     let screen_height = window_size.y;
     
-    // Use a much more aggressive multiplier to ensure full coverage
-    // The formula: visible_area = window_size * camera_scale * multiplier + 
-    // huge_padding
-    let aggressive_multiplier = 5.0; // Much more aggressive coverage
-    let huge_padding = 2000.0 * camera_scale.max(1.0); // Very large padding
+    // CRITICAL: Always ensure complete screen coverage first
+    // This is the minimum area needed to cover the entire screen
+    let min_screen_half_width = (screen_width * camera_scale) / 2.0;
+    let min_screen_half_height = (screen_height * camera_scale) / 2.0;
     
-    let half_width = (screen_width * camera_scale * aggressive_multiplier) 
-        / 2.0 + huge_padding;
-    let half_height = (screen_height * camera_scale * aggressive_multiplier) 
-        / 2.0 + huge_padding;
+    // Add padding to extend beyond screen edges for smooth scrolling
+    // Use fixed padding that's proportional to grid size but not too conservative
+    let edge_padding = current_grid_size * 2.0; // Always at least 2 grid squares beyond edges
     
-    // Ensure minimum coverage - at least 20 grid squares in each direction  
-    let min_half_size = current_grid_size * 20.0;
-    let final_half_width = half_width.max(min_half_size);
-    let final_half_height = half_height.max(min_half_size);
+    // Calculate conservative coverage for performance, but never less than screen coverage
+    let base_size = CHECKERBOARD_DEFAULT_UNIT_SIZE;
+    let grid_scale_factor = current_grid_size / base_size;
+    let performance_coverage_multiplier = VISIBLE_AREA_COVERAGE_MULTIPLIER / grid_scale_factor.sqrt();
+    
+    // Performance-based coverage
+    let perf_half_width = (screen_width * camera_scale * performance_coverage_multiplier) / 2.0;
+    let perf_half_height = (screen_height * camera_scale * performance_coverage_multiplier) / 2.0;
+    
+    // ENSURE COMPLETE COVERAGE: Use the larger of screen coverage or performance coverage
+    let final_half_width = (min_screen_half_width + edge_padding).max(perf_half_width);
+    let final_half_height = (min_screen_half_height + edge_padding).max(perf_half_height);
 
-    info!("Visible area calc: window=({:.0}x{:.0}), camera_scale={:.3}, \
-           half_size=({:.0}, {:.0})", 
-           screen_width, screen_height, camera_scale, 
-           final_half_width, final_half_height);
+    // Only log when grid size changes to reduce spam
+    static mut LAST_LOGGED_GRID_SIZE: Option<f32> = None;
+    unsafe {
+        if LAST_LOGGED_GRID_SIZE.is_none() || 
+           LAST_LOGGED_GRID_SIZE.unwrap() != current_grid_size {
+            info!("✅ Screen coverage: window=({:.0}x{:.0}), camera_scale={:.3}, \
+                   min_screen=({:.0}, {:.0}), final=({:.0}, {:.0}), \
+                   grid_size={:.0}, padding={:.0}", 
+                   screen_width, screen_height, camera_scale, 
+                   min_screen_half_width, min_screen_half_height,
+                   final_half_width, final_half_height,
+                   current_grid_size, edge_padding);
+            LAST_LOGGED_GRID_SIZE = Some(current_grid_size);
+        }
+    }
 
     Rect::from_center_half_size(
         camera_pos, 
@@ -308,11 +399,25 @@ fn get_needed_squares(
 ) -> HashSet<IVec2> {
     let mut needed = HashSet::new();
 
-    // Calculate grid bounds for visible area
-    let min_x = (visible_area.min.x / current_grid_size).floor() as i32;
-    let max_x = (visible_area.max.x / current_grid_size).ceil() as i32;
-    let min_y = (visible_area.min.y / current_grid_size).floor() as i32;
-    let max_y = (visible_area.max.y / current_grid_size).ceil() as i32;
+    // Calculate grid bounds for visible area with extra padding to ensure edge coverage
+    // Using floor/ceil with -1/+1 extension ensures we always cover screen edges
+    let min_x = (visible_area.min.x / current_grid_size).floor() as i32 - 1;
+    let max_x = (visible_area.max.x / current_grid_size).ceil() as i32 + 1;
+    let min_y = (visible_area.min.y / current_grid_size).floor() as i32 - 1;
+    let max_y = (visible_area.max.y / current_grid_size).ceil() as i32 + 1;
+    
+    // Debug log grid bounds occasionally to verify coverage
+    static mut BOUNDS_LOG_COUNT: u32 = 0;
+    unsafe {
+        BOUNDS_LOG_COUNT += 1;
+        if BOUNDS_LOG_COUNT % 100 == 1 { // Log every 100th call
+            info!("🔢 Grid bounds: visible_area=({:.0},{:.0} to {:.0},{:.0}), \
+                   grid_bounds=({},{} to {},{}), grid_size={:.0}",
+                  visible_area.min.x, visible_area.min.y, 
+                  visible_area.max.x, visible_area.max.y,
+                  min_x, min_y, max_x, max_y, current_grid_size);
+        }
+    }
 
     // Add squares in checkerboard pattern
     for x in min_x..=max_x {
@@ -322,6 +427,14 @@ fn get_needed_squares(
                 needed.insert(IVec2::new(x, y));
             }
         }
+    }
+    
+    // Performance safety check - if too many squares, warn but still return them
+    // The grid size should have been calculated to prevent this, but this is a safeguard
+    if needed.len() > MAX_SQUARES_PER_FRAME {
+        warn!("⚠️  Many squares needed: {} (max recommended: {}). \
+               Grid size {:.0} may be too small for current zoom level.", 
+              needed.len(), MAX_SQUARES_PER_FRAME, current_grid_size);
     }
 
     needed

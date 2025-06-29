@@ -28,6 +28,16 @@ Bezy uses a dual coordinate system fundamental to all operations:
 
 **Camera Positioning**: The camera must be positioned to view the font design space, not just (0,0). Since font glyphs typically span from positive Y (ascenders) to negative Y (descenders), the camera should be centered around the font's typical glyph bounding box area.
 
+**Checkerboard Zoom Logic (CRITICAL)**: The checkerboard grid scaling must follow the correct zoom-to-grid-size relationship:
+- **ZOOMED OUT** (large projection scale, seeing more world space) → **LARGE grid squares** (better performance, fewer squares rendered)
+- **ZOOMED IN** (small projection scale, seeing less world space) → **SMALL grid squares** (more detail for precise editing)
+
+In Bevy's OrthographicProjection, `scale` represents how much world space is visible:
+- LARGER scale = more world space visible = more ZOOMED OUT = need LARGER grid squares
+- SMALLER scale = less world space visible = more ZOOMED IN = need SMALLER grid squares
+
+**Zoom Threshold Logic**: When implementing zoom thresholds for grid size changes, ensure the array is ordered from highest zoom (most zoomed out) to lowest zoom (most zoomed in), with corresponding grid size multipliers that increase as zoom increases.
+
 **Click Detection vs Rendering**: Always ensure that click detection and visual rendering use the same coordinate transformations. A common bug pattern is when:
 - Rendering uses: `world_pos + Vec2::new(0.0, descender)`
 - Click detection uses: `sort_pos + Vec2::new(0.0, descender - offset)` 
