@@ -6,7 +6,7 @@
 
 use crate::rendering::cameras::DesignCamera;
 use crate::ui::theme::{
-    CHECKERBOARD_COLOR, CHECKERBOARD_UNIT_SIZE, CHECKERBOARD_SCALE_FACTOR,
+    CHECKERBOARD_COLOR, CHECKERBOARD_DEFAULT_UNIT_SIZE, CHECKERBOARD_SCALE_FACTOR,
     CHECKERBOARD_MAX_ZOOM_VISIBLE, CHECKERBOARD_ENABLED_BY_DEFAULT,
     WINDOW_WIDTH, WINDOW_HEIGHT,
 };
@@ -69,29 +69,13 @@ pub struct CheckerboardState {
 
 /// Calculates the appropriate grid size based on zoom level
 ///
-/// This function provides a stepped scaling system where grid squares get 
-/// larger as you zoom out, maintaining visual clarity and usefulness at all 
-/// zoom levels. Grid sizes: 8 -> 16 -> 32 -> 64 -> 128 units
-fn calculate_dynamic_grid_size(zoom_scale: f32) -> f32 {
-    // Define grid sizes for different zoom levels - tighter thresholds for 
-    // more responsiveness. These provide clear, useful grid units for font 
-    // design work
-    if zoom_scale <= 1.0 {
-        // Very zoomed in - small, precise grid
-        8.0
-    } else if zoom_scale <= 2.0 {
-        // Slightly zoomed in - small-medium grid
-        16.0
-    } else if zoom_scale <= 3.0 {
-        // Normal zoom - medium grid good for typical editing
-        32.0
-    } else if zoom_scale <= 4.0 {
-        // Moderately zoomed out - larger grid
-        64.0
-    } else {
-        // Very zoomed out - large grid
-        128.0
-    }
+/// This function provides a fixed grid size using the theme's default unit size,
+/// ensuring consistent grid representation regardless of zoom level.
+fn calculate_dynamic_grid_size(_zoom_scale: f32) -> f32 {
+    // Use the theme's default grid size for consistent representation
+    // This provides consistent grid representation for font design work
+    // while reducing the number of squares for better performance
+    CHECKERBOARD_DEFAULT_UNIT_SIZE
 }
 
 /// Updates the checkerboard based on camera position and zoom
@@ -170,16 +154,8 @@ pub fn update_checkerboard(
               camera_transform.translation.x, 
               camera_transform.translation.y);
         
-        // Show which grid level we're at
-        let grid_level = match current_grid_size as u32 {
-            8 => "Fine (8 units)",
-            16 => "Small (16 units)",
-            32 => "Normal (32 units)", 
-            64 => "Medium (64 units)",
-            128 => "Large (128 units)",
-            _ => "Custom",
-        };
-        info!("  grid level: {}", grid_level);
+        // Fixed grid level using theme default
+        info!("  grid level: Fixed ({:.0} units)", CHECKERBOARD_DEFAULT_UNIT_SIZE);
         info!("  checkerboard visible: {}", 
               is_checkerboard_visible(camera_scale));
     }

@@ -176,11 +176,9 @@ pub const PATH_FILL_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
 #[allow(dead_code)]
 pub const BACKGROUND_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
 
-// Checkerboard grid§:w
-// Configuration
-pub const CHECKERBOARD_ENABLED_BY_DEFAULT: bool = false;
-#[allow(dead_code)]
-pub const CHECKERBOARD_UNIT_SIZE: f32 = 16.0; // Width and height of each square in pixels
+// Checkerboard grid configuration
+pub const CHECKERBOARD_ENABLED_BY_DEFAULT: bool = true;
+pub const CHECKERBOARD_DEFAULT_UNIT_SIZE: f32 = 32.0;
 #[allow(dead_code)]
 pub const CHECKERBOARD_COLOR_1: Color = Color::srgb(0.128, 0.128, 0.128); // Dark squares
 #[allow(dead_code)]

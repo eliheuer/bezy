@@ -160,7 +160,7 @@ pub const BACKGROUND_COLOR: Color = Color::srgb(0.05, 0.05, 0.05);
 
 // Checkerboard Configuration
 #[allow(dead_code)]
-pub const CHECKERBOARD_UNIT_SIZE: f32 = 32.0;
+pub const CHECKERBOARD_DEFAULT_UNIT_SIZE: f32 = 32.0; // Default size of each grid square in design space units
 #[allow(dead_code)]
 pub const CHECKERBOARD_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
 #[allow(dead_code)]

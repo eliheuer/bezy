@@ -32,8 +32,8 @@ pub fn setup_camera(mut commands: Commands) {
             order: 0,
             ..default()
         },
-        // Position camera to view the font design space (negative Y where fonts are positioned)
-        Transform::from_xyz(200.0, -500.0, 1000.0).with_scale(Vec3::splat(INITIAL_ZOOM_SCALE)),
+        // Position camera to center design space origin (0,0) in the window
+        Transform::from_xyz(0.0, 0.0, 1000.0).with_scale(Vec3::splat(INITIAL_ZOOM_SCALE)),
         PanCam {
             grab_buttons: vec![MouseButton::Left, MouseButton::Middle],
             enabled: true,
