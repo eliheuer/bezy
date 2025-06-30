@@ -24,11 +24,6 @@ pub fn initialize_text_editor_sorts(
         return;
     }
     
-    // Only initialize if we have font data
-    if app_state.workspace.font.glyphs.is_empty() {
-        return;
-    }
-    
     if let Some(mut existing_state) = text_editor_state {
         // FORCE CLEAR all existing sorts completely - this prevents old glyph grid
         existing_state.buffer.clear();
@@ -39,6 +34,7 @@ pub fn initialize_text_editor_sorts(
         info!("FORCE CLEARED all existing sorts and text editor state for clean workspace");
     } else {
         // Create a completely empty text editor state with no sorts
+        // Always create this, even if no font is loaded yet
         let empty_buffer = SortBuffer::new();
         
         let text_editor_state = TextEditorState {
@@ -50,7 +46,8 @@ pub fn initialize_text_editor_sorts(
         };
         
         commands.insert_resource(text_editor_state);
-        info!("Created completely empty TextEditorState for clean workspace");
+        info!("Created completely empty TextEditorState for clean workspace (font loaded: {})", 
+              !app_state.workspace.font.glyphs.is_empty());
     }
     
     *has_initialized = true;

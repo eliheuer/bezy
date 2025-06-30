@@ -66,6 +66,62 @@ Bezy, like the Rust programming language, is fundamentally about empowerment. We
    cargo run
    ```
 
+## WASM Build (for Web Browsers)
+
+Bezy can also be built as a WebAssembly (WASM) application to run in web browsers. This is useful for web deployment or sharing your font editor in a browser environment.
+
+### Prerequisites for WASM:
+- Rust with the `wasm32-unknown-unknown` target
+- `wasm-server-runner` for serving the WASM build
+
+### Steps:
+
+1. **Install the WASM target** (if you haven't already):
+   ```bash
+   rustup target add wasm32-unknown-unknown
+   ```
+
+2. **Install wasm-server-runner**:
+   ```bash
+   cargo install wasm-server-runner
+   ```
+
+3. **Build and run the WASM version**:
+   
+   **Option A: Use the provided build script** (recommended):
+   ```bash
+   ./build-wasm.sh
+   ```
+   
+   **Option B: Build manually**:
+   ```bash
+   cargo run --target wasm32-unknown-unknown
+   ```
+
+4. **Access the application**:
+   - The WASM build will automatically open in your default browser
+   - Alternatively, navigate to the URL shown in the terminal (typically `http://127.0.0.1:1334`)
+
+### WASM Limitations:
+- File system access is limited (no `--load-ufo` support currently)
+- Some desktop-specific features may not be available
+- Performance may differ from the native desktop version
+
+The WASM build is perfect for:
+- Sharing your work online
+- Demonstrations and tutorials
+- Web-based font editing workflows
+- Deployment to platforms like itch.io
+
+### GitHub Pages Deployment
+
+For production deployment to your own domain, see the [GitHub Pages Deployment Guide](docs/github-pages-deployment.md). The repository includes automated GitHub Actions for deploying to GitHub Pages with custom domain support.
+
+Quick deployment steps:
+1. Enable GitHub Pages in your repository settings
+2. Configure DNS for your domain  
+3. Push to main branch - deployment is automatic!
+
 ## Using Bezy
 
 ### Basic Usage
@@ -257,6 +313,7 @@ For detailed documentation, see `src/ui/toolbars/edit_mode_toolbar/USAGE.md`.
 Bezy has developer documentation available in the `docs/` directory:
 
 - [Logger System](docs/logger.md) - Information about Bezy's custom logging system
+- [GitHub Pages Deployment](docs/github-pages-deployment.md) - Complete guide for deploying to GitHub Pages with custom domains
 
 ## Contributing
 

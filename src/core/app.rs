@@ -19,7 +19,9 @@ use bevy::winit::WinitSettings;
 
 /// Creates a fully configured Bevy GUI application ready to run
 pub fn create_app(cli_args: CliArgs) -> Result<App, String> {
+    #[cfg(not(target_arch = "wasm32"))]
     cli_args.validate()?;
+    
     let mut app = App::new();
     configure_app_settings(&mut app, cli_args);
     add_all_plugins(&mut app);
@@ -30,17 +32,55 @@ pub fn create_app(cli_args: CliArgs) -> Result<App, String> {
 fn configure_app_settings(app: &mut App, cli_args: CliArgs) {
     let glyph_navigation = GlyphNavigation::default();
     let settings = BezySettings::default();
+    
     app.init_resource::<AppState>()
         .insert_resource(cli_args)
         .insert_resource(glyph_navigation)
         .insert_resource(settings)
-        .insert_resource(WinitSettings::desktop_app())
         .insert_resource(ClearColor(BACKGROUND_COLOR));
+    
+    // Configure window settings based on target platform
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        app.insert_resource(WinitSettings::desktop_app());
+    }
+    
+    #[cfg(target_arch = "wasm32")]
+    {
+        app.insert_resource(WinitSettings::game());
+    }
 }
 
 /// Adds all plugins to the application in logical groups
 fn add_all_plugins(app: &mut App) {
-    app.add_plugins(DefaultPlugins);
+    // Configure plugins based on target platform
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        app.add_plugins(DefaultPlugins);
+    }
+    
+    #[cfg(target_arch = "wasm32")]
+    {
+        app.add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bezy Font Editor".to_string(),
+                canvas: None,
+                prevent_default_event_handling: false,
+                ..default()
+            }),
+            ..default()
+        }).set(bevy::render::RenderPlugin {
+            render_creation: bevy::render::settings::RenderCreation::Automatic(
+                bevy::render::settings::WgpuSettings {
+                    backends: Some(bevy::render::settings::Backends::GL),
+                    power_preference: bevy::render::settings::PowerPreference::LowPower,
+                    ..default()
+                }
+            ),
+            ..default()
+        }));
+    }
+    
     add_rendering_plugins(app);
     add_editor_plugins(app);
     add_core_plugins(app);

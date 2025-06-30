@@ -1,3 +1,7 @@
 # This suppresses warnings about future incompatibilities
 [future-incompat-report]
 frequency = "never" 
+
+# used for building wasm
+[target.wasm32-unknown-unknown]
+runner = "wasm-server-runner"

@@ -18,24 +18,52 @@ use std::process;
 fn main() {
 
     // Initialize logging first so we can see error messages
-    env_logger::init();
+    #[cfg(target_arch = "wasm32")]
+    {
+        console_error_panic_hook::set_once();
+        tracing_wasm::set_as_global_default();
+    }
     
-    // Parse command line arguments
-    let cli_args = core::cli::CliArgs::parse();
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        env_logger::init();
+    }
     
-    // Create and run the application
-    match core::app::create_app(cli_args) {
-        Ok(mut app) => {
-            app.run();
+    // Parse command line arguments - only on desktop
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let cli_args = core::cli::CliArgs::parse();
+        
+        // Create and run the application
+        match core::app::create_app(cli_args) {
+            Ok(mut app) => {
+                app.run();
+            }
+            Err(error) => {
+                eprintln!();
+                eprintln!("Error starting Bezy:");
+                eprintln!("{}", error);
+                eprintln!();
+                eprintln!("Try running with --help for usage information.");
+                eprintln!("Or visit: https://bezy.org");
+                process::exit(1);
+            }
         }
-        Err(error) => {
-            eprintln!();
-            eprintln!("Error starting Bezy:");
-            eprintln!("{}", error);
-            eprintln!();
-            eprintln!("Try running with --help for usage information.");
-            eprintln!("Or visit: https://bezy.org");
-            process::exit(1);
+    }
+    
+    // For WASM, use default arguments
+    #[cfg(target_arch = "wasm32")]
+    {
+        let cli_args = core::cli::CliArgs::default_for_web();
+        
+        // Create and run the application
+        match core::app::create_app(cli_args) {
+            Ok(mut app) => {
+                app.run();
+            }
+            Err(error) => {
+                web_sys::console::error_1(&format!("Error starting Bezy: {}", error).into());
+            }
         }
     }
 } 

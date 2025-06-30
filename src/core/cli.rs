@@ -43,35 +43,55 @@ impl CliArgs {
     /// This ensures that all paths exist and are valid before the application starts,
     /// providing clear error messages for common mistakes.
     pub fn validate(&self) -> Result<(), String> {
-        if let Some(path) = &self.ufo_path {
-            if !path.exists() {
-                return Err(format!(
-                    "UFO file does not exist: {}\nMake sure the path is correct and the file exists.",
-                    path.display()
-                ));
-            }
-            
-            if !path.is_dir() {
-                return Err(format!(
-                    "UFO path is not a directory: {}\nUFO files should be directories, not single files.",
-                    path.display()
-                ));
-            }
-            
-            // Check for required UFO files
-            let meta_info = path.join("metainfo.plist");
-            if !meta_info.exists() {
-                return Err(format!(
-                    "Not a valid UFO file: missing metainfo.plist in {}\nMake sure this is a valid UFO directory.",
-                    path.display()
-                ));
-            }
-        } else {
-            // If no UFO path provided, use default
-            return Err("Please provide a UFO file path as an argument.\nExample: bezy assets/fonts/bezy-grotesk-regular.ufo".to_string());
+        // Skip validation for WASM builds since filesystem works differently
+        #[cfg(target_arch = "wasm32")]
+        {
+            return Ok(());
         }
         
-        Ok(())
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            if let Some(path) = &self.ufo_path {
+                if !path.exists() {
+                    return Err(format!(
+                        "UFO file does not exist: {}\nMake sure the path is correct and the file exists.",
+                        path.display()
+                    ));
+                }
+                
+                if !path.is_dir() {
+                    return Err(format!(
+                        "UFO path is not a directory: {}\nUFO files should be directories, not single files.",
+                        path.display()
+                    ));
+                }
+                
+                // Check for required UFO files
+                let meta_info = path.join("metainfo.plist");
+                if !meta_info.exists() {
+                    return Err(format!(
+                        "Not a valid UFO file: missing metainfo.plist in {}\nMake sure this is a valid UFO directory.",
+                        path.display()
+                    ));
+                }
+            } else {
+                // If no UFO path provided, use default
+                return Err("Please provide a UFO file path as an argument.\nExample: bezy assets/fonts/bezy-grotesk-regular.ufo".to_string());
+            }
+            
+            Ok(())
+        }
+    }
+    
+    /// Create default CLI args for web builds
+    /// 
+    /// For WASM builds, we use a default font path since command line arguments
+    /// are not available in the browser environment.
+    #[cfg(target_arch = "wasm32")]
+    pub fn default_for_web() -> Self {
+        Self {
+            ufo_path: Some(PathBuf::from(DEFAULT_UFO_PATH)),
+        }
     }
     
     /// Get the UFO path, guaranteed to be Some after validation

@@ -1386,6 +1386,7 @@ dependencies = [
  "bevy",
  "bevy_pancam",
  "clap",
+ "console_error_panic_hook",
  "env_logger",
  "kurbo 0.11.2",
  "log",
@@ -1397,6 +1398,9 @@ dependencies = [
  "spline",
  "tracing",
  "tracing-subscriber",
+ "tracing-wasm",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
