@@ -86,17 +86,22 @@ pub struct PenModePlugin;
 impl Plugin for PenModePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PenToolState>()
-            .init_resource::<PenModeActive>();
-        app.add_systems(
-            Update,
-            (
-                handle_pen_mouse_events,
-                handle_pen_keyboard_events,
-                render_pen_preview,
-                reset_pen_mode_when_inactive,
-            ),
-        );
+            .init_resource::<PenModeActive>()
+            .add_systems(Startup, register_pen_tool)
+            .add_systems(
+                Update,
+                (
+                    handle_pen_mouse_events,
+                    handle_pen_keyboard_events,
+                    render_pen_preview,
+                    reset_pen_mode_when_inactive,
+                ),
+            );
     }
+}
+
+fn register_pen_tool(mut tool_registry: ResMut<ToolRegistry>) {
+    tool_registry.register_tool(Box::new(PenTool));
 }
 
 // ================================================================
@@ -326,17 +331,14 @@ fn calculate_final_position(
 ) -> Vec2 {
     // Apply snap to grid first
     let snapped_pos = if SNAP_TO_GRID_ENABLED {
-        Vec2::new(
-            (cursor_pos.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
-            (cursor_pos.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
-        )
+        apply_snap_to_grid(cursor_pos)
     } else {
         cursor_pos
     };
 
     // Apply axis locking if shift is held and we have points
-    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft)
-        || keyboard.pressed(KeyCode::ShiftRight);
+    let shift_pressed =
+        keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
 
     if shift_pressed && !pen_state.points.is_empty() {
         let last_point = pen_state.points.last().unwrap();
@@ -539,6 +541,7 @@ pub fn handle_pen_keyboard_events(
 pub fn render_pen_preview(
     mut gizmos: Gizmos,
     cursor: Res<CursorInfo>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     pen_state: Res<PenToolState>,
     pen_mode: Option<Res<PenModeActive>>,
 ) {
@@ -548,7 +551,7 @@ pub fn render_pen_preview(
 
     draw_placed_points_and_lines(&mut gizmos, &pen_state);
     if let Some(cursor_pos) = cursor.design_position.map(|p| p.to_raw()) {
-        draw_preview_elements(&mut gizmos, &pen_state, cursor_pos);
+        draw_preview_elements(&mut gizmos, &pen_state, cursor_pos, &keyboard);
     }
 }
 
@@ -575,14 +578,20 @@ fn draw_placed_points_and_lines(gizmos: &mut Gizmos, pen_state: &PenToolState) {
 }
 
 /// Draw preview elements like the next line segment and axis-locked guides
-fn draw_preview_elements(gizmos: &mut Gizmos, pen_state: &PenToolState, cursor_pos: Vec2) {
+fn draw_preview_elements(
+    gizmos: &mut Gizmos,
+    pen_state: &PenToolState,
+    cursor_pos: Vec2,
+    keyboard: &Res<ButtonInput<KeyCode>>,
+) {
     // Draw cursor indicator
     gizmos.circle_2d(cursor_pos, CURSOR_INDICATOR_SIZE, Color::srgb(0.0, 1.0, 0.0));
 
     if let Some(&last_point) = pen_state.points.last() {
-        let final_pos = axis_lock_position(cursor_pos, last_point);
+        // Calculate the final position for the preview, same logic as for placing points
+        let final_pos = calculate_final_position(cursor_pos, keyboard, pen_state);
 
-        // Draw line from last point to cursor
+        // Draw line from last point to cursor's final position
         gizmos.line_2d(last_point, final_pos, Color::srgb(0.0, 1.0, 0.0));
 
         // Draw a circle at the final position
@@ -655,19 +664,9 @@ fn create_contour_from_points(points: &[Vec2], active_sort_offset: Vec2) -> Opti
     Some(Contour::new(contour_points, None))
 }
 
-/// Plugin for the Pen tool
-pub struct PenToolPlugin;
-
-impl Plugin for PenToolPlugin {
-    fn build(&self, app: &mut App) {
-        app
-            .init_resource::<PenModeActive>()
-            .init_resource::<PenToolState>()
-            .add_systems(Startup, register_pen_tool)
-            .add_plugins(PenModePlugin);
-    }
-}
-
-fn register_pen_tool(mut tool_registry: ResMut<ToolRegistry>) {
-    tool_registry.register_tool(Box::new(PenTool));
+/// Snaps a position to the grid, based on the current zoom level and settings.
+fn apply_snap_to_grid(pos: Vec2) -> Vec2 {
+    // For now, a simple 10-unit grid. This should be driven by settings.
+    let grid_size = 10.0;
+    (pos / grid_size).round() * grid_size
 } 

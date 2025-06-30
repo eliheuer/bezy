@@ -421,7 +421,7 @@ pub use text::TextToolPlugin;
 pub use hyper::HyperTool;
 pub use knife::KnifeTool;
 pub use pan::{PanMode, PanToolPlugin};
-pub use pen::{PenMode, PenToolPlugin};
+pub use pen::{PenMode, PenModePlugin};
 pub use shapes::ShapesToolPlugin;
 
 pub use select::{SelectMode, SelectModeActive, SelectToolPlugin};
@@ -498,7 +498,7 @@ impl Plugin for EditModeToolbarPlugin {
             .add_plugins(PanToolPlugin)
             .add_plugins(MeasureToolPlugin)
             .add_plugins(TextToolPlugin)
-            .add_plugins(PenToolPlugin)
+            .add_plugins(PenModePlugin)
             .add_plugins(ShapesToolPlugin)
             .add_plugins(knife::KnifeToolPlugin)
             .add_plugins(hyper::HyperToolPlugin)
