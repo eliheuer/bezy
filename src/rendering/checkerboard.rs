@@ -25,21 +25,26 @@ use bevy_pancam::PanCam;
 use std::collections::HashSet;
 
 /// Z-coordinate for checkerboard squares (slightly behind other elements)
-const CHECKERBOARD_Z_LEVEL: f32 = 0.1; // Render above background but below main
-
-/// Padding around visible area to prevent squares popping in/out
-const VISIBILITY_PADDING: f32 = 512.0;
+const CHECKERBOARD_Z_LEVEL: f32 = 0.1;
 
 /// Minimum zoom level where checkerboard is visible (very zoomed out)
 /// Lower values = more zoomed out before hiding checkerboard
 const MIN_VISIBILITY_ZOOM: f32 = 0.01;
 
-/// Performance tuning constants for dynamic grid scaling
-const GRID_SIZE_CHANGE_THRESHOLD: f32 = 1.25; // Very sensitive - trigger respawn when grid changes by 25%
-const VISIBLE_AREA_COVERAGE_MULTIPLIER: f32 = 1.2; // Reduced from 1.5 - less aggressive coverage
-const MINIMUM_GRID_SQUARES_COVERAGE: f32 = 6.0; // Reduced from 10.0 - fewer minimum squares
-const GRID_PADDING_SQUARES: f32 = 2.0; // Reduced from 3.0 - less padding around visible area
-const MAX_SQUARES_PER_FRAME: usize = 2000; // Safety limit to prevent performance issues
+/// When camera moves, how much does it need to move to trigger a grid respawn
+const GRID_SIZE_CHANGE_THRESHOLD: f32 = 1.25;
+const VISIBLE_AREA_COVERAGE_MULTIPLIER: f32 = 1.2;
+const MAX_SQUARES_PER_FRAME: usize = 2000;
+
+/// The alpha of the darker checkerboard squares.
+// const CHECKERBOARD_DARK_ALPHA: f32 = 0.04;
+
+/// The target number of grid squares to cover the larger of the screen dimensions
+/// This is used to calculate the ideal grid size at a given zoom level
+// const TARGET_GRID_SQUARES_COVERAGE: f32 = 8.0;
+
+/// The scale factor for the secondary grid lines (e.g., 10x smaller/larger)
+// const SECONDARY_GRID_SCALE_FACTOR: f32 = 10.0;
 
 // Resources -------------------
 

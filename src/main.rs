@@ -3,37 +3,30 @@
 //! The enjoyment of one's tools is an essential ingredient of successful work.
 //! — Donald Knuth
 
-mod core;
-mod data;
-mod editing;
-mod geometry;
-mod rendering;
-mod systems;
-mod ui;
-mod utils;
+// #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use bezy::core;
 use clap::Parser;
 use std::process;
 
 fn main() {
-
     // Initialize logging first so we can see error messages
     #[cfg(target_arch = "wasm32")]
     {
         console_error_panic_hook::set_once();
         tracing_wasm::set_as_global_default();
     }
-    
+
     #[cfg(not(target_arch = "wasm32"))]
     {
         env_logger::init();
     }
-    
+
     // Parse command line arguments - only on desktop
     #[cfg(not(target_arch = "wasm32"))]
     {
         let cli_args = core::cli::CliArgs::parse();
-        
+
         // Create and run the application
         match core::app::create_app(cli_args) {
             Ok(mut app) => {
@@ -50,12 +43,12 @@ fn main() {
             }
         }
     }
-    
+
     // For WASM, use default arguments
     #[cfg(target_arch = "wasm32")]
     {
         let cli_args = core::cli::CliArgs::default_for_web();
-        
+
         // Create and run the application
         match core::app::create_app(cli_args) {
             Ok(mut app) => {

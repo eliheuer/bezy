@@ -3,6 +3,7 @@ use super::DragPointState;
 use super::DragSelectionState;
 use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
 use crate::core::state::AppState;
+use crate::core::cursor::CursorInfo;
 use crate::editing::edit_type::EditType;
 use crate::editing::selection::nudge::{EditEvent, NudgeState};
 use crate::rendering::cameras::DesignCamera;
@@ -32,10 +33,9 @@ const SELECTION_MARGIN: f32 = 16.0; // Distance in pixels for selection hit test
 #[allow(dead_code)]
 pub fn handle_mouse_input(
     mut commands: Commands,
-    windows: Query<&Window, With<PrimaryWindow>>,
+    cursor: Res<CursorInfo>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
     mut drag_state: ResMut<DragSelectionState>,
     mut drag_point_state: ResMut<DragPointState>,
     mut event_writer: EventWriter<EditEvent>,
@@ -88,18 +88,6 @@ pub fn handle_mouse_input(
         return;
     }
 
-    // Early return if no window
-    let Ok(window) = windows.single() else {
-        debug!("Selection skipped - no window");
-        return;
-    };
-
-    // Early return if no camera
-    let Ok((camera, camera_transform)) = camera_query.single() else {
-        debug!("Selection skipped - no camera");
-        return;
-    };
-
     // If we're in the middle of a nudging operation, don't process mouse input
     // This prevents selection from being cleared during nudging
     if nudge_state.is_nudging {
@@ -116,12 +104,11 @@ pub fn handle_mouse_input(
     if mouse_button_input.just_pressed(MouseButton::Left) {
         debug!("Mouse button pressed - checking for selection");
 
-        // Get cursor position in world coordinates
-        if let Some(cursor_pos) = window.cursor_position().and_then(|pos| {
-            camera.viewport_to_world_2d(camera_transform, pos).ok()
-        }) {
+        // Get cursor position in design coordinates from the resource
+        if let Some(cursor_dpos) = cursor.design_position {
+            let cursor_pos = cursor_dpos.to_raw();
             debug!(
-                "Cursor position in world: ({:.1}, {:.1})",
+                "Cursor position in design: ({:.1}, {:.1})",
                 cursor_pos.x, cursor_pos.y
             );
 
@@ -327,9 +314,8 @@ pub fn handle_mouse_input(
     }
 
     // Handle mouse movement during drag operations
-    if let Some(cursor_pos) = window.cursor_position().and_then(|pos| {
-        camera.viewport_to_world_2d(camera_transform, pos).ok()
-    }) {
+    if let Some(cursor_dpos) = cursor.design_position {
+        let cursor_pos = cursor_dpos.to_raw();
         // Update drag selection
         if drag_state.is_dragging {
             drag_state.current_position = Some(cursor_pos);
@@ -690,9 +676,8 @@ pub fn clear_selection_on_app_change(
 
 /// System to handle advanced point dragging with constraints and snapping
 pub fn handle_point_drag(
-    windows: Query<&Window, With<PrimaryWindow>>,
+    cursor: Res<CursorInfo>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
     mut drag_point_state: ResMut<DragPointState>,
     mut query: Query<
         (
@@ -707,28 +692,13 @@ pub fn handle_point_drag(
     mut app_state: ResMut<AppState>,
     mut event_writer: EventWriter<EditEvent>,
 ) {
-    // Early return if not dragging
+    // Only drag if the resource says we are
     if !drag_point_state.is_dragging {
         return;
     }
 
-    debug!("handle_point_drag: Processing drag for {} selected entities", query.iter().count());
-
-    // Early return if no window or camera
-    let Ok(window) = windows.single() else {
-        debug!("handle_point_drag: No window found");
-        return;
-    };
-
-    let Ok((camera, camera_transform)) = camera_query.single() else {
-        debug!("handle_point_drag: No camera found");
-        return;
-    };
-
-    if let Some(cursor_pos) = window
-        .cursor_position()
-        .and_then(|pos| camera.viewport_to_world_2d(camera_transform, pos).ok())
-    {
+    if let Some(cursor_dpos) = cursor.design_position {
+        let cursor_pos = cursor_dpos.to_raw();
         drag_point_state.current_position = Some(cursor_pos);
 
         if let Some(start_pos) = drag_point_state.start_position {

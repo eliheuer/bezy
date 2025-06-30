@@ -16,15 +16,21 @@
 
 ## Coordinate Systems
 
-Bezy uses a dual coordinate system fundamental to all operations:
+Bezy uses a three-tiered coordinate system, and understanding the transformation flow is critical. The new architecture centralizes this transformation to eliminate bugs.
 
-- **Design Space**: Fixed coordinate space where glyphs and entities are described. Origin (0,0) is at the intersection of baseline and left sidebearing. This is the canonical coordinate system for font data. Font metrics like descender lines are at negative Y values (e.g., Y=-800).
+- **Screen Space**: The 2D pixel coordinates of the application window, where the origin (0,0) is the top-left corner. This is where raw mouse events originate.
 
-- **Screen Space**: View coordinate space for rendering and user interaction, accounting for zoom, pan, and screen geometry.
+- **World Space**: Bevy's intermediate 2D coordinate system. The camera transforms `Screen Space` coordinates into `World Space`. This space is used by the engine for rendering, but for application logic, you should almost always use `Design Space`.
 
-- **ViewPort**: Handles transformations between spaces, including zoom level, pan offset, and Y-axis flipping (Y is always flipped in screen space).
+- **Design Space**: The canonical coordinate system for all font data. The origin (0,0) is at the intersection of the baseline and a glyph's left sidebearing. Ascenders are in positive Y, and descenders are in negative Y. All font geometry (points, contours, metrics) is defined in this space.
+
+- **`CursorInfo` Resource (Single Source of Truth)**: To ensure consistency, all coordinate conversions are handled by a single system that updates the `CursorInfo` resource once per frame. This resource holds the cursor's up-to-date position in both `Screen Space` and `Design Space`. **This is the ONLY place systems should get cursor coordinates from.**
+
+- **ViewPort**: This resource is now deprecated for coordinate transforms and should not be used. It may be removed in the future.
 
 ### Critical Coordinate System Gotchas
+
+**NEVER Perform Manual Cursor Coordinate Transformations**: This is the most critical rule. Any system that needs the cursor's position in `Design Space` **must** get it by accessing the `Res<CursorInfo>` resource (e.g., `cursor_info.design`). Do not use `camera.viewport_to_world_2d()` or any other method yourself. The conversion is done once, centrally, and correctly.
 
 **Camera Positioning**: The camera must be positioned to view the font design space, not just (0,0). Since font glyphs typically span from positive Y (ascenders) to negative Y (descenders), the camera should be centered around the font's typical glyph bounding box area.
 
@@ -87,6 +93,8 @@ This mismatch can cause clickable areas to be hundreds of units away from visual
 - [Settings management](src/core/settings.rs): User preferences and editor configuration
 
 ### Coordinate Systems & Geometry
+- [Cursor Position](src/core/cursor.rs): Defines the `CursorInfo` resource and the plugin that centrally manages screen-to-design-space coordinate conversions.
+
 - [Design space](src/ui/panes/design_space.rs): Core coordinate definitions, ViewPort implementation, DPoint/DVec2 types
 
 - [Point management](src/geometry/point.rs): EditPoint, EntityId system for glyph components

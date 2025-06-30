@@ -7,6 +7,7 @@
 //! The tool converts placed points into UFO contours that are saved to the font file.
 
 use super::EditModeSystem;
+use crate::core::cursor::CursorInfo;
 use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
 use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
 use crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive;
@@ -125,8 +126,6 @@ pub struct PenToolState {
     pub current_path: Option<BezPath>,
     /// Points that have been placed in the current path
     pub points: Vec<Vec2>,
-    /// Current mouse cursor position in world coordinates
-    pub cursor_position: Option<Vec2>,
 }
 
 impl Default for PenToolState {
@@ -136,7 +135,6 @@ impl Default for PenToolState {
             state: PenState::Ready,
             current_path: None,
             points: Vec::new(),
-            cursor_position: None,
         }
     }
 }
@@ -236,13 +234,8 @@ fn deactivate_pen_mode(
 /// Main system for handling mouse interactions with the pen tool
 pub fn handle_pen_mouse_events(
     mut commands: Commands,
+    cursor: Res<CursorInfo>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut cursor_moved_events: EventReader<CursorMoved>,
-    windows: Query<&Window>,
-    camera_q: Query<
-        (&Camera, &GlobalTransform),
-        With<crate::rendering::cameras::DesignCamera>,
-    >,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut pen_state: ResMut<PenToolState>,
     pen_mode: Option<Res<PenModeActive>>,
@@ -252,34 +245,29 @@ pub fn handle_pen_mouse_events(
     text_editor_state: Option<Res<crate::core::state::TextEditorState>>,
     ui_hover_state: Res<UiHoverState>,
 ) {
-    if !is_pen_mode_active(&pen_mode) {
+    if !is_pen_mode_active(&pen_mode) || ui_hover_state.is_hovering_ui {
         return;
     }
 
-    let Ok(window) = windows.single() else { return };
-    let Ok((camera, camera_transform)) = camera_q.single() else { return };
-
-    if ui_hover_state.is_hovering_ui {
-        return;
-    }
-
-    update_cursor_position(&mut cursor_moved_events, window, camera, camera_transform, &mut pen_state);
-
+    // Get the active sort from text_editor_state
     let active_sort_info = text_editor_state
-        .as_deref()
+        .as_ref()
         .and_then(|state| state.get_active_sort());
 
     if mouse_button_input.just_pressed(MouseButton::Left) {
-        handle_left_click(
-            &mut commands,
-            &keyboard,
-            &mut pen_state,
-            &glyph_navigation,
-            &mut app_state,
-            &mut app_state_changed,
-            active_sort_info,
-            text_editor_state.as_deref(),
-        );
+        if let Some(cursor_pos) = cursor.design_position.map(|p| p.to_raw()) {
+            handle_left_click(
+                &mut commands,
+                &keyboard,
+                &mut pen_state,
+                &glyph_navigation,
+                &mut app_state,
+                &mut app_state_changed,
+                active_sort_info,
+                text_editor_state.as_deref(),
+                cursor_pos,
+            );
+        }
     }
 
     if mouse_button_input.just_pressed(MouseButton::Right) {
@@ -300,35 +288,6 @@ fn is_pen_mode_active(pen_mode: &Option<Res<PenModeActive>>) -> bool {
     pen_mode.as_ref().map_or(false, |mode| mode.0)
 }
 
-/// Find the active camera for coordinate conversion
-fn find_active_camera<'a>(
-    camera_q: &'a Query<
-        (&Camera, &GlobalTransform),
-        With<crate::rendering::cameras::DesignCamera>,
-    >,
-) -> Option<(&'a Camera, &'a GlobalTransform)> {
-    camera_q.single().ok()
-}
-
-/// Update the cursor position from mouse movement events
-fn update_cursor_position(
-    cursor_moved_events: &mut EventReader<CursorMoved>,
-    window: &Window,
-    camera: &Camera,
-    camera_transform: &GlobalTransform,
-    pen_state: &mut ResMut<PenToolState>,
-) {
-    for _cursor_moved in cursor_moved_events.read() {
-        if let Some(cursor_pos) = window.cursor_position() {
-            if let Ok(world_position) =
-                camera.viewport_to_world_2d(camera_transform, cursor_pos)
-            {
-                pen_state.cursor_position = Some(world_position);
-            }
-        }
-    }
-}
-
 /// Handle left mouse button clicks
 fn handle_left_click(
     _commands: &mut Commands,
@@ -339,32 +298,23 @@ fn handle_left_click(
     app_state_changed: &mut EventWriter<AppStateChanged>,
     active_sort_info: Option<(usize, &crate::core::state::SortEntry)>,
     text_editor_state: Option<&crate::core::state::TextEditorState>,
+    cursor_pos: Vec2,
 ) {
-    let Some(cursor_pos) = pen_state.cursor_position else {
-        return;
-    };
+    let final_position = calculate_final_position(cursor_pos, keyboard, pen_state);
 
-    // Apply snapping and axis locking
-    let final_pos = calculate_final_position(cursor_pos, keyboard, pen_state);
-
-    match pen_state.state {
-        PenState::Ready => {
-            start_new_path(pen_state, final_pos);
-        }
-        PenState::Drawing => {
-            if should_close_path(pen_state, final_pos) {
-                close_current_path(
-                    pen_state,
-                    glyph_navigation,
-                    app_state,
-                    app_state_changed,
-                    active_sort_info,
-                    text_editor_state,
-                );
-            } else {
-                add_point_to_path(pen_state, final_pos);
-            }
-        }
+    if pen_state.state == PenState::Ready {
+        start_new_path(pen_state, final_position);
+    } else if should_close_path(pen_state, final_position) {
+        close_current_path(
+            pen_state,
+            glyph_navigation,
+            app_state,
+            app_state_changed,
+            active_sort_info,
+            text_editor_state,
+        );
+    } else {
+        add_point_to_path(pen_state, final_position);
     }
 }
 
@@ -588,6 +538,7 @@ pub fn handle_pen_keyboard_events(
 /// - Current cursor position (small white circle)
 pub fn render_pen_preview(
     mut gizmos: Gizmos,
+    cursor: Res<CursorInfo>,
     pen_state: Res<PenToolState>,
     pen_mode: Option<Res<PenModeActive>>,
 ) {
@@ -595,11 +546,10 @@ pub fn render_pen_preview(
         return;
     }
 
-    // Draw the placed points and connecting lines
     draw_placed_points_and_lines(&mut gizmos, &pen_state);
-
-    // Draw preview elements (cursor, preview line, close indicator)
-    draw_preview_elements(&mut gizmos, &pen_state);
+    if let Some(cursor_pos) = cursor.design_position.map(|p| p.to_raw()) {
+        draw_preview_elements(&mut gizmos, &pen_state, cursor_pos);
+    }
 }
 
 /// Draw all the points that have been placed and lines between them
@@ -624,66 +574,40 @@ fn draw_placed_points_and_lines(gizmos: &mut Gizmos, pen_state: &PenToolState) {
     }
 }
 
-/// Draw preview elements: cursor, preview line, and close indicator
-fn draw_preview_elements(gizmos: &mut Gizmos, pen_state: &PenToolState) {
-    let Some(cursor_pos) = pen_state.cursor_position else {
-        return;
-    };
-
-    // Apply snap to grid for preview
-    let snapped_cursor = apply_snap_to_grid(cursor_pos);
-
+/// Draw preview elements like the next line segment and axis-locked guides
+fn draw_preview_elements(gizmos: &mut Gizmos, pen_state: &PenToolState, cursor_pos: Vec2) {
     // Draw cursor indicator
-    gizmos.circle_2d(
-        snapped_cursor,
-        CURSOR_INDICATOR_SIZE,
-        Color::srgba(1.0, 1.0, 1.0, 0.7),
-    );
+    gizmos.circle_2d(cursor_pos, CURSOR_INDICATOR_SIZE, Color::srgb(0.0, 1.0, 0.0));
 
-    if pen_state.points.is_empty() {
-        return;
-    }
+    if let Some(&last_point) = pen_state.points.last() {
+        let final_pos = axis_lock_position(cursor_pos, last_point);
 
-    let last_point = *pen_state.points.last().unwrap();
+        // Draw line from last point to cursor
+        gizmos.line_2d(last_point, final_pos, Color::srgb(0.0, 1.0, 0.0));
 
-    // Draw preview line from last point to cursor
-    gizmos.line_2d(
-        last_point,
-        snapped_cursor,
-        Color::srgba(1.0, 1.0, 1.0, 0.5),
-    );
+        // Draw a circle at the final position
+        gizmos.circle_2d(final_pos, POINT_PREVIEW_SIZE, Color::srgb(0.0, 1.0, 0.0));
 
-    // Draw close indicator if near start point
-    if pen_state.points.len() > 1 {
-        draw_close_indicator_if_needed(
-            gizmos,
-            pen_state,
-            snapped_cursor,
-            last_point,
-        );
+        // If close to the start point, draw a circle to indicate path closing
+        draw_close_indicator_if_needed(gizmos, pen_state, cursor_pos, last_point);
     }
 }
 
-/// Draw the close path indicator when cursor is near start point
+/// If the cursor is close to the start point, draw a special indicator
 fn draw_close_indicator_if_needed(
     gizmos: &mut Gizmos,
     pen_state: &PenToolState,
     cursor_pos: Vec2,
-    last_point: Vec2,
+    _last_point: Vec2,
 ) {
-    let start_point = pen_state.points[0];
-    let distance = start_point.distance(cursor_pos);
-
-    if distance < CLOSE_PATH_THRESHOLD {
-        // Draw highlight circle around start point
-        gizmos.circle_2d(
-            start_point,
-            CLOSE_PATH_THRESHOLD,
-            Color::srgba(0.2, 1.0, 0.3, 0.3),
-        );
-
-        // Draw line from last point to start point in green
-        gizmos.line_2d(last_point, start_point, Color::srgb(0.2, 1.0, 0.3));
+    if let Some(&first_point) = pen_state.points.first() {
+        if cursor_pos.distance(first_point) < CLOSE_PATH_THRESHOLD {
+            gizmos.circle_2d(
+                first_point,
+                CLOSE_PATH_THRESHOLD,
+                Color::srgba(1.0, 0.0, 0.0, 0.5),
+            );
+        }
     }
 }
 
@@ -691,36 +615,20 @@ fn draw_close_indicator_if_needed(
 // UTILITY FUNCTIONS
 // ================================================================
 
-/// Apply snap-to-grid if enabled
-fn apply_snap_to_grid(pos: Vec2) -> Vec2 {
-    if SNAP_TO_GRID_ENABLED {
-        Vec2::new(
-            (pos.x / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
-            (pos.y / SNAP_TO_GRID_VALUE).round() * SNAP_TO_GRID_VALUE,
-        )
-    } else {
-        pos
-    }
-}
-
 /// Lock a position to horizontal or vertical axis relative to another point
 /// (used when shift is held to constrain movement)
 fn axis_lock_position(pos: Vec2, relative_to: Vec2) -> Vec2 {
-    let dx = (pos.x - relative_to.x).abs();
-    let dy = (pos.y - relative_to.y).abs();
-
-    if dx >= dy {
-        // Lock to horizontal axis
+    let dxy = pos - relative_to;
+    if dxy.x.abs() > dxy.y.abs() {
         Vec2::new(pos.x, relative_to.y)
     } else {
-        // Lock to vertical axis
         Vec2::new(relative_to.x, pos.y)
     }
 }
 
 /// Create a UFO contour from a list of points
 fn create_contour_from_points(points: &[Vec2], active_sort_offset: Vec2) -> Option<Contour> {
-    if points.is_empty() {
+    if points.len() < 2 {
         return None;
     }
 

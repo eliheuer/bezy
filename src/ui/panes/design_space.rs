@@ -11,6 +11,7 @@ use std::ops::{Add, AddAssign, Sub, SubAssign};
 use bevy::math::{Mat3, Vec2, Vec3};
 use bevy::prelude::*;
 use crate::ui::theme;
+use crate::rendering::cameras::DesignCamera;
 
 
 /// The position of the view, relative to the design space.
@@ -79,7 +80,7 @@ impl DPoint {
 
     /// Convert a design point directly to a Vec2, without taking screen geometry
     /// into account.
-    pub(super) fn to_raw(self) -> Vec2 {
+    pub fn to_raw(self) -> Vec2 {
         Vec2::new(self.x, self.y)
     }
 
@@ -250,7 +251,7 @@ impl SubAssign for DVec2 {
 
 impl From<(f32, f32)> for DPoint {
     fn from(src: (f32, f32)) -> DPoint {
-        DPoint::new(src.0, src.1)
+        DPoint { x: src.0, y: src.1 }
     }
 }
 
@@ -302,9 +303,6 @@ pub struct DesignSpacePlugin;
 
 impl Plugin for DesignSpacePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<ViewPort>();
+        app.init_resource::<ViewPort>();
     }
-}
-
-// Design space - coming soon! 
+} 

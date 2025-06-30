@@ -3,6 +3,7 @@
 use crate::core::cli::CliArgs;
 use crate::core::settings::BezySettings;
 use crate::core::state::{AppState, GlyphNavigation};
+use crate::core::cursor::CursorPlugin;
 use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
 use crate::rendering::{
     cameras::CameraPlugin, checkerboard::CheckerboardPlugin,
@@ -118,6 +119,7 @@ fn add_core_plugins(app: &mut App) {
         UiInteractionPlugin,
         CommandsPlugin,
         BezySystems,
+        CursorPlugin,
     ));
 }
 
