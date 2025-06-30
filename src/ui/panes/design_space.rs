@@ -298,29 +298,12 @@ impl Default for ViewPort {
     }
 }
 
-pub fn debug_coordinates(
-    mut gizmos: Gizmos,
-    vport: Res<ViewPort>,
-)
-{
-    if !theme::DEBUG_SHOW_ORIGIN_CROSS {
-        return;
-    }
-    let origin = vport.to_screen(DPoint::new(0.0, 0.0));
-    let x_max = vport.to_screen(DPoint::new(100.0, 0.0));
-    let y_max = vport.to_screen(DPoint::new(0.0, 100.0));
-
-    gizmos.line_2d(origin, x_max, Color::srgb(1.0, 0.0, 0.0));
-    gizmos.line_2d(origin, y_max, Color::srgb(0.0, 1.0, 0.0));
-}
-
 pub struct DesignSpacePlugin;
 
 impl Plugin for DesignSpacePlugin {
     fn build(&self, app: &mut App) {
         app
-            .init_resource::<ViewPort>()
-            .add_systems(Update, debug_coordinates);
+            .init_resource::<ViewPort>();
     }
 }
 
