@@ -11,6 +11,7 @@ use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
 use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
 use crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive;
 use crate::editing::selection::systems::AppStateChanged;
+use crate::systems::ui_interaction::UiHoverState;
 use bevy::prelude::*;
 use kurbo::BezPath;
 use norad::{Contour, ContourPoint};
@@ -233,8 +234,8 @@ fn deactivate_pen_mode(
 // ================================================================
 
 /// Main system for handling mouse interactions with the pen tool
-#[allow(clippy::too_many_arguments)]
 pub fn handle_pen_mouse_events(
+    mut commands: Commands,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut cursor_moved_events: EventReader<CursorMoved>,
     windows: Query<&Window>,
@@ -248,53 +249,48 @@ pub fn handle_pen_mouse_events(
     glyph_navigation: Res<crate::core::state::GlyphNavigation>,
     mut app_state: ResMut<crate::core::state::AppState>,
     mut app_state_changed: EventWriter<AppStateChanged>,
-    ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
-    active_sort_query: Query<&crate::editing::sort::Sort, With<crate::editing::sort::ActiveSort>>,
+    text_editor_state: Option<Res<crate::core::state::TextEditorState>>,
+    ui_hover_state: Res<UiHoverState>,
 ) {
-    // Early returns for invalid states
-    if !is_pen_mode_active(&pen_mode) || ui_hover_state.is_hovering_ui {
+    if !is_pen_mode_active(&pen_mode) {
         return;
     }
 
-    let Ok(window) = windows.single() else {
+    let Ok(window) = windows.single() else { return };
+    let Ok((camera, camera_transform)) = camera_q.single() else { return };
+
+    if ui_hover_state.is_hovering_ui {
         return;
-    };
-    let Some((camera, camera_transform)) = find_active_camera(&camera_q) else {
-        warn!("No active camera found for pen tool");
-        return;
-    };
+    }
 
-    // Get the active sort if one exists
-    let active_sort = active_sort_query.single().ok();
+    update_cursor_position(&mut cursor_moved_events, window, camera, camera_transform, &mut pen_state);
 
-    // Update cursor position from mouse movement
-    update_cursor_position(
-        &mut cursor_moved_events,
-        &window,
-        camera,
-        camera_transform,
-        &mut pen_state,
-    );
+    let active_sort_info = text_editor_state
+        .as_deref()
+        .and_then(|state| state.get_active_sort());
 
-    // Handle mouse clicks
     if mouse_button_input.just_pressed(MouseButton::Left) {
         handle_left_click(
+            &mut commands,
             &keyboard,
             &mut pen_state,
             &glyph_navigation,
             &mut app_state,
             &mut app_state_changed,
-            active_sort,
+            active_sort_info,
+            text_editor_state.as_deref(),
         );
     }
 
     if mouse_button_input.just_pressed(MouseButton::Right) {
         handle_right_click(
+            &mut commands,
             &mut pen_state,
             &glyph_navigation,
             &mut app_state,
             &mut app_state_changed,
-            active_sort,
+            active_sort_info,
+            text_editor_state.as_deref(),
         );
     }
 }
@@ -311,7 +307,7 @@ fn find_active_camera<'a>(
         With<crate::rendering::cameras::DesignCamera>,
     >,
 ) -> Option<(&'a Camera, &'a GlobalTransform)> {
-    camera_q.iter().find(|(camera, _)| camera.is_active)
+    camera_q.single().ok()
 }
 
 /// Update the cursor position from mouse movement events
@@ -335,12 +331,14 @@ fn update_cursor_position(
 
 /// Handle left mouse button clicks
 fn handle_left_click(
+    _commands: &mut Commands,
     keyboard: &Res<ButtonInput<KeyCode>>,
     pen_state: &mut ResMut<PenToolState>,
     glyph_navigation: &Res<crate::core::state::GlyphNavigation>,
     app_state: &mut ResMut<crate::core::state::AppState>,
     app_state_changed: &mut EventWriter<AppStateChanged>,
-    active_sort: Option<&crate::editing::sort::Sort>,
+    active_sort_info: Option<(usize, &crate::core::state::SortEntry)>,
+    text_editor_state: Option<&crate::core::state::TextEditorState>,
 ) {
     let Some(cursor_pos) = pen_state.cursor_position else {
         return;
@@ -360,7 +358,8 @@ fn handle_left_click(
                     glyph_navigation,
                     app_state,
                     app_state_changed,
-                    active_sort,
+                    active_sort_info,
+                    text_editor_state,
                 );
             } else {
                 add_point_to_path(pen_state, final_pos);
@@ -426,28 +425,26 @@ fn close_current_path(
     glyph_navigation: &Res<crate::core::state::GlyphNavigation>,
     app_state: &mut ResMut<crate::core::state::AppState>,
     app_state_changed: &mut EventWriter<AppStateChanged>,
-    active_sort: Option<&crate::editing::sort::Sort>,
+    active_sort_info: Option<(usize, &crate::core::state::SortEntry)>,
+    text_editor_state: Option<&crate::core::state::TextEditorState>,
 ) {
-    info!("Closing path - clicked near start point");
+    if !pen_state.points.is_empty() {
+        let active_sort_offset = if let (Some((sort_index, _)), Some(state)) = (active_sort_info, text_editor_state) {
+            state.get_sort_visual_position(sort_index).unwrap_or(Vec2::ZERO)
+        } else {
+            Vec2::ZERO
+        };
 
-    // Close the path in kurbo
-    if let Some(ref mut path) = pen_state.current_path {
-        path.close_path();
-    }
-
-    // Get the active sort offset for coordinate transformation
-    let active_sort_offset = active_sort.map_or(Vec2::ZERO, |sort| sort.position);
-
-    // Add the closed path to the current glyph
-    if let Some(contour) = create_contour_from_points(&pen_state.points, active_sort_offset) {
-        add_contour_to_glyph(
-            contour,
-            glyph_navigation,
-            app_state,
-            app_state_changed,
-            true,
-            active_sort,
-        );
+        if let Some(contour) = create_contour_from_points(&pen_state.points, active_sort_offset) {
+            add_contour_to_glyph(
+                contour,
+                glyph_navigation,
+                app_state,
+                app_state_changed,
+                true,
+                active_sort_info,
+            );
+        }
     }
 
     // Reset for next path
@@ -465,17 +462,22 @@ fn add_point_to_path(pen_state: &mut ResMut<PenToolState>, position: Vec2) {
 
 /// Handle right mouse button clicks (finish open path)
 fn handle_right_click(
+    _commands: &mut Commands,
     pen_state: &mut ResMut<PenToolState>,
     glyph_navigation: &Res<crate::core::state::GlyphNavigation>,
     app_state: &mut ResMut<crate::core::state::AppState>,
     app_state_changed: &mut EventWriter<AppStateChanged>,
-    active_sort: Option<&crate::editing::sort::Sort>,
+    active_sort_info: Option<(usize, &crate::core::state::SortEntry)>,
+    text_editor_state: Option<&crate::core::state::TextEditorState>,
 ) {
     if pen_state.state == PenState::Drawing && pen_state.points.len() >= 2 {
         info!("Finishing open path with right click");
 
-        // Get the active sort offset for coordinate transformation
-        let active_sort_offset = active_sort.map_or(Vec2::ZERO, |sort| sort.position);
+        let active_sort_offset = if let (Some((sort_index, _)), Some(state)) = (active_sort_info, text_editor_state) {
+            state.get_sort_visual_position(sort_index).unwrap_or(Vec2::ZERO)
+        } else {
+            Vec2::ZERO
+        };
 
         if let Some(contour) = create_contour_from_points(&pen_state.points, active_sort_offset) {
             add_contour_to_glyph(
@@ -484,7 +486,7 @@ fn handle_right_click(
                 app_state,
                 app_state_changed,
                 false,
-                active_sort,
+                active_sort_info,
             );
         }
 
@@ -499,14 +501,13 @@ fn add_contour_to_glyph(
     app_state: &mut ResMut<crate::core::state::AppState>,
     app_state_changed: &mut EventWriter<AppStateChanged>,
     is_closed: bool,
-    active_sort: Option<&crate::editing::sort::Sort>,
+    active_sort_info: Option<(usize, &crate::core::state::SortEntry)>,
 ) {
-    // When there's an active sort, use the sort's glyph; otherwise use glyph navigation
-    let glyph_name = if let Some(sort) = active_sort {
-        info!("PEN TOOL: Using active sort glyph: {}", sort.glyph_name);
-        sort.glyph_name.clone()
+    let glyph_name = if let Some((_sort_index, sort_entry)) = active_sort_info {
+        info!("PEN TOOL: Using active sort glyph: {}", sort_entry.glyph_name);
+        sort_entry.glyph_name.clone()
     } else {
-        let Some(glyph_name) = glyph_navigation.find_glyph(&app_state) else {
+        let Some(glyph_name) = glyph_navigation.current_glyph.clone() else {
             warn!("PEN TOOL: No glyph found in navigation and no active sort");
             return;
         };
@@ -521,12 +522,12 @@ fn add_contour_to_glyph(
     // The current architecture uses thread-safe data structures and doesn't have direct norad access
     
     // Convert the norad contour to our thread-safe ContourData
-    let contour_data = crate::core::state::ContourData::from_norad_contour(&contour);
+    let contour_data = crate::core::state::font_data::ContourData::from_norad_contour(&contour);
     
     // Check if the glyph exists in our thread-safe data
     if let Some(glyph_data) = app_state.workspace.font.glyphs.get_mut(&glyph_name) {
         // Get or create the outline data
-        let outline_data = glyph_data.outline.get_or_insert_with(|| crate::core::state::OutlineData {
+        let outline_data = glyph_data.outline.get_or_insert_with(|| crate::core::state::font_data::OutlineData {
             contours: Vec::new(),
         });
         
@@ -534,15 +535,14 @@ fn add_contour_to_glyph(
         outline_data.contours.push(contour_data);
         
         let path_type = if is_closed { "closed" } else { "open" };
-        let source = if active_sort.is_some() { "active sort" } else { "glyph navigation" };
+        let source = if active_sort_info.is_some() { "active sort" } else { "glyph navigation" };
         info!("PEN TOOL: Successfully added {} contour to glyph {} (from {}). Total contours now: {}", 
-              path_type, glyph_name, source, outline_data.contours.len());
+               path_type, glyph_name, source, outline_data.contours.len());
         
         // Notify that the app state has changed
-        info!("PEN TOOL: Sending AppStateChanged event");
         app_state_changed.write(AppStateChanged);
     } else {
-        warn!("PEN TOOL: Could not find glyph {} in font data", glyph_name);
+        warn!("PEN TOOL: Could not find glyph '{}' in app state to add contour", glyph_name);
     }
 }
 
@@ -724,12 +724,16 @@ fn create_contour_from_points(points: &[Vec2], active_sort_offset: Vec2) -> Opti
         return None;
     }
 
+    info!("PEN TOOL: Creating contour with active_sort_offset: ({:.1}, {:.1})", active_sort_offset.x, active_sort_offset.y);
+
     let mut contour_points = Vec::new();
 
     for point in points {
         // Convert from world coordinates to glyph-local coordinates
         let glyph_local_point = *point - active_sort_offset;
         
+        info!("  - Converting point: world({:.1}, {:.1}) -> local({:.1}, {:.1})", point.x, point.y, glyph_local_point.x, glyph_local_point.y);
+
         contour_points.push(ContourPoint::new(
             glyph_local_point.x as f64, 
             glyph_local_point.y as f64, 

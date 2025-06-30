@@ -11,6 +11,10 @@ use crate::editing::selection::systems::AppStateChanged;
 use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
 use bevy::prelude::*;
 
+/// Resource to track if shapes mode is currently active
+#[derive(Resource, Default, PartialEq, Eq)]
+pub struct ShapesModeActive(pub bool);
+
 pub struct ShapesTool;
 
 impl EditTool for ShapesTool {
@@ -38,17 +42,18 @@ impl EditTool for ShapesTool {
         "Draw geometric shapes"
     }
     
-    fn update(&self, _commands: &mut Commands) {
-        // Implementation for shapes tool update
-        // TODO: Add shape drawing functionality
+    fn update(&self, commands: &mut Commands) {
+        // Activate shapes mode
+        commands.insert_resource(ShapesModeActive(true));
+        debug!("ShapesTool::update() called - activating shapes mode");
     }
     
     fn on_enter(&self) {
-        info!("Entered Shapes tool");
+        info!("✅ SHAPES TOOL: Entered Shapes tool");
     }
     
     fn on_exit(&self) {
-        info!("Exited Shapes tool");
+        info!("❌ SHAPES TOOL: Exited Shapes tool");
     }
 }
 
@@ -108,7 +113,8 @@ pub struct ShapesToolPlugin;
 
 impl Plugin for ShapesToolPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<CurrentShapeType>()
+        app.init_resource::<ShapesModeActive>()
+           .init_resource::<CurrentShapeType>()
            .init_resource::<ActiveShapeDrawing>()
            .init_resource::<CurrentCornerRadius>()
            .add_systems(Startup, register_shapes_tool)
@@ -117,6 +123,7 @@ impl Plugin for ShapesToolPlugin {
                (
                    handle_shape_mouse_events,
                    render_active_shape_drawing,
+                   reset_shapes_mode_when_inactive,
                ),
            );
     }
@@ -137,9 +144,16 @@ pub fn handle_shape_mouse_events(
     mut app_state: ResMut<AppState>,
     glyph_navigation: Res<GlyphNavigation>,
     corner_radius: Res<CurrentCornerRadius>,
+    shapes_mode: Option<Res<ShapesModeActive>>,
 ) {
     // Only handle input if shapes tool is active
-    // TODO: Add proper tool activation check
+    if let Some(shapes_mode) = shapes_mode {
+        if !shapes_mode.0 {
+            return;
+        }
+    } else {
+        return;
+    }
     
         let Ok(window) = windows.single() else {
         return;
@@ -161,6 +175,7 @@ pub fn handle_shape_mouse_events(
         
         // Handle mouse button press
         if mouse_button_input.just_pressed(MouseButton::Left) {
+            debug!("SHAPES TOOL: Starting to draw {:?} at ({:.1}, {:.1})", current_shape_type.0, snapped_position.x, snapped_position.y);
             active_drawing.is_drawing = true;
             active_drawing.shape_type = current_shape_type.0;
             active_drawing.start_position = Some(snapped_position);
@@ -175,6 +190,9 @@ pub fn handle_shape_mouse_events(
         // Handle mouse button release
         if mouse_button_input.just_released(MouseButton::Left) && active_drawing.is_drawing {
             if let Some(rect) = active_drawing.get_rect() {
+                debug!("SHAPES TOOL: Completing {:?} shape with rect: ({:.1}, {:.1}) to ({:.1}, {:.1})", 
+                       active_drawing.shape_type, rect.min.x, rect.min.y, rect.max.x, rect.max.y);
+                
                 // Create the shape in the current glyph
                 create_shape(
                     rect,
@@ -198,24 +216,52 @@ pub fn handle_shape_mouse_events(
 pub fn render_active_shape_drawing(
     mut gizmos: Gizmos,
     active_drawing: Res<ActiveShapeDrawing>,
+    shapes_mode: Option<Res<ShapesModeActive>>,
 ) {
-    if active_drawing.is_drawing {
-        if let Some(rect) = active_drawing.get_rect() {
-            let color = Color::srgba(0.5, 0.8, 1.0, 0.7);
-            
-            match active_drawing.shape_type {
-                ShapeType::Rectangle => {
-                    draw_dashed_rectangle(&mut gizmos, rect, color);
-                }
-                ShapeType::Ellipse => {
-                    draw_dashed_ellipse(&mut gizmos, rect, color);
-                }
-                ShapeType::RoundedRectangle => {
-                    // TODO: Add rounded rectangle preview
-                    draw_dashed_rectangle(&mut gizmos, rect, color);
-                }
+    // Only render if shapes tool is active
+    if let Some(shapes_mode) = shapes_mode {
+        if !shapes_mode.0 {
+            return;
+        }
+    } else {
+        return;
+    }
+
+    if !active_drawing.is_drawing {
+        return;
+    }
+
+    if let Some(rect) = active_drawing.get_rect() {
+        let preview_color = Color::srgba(0.8, 0.8, 0.8, 0.6);
+        
+        match active_drawing.shape_type {
+            ShapeType::Rectangle | ShapeType::RoundedRectangle => {
+                draw_dashed_rectangle(&mut gizmos, rect, preview_color);
+            }
+            ShapeType::Ellipse => {
+                draw_dashed_ellipse(&mut gizmos, rect, preview_color);
             }
         }
+    }
+}
+
+/// Reset shapes mode when another tool is selected
+pub fn reset_shapes_mode_when_inactive(
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    mut commands: Commands,
+    mut active_drawing: ResMut<ActiveShapeDrawing>,
+) {
+    if current_tool.get_current() != Some("shapes") {
+        // Cancel any active drawing
+        if active_drawing.is_drawing {
+            debug!("SHAPES TOOL: Cancelling active drawing - switching tools");
+            active_drawing.is_drawing = false;
+            active_drawing.start_position = None;
+            active_drawing.current_position = None;
+        }
+        
+        // Mark shapes mode as inactive
+        commands.insert_resource(ShapesModeActive(false));
     }
 }
 

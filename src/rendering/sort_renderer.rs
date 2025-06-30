@@ -33,7 +33,15 @@ pub fn render_sorts_system(
     _sorts_query: Query<&Sort>,
     active_sorts_query: Query<(Entity, &Sort), With<ActiveSort>>,
     inactive_sorts_query: Query<&Sort, With<InactiveSort>>,
+    mut app_state_events: EventReader<crate::editing::selection::systems::AppStateChanged>,
 ) {
+    // Only log when we actually receive AppStateChanged events (not every frame)
+    let event_count = app_state_events.len();
+    if event_count > 0 {
+        info!("🎨 SORT RENDERER: Received {} AppStateChanged events - updating glyph rendering", event_count);
+        // Consume the events
+        for _ in app_state_events.read() {}
+    }
     // Get viewport for coordinate transformations
     let viewport = match viewports.single() {
         Ok(viewport) => *viewport,

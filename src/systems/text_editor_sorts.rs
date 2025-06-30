@@ -63,20 +63,19 @@ pub fn handle_text_editor_sort_clicks(
     ui_hover_state: Res<UiHoverState>,
     app_state: Res<crate::core::state::AppState>,
 ) {
-    // Check for left mouse button press first
+    // Early return if hovering over UI
+    if ui_hover_state.is_hovering_ui {
+        return;
+    }
+
+    // Early return if no mouse button was pressed
     if !mouse_button_input.just_pressed(MouseButton::Left) {
-        return; // Don't log this as it would spam every frame
+        return;
     }
     
     // DEBUG: Log that we detected a left click
     debug!("LEFT MOUSE CLICKED - handle_text_editor_sort_clicks processing");
     debug!("Buffer has {} sorts", text_editor_state.buffer.len());
-    
-    // Only handle clicks when not hovering over UI
-    if ui_hover_state.is_hovering_ui {
-        debug!("UI hover detected - ignoring click");
-        return;
-    }
     
     debug!("Left mouse button pressed and no UI hover - processing click");
 

@@ -20,6 +20,11 @@ pub fn draw_glyph_outline_at_position(
     outline: &OutlineData,
     offset: Vec2,
 ) {
+    // Only log when there are 3+ contours (indicating a new shape was likely added)
+    if outline.contours.len() >= 3 {
+        info!("🖊️  GLYPH OUTLINE: Rendering {} contours (new shape detected!)", outline.contours.len());
+    }
+    
     // Render each contour's path
     for contour in &outline.contours {
         draw_contour_path_at_position(gizmos, viewport, contour, offset);
