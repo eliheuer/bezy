@@ -13,12 +13,10 @@ pub mod font_data;
 pub mod font_metrics;
 pub mod navigation;
 pub mod text_editor;
-pub mod ufo_conversion;
 
 // Re-export all public items to maintain the existing API
 pub use app_state::*;
 pub use font_data::*;
 pub use font_metrics::*;
 pub use navigation::*;
-pub use text_editor::*;
-// Note: ufo_conversion is not re-exported yet as it's not being used 
+pub use text_editor::*; 

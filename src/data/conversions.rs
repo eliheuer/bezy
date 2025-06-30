@@ -1,12 +1,12 @@
-//! UFO conversion utilities
+//! UFO format conversion utilities
 //!
-//! This module contains all the conversion logic between our internal
-//! thread-safe data structures and the norad UFO format.
+//! This module contains conversion logic between our internal thread-safe 
+//! data structures and the norad UFO format. This is pure data transformation
+//! logic - serialization and deserialization between equivalent representations.
 
 use std::path::PathBuf;
 use norad::Font;
-use crate::core::state::font_data::{FontData, GlyphData, OutlineData, ContourData, PointData, PointTypeData};
-use crate::core::state::font_metrics::FontInfo;
+use crate::core::state::{FontData, GlyphData, OutlineData, ContourData, PointData, PointTypeData, FontInfo};
 
 impl GlyphData {
     /// Convert from norad glyph to our thread-safe version
