@@ -14,7 +14,49 @@
 
 - **UFO Persistence**: Norad library used only for loading/saving, not runtime storage
 
-## Coordinate Systems
+## Input System Architecture
+
+Bezy uses a centralized input system that provides consistent, predictable input handling across all tools and modes. This system eliminates the scattered input handling that was causing conflicts and coordinate system inconsistencies.
+
+### Input System Components
+
+**InputPlugin**: The main input system plugin that manages all input state and events.
+
+**InputState**: Centralized resource containing the complete state of all input devices:
+- Mouse state (position, buttons, wheel, motion)
+- Keyboard state (keys, modifiers, text buffer)
+- Gamepad state (future expansion)
+- Current input mode
+- UI consumption state
+
+**InputEvent**: Event-driven input system that provides typed events for all input actions:
+- MouseClick, MouseRelease, MouseDrag, MouseMove, MouseWheel
+- KeyPress, KeyRelease, TextInput
+- GamepadButtonPress, GamepadButtonRelease, GamepadAnalog
+
+**InputConsumer**: Trait-based system for routing input events to appropriate handlers based on priority and mode.
+
+### Input Priority System
+
+The input system uses a clear priority hierarchy to determine which system handles input:
+
+1. **High Priority**: UI elements, modals, text editor
+2. **Mode-Specific**: Current active tool (select, pen, knife, etc.)
+3. **Low Priority**: Camera control, default actions
+
+### Input Modes
+
+The system tracks the current input mode to route events appropriately:
+- **Normal**: Default editing mode
+- **Select**: Selection tool active
+- **Pen**: Pen tool active
+- **Knife**: Knife tool active
+- **Shape**: Shape tool active
+- **Hyper**: Hyper tool active
+- **Text**: Text editing mode
+- **Temporary**: Temporary tool mode
+
+### Coordinate Systems
 
 Bezy uses a three-tiered coordinate system, and understanding the transformation flow is critical. The new architecture centralizes this transformation to eliminate bugs.
 
@@ -92,9 +134,14 @@ This mismatch can cause clickable areas to be hundreds of units away from visual
 
 - [Settings management](src/core/settings.rs): User preferences and editor configuration
 
-### Coordinate Systems & Geometry
+### Input System
+- [Input system](src/core/input.rs): Centralized input state management, event generation, and coordinate handling
+
+- [Input consumers](src/systems/input_consumer.rs): Priority-based input routing and tool-specific input handlers
+
 - [Cursor Position](src/core/cursor.rs): Defines the `CursorInfo` resource and the plugin that centrally manages screen-to-design-space coordinate conversions.
 
+### Coordinate Systems & Geometry
 - [Design space](src/ui/panes/design_space.rs): Core coordinate definitions, ViewPort implementation, DPoint/DVec2 types
 
 - [Point management](src/geometry/point.rs): EditPoint, EntityId system for glyph components
@@ -165,6 +212,34 @@ Bezy follows a modular plugin system:
 **Sort Lifecycle**: Sorts can be active (editable) or inactive (rendered), only one active at a time
 **Gap Buffer**: SortBuffer uses gap buffer for efficient text editing operations
 
+## Input System Patterns
+
+**Centralized Input State**: All input is managed through the `InputState` resource, which provides consistent access to mouse, keyboard, and gamepad state.
+
+**Event-Driven Architecture**: Input events are generated once per frame and routed to appropriate consumers based on priority and mode.
+
+**Priority-Based Routing**: Input events are handled by the highest priority consumer that can handle them, preventing conflicts between systems.
+
+**Mode-Aware Processing**: The input system automatically routes events to the appropriate tool based on the current input mode.
+
+**Coordinate Consistency**: All input events include both screen and design space coordinates, ensuring consistent coordinate handling across all tools.
+
+**UI Consumption**: The system automatically detects when UI elements are consuming input and routes events accordingly.
+
+## Input System Best Practices
+
+**Use InputState for State Queries**: Always query the `InputState` resource for current input state rather than directly accessing Bevy's input resources.
+
+**Handle Events in Consumers**: Implement the `InputConsumer` trait for new tools rather than creating separate input handling systems.
+
+**Check Input Mode**: Always verify the current input mode before processing input events to avoid conflicts.
+
+**Use Helper Functions**: Use the helper functions in `input::helpers` for common input checks rather than implementing them manually.
+
+**Coordinate Consistency**: Always use the coordinates provided in input events rather than performing manual coordinate transformations.
+
+**Priority Order**: Respect the input priority system - high priority consumers (UI, text editor) should handle input before mode-specific consumers.
+
 ## Common Patterns
 
 - Resources for shared state, Components for entity data
@@ -198,4 +273,106 @@ When encountering click detection problems or visual/interaction mismatches:
 
 5. **System Order**: Check if multiple click handling systems are interfering:
    - Use `grep_search` to find all systems handling mouse input
-   - Verify only appropriate systems are loaded in app.rs 
+   - Verify only appropriate systems are loaded in app.rs
+
+## Migrating to the New Input System
+
+When updating existing input handling code to use the new centralized input system:
+
+### 1. Replace Direct Input Access
+
+**Before (Old System)**:
+```rust
+fn handle_mouse_input(
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
+) {
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        let cursor_pos = window.cursor_position().unwrap();
+        let world_pos = camera.viewport_to_world_2d(camera_transform, cursor_pos).unwrap();
+        // Handle click...
+    }
+}
+```
+
+**After (New System)**:
+```rust
+fn handle_mouse_input(
+    mut input_events: EventReader<InputEvent>,
+    input_state: Res<InputState>,
+) {
+    for event in input_events.read() {
+        if let InputEvent::MouseClick { button, position, modifiers } = event {
+            if *button == MouseButton::Left {
+                // Handle click with position already in design space...
+            }
+        }
+    }
+}
+```
+
+### 2. Implement InputConsumer for New Tools
+
+```rust
+#[derive(Resource)]
+pub struct MyToolInputConsumer;
+
+impl InputConsumer for MyToolInputConsumer {
+    fn should_handle_input(&self, event: &InputEvent, input_state: &InputState) -> bool {
+        // Check if this tool should handle the event
+        matches!(event, InputEvent::MouseClick { .. }) && 
+        helpers::is_input_mode(input_state, InputMode::MyTool)
+    }
+
+    fn handle_input(&mut self, event: &InputEvent, input_state: &InputState) {
+        match event {
+            InputEvent::MouseClick { position, modifiers, .. } => {
+                // Handle the click
+            }
+            _ => {}
+        }
+    }
+}
+```
+
+### 3. Use InputState for State Queries
+
+**Before**:
+```rust
+let shift_pressed = keyboard_input.pressed(KeyCode::ShiftLeft) || 
+                   keyboard_input.pressed(KeyCode::ShiftRight);
+```
+
+**After**:
+```rust
+let shift_pressed = helpers::is_shift_pressed(&input_state);
+```
+
+### 4. Coordinate Handling
+
+**Before**:
+```rust
+let cursor_pos = window.cursor_position().unwrap();
+let world_pos = camera.viewport_to_world_2d(camera_transform, cursor_pos).unwrap();
+```
+
+**After**:
+```rust
+if let Some(position) = helpers::get_mouse_design_position(&input_state) {
+    // Use position directly - already in design space
+}
+```
+
+### 5. Update System Registration
+
+Remove old input handling systems and ensure the new input system plugins are registered:
+
+```rust
+// In app.rs
+app.add_plugins((
+    InputPlugin,
+    InputConsumerPlugin,
+    // ... other plugins
+));
+``` 
