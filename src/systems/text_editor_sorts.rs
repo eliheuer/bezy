@@ -195,10 +195,8 @@ pub fn handle_text_editor_sort_clicks(
         } else {
             debug!("No sort clicked - clearing selections");
             
-            // Empty area click - clear selections and active state
+            // Empty area click - clear selections but DO NOT clear active state
             text_editor_state.clear_selections();
-            text_editor_state.clear_active_state();
-            
             if let Some(buffer_position) = text_editor_state
                 .get_buffer_position_for_world_position(world_position) {
                 // Move cursor to clicked position in buffer
@@ -211,7 +209,7 @@ pub fn handle_text_editor_sort_clicks(
                     world_position.y
                 );
             } else {
-                debug!("Empty area click: cleared all selections and active state");
+                debug!("Empty area click: cleared all selections");
             }
         }
     }

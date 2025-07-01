@@ -467,94 +467,10 @@ pub fn spawn_initial_sort(
     _commands: Commands,
     _sorts_query: Query<Entity, With<Sort>>,
     _app_state: Res<AppState>,
-    mut has_run: Local<bool>,
+    _has_run: Local<bool>,
 ) {
     // DISABLED: Skip creating initial sorts grid to keep design space clean
-    // Only create sorts if none exist and we haven't run before
-    if *has_run {
-        return;
-    }
-    
-    // Set has_run to true to prevent this system from running again
-    *has_run = true;
-    
-    info!("spawn_initial_sort: Skipped creating initial sorts grid for clean workspace");
-    
-    // Original implementation commented out:
-    /*
-    if sorts_query.is_empty() {
-        info!("No sorts found, creating startup sorts from font glyphs");
-        *has_run = true;
-        
-        // Use font metrics for proper spacing (match backup version exactly)
-        let font_metrics = &app_state.workspace.info.metrics;
-        let upm = font_metrics.units_per_em as f32;
-        let descender = font_metrics.descender.unwrap_or(-(upm as f64 * 0.2)) as f32;
-        
-        // The backup version uses UPM - descender for metrics box height (not ascender - descender)
-        let metrics_box_height = upm - descender;
-        
-        // Use consistent fixed spacing from theme (like the backup version)
-        let vertical_padding = crate::ui::theme::SORT_VERTICAL_PADDING;
-        let horizontal_padding = crate::ui::theme::SORT_HORIZONTAL_PADDING;
-        let row_height = metrics_box_height + vertical_padding;
-        let col_width = upm + horizontal_padding;
-        
-        let mut current_x = 0.0;
-        let mut current_y = 0.0;
-        let mut glyph_count_in_row = 0;
-        const GLYPHS_PER_ROW: usize = 16; // Match the backup version
-        
-        // Use simple alphabetical order instead of Unicode order to test
-        // This should be more predictable and stable
-        let mut glyph_names: Vec<_> = app_state.workspace.font.glyphs.keys().collect();
-        glyph_names.sort(); // Simple alphabetical sort by glyph name
-        
-        info!("Creating {} sorts in alphabetical order", glyph_names.len());
-        
-        // Create sorts for all glyphs, arranged in a grid with proper spacing (match backup logic)
-        // Create sorts directly instead of using events to ensure deterministic ordering
-        for glyph_name in glyph_names {
-            if glyph_count_in_row >= GLYPHS_PER_ROW {
-                // Move to the next row, dropping by the full height of the metrics
-                // box plus the desired padding (exactly like backup version)
-                current_y -= row_height;
-                current_x = 0.0;
-                glyph_count_in_row = 0;
-            }
-            
-            // Get advance width from glyph data (like backup version)
-            let advance_width = if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
-                glyph_data.advance_width as f32
-            } else {
-                600.0 // Default fallback
-            };
-            
-            // Create sort directly instead of using events to ensure deterministic ordering
-            let sort = Sort::new(glyph_name.clone(), Vec2::new(current_x, current_y), advance_width);
-            
-            info!("Creating sort '{}' at position ({:.1}, {:.1})", glyph_name, current_x, current_y);
-            
-            // Spawn the sort entity as inactive by default
-            commands.spawn((
-                sort,
-                InactiveSort,
-                Transform::from_translation(Vec2::new(current_x, current_y).extend(0.0)),
-                GlobalTransform::default(),
-                Visibility::Visible,
-                InheritedVisibility::default(),
-                ViewVisibility::default(),
-                Selectable, // Make the sort entity itself selectable
-            ));
-            
-            current_x += advance_width + horizontal_padding;
-            glyph_count_in_row += 1;
-        }
-    } else {
-        let sort_count = sorts_query.iter().count();
-        info!("create_startup_sorts: Skipping because sorts_query is not empty (count={})", sort_count);
-    }
-    */
+    return;
 }
 
 /// System to automatically activate the first sort that is created
@@ -564,30 +480,8 @@ pub fn auto_activate_first_sort(
     _sorts_query: Query<Entity, (With<Sort>, With<InactiveSort>)>,
     _active_sorts_query: Query<Entity, With<ActiveSort>>,
 ) {
-    // DISABLED: Skip auto-activating sorts to keep design space clean
-    // Original implementation commented out:
-    /*
-    if active_sorts_query.is_empty() && sorts_query.iter().count() == 1 {
-        if let Ok(sort_entity) = sorts_query.get_single() {
-            info!("Auto-activating first sort: {:?}", sort_entity);
-            
-            // Use the same activation logic as manual activation to ensure consistency
-            commands
-                .entity(sort_entity)
-                .remove::<InactiveSort>()
-                .insert(ActiveSort);
-            active_sort_state.active_sort_entity = Some(sort_entity);
-            debug!("auto_activate_first_sort: Set active_sort_entity to {:?}", sort_entity);
-        }
-    } else {
-        if !active_sorts_query.is_empty() {
-            debug!("auto_activate_first_sort: Already have {} active sorts", active_sorts_query.iter().count());
-        }
-        if sorts_query.iter().count() != 1 {
-            debug!("auto_activate_first_sort: Have {} total sorts", sorts_query.iter().count());
-        }
-    }
-    */
+    // DISABLED: Skip auto-activation to keep design space clean
+    return;
 }
 
 

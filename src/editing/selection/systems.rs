@@ -30,7 +30,6 @@ pub struct ClickWorldPosition;
 const SELECTION_MARGIN: f32 = 16.0; // Distance in pixels for selection hit testing
 
 /// System to handle mouse input for selection and hovering
-#[allow(dead_code)]
 pub fn handle_mouse_input(
     mut commands: Commands,
     cursor: Res<CursorInfo>,
@@ -47,7 +46,6 @@ pub fn handle_mouse_input(
     select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>>,
     knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
-    text_editor_state: Option<Res<crate::core::state::TextEditorState>>,
 ) {
     // Log at the beginning of each frame
     debug!(
@@ -74,17 +72,6 @@ pub fn handle_mouse_input(
     // Don't process selection when hovering over UI
     if ui_hover_state.is_hovering_ui {
         debug!("Selection skipped - hovering over UI");
-        return;
-    }
-
-    // Only allow selection when there's an active sort in text editor
-    if let Some(text_editor_state) = text_editor_state.as_ref() {
-        if text_editor_state.get_active_sort().is_none() {
-            debug!("Selection skipped - no active sort");
-            return;
-        }
-    } else {
-        debug!("Selection skipped - no text editor state");
         return;
     }
 
@@ -205,8 +192,9 @@ pub fn handle_mouse_input(
                     drag_point_state.dragged_entities.len()
                 );
             } else {
-                // Clicked on empty space
-                debug!("Clicked on empty space");
+                // Clicked on empty space - CLAIM THIS CLICK to prevent sort deactivation
+                debug!("Clicked on empty space - claiming click for drag selection");
+                commands.insert_resource(ClickWorldPosition);
                 
                 // Clear selection if not multi-selecting
                 if !shift_pressed {
@@ -320,8 +308,17 @@ pub fn handle_mouse_input(
         if drag_state.is_dragging {
             drag_state.current_position = Some(cursor_pos);
             
-                         // Update selection rectangle - this would need a separate query with mutable access
-             // For now, we'll skip this update as it requires restructuring the system
+            // Update selection rectangle
+            for rect_entity in &selection_rect_query {
+                if let Some(start_pos) = drag_state.start_position {
+                    if let Ok(mut entity_commands) = commands.get_entity(rect_entity) {
+                        entity_commands.insert(SelectionRect {
+                            start: start_pos,
+                            end: cursor_pos,
+                        });
+                    }
+                }
+            }
         }
         
         // Update point drag

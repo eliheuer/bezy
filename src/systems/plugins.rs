@@ -8,6 +8,7 @@ use bevy::prelude::*;
 
 use crate::ui::theme::{GIZMO_LINE_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::utils::setup::setup;
+use crate::editing::sort_plugin::SortPlugin;
 
 /// Configure default Bevy plugins for the application
 #[allow(dead_code)]
@@ -87,6 +88,7 @@ impl Plugin for BezySystems {
             SetupPlugin,
             DrawPlugin,
             ToolbarPlugin,
+            SortPlugin,
             // Additional plugins will be added as we port more components
             // Note: CameraPlugin is now handled by src/rendering/cameras.rs
         ));

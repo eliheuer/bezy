@@ -67,7 +67,7 @@ impl Plugin for SelectionPlugin {
             .init_resource::<DragSelectionState>()
             .init_resource::<DragPointState>()
             // Add core selection systems
-            // .add_systems(Update, systems::handle_mouse_input) // TODO: Fix parameter limit
+            .add_systems(Update, systems::handle_mouse_input)
             .add_systems(Update, systems::handle_point_drag)
             .add_systems(Update, systems::handle_selection_shortcuts)
             .add_systems(Update, systems::handle_key_releases)
