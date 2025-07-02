@@ -9,6 +9,7 @@ use crate::systems::text_editor_sorts::{
     render_text_editor_sorts,
     handle_text_editor_keyboard_input,
     debug_text_editor_state,
+    sync_text_editor_active_sort,
 };
 
 use bevy::prelude::*;
@@ -29,6 +30,8 @@ impl Plugin for TextEditorPlugin {
                     handle_text_editor_keyboard_input,
                     // Debug system
                     debug_text_editor_state,
+                    // Sync active sort with selection system
+                    sync_text_editor_active_sort,
                     // Render the sorts
                     render_text_editor_sorts,
                 ).chain(), // Run in order to ensure proper initialization

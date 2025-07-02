@@ -1,6 +1,7 @@
 #![allow(unused_imports)]
 
 pub mod components;
+pub mod coordinate_system;
 pub mod nudge;
 pub mod systems;
 
@@ -12,20 +13,19 @@ pub use systems::*;
 use std::collections::HashMap;
 
 /// Resource to track the drag selection state
-#[derive(Resource, Default, Reflect)]
-#[reflect(Resource)]
+#[derive(Resource, Default)]
 pub struct DragSelectionState {
     /// Whether a drag selection is in progress
     pub is_dragging: bool,
-    /// The start position of the drag selection
-    pub start_position: Option<Vec2>,
-    /// The current position of the drag selection
-    pub current_position: Option<Vec2>,
+    /// The start position of the drag selection (in design space)
+    pub start_position: Option<crate::ui::panes::design_space::DPoint>,
+    /// The current position of the drag selection (in design space)
+    pub current_position: Option<crate::ui::panes::design_space::DPoint>,
     /// Whether this is a multi-select operation (shift is held)
     pub is_multi_select: bool,
     /// The previous selection before the drag started
-    #[reflect(ignore)]
     pub previous_selection: Vec<Entity>,
+    pub selection_rect_entity: Option<Entity>,
 }
 
 /// Resource to track the state of dragging points
@@ -66,17 +66,45 @@ impl Plugin for SelectionPlugin {
             .init_resource::<SelectionState>()
             .init_resource::<DragSelectionState>()
             .init_resource::<DragPointState>()
-            // Add core selection systems
-            .add_systems(Update, systems::handle_mouse_input)
-            .add_systems(Update, systems::handle_point_drag)
-            .add_systems(Update, systems::handle_selection_shortcuts)
-            .add_systems(Update, systems::handle_key_releases)
-            .add_systems(Update, systems::update_glyph_data_from_selection)
-            .add_systems(Update, sync_selected_components)
-            .add_systems(Update, systems::clear_selection_on_app_change)
-            .add_systems(Update, systems::cleanup_click_resource)
-            .add_systems(Update, systems::render_selection_rect)
-            .add_systems(Update, systems::render_selected_entities)
+            // Configure system sets for proper ordering
+            .configure_sets(
+                Update,
+                (
+                    SelectionSystemSet::Input,
+                    SelectionSystemSet::Processing,
+                    SelectionSystemSet::Render,
+                )
+                    .chain(),
+            )
+            // Input systems - the process_selection_input_events system handles the actual selection logic
+            // It's called by the centralized input consumer system when in select mode
+            .add_systems(
+                Update,
+                systems::process_selection_input_events
+                    .in_set(SelectionSystemSet::Input),
+            )
+            // Processing systems
+            .add_systems(
+                Update,
+                (
+                    sync_selected_components,
+                    systems::update_glyph_data_from_selection,
+                    systems::clear_selection_on_app_change,
+                    systems::cleanup_click_resource,
+                )
+                    .in_set(SelectionSystemSet::Processing)
+                    .after(SelectionSystemSet::Input),
+            )
+            // Rendering systems
+            .add_systems(
+                Update,
+                (
+                    systems::render_selection_rect,
+                    systems::render_selected_entities,
+                )
+                    .in_set(SelectionSystemSet::Render)
+                    .after(SelectionSystemSet::Processing),
+            )
             // Add the nudge plugin
             .add_plugins(NudgePlugin);
     }
@@ -101,7 +129,7 @@ pub fn sync_selected_components(
     entities: Query<Entity>,
 ) {
     // Always run this system to ensure components stay synchronized
-    debug!(
+    info!(
         "Synchronizing Selected components with SelectionState (current: {})",
         selection_state.selected.len()
     );
@@ -111,7 +139,7 @@ pub fn sync_selected_components(
         // Only add the component if the entity is valid
         if entities.contains(entity) && !selected_entities.contains(entity) {
             commands.entity(entity).insert(Selected);
-            debug!(
+            info!(
                 "Adding Selected component to entity {:?} from selection state",
                 entity
             );
@@ -122,7 +150,11 @@ pub fn sync_selected_components(
     for entity in &selected_entities {
         if !selection_state.selected.contains(&entity) {
             commands.entity(entity).remove::<Selected>();
-            debug!("Removing Selected component from entity {:?} not in selection state", entity);
+            info!("Removing Selected component from entity {:?} not in selection state", entity);
         }
     }
+}
+
+fn selection_drag_active(drag_state: Res<DragSelectionState>) -> bool {
+    drag_state.is_dragging
 } 

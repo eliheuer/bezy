@@ -49,6 +49,8 @@ impl EditTool for SelectTool {
     fn update(&self, commands: &mut Commands) {
         // Mark select mode as active while this tool is current
         commands.insert_resource(SelectModeActive(true));
+        // Set the input mode to Select for the centralized input system
+        commands.insert_resource(crate::core::input::InputMode::Select);
     }
     
     fn on_enter(&self) {
@@ -93,5 +95,7 @@ pub fn reset_select_mode_when_inactive(
     if current_tool.get_current() != Some("select") {
         // Mark select mode as inactive when not the current tool
         commands.insert_resource(SelectModeActive(false));
+        // Reset input mode to Normal when not in select mode
+        commands.insert_resource(crate::core::input::InputMode::Normal);
     }
 } 

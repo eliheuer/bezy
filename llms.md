@@ -375,4 +375,30 @@ app.add_plugins((
     InputConsumerPlugin,
     // ... other plugins
 ));
-``` 
+```
+
+## 🧪 Automated Selection/Hit-Testing Tests
+
+**Location:**
+- `src/editing/selection/systems.rs` (bottom of file, in `#[cfg(test)] mod tests`)
+
+**How to Run:**
+- From the project root, run:
+  ```sh
+  cargo test -- --nocapture
+  ```
+  This runs all tests and prints debug output.
+
+**What's Covered:**
+- Selection invariants: If a point is visible at (x, y), a marquee or hit-test at (x, y) should always select it.
+- Edge cases: Parented transforms, off-curve points, etc.
+- Debug output: Each test prints its parameters and result for easy debugging.
+
+**How to Add More Tests:**
+- Add new functions to the `mod tests` section in `systems.rs`.
+- Use `assert!` for correctness and `println!` for debug output.
+- Use the same coordinate/selection logic as the main code to ensure invariants are enforced.
+
+**Why:**
+- These tests catch coordinate system bugs and selection logic regressions early.
+- They make refactoring and debugging safer and more transparent for LLMs and junior developers. 

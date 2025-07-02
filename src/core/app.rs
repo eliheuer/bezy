@@ -3,7 +3,7 @@
 use crate::core::cli::CliArgs;
 use crate::core::settings::BezySettings;
 use crate::core::state::{AppState, GlyphNavigation};
-use crate::core::cursor::CursorPlugin;
+use crate::core::pointer::PointerPlugin;
 use crate::core::input::InputPlugin;
 use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
 use crate::rendering::{
@@ -114,15 +114,18 @@ fn add_editor_plugins(app: &mut App) {
 /// Adds core application logic plugins
 fn add_core_plugins(app: &mut App) {
     app.add_plugins((
+        // Core infrastructure first
+        PointerPlugin,
+        InputPlugin,
+        InputConsumerPlugin,
+        // Then editing systems
         SelectionPlugin,
         TextEditorPlugin,
         UndoPlugin,
+        // Then UI and interaction
         UiInteractionPlugin,
         CommandsPlugin,
         BezySystems,
-        CursorPlugin,
-        InputPlugin,
-        InputConsumerPlugin,
     ));
 }
 

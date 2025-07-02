@@ -7,7 +7,7 @@
 //! The tool converts placed points into UFO contours that are saved to the font file.
 
 use super::EditModeSystem;
-use crate::core::cursor::CursorInfo;
+use crate::core::pointer::PointerInfo;
 use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
 use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
 use crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive;
@@ -16,6 +16,16 @@ use crate::systems::ui_interaction::UiHoverState;
 use bevy::prelude::*;
 use kurbo::BezPath;
 use norad::{Contour, ContourPoint};
+use bevy::input::mouse::MouseButton;
+use bevy::input::keyboard::KeyCode;
+use crate::core::input::{InputEvent, InputState, InputMode, ModifierState, helpers};
+use crate::ui::panes::design_space::DPoint;
+use crate::editing::selection::{DragSelectionState, DragPointState, SelectionState};
+use crate::editing::edit_type::EditType;
+use crate::core::state::AppState;
+use crate::editing::sort::ActiveSortState;
+use crate::systems::sort_manager::SortPointEntity;
+use crate::editing::selection::components::{Selectable, Selected, PointType, GlyphPointReference};
 
 pub struct PenTool;
 
@@ -111,6 +121,55 @@ fn register_pen_tool(mut tool_registry: ResMut<ToolRegistry>) {
 /// Resource to track if pen mode is currently active
 #[derive(Resource, Default, PartialEq, Eq)]
 pub struct PenModeActive(pub bool);
+
+/// Input consumer for pen tool
+#[derive(Resource)]
+pub struct PenInputConsumer;
+
+impl crate::systems::input_consumer::InputConsumer for PenInputConsumer {
+    fn should_handle_input(&self, event: &InputEvent, input_state: &InputState) -> bool {
+        // Only handle input if pen mode is active
+        if !helpers::is_input_mode(input_state, InputMode::Pen) {
+            return false;
+        }
+        
+        // Handle mouse events
+        matches!(event, 
+            InputEvent::MouseClick { .. } | 
+            InputEvent::MouseDrag { .. } | 
+            InputEvent::MouseRelease { .. }
+        )
+    }
+    
+    fn handle_input(&mut self, event: &InputEvent, input_state: &InputState) {
+        match event {
+            InputEvent::MouseClick { button, position, modifiers } => {
+                if *button == MouseButton::Left {
+                    info!("Pen: Processing mouse click at {:?} with modifiers {:?}", position, modifiers);
+                    // TODO: Implement pen click handling
+                }
+            }
+            InputEvent::MouseDrag { button, start_position, current_position, delta, modifiers } => {
+                if *button == MouseButton::Left {
+                    info!("Pen: Processing mouse drag from {:?} to {:?} with modifiers {:?}", 
+                          start_position, current_position, modifiers);
+                    // TODO: Implement pen drag handling
+                }
+            }
+            InputEvent::MouseRelease { button, position, modifiers } => {
+                if *button == MouseButton::Left {
+                    info!("Pen: Processing mouse release at {:?} with modifiers {:?}", position, modifiers);
+                    // TODO: Implement pen release handling
+                }
+            }
+            _ => {}
+        }
+    }
+    
+    fn priority(&self) -> u32 {
+        50 // Medium priority
+    }
+}
 
 /// The main state manager for the pen tool
 ///
@@ -239,7 +298,7 @@ fn deactivate_pen_mode(
 /// Main system for handling mouse interactions with the pen tool
 pub fn handle_pen_mouse_events(
     mut commands: Commands,
-    cursor: Res<CursorInfo>,
+    pointer_info: Res<PointerInfo>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut pen_state: ResMut<PenToolState>,
@@ -260,19 +319,18 @@ pub fn handle_pen_mouse_events(
         .and_then(|state| state.get_active_sort());
 
     if mouse_button_input.just_pressed(MouseButton::Left) {
-        if let Some(cursor_pos) = cursor.design_position.map(|p| p.to_raw()) {
-            handle_left_click(
-                &mut commands,
-                &keyboard,
-                &mut pen_state,
-                &glyph_navigation,
-                &mut app_state,
-                &mut app_state_changed,
-                active_sort_info,
-                text_editor_state.as_deref(),
-                cursor_pos,
-            );
-        }
+        let cursor_pos = pointer_info.design.to_raw();
+        handle_left_click(
+            &mut commands,
+            &keyboard,
+            &mut pen_state,
+            &glyph_navigation,
+            &mut app_state,
+            &mut app_state_changed,
+            active_sort_info,
+            text_editor_state.as_deref(),
+            cursor_pos,
+        );
     }
 
     if mouse_button_input.just_pressed(MouseButton::Right) {
@@ -540,7 +598,7 @@ pub fn handle_pen_keyboard_events(
 /// - Current cursor position (small white circle)
 pub fn render_pen_preview(
     mut gizmos: Gizmos,
-    cursor: Res<CursorInfo>,
+    pointer_info: Res<PointerInfo>,
     keyboard: Res<ButtonInput<KeyCode>>,
     pen_state: Res<PenToolState>,
     pen_mode: Option<Res<PenModeActive>>,
@@ -550,9 +608,8 @@ pub fn render_pen_preview(
     }
 
     draw_placed_points_and_lines(&mut gizmos, &pen_state);
-    if let Some(cursor_pos) = cursor.design_position.map(|p| p.to_raw()) {
-        draw_preview_elements(&mut gizmos, &pen_state, cursor_pos, &keyboard);
-    }
+    let cursor_pos = pointer_info.design.to_raw();
+    draw_preview_elements(&mut gizmos, &pen_state, cursor_pos, &keyboard);
 }
 
 /// Draw all the points that have been placed and lines between them

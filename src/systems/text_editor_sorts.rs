@@ -7,6 +7,11 @@
 use crate::core::state::{AppState, TextEditorState, SortEntry, SortLayoutMode, SortBuffer, GridConfig};
 use crate::rendering::cameras::DesignCamera;
 use crate::systems::ui_interaction::UiHoverState;
+use crate::editing::sort::ActiveSortState;
+use crate::systems::sort_manager::SortPointEntity;
+use crate::editing::selection::components::{Selectable, PointType, GlyphPointReference};
+use crate::geometry::point::{EditPoint, EntityId, EntityKind};
+use kurbo::Point;
 
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -844,6 +849,89 @@ pub fn debug_text_editor_state(
         
         if selected_sorts.is_empty() {
             info!("No sorts are currently selected");
+        }
+    }
+}
+
+/// System to sync TextEditorState active sort with ActiveSortState and create ECS entities
+/// This bridges the gap between the text editor system and the selection system
+pub fn sync_text_editor_active_sort(
+    mut commands: Commands,
+    text_editor_state: Res<TextEditorState>,
+    mut active_sort_state: ResMut<ActiveSortState>,
+    mut sort_point_entities: Query<(Entity, &mut SortPointEntity)>,
+    selectable_points: Query<Entity, With<Selectable>>,
+    app_state: Res<AppState>,
+) {
+    // Find the active sort in TextEditorState
+    let active_sort = text_editor_state.get_active_sort();
+    
+    if let Some((index, sort_entry)) = active_sort {
+        // Create a placeholder entity for the active sort if we don't have one
+        let sort_entity = if let Some(entity) = active_sort_state.active_sort_entity {
+            entity
+        } else {
+            let entity = commands.spawn_empty().id();
+            active_sort_state.active_sort_entity = Some(entity);
+            info!("Created new sort entity {:?} for active sort '{}'", entity, sort_entry.glyph_name);
+            entity
+        };
+        
+        // Clear existing sort point entities
+        for (entity, _) in sort_point_entities.iter() {
+            commands.entity(entity).despawn();
+        }
+        
+        // Create ECS entities for the active sort's points
+        if let Some(glyph) = app_state.workspace.font.get_glyph(&sort_entry.glyph_name) {
+            if let Some(outline) = &glyph.outline {
+                for (contour_index, contour) in outline.contours.iter().enumerate() {
+                    for (point_index, point) in contour.points.iter().enumerate() {
+                        let entity_id = EntityId::point(index as u32, point_index as u16);
+                        let is_on_curve = matches!(point.point_type, crate::core::state::font_data::PointTypeData::Move | crate::core::state::font_data::PointTypeData::Line);
+                        // Calculate the world position: sort position + point offset
+                        let point_world_pos = sort_entry.freeform_position + Vec2::new(point.x as f32, point.y as f32);
+                        
+                        let point_entity = commands.spawn((
+                            EditPoint {
+                                position: Point::new(point.x, point.y),
+                                point_type: match point.point_type {
+                                    crate::core::state::font_data::PointTypeData::Move => norad::PointType::Move,
+                                    crate::core::state::font_data::PointTypeData::Line => norad::PointType::Line,
+                                    crate::core::state::font_data::PointTypeData::OffCurve => norad::PointType::OffCurve,
+                                    crate::core::state::font_data::PointTypeData::Curve => norad::PointType::Curve,
+                                    crate::core::state::font_data::PointTypeData::QCurve => norad::PointType::QCurve,
+                                },
+                            },
+                            GlyphPointReference {
+                                glyph_name: sort_entry.glyph_name.clone(),
+                                contour_index: contour_index,
+                                point_index: point_index,
+                            },
+                            PointType {
+                                is_on_curve,
+                            },
+                            Selectable,
+                            SortPointEntity { sort_entity },
+                            Transform::from_translation(point_world_pos.extend(0.0)),
+                            GlobalTransform::default(),
+                        )).id();
+                        debug!("Created point entity {:?} for sort '{}' point ({}, {}) at world position ({:.1}, {:.1})", 
+                               point_entity, sort_entry.glyph_name, contour_index, point_index, point_world_pos.x, point_world_pos.y);
+                    }
+                }
+            }
+        }
+    } else {
+        // No active sort - clear the active sort state and remove point entities
+        if active_sort_state.active_sort_entity.is_some() {
+            info!("Clearing active sort state - no active sort in TextEditorState");
+            active_sort_state.active_sort_entity = None;
+        }
+        
+        // Remove all sort point entities
+        for (entity, _) in sort_point_entities.iter() {
+            commands.entity(entity).despawn();
         }
     }
 } 
