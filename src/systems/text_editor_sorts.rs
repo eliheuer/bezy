@@ -859,8 +859,8 @@ pub fn sync_text_editor_active_sort(
     mut commands: Commands,
     text_editor_state: Res<TextEditorState>,
     mut active_sort_state: ResMut<ActiveSortState>,
-    mut sort_point_entities: Query<(Entity, &mut SortPointEntity)>,
-    selectable_points: Query<Entity, With<Selectable>>,
+    sort_point_entities: Query<(Entity, &mut SortPointEntity)>,
+    _selectable_points: Query<Entity, With<Selectable>>,
     app_state: Res<AppState>,
 ) {
     // Find the active sort in TextEditorState
@@ -887,7 +887,7 @@ pub fn sync_text_editor_active_sort(
             if let Some(outline) = &glyph.outline {
                 for (contour_index, contour) in outline.contours.iter().enumerate() {
                     for (point_index, point) in contour.points.iter().enumerate() {
-                        let entity_id = EntityId::point(index as u32, point_index as u16);
+                        let _entity_id = EntityId::point(index as u32, point_index as u16);
                         let is_on_curve = matches!(point.point_type, crate::core::state::font_data::PointTypeData::Move | crate::core::state::font_data::PointTypeData::Line);
                         // Calculate the world position: sort position + point offset
                         let point_world_pos = sort_entry.freeform_position + Vec2::new(point.x as f32, point.y as f32);

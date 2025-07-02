@@ -25,7 +25,6 @@ use bevy::input::mouse::MouseWheel;
 use bevy::input::gamepad::{GamepadConnection, GamepadAxis, GamepadButton, GamepadAxisChangedEvent, GamepadButtonChangedEvent};
 use std::collections::HashMap;
 use crate::systems::ui_interaction::UiHoverState;
-use std::cell::RefCell;
 
 /// Plugin for the centralized input system
 pub struct InputPlugin;
@@ -274,44 +273,44 @@ pub enum InputEvent {
 
 /// System to update the centralized input state
 fn update_input_state(
-    mut input_state: ResMut<InputState>,
+    mut _input_state: ResMut<InputState>,
     pointer_info: Res<PointerInfo>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    _mouse_button_input: Res<ButtonInput<MouseButton>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut mouse_motion: EventReader<MouseMotion>,
     mut mouse_wheel: EventReader<MouseWheel>,
 
-    mut gamepad_axis_events: EventReader<GamepadAxisChangedEvent>,
-    mut gamepad_button_events: EventReader<GamepadButtonChangedEvent>,
+    _gamepad_axis_events: EventReader<GamepadAxisChangedEvent>,
+    _gamepad_button_events: EventReader<GamepadButtonChangedEvent>,
     ui_hover_state: Res<UiHoverState>,
 ) {
     // Update UI consuming state
-    input_state.ui_consuming = ui_hover_state.is_hovering_ui;
+    _input_state.ui_consuming = ui_hover_state.is_hovering_ui;
 
     // Update mouse state
     update_mouse_state(
-        &mut input_state.mouse,
+        &mut _input_state.mouse,
         &pointer_info,
-        &mouse_button_input,
+        &_mouse_button_input,
         &mut mouse_motion,
         &mut mouse_wheel,
     );
 
     // Update keyboard state
     update_keyboard_state(
-        &mut input_state.keyboard,
+        &mut _input_state.keyboard,
         &keyboard_input,
     );
 
     // Update gamepad state (placeholder for future implementation)
-    update_gamepad_state(&mut input_state.gamepad);
+    update_gamepad_state(&mut _input_state.gamepad);
 }
 
 /// Update mouse state from Bevy input resources
 fn update_mouse_state(
     mouse_state: &mut MouseState,
     pointer_info: &PointerInfo,
-    mouse_button_input: &ButtonInput<MouseButton>,
+    _mouse_button_input: &ButtonInput<MouseButton>,
     mouse_motion: &mut EventReader<MouseMotion>,
     mouse_wheel: &mut EventReader<MouseWheel>,
 ) {
@@ -364,17 +363,17 @@ fn update_gamepad_state(_gamepad_state: &mut GamepadState) {
 
 /// System to process input events and send them to consumers
 fn process_input_events(
-    input_state: Res<InputState>,
+    _input_state: Res<InputState>,
     mut input_events: EventWriter<InputEvent>,
 ) {
     // Process mouse events
-    process_mouse_events(&input_state, &mut input_events);
+    process_mouse_events(&_input_state, &mut input_events);
     
     // Process keyboard events
-    process_keyboard_events(&input_state, &mut input_events);
+    process_keyboard_events(&_input_state, &mut input_events);
     
     // Process gamepad events
-    process_gamepad_events(&input_state, &mut input_events);
+    process_gamepad_events(&_input_state, &mut input_events);
 }
 
 /// Process mouse events and create InputEvent instances
@@ -383,7 +382,7 @@ fn process_mouse_events(
     input_events: &mut EventWriter<InputEvent>,
 ) {
     let mouse = &input_state.mouse;
-    let modifiers = &input_state.keyboard.modifiers;
+    let _modifiers = &input_state.keyboard.modifiers;
 
     // Note: Mouse click/release events are now handled by the original ButtonInput resources
     // This function is simplified since we removed the stored ButtonInput from InputState
@@ -408,15 +407,15 @@ fn process_mouse_events(
 
 /// System to generate MouseClick, MouseDrag, and MouseRelease events from mouse button state and motion
 fn generate_mouse_drag_events(
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    _mouse_button_input: Res<ButtonInput<MouseButton>>,
     input_state: Res<InputState>,
     mut input_events: EventWriter<InputEvent>,
     mut drag_state: Local<Option<(MouseButton, DPoint)>>,
 ) {
-    let modifiers = &input_state.keyboard.modifiers;
+    let _modifiers = &input_state.keyboard.modifiers;
     
     // Check if any mouse button is pressed
-    let pressed_buttons: Vec<MouseButton> = mouse_button_input
+    let pressed_buttons: Vec<MouseButton> = _mouse_button_input
         .get_pressed()
         .copied()
         .collect();
@@ -435,7 +434,7 @@ fn generate_mouse_drag_events(
                             start_position: start_pos,
                             current_position: position,
                             delta: input_state.mouse.motion,
-                            modifiers: modifiers.clone(),
+                            modifiers: _modifiers.clone(),
                         });
                     }
                 } else {
@@ -448,7 +447,7 @@ fn generate_mouse_drag_events(
                 input_events.write(InputEvent::MouseClick {
                     button,
                     position,
-                    modifiers: modifiers.clone(),
+                    modifiers: _modifiers.clone(),
                 });
                 info!("Generated MouseClick event for button {:?} at position {:?}", button, position);
             }
@@ -459,7 +458,7 @@ fn generate_mouse_drag_events(
                 input_events.write(InputEvent::MouseRelease {
                     button: drag_button,
                     position,
-                    modifiers: modifiers.clone(),
+                    modifiers: _modifiers.clone(),
                 });
                 info!("Generated MouseRelease event for button {:?} at position {:?}", drag_button, position);
             }
@@ -517,37 +516,37 @@ pub mod helpers {
     // since we removed the stored ButtonInput from InputState to avoid Clone issues
     
     /// Check if a mouse button is currently pressed
-    pub fn is_mouse_pressed(input_state: &InputState, button: MouseButton) -> bool {
+    pub fn is_mouse_pressed(_input_state: &InputState, _button: MouseButton) -> bool {
         // This would need to be called with the actual ButtonInput<MouseButton> resource
         false // Placeholder
     }
 
     /// Check if a mouse button was just pressed
-    pub fn is_mouse_just_pressed(input_state: &InputState, button: MouseButton) -> bool {
+    pub fn is_mouse_just_pressed(_input_state: &InputState, _button: MouseButton) -> bool {
         // This would need to be called with the actual ButtonInput<MouseButton> resource
         false // Placeholder
     }
 
     /// Check if a mouse button was just released
-    pub fn is_mouse_just_released(input_state: &InputState, button: MouseButton) -> bool {
+    pub fn is_mouse_just_released(_input_state: &InputState, _button: MouseButton) -> bool {
         // This would need to be called with the actual ButtonInput<MouseButton> resource
         false // Placeholder
     }
 
     /// Check if a key is currently pressed
-    pub fn is_key_pressed(input_state: &InputState, key: KeyCode) -> bool {
+    pub fn is_key_pressed(_input_state: &InputState, _key: KeyCode) -> bool {
         // This would need to be called with the actual ButtonInput<KeyCode> resource
         false // Placeholder
     }
 
     /// Check if a key was just pressed
-    pub fn is_key_just_pressed(input_state: &InputState, key: KeyCode) -> bool {
+    pub fn is_key_just_pressed(_input_state: &InputState, _key: KeyCode) -> bool {
         // This would need to be called with the actual ButtonInput<KeyCode> resource
         false // Placeholder
     }
 
     /// Check if a key was just released
-    pub fn is_key_just_released(input_state: &InputState, key: KeyCode) -> bool {
+    pub fn is_key_just_released(_input_state: &InputState, _key: KeyCode) -> bool {
         // This would need to be called with the actual ButtonInput<KeyCode> resource
         false // Placeholder
     }

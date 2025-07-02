@@ -155,6 +155,7 @@ pub fn sync_selected_components(
     }
 }
 
+#[allow(dead_code)]
 fn selection_drag_active(drag_state: Res<DragSelectionState>) -> bool {
     drag_state.is_dragging
 } 

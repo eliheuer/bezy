@@ -341,6 +341,7 @@ fn update_visible_squares(
 }
 
 /// Calculates the area visible to the camera
+#[allow(static_mut_refs)]
 fn calculate_visible_area(
     camera_transform: &Transform,
     camera_scale: f32,
@@ -376,6 +377,8 @@ fn calculate_visible_area(
     let final_half_height = (min_screen_half_height + edge_padding).max(perf_half_height);
 
     // Only log when grid size changes to reduce spam
+    // TODO: Refactor to use OnceCell or Lazy for safer static access
+    #[allow(static_mut_refs)]
     static mut LAST_LOGGED_GRID_SIZE: Option<f32> = None;
     unsafe {
         if LAST_LOGGED_GRID_SIZE.is_none() || 
@@ -398,6 +401,7 @@ fn calculate_visible_area(
 }
 
 /// Gets the set of grid positions that need checkerboard squares
+#[allow(static_mut_refs)]
 fn get_needed_squares(
     visible_area: &Rect, 
     current_grid_size: f32
@@ -412,6 +416,8 @@ fn get_needed_squares(
     let max_y = (visible_area.max.y / current_grid_size).ceil() as i32 + 1;
     
     // Debug log grid bounds occasionally to verify coverage
+    // TODO: Refactor to use OnceCell or Lazy for safer static access
+    #[allow(static_mut_refs)]
     static mut BOUNDS_LOG_COUNT: u32 = 0;
     unsafe {
         BOUNDS_LOG_COUNT += 1;
@@ -490,6 +496,7 @@ fn spawn_needed_squares(
 }
 
 /// Spawns a single checkerboard square at the given grid position
+#[allow(static_mut_refs)]
 fn spawn_square(
     commands: &mut Commands, 
     grid_pos: IVec2, 
@@ -498,6 +505,8 @@ fn spawn_square(
     let world_pos = grid_to_world_position(grid_pos, current_grid_size);
     
     // Debug log the first few squares spawned to verify design space alignment
+    // TODO: Refactor to use OnceCell or Lazy for safer static access
+    #[allow(static_mut_refs)]
     static mut SPAWN_COUNT: usize = 0;
     unsafe {
         if SPAWN_COUNT < 3 {

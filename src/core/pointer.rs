@@ -41,7 +41,7 @@ fn update_pointer_position(
     windows: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
 ) {
-    if let (Ok(window), Ok((camera, camera_transform))) = (windows.get_single(), camera_query.get_single()) {
+    if let (Ok(window), Ok((camera, camera_transform))) = (windows.single(), camera_query.single()) {
         if let Some(screen_pos) = window.cursor_position() {
             pointer_info.screen = screen_pos;
             

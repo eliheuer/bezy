@@ -142,7 +142,7 @@ impl InputConsumer for SelectionInputConsumer {
         }
     }
     
-    fn handle_input(&mut self, event: &InputEvent, input_state: &InputState) {
+    fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
         // The actual selection logic will be handled by the selection systems
         // This consumer just ensures that selection events are routed correctly
         match event {
@@ -152,7 +152,7 @@ impl InputConsumer for SelectionInputConsumer {
                     // The selection systems will handle this via the existing process_selection_input_events
                 }
             }
-            InputEvent::MouseDrag { button, start_position, current_position, delta, modifiers } => {
+            InputEvent::MouseDrag { button, start_position, current_position, delta: _, modifiers } => {
                 if *button == MouseButton::Left {
                     info!("Selection: Mouse drag from {:?} to {:?} with modifiers {:?}", 
                           start_position, current_position, modifiers);
@@ -197,7 +197,7 @@ impl InputConsumer for PenInputConsumer {
         )
     }
     
-    fn handle_input(&mut self, event: &InputEvent, input_state: &InputState) {
+    fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
         match event {
             InputEvent::MouseClick { button, position, modifiers } => {
                 if *button == MouseButton::Left {
@@ -205,7 +205,7 @@ impl InputConsumer for PenInputConsumer {
                     // TODO: Implement pen click handling
                 }
             }
-            InputEvent::MouseDrag { button, start_position, current_position, delta, modifiers } => {
+            InputEvent::MouseDrag { button, start_position, current_position, delta: _, modifiers } => {
                 if *button == MouseButton::Left {
                     info!("Pen: Processing mouse drag from {:?} to {:?} with modifiers {:?}", 
                           start_position, current_position, modifiers);
@@ -246,7 +246,7 @@ impl InputConsumer for KnifeInputConsumer {
         )
     }
     
-    fn handle_input(&mut self, event: &InputEvent, input_state: &InputState) {
+    fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
         match event {
             InputEvent::MouseClick { button, position, modifiers } => {
                 if *button == MouseButton::Left {
@@ -254,7 +254,7 @@ impl InputConsumer for KnifeInputConsumer {
                     // TODO: Implement knife click handling
                 }
             }
-            InputEvent::MouseDrag { button, start_position, current_position, delta, modifiers } => {
+            InputEvent::MouseDrag { button, start_position, current_position, delta: _, modifiers } => {
                 if *button == MouseButton::Left {
                     info!("Knife: Processing mouse drag from {:?} to {:?} with modifiers {:?}", 
                           start_position, current_position, modifiers);
@@ -295,7 +295,7 @@ impl InputConsumer for ShapeInputConsumer {
         )
     }
     
-    fn handle_input(&mut self, event: &InputEvent, input_state: &InputState) {
+    fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
         match event {
             InputEvent::MouseClick { button, position, modifiers } => {
                 if *button == MouseButton::Left {
@@ -303,7 +303,7 @@ impl InputConsumer for ShapeInputConsumer {
                     // TODO: Implement shape click handling
                 }
             }
-            InputEvent::MouseDrag { button, start_position, current_position, delta, modifiers } => {
+            InputEvent::MouseDrag { button, start_position, current_position, delta: _, modifiers } => {
                 if *button == MouseButton::Left {
                     info!("Shape: Processing mouse drag from {:?} to {:?} with modifiers {:?}", 
                           start_position, current_position, modifiers);
@@ -330,9 +330,9 @@ impl InputConsumer for ShapeInputConsumer {
 pub struct HyperInputConsumer;
 
 impl InputConsumer for HyperInputConsumer {
-    fn should_handle_input(&self, event: &InputEvent, input_state: &InputState) -> bool {
+    fn should_handle_input(&self, event: &InputEvent, _input_state: &InputState) -> bool {
         // Only handle input if hyper mode is active
-        if !helpers::is_input_mode(input_state, InputMode::Hyper) {
+        if !helpers::is_input_mode(_input_state, InputMode::Hyper) {
             return false;
         }
         
@@ -344,7 +344,7 @@ impl InputConsumer for HyperInputConsumer {
         )
     }
     
-    fn handle_input(&mut self, event: &InputEvent, input_state: &InputState) {
+    fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
         match event {
             InputEvent::MouseClick { button, position, modifiers } => {
                 if *button == MouseButton::Left {
@@ -352,7 +352,7 @@ impl InputConsumer for HyperInputConsumer {
                     // TODO: Implement hyper click handling
                 }
             }
-            InputEvent::MouseDrag { button, start_position, current_position, delta, modifiers } => {
+            InputEvent::MouseDrag { button, start_position, current_position, delta: _, modifiers } => {
                 if *button == MouseButton::Left {
                     info!("Hyper: Processing mouse drag from {:?} to {:?} with modifiers {:?}", 
                           start_position, current_position, modifiers);
@@ -380,9 +380,9 @@ impl InputConsumer for HyperInputConsumer {
 pub struct TextInputConsumer;
 
 impl InputConsumer for TextInputConsumer {
-    fn should_handle_input(&self, event: &InputEvent, input_state: &InputState) -> bool {
+    fn should_handle_input(&self, event: &InputEvent, _input_state: &InputState) -> bool {
         // Only handle input if text mode is active
-        if !helpers::is_input_mode(input_state, InputMode::Text) {
+        if !helpers::is_input_mode(_input_state, InputMode::Text) {
             return false;
         }
         
@@ -394,7 +394,7 @@ impl InputConsumer for TextInputConsumer {
         )
     }
     
-    fn handle_input(&mut self, event: &InputEvent, input_state: &InputState) {
+    fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
         match event {
             InputEvent::MouseClick { button, position, modifiers } => {
                 if *button == MouseButton::Left {
@@ -425,7 +425,7 @@ impl InputConsumer for TextInputConsumer {
 pub struct CameraInputConsumer;
 
 impl InputConsumer for CameraInputConsumer {
-    fn should_handle_input(&self, event: &InputEvent, input_state: &InputState) -> bool {
+    fn should_handle_input(&self, event: &InputEvent, _input_state: &InputState) -> bool {
         // Camera always handles certain events regardless of mode
         match event {
             InputEvent::MouseDrag { button, .. } if *button == MouseButton::Middle => true,
@@ -434,9 +434,9 @@ impl InputConsumer for CameraInputConsumer {
         }
     }
     
-    fn handle_input(&mut self, event: &InputEvent, input_state: &InputState) {
+    fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
         match event {
-            InputEvent::MouseDrag { button, start_position, current_position, delta, modifiers } => {
+            InputEvent::MouseDrag { button, start_position, current_position, delta: _, modifiers } => {
                 if *button == MouseButton::Middle {
                     info!("Camera: Processing middle mouse drag from {:?} to {:?} with modifiers {:?}", 
                           start_position, current_position, modifiers);
@@ -462,9 +462,9 @@ impl InputConsumer for CameraInputConsumer {
 pub struct MeasurementToolInputConsumer;
 
 impl InputConsumer for MeasurementToolInputConsumer {
-    fn should_handle_input(&self, event: &InputEvent, input_state: &InputState) -> bool {
+    fn should_handle_input(&self, event: &InputEvent, _input_state: &InputState) -> bool {
         // Only handle input if measurement mode is active
-        if !helpers::is_input_mode(input_state, InputMode::Temporary) {
+        if !helpers::is_input_mode(_input_state, InputMode::Temporary) {
             return false;
         }
         
@@ -476,7 +476,7 @@ impl InputConsumer for MeasurementToolInputConsumer {
         )
     }
     
-    fn handle_input(&mut self, event: &InputEvent, input_state: &InputState) {
+    fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
         match event {
             InputEvent::MouseClick { button, position, modifiers } => {
                 if *button == MouseButton::Left {
@@ -484,7 +484,7 @@ impl InputConsumer for MeasurementToolInputConsumer {
                     // TODO: Implement measurement click handling
                 }
             }
-            InputEvent::MouseDrag { button, start_position, current_position, delta, modifiers } => {
+            InputEvent::MouseDrag { button, start_position, current_position, delta: _, modifiers } => {
                 if *button == MouseButton::Left {
                     info!("Measurement: Processing mouse drag from {:?} to {:?} with modifiers {:?}", 
                           start_position, current_position, modifiers);

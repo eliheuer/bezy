@@ -141,7 +141,7 @@ impl crate::systems::input_consumer::InputConsumer for PenInputConsumer {
         )
     }
     
-    fn handle_input(&mut self, event: &InputEvent, input_state: &InputState) {
+    fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
         match event {
             InputEvent::MouseClick { button, position, modifiers } => {
                 if *button == MouseButton::Left {
@@ -149,7 +149,7 @@ impl crate::systems::input_consumer::InputConsumer for PenInputConsumer {
                     // TODO: Implement pen click handling
                 }
             }
-            InputEvent::MouseDrag { button, start_position, current_position, delta, modifiers } => {
+            InputEvent::MouseDrag { button, start_position, current_position, delta: _, modifiers } => {
                 if *button == MouseButton::Left {
                     info!("Pen: Processing mouse drag from {:?} to {:?} with modifiers {:?}", 
                           start_position, current_position, modifiers);

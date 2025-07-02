@@ -887,13 +887,13 @@ pub fn handle_selection_drag(
     delta: &Vec2,
     modifiers: &crate::core::input::ModifierState,
     drag_state: &mut ResMut<DragSelectionState>,
-    drag_point_state: &mut ResMut<DragPointState>,
-    event_writer: &mut EventWriter<EditEvent>,
+    _drag_point_state: &mut ResMut<DragPointState>,
+    _event_writer: &mut EventWriter<EditEvent>,
     selectable_query: &Query<(Entity, &GlobalTransform, Option<&GlyphPointReference>, Option<&PointType>), With<Selectable>>,
     selection_state: &mut ResMut<SelectionState>,
-    active_sort_entity: Entity,
-    sort_point_entities: &Query<&crate::systems::sort_manager::SortPointEntity>,
-    selection_rect_query: &Query<Entity, With<SelectionRect>>,
+    _active_sort_entity: Entity,
+    _sort_point_entities: &Query<&crate::systems::sort_manager::SortPointEntity>,
+    _selection_rect_query: &Query<Entity, With<SelectionRect>>,
 ) {
     info!("=== HANDLE_SELECTION_DRAG START ===");
     info!("handle_selection_drag called: start={:?}, current={:?}, delta={:?}, is_dragging={}", start_position, current_position, delta, drag_state.is_dragging);
@@ -1043,9 +1043,9 @@ pub fn handle_selection_release(
     _modifiers: &crate::core::input::ModifierState,
     drag_state: &mut ResMut<DragSelectionState>,
     drag_point_state: &mut ResMut<DragPointState>,
-    event_writer: &mut EventWriter<EditEvent>,
+    _event_writer: &mut EventWriter<EditEvent>,
     selection_state: &mut ResMut<SelectionState>,
-    selection_rect_query: &Query<Entity, With<SelectionRect>>,
+    _selection_rect_query: &Query<Entity, With<SelectionRect>>,
 ) {
     let release_pos = position.to_raw();
     debug!("Selection release at ({:.1}, {:.1})", release_pos.x, release_pos.y);
