@@ -8,9 +8,10 @@ use bevy::prelude::*;
 /// Nine positions in a 2D grid, used for selection handles and positioning
 ///
 /// Think of this as a 3x3 grid:
-/// ```
+/// 
+/// ```text
 /// TopLeft     Top     TopRight
-/// Left        Center  Right
+/// Left        Center  Right  
 /// BottomLeft  Bottom  BottomRight
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect)]

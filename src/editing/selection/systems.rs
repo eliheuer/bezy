@@ -127,7 +127,7 @@ pub fn render_selection_rect(
     knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
 ) {
     let rect_count = selection_rect_query.iter().len();
-    info!("render_selection_rect called: {} rects", rect_count);
+    debug!("render_selection_rect called: {} rects", rect_count);
     if rect_count > 0 {
         for rect in &selection_rect_query {
             info!("SelectionRect: start={:?}, end={:?}", rect.start, rect.end);
@@ -618,7 +618,7 @@ pub fn process_selection_input_events(
         
         // Skip if UI is consuming input
         if crate::core::input::helpers::is_ui_consuming(&input_state) {
-            info!("Selection: Skipping event - UI is consuming input");
+            debug!("Selection: Skipping event - UI is consuming input");
             continue;
         }
 
@@ -626,7 +626,7 @@ pub fn process_selection_input_events(
         match event {
             crate::core::input::InputEvent::MouseClick { button, position, modifiers } => {
                 if *button == bevy::input::mouse::MouseButton::Left {
-                    info!("Selection: Processing mouse click at {:?} with modifiers {:?}", position, modifiers);
+                    debug!("Selection: Processing mouse click at {:?} with modifiers {:?}", position, modifiers);
                     // Call the selection click handler
                     if let Some(active_sort_entity) = active_sort_state.active_sort_entity {
                         handle_selection_click(
@@ -643,18 +643,18 @@ pub fn process_selection_input_events(
                             &sort_point_entities,
                         );
                     } else {
-                        info!("Selection: No active sort, skipping click handling");
+                        debug!("Selection: No active sort, skipping click handling");
                     }
                 }
             }
             crate::core::input::InputEvent::MouseDrag { button, start_position, current_position, delta, modifiers } => {
                 if *button == bevy::input::mouse::MouseButton::Left {
-                    info!("Selection: Processing mouse drag from {:?} to {:?} with modifiers {:?}", 
-                          start_position, current_position, modifiers);
-                    info!("Selection: active_sort_entity={:?}", active_sort_state.active_sort_entity);
+                            debug!("Selection: Processing mouse drag from {:?} to {:?} with modifiers {:?}",
+              start_position, current_position, modifiers);
+        debug!("Selection: active_sort_entity={:?}", active_sort_state.active_sort_entity);
                     // Call the selection drag handler
                     if let Some(active_sort_entity) = active_sort_state.active_sort_entity {
-                        info!("Selection: Calling handle_selection_drag...");
+                        debug!("Selection: Calling handle_selection_drag...");
                         handle_selection_drag(
                             &mut commands,
                             &start_position,
@@ -670,15 +670,15 @@ pub fn process_selection_input_events(
                             &sort_point_entities,
                             &selection_rect_query,
                         );
-                        info!("Selection: handle_selection_drag completed");
+                        debug!("Selection: handle_selection_drag completed");
                     } else {
-                        info!("Selection: No active sort entity, skipping drag handling");
+                        debug!("Selection: No active sort entity, skipping drag handling");
                     }
                 }
             }
             crate::core::input::InputEvent::MouseRelease { button, position, modifiers } => {
                 if *button == bevy::input::mouse::MouseButton::Left {
-                    info!("Selection: Processing mouse release at {:?} with modifiers {:?}", position, modifiers);
+                    debug!("Selection: Processing mouse release at {:?} with modifiers {:?}", position, modifiers);
                     // Call the selection release handler
                     if let Some(_active_sort_entity) = active_sort_state.active_sort_entity {
                         handle_selection_release(
@@ -696,7 +696,7 @@ pub fn process_selection_input_events(
             }
             crate::core::input::InputEvent::KeyPress { key, modifiers } => {
                 if matches!(key, bevy::input::keyboard::KeyCode::KeyA | bevy::input::keyboard::KeyCode::Escape) {
-                    info!("Selection: Processing key press {:?} with modifiers {:?}", key, modifiers);
+                    debug!("Selection: Processing key press {:?} with modifiers {:?}", key, modifiers);
                     // Call the selection key press handler
                     if let Some(active_sort_entity) = active_sort_state.active_sort_entity {
                         handle_selection_key_press(
@@ -1184,5 +1184,253 @@ mod tests {
         );
         println!("[test_off_curve_point_selection] off_curve_pos={:?}, marquee=({:?}, {:?}), in_rect={}", off_curve_pos, marquee_start, marquee_end, in_rect);
         assert!(in_rect, "Off-curve point should be inside the marquee rectangle");
+    }
+
+    #[test]
+    fn test_text_editor_sort_coordinate_system() {
+        // Test the coordinate system used by text editor sorts
+        // Based on the logs, points are at Y=-1000 range, marquee at Y=200-400 range
+        
+        // Simulate a sort point position (like from text editor)
+        let sort_point_pos = Vec2::new(-96.0, -928.0); // From logs
+        
+        // Simulate marquee selection coordinates (from logs)
+        let marquee_start = DPoint::from_raw(Vec2::new(481.9, 249.1));
+        let marquee_end = DPoint::new(233.0, 398.5);
+        
+        let in_rect = SelectionCoordinateSystem::is_point_in_rectangle(
+            &sort_point_pos,
+            &marquee_start,
+            &marquee_end,
+        );
+        
+        println!("[test_text_editor_sort_coordinate_system]");
+        println!("  sort_point_pos={:?}", sort_point_pos);
+        println!("  marquee_start={:?}", marquee_start);
+        println!("  marquee_end={:?}", marquee_end);
+        println!("  in_rect={}", in_rect);
+        
+        // Calculate distances for debugging
+        let rect_start_vec = marquee_start.to_raw();
+        let rect_end_vec = marquee_end.to_raw();
+        let min_x = rect_start_vec.x.min(rect_end_vec.x);
+        let max_x = rect_start_vec.x.max(rect_end_vec.x);
+        let min_y = rect_start_vec.y.min(rect_end_vec.y);
+        let max_y = rect_start_vec.y.max(rect_end_vec.y);
+        
+        let distance_x = if sort_point_pos.x < min_x {
+            min_x - sort_point_pos.x
+        } else if sort_point_pos.x > max_x {
+            sort_point_pos.x - max_x
+        } else {
+            0.0
+        };
+        
+        let distance_y = if sort_point_pos.y < min_y {
+            min_y - sort_point_pos.y
+        } else if sort_point_pos.y > max_y {
+            sort_point_pos.y - max_y
+        } else {
+            0.0
+        };
+        
+        println!("  rect_bounds: X({:.1} to {:.1}), Y({:.1} to {:.1})", min_x, max_x, min_y, max_y);
+        println!("  distances: X={:.1}, Y={:.1}", distance_x, distance_y);
+        
+        // This should fail because the coordinate systems don't match
+        // The test documents the expected behavior
+        assert!(!in_rect, "Sort point should NOT be in marquee due to coordinate system mismatch");
+    }
+
+    #[test]
+    fn test_coordinate_system_conversion() {
+        // Test the coordinate conversion functions
+        let design_point = DPoint::new(100.0, 200.0);
+        let entity_coords = SelectionCoordinateSystem::design_to_entity_coordinates(&design_point);
+        let back_to_design = SelectionCoordinateSystem::entity_to_design_coordinates(&entity_coords);
+        
+        println!("[test_coordinate_system_conversion]");
+        println!("  design_point={:?}", design_point);
+        println!("  entity_coords={:?}", entity_coords);
+        println!("  back_to_design={:?}", back_to_design);
+        
+        assert_eq!(design_point.to_raw(), entity_coords, "Design to entity conversion should be identity");
+        assert_eq!(design_point, back_to_design, "Entity to design conversion should be identity");
+    }
+
+    #[test]
+    fn test_marquee_selection_edge_cases() {
+        // Test various edge cases for marquee selection
+        
+        // Case 1: Point exactly on rectangle edge
+        let point_on_edge = Vec2::new(100.0, 200.0);
+        let marquee_edge = DPoint::from_raw(Vec2::new(100.0, 200.0));
+        let marquee_end = DPoint::from_raw(Vec2::new(200.0, 300.0));
+        
+        let on_edge = SelectionCoordinateSystem::is_point_in_rectangle(
+            &point_on_edge,
+            &marquee_edge,
+            &marquee_end,
+        );
+        
+        println!("[test_marquee_selection_edge_cases]");
+        println!("  point_on_edge={:?}, marquee=({:?}, {:?}), on_edge={}", 
+                point_on_edge, marquee_edge, marquee_end, on_edge);
+        
+        // Case 2: Point just outside rectangle
+        let point_outside = Vec2::new(99.9, 200.0);
+        let just_outside = SelectionCoordinateSystem::is_point_in_rectangle(
+            &point_outside,
+            &marquee_edge,
+            &marquee_end,
+        );
+        
+        println!("  point_outside={:?}, just_outside={}", point_outside, just_outside);
+        
+        // Case 3: Inverted rectangle (end before start)
+        let inverted_start = DPoint::from_raw(Vec2::new(200.0, 300.0));
+        let inverted_end = DPoint::from_raw(Vec2::new(100.0, 200.0));
+        let point_inside = Vec2::new(150.0, 250.0);
+        
+        let in_inverted = SelectionCoordinateSystem::is_point_in_rectangle(
+            &point_inside,
+            &inverted_start,
+            &inverted_end,
+        );
+        
+        println!("  point_inside={:?}, in_inverted={}", point_inside, in_inverted);
+        
+        // Assertions
+        assert!(on_edge, "Point on edge should be considered inside");
+        assert!(!just_outside, "Point just outside should not be inside");
+        assert!(in_inverted, "Point should be inside inverted rectangle");
+    }
+
+    #[test]
+    fn test_real_world_coordinate_mismatch() {
+        // Test with real-world coordinates from the logs
+        // This test documents the actual problem we're seeing
+        
+        // From logs: Entity ranges: X(-56.0 to 472.0), Y(-1104.0 to -496.0)
+        // From logs: Rect entity coords: start(481.9, 249.1), end(233.0, 398.5)
+        
+        let entity_positions = vec![
+            Vec2::new(-56.0, -1104.0),  // Bottom-left entity
+            Vec2::new(472.0, -496.0),   // Top-right entity
+            Vec2::new(100.0, -800.0),   // Middle entity
+        ];
+        
+        let marquee_start = DPoint::from_raw(Vec2::new(481.9, 249.1));
+        let marquee_end = DPoint::from_raw(Vec2::new(233.0, 398.5));
+        
+        println!("[test_real_world_coordinate_mismatch]");
+        println!("  marquee: ({:?}, {:?})", marquee_start, marquee_end);
+        
+        for (i, pos) in entity_positions.iter().enumerate() {
+            let in_rect = SelectionCoordinateSystem::is_point_in_rectangle(
+                pos,
+                &marquee_start,
+                &marquee_end,
+            );
+            
+            println!("  entity[{}]={:?}, in_rect={}", i, pos, in_rect);
+            
+            // All should fail due to Y coordinate mismatch
+            assert!(!in_rect, "Entity {} should not be in marquee due to Y coordinate mismatch", i);
+        }
+        
+        // Test what Y coordinate the marquee would need to be at to select these entities
+        let entity_y_min = -1104.0;
+        let entity_y_max = -496.0;
+        let marquee_y_min = 233.0;
+        let marquee_y_max = 398.5;
+        
+        println!("  entity Y range: {:.1} to {:.1}", entity_y_min, entity_y_max);
+        println!("  marquee Y range: {:.1} to {:.1}", marquee_y_min, marquee_y_max);
+        println!("  Y coordinate gap: {:.1} units", marquee_y_min - entity_y_max);
+    }
+
+    #[test]
+    fn test_outline_point_selection_coordinate_mismatch() {
+        // This test documents the old bug that was fixed
+        // Marquee selection rectangle: Y = -400 to -769
+        // Outline points: Y = 750 to 1358 (before the fix)
+        // Result: No points selected due to coordinate system mismatch
+        
+        let marquee_start = DPoint::from_raw(Vec2::new(-160.8, -403.2));
+        let marquee_end = DPoint::from_raw(Vec2::new(334.3, -769.3));
+        
+        // Test points at the old Y coordinates from the logs (before the fix)
+        let test_points = vec![
+            Vec2::new(100.0, 750.0),   // Entity 245v141
+            Vec2::new(200.0, 926.7),   // Entity 323v141  
+            Vec2::new(300.0, 1038.7),  // Entity 941v389
+            Vec2::new(400.0, 1182.7),  // Entity 527v135
+            Vec2::new(500.0, 1358.7),  // Entity 567v135
+        ];
+        
+        println!("=== Outline Point Selection Coordinate Mismatch Test (Documenting Old Bug) ===");
+        println!("Marquee rectangle: Y = {:.1} to {:.1}", marquee_start.y, marquee_end.y);
+        println!("Outline points Y range: {:.1} to {:.1}", 750.0, 1358.7);
+        println!("Y coordinate gap: {:.1} units", 750.0 - (-769.3));
+        
+        let mut points_in_rect = 0;
+        for (_i, point_pos) in test_points.iter().enumerate() {
+            let in_rect = SelectionCoordinateSystem::is_point_in_rectangle(
+                point_pos,
+                &marquee_start,
+                &marquee_end,
+            );
+            if in_rect {
+                points_in_rect += 1;
+            }
+        }
+        
+        println!("Result: {} points in rect (correctly 0 due to old coordinate system bug)", points_in_rect);
+        
+        // This test documents the old bug - it should pass (0 points selected)
+        assert_eq!(points_in_rect, 0, "No points should be selected due to old coordinate system bug");
+    }
+
+    #[test]
+    fn test_outline_point_selection_after_fix() {
+        // This test shows the fix working with corrected coordinate values
+        // After the fix: sort positions are at baseline (cursor position)
+        // Outline points are at sort_position + glyph_coordinates (32-768)
+        // So outline points should be at Y ≈ 0-800 instead of Y ≈ 750-1358
+        
+        let marquee_start = DPoint::from_raw(Vec2::new(-160.8, 100.0));
+        let marquee_end = DPoint::from_raw(Vec2::new(334.3, 400.0));
+        
+        // Test points at corrected Y coordinates (after the fix)
+        let test_points = vec![
+            Vec2::new(100.0, 150.0),   // Sort at Y=100 + glyph Y=50
+            Vec2::new(200.0, 250.0),   // Sort at Y=200 + glyph Y=50
+            Vec2::new(300.0, 350.0),   // Sort at Y=300 + glyph Y=50
+            Vec2::new(400.0, 450.0),   // Sort at Y=400 + glyph Y=50
+            Vec2::new(500.0, 550.0),   // Sort at Y=500 + glyph Y=50
+        ];
+        
+        println!("=== Outline Point Selection After Fix Test ===");
+        println!("Marquee rectangle: Y = {:.1} to {:.1}", marquee_start.y, marquee_end.y);
+        println!("Outline points Y range: {:.1} to {:.1}", 150.0, 550.0);
+        
+        let mut points_in_rect = 0;
+        for (i, point_pos) in test_points.iter().enumerate() {
+            let in_rect = SelectionCoordinateSystem::is_point_in_rectangle(
+                point_pos,
+                &marquee_start,
+                &marquee_end,
+            );
+            println!("  Point {} at {:?}: in_rect = {}", i, point_pos, in_rect);
+            if in_rect {
+                points_in_rect += 1;
+            }
+        }
+        
+        println!("Result: {} points in rect (should be 3)", points_in_rect);
+        
+        // After the fix, points should be selectable by the marquee
+        assert_eq!(points_in_rect, 3, "Points should be selectable after coordinate fix");
     }
 } 

@@ -20,9 +20,30 @@
 //! The system is designed for maximum ease of use. Adding a new tool requires:
 //!
 //! 1. **Create your tool file** (`my_tool.rs`):
-//!    ```rust
+//!    ```rust,ignore
 //!    use bevy::prelude::*;
-//!    use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
+//!    
+//!    // Define the types for the example
+//!    type ToolId = &'static str;
+//!    
+//!    trait EditTool {
+//!        fn id(&self) -> ToolId;
+//!        fn name(&self) -> &'static str;
+//!        fn icon(&self) -> &'static str;
+//!        fn default_order(&self) -> i32 { 100 }
+//!        fn update(&self, commands: &mut Commands);
+//!    }
+//!    
+//!    #[derive(Resource)]
+//!    struct ToolRegistry {
+//!        tools: Vec<Box<dyn EditTool>>,
+//!    }
+//!    
+//!    impl ToolRegistry {
+//!        fn register_tool(&mut self, tool: Box<dyn EditTool>) {
+//!            self.tools.push(tool);
+//!        }
+//!    }
 //!
 //!    pub struct MyTool;
 //!
@@ -116,9 +137,20 @@ pub type ToolId = &'static str;
 ///
 /// # Example Implementation
 ///
-/// ```rust
+/// ```rust,ignore
 /// use bevy::prelude::*;
 /// use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolId};
+/// 
+/// trait EditTool {
+///     fn id(&self) -> ToolId;
+///     fn name(&self) -> &'static str;
+///     fn icon(&self) -> &'static str;
+///     fn shortcut_key(&self) -> Option<char> { None }
+///     fn default_order(&self) -> i32 { 100 }
+///     fn update(&self, commands: &mut Commands);
+///     fn on_enter(&self) {}
+///     fn on_exit(&self) {}
+/// }
 ///
 /// pub struct MyCustomTool {
 ///     // Tool-specific state can go here
@@ -138,12 +170,10 @@ pub type ToolId = &'static str;
 ///     }
 ///     
 ///     fn on_enter(&self) {
-///         info!("Custom tool activated!");
 ///         // Setup tool state, change cursor, etc.
 ///     }
 ///     
 ///     fn on_exit(&self) {
-///         info!("Custom tool deactivated!");
 ///         // Cleanup, restore cursor, etc.
 ///     }
 /// }
@@ -194,7 +224,7 @@ pub trait EditTool: Send + Sync + 'static {
 ///
 /// Tools typically register themselves in their plugin's `build()` method:
 ///
-/// ```rust
+/// ```rust,ignore
 /// fn register_my_tool(mut tool_registry: ResMut<ToolRegistry>) {
 ///     tool_registry.register_tool(Box::new(MyTool));
 /// }
@@ -325,7 +355,7 @@ impl CurrentTool {
 ///
 /// ## Setting Custom Order
 ///
-/// ```rust
+/// ```rust,ignore
 /// fn setup_toolbar_order(mut tool_ordering: ResMut<ToolOrdering>) {
 ///     // Put select first, then pen, then custom tools
 ///     tool_ordering.set_order(vec![
@@ -340,7 +370,7 @@ impl CurrentTool {
 ///
 /// ## Using Preset Orders
 ///
-/// ```rust
+/// ```rust,ignore
 /// fn setup_design_workflow(mut tool_ordering: ResMut<ToolOrdering>) {
 ///     // Optimized for design-focused work
 ///     tool_ordering.set_design_focused_order();
@@ -354,7 +384,7 @@ impl CurrentTool {
 ///
 /// ## Dynamic Ordering
 ///
-/// ```rust
+/// ```rust,ignore
 /// fn setup_user_preference_order(
 ///     mut tool_ordering: ResMut<ToolOrdering>,
 ///     user_prefs: Res<UserPreferences>

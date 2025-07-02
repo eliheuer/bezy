@@ -236,9 +236,9 @@ pub fn update_checkerboard(
         
         // Debug why grid size change isn't happening
         if !should_change && significant_scale_change {
-            info!("Grid size NOT changing: current={:.0}, last={:.0}, \
-                   ratio={:.2}, threshold={:.1}", 
-                  current_grid_size, last_size, ratio, GRID_SIZE_CHANGE_THRESHOLD);
+                    debug!("Grid size NOT changing: current={:.0}, last={:.0}, \
+               ratio={:.2}, threshold={:.1}", 
+              current_grid_size, last_size, ratio, GRID_SIZE_CHANGE_THRESHOLD);
         }
         
         should_change
@@ -327,7 +327,7 @@ fn update_visible_squares(
     // Debug logging for visible area (only when grid size changes)
     if state.last_grid_size.is_none() || 
        state.last_grid_size.unwrap() != current_grid_size {
-        info!("Design space grid: visible=({:.0}, {:.0}) to ({:.0}, {:.0}), \
+        debug!("Design space grid: visible=({:.0}, {:.0}) to ({:.0}, {:.0}), \
                {} squares", 
               visible_area.min.x, visible_area.min.y, 
               visible_area.max.x, visible_area.max.y, needed_squares.len());

@@ -14,7 +14,7 @@ use crate::systems::sort_manager::{
     auto_activate_first_sort, sync_sort_transforms, handle_glyph_navigation_changes,
     respawn_sort_points_on_glyph_change, spawn_sort_point_entities,
 };
-use crate::systems::sort_interaction::handle_sort_clicks;
+// use crate::systems::sort_interaction::handle_sort_clicks; // DISABLED: Old input system conflicts with selection
 use bevy::prelude::*;
 
 /// System sets for Sort management to ensure proper ordering
@@ -46,10 +46,10 @@ impl Plugin for SortPlugin {
                     .chain(), // Ensure they run in order
             )
             // Input systems (clicks and interactions)
-            .add_systems(
-                Update,
-                handle_sort_clicks.in_set(SortSystemSet::Input),
-            )
+            // .add_systems(
+            //     Update,
+            //     handle_sort_clicks.in_set(SortSystemSet::Input),
+            // )
             // Management systems (events, activation, etc.)
             .add_systems(
                 Update,

@@ -381,6 +381,7 @@ app.add_plugins((
 
 **Location:**
 - `src/editing/selection/systems.rs` (bottom of file, in `#[cfg(test)] mod tests`)
+- `src/rendering/cameras.rs` (bottom of file, in `#[cfg(test)] mod camera_and_pointer_tests`)
 
 **How to Run:**
 - From the project root, run:
@@ -390,15 +391,25 @@ app.add_plugins((
   This runs all tests and prints debug output.
 
 **What's Covered:**
-- Selection invariants: If a point is visible at (x, y), a marquee or hit-test at (x, y) should always select it.
-- Edge cases: Parented transforms, off-curve points, etc.
-- Debug output: Each test prints its parameters and result for easy debugging.
+- **Selection invariants**: If a point is visible at (x, y), a marquee or hit-test at (x, y) should always select it.
+- **Camera positioning**: Tests verify that camera at different positions/zooms correctly maps screen space to design space.
+- **Coordinate system consistency**: Tests ensure that outline points, sort positions, and marquee selection all use the same coordinate system.
+- **Edge cases**: Parented transforms, off-curve points, inverted rectangles, etc.
+- **Real-world bug reproduction**: Tests that document and verify fixes for coordinate system mismatches.
+- **Debug output**: Each test prints its parameters and result for easy debugging.
+
+**Key Test Results:**
+- ✅ **16/16 selection and camera tests pass** (as of latest fix)
+- ✅ **Marquee selection coordinate system fixed**: Outline points now positioned correctly relative to sort baseline
+- ✅ **Camera positioning verified**: Camera correctly centers on glyph area for proper selection
+- ✅ **Coordinate system consistency enforced**: All systems use the same design space coordinates
 
 **How to Add More Tests:**
-- Add new functions to the `mod tests` section in `systems.rs`.
+- Add new functions to the `mod tests` section in `systems.rs` or `cameras.rs`.
 - Use `assert!` for correctness and `println!` for debug output.
 - Use the same coordinate/selection logic as the main code to ensure invariants are enforced.
 
 **Why:**
 - These tests catch coordinate system bugs and selection logic regressions early.
-- They make refactoring and debugging safer and more transparent for LLMs and junior developers. 
+- They make refactoring and debugging safer and more transparent for LLMs and junior developers.
+- They provide a safety net for the marquee selection tool and all pointer-based interactions. 

@@ -9,7 +9,7 @@ use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
 use crate::rendering::{
     cameras::CameraPlugin, checkerboard::CheckerboardPlugin,
 };
-use crate::systems::{BezySystems, CommandsPlugin, UiInteractionPlugin, InputConsumerPlugin};
+use crate::systems::{BezySystems, CommandsPlugin, UiInteractionPlugin};
 use crate::ui::hud::HudPlugin;
 use crate::ui::panes::coord_pane::CoordinatePanePlugin;
 use crate::ui::panes::design_space::DesignSpacePlugin;
@@ -117,7 +117,7 @@ fn add_core_plugins(app: &mut App) {
         // Core infrastructure first
         PointerPlugin,
         InputPlugin,
-        InputConsumerPlugin,
+        // InputConsumerPlugin, // Temporarily disabled - broken architecture
         // Then editing systems
         SelectionPlugin,
         TextEditorPlugin,

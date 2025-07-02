@@ -148,25 +148,25 @@ impl InputConsumer for SelectionInputConsumer {
         match event {
             InputEvent::MouseClick { button, position, modifiers } => {
                 if *button == MouseButton::Left {
-                    info!("Selection: Mouse click at {:?} with modifiers {:?}", position, modifiers);
+                    debug!("Selection: Mouse click at {:?} with modifiers {:?}", position, modifiers);
                     // The selection systems will handle this via the existing process_selection_input_events
                 }
             }
             InputEvent::MouseDrag { button, start_position, current_position, delta: _, modifiers } => {
                 if *button == MouseButton::Left {
-                    info!("Selection: Mouse drag from {:?} to {:?} with modifiers {:?}", 
+                                        debug!("Selection: Mouse drag from {:?} to {:?} with modifiers {:?}",
                           start_position, current_position, modifiers);
                     // The selection systems will handle this via the existing process_selection_input_events
                 }
             }
             InputEvent::MouseRelease { button, position, modifiers } => {
                 if *button == MouseButton::Left {
-                    info!("Selection: Mouse release at {:?} with modifiers {:?}", position, modifiers);
+                    debug!("Selection: Mouse release at {:?} with modifiers {:?}", position, modifiers);
                     // The selection systems will handle this via the existing process_selection_input_events
                 }
             }
             InputEvent::KeyPress { key, modifiers } => {
-                info!("Selection: Key press {:?} with modifiers {:?}", key, modifiers);
+                debug!("Selection: Key press {:?} with modifiers {:?}", key, modifiers);
                 // The selection systems will handle this via the existing process_selection_input_events
             }
             _ => {}
@@ -201,13 +201,13 @@ impl InputConsumer for PenInputConsumer {
         match event {
             InputEvent::MouseClick { button, position, modifiers } => {
                 if *button == MouseButton::Left {
-                    info!("Pen: Processing mouse click at {:?} with modifiers {:?}", position, modifiers);
+                    debug!("Pen: Processing mouse click at {:?} with modifiers {:?}", position, modifiers);
                     // TODO: Implement pen click handling
                 }
             }
             InputEvent::MouseDrag { button, start_position, current_position, delta: _, modifiers } => {
                 if *button == MouseButton::Left {
-                    info!("Pen: Processing mouse drag from {:?} to {:?} with modifiers {:?}", 
+                                        debug!("Pen: Processing mouse drag from {:?} to {:?} with modifiers {:?}",
                           start_position, current_position, modifiers);
                     // TODO: Implement pen drag handling
                 }

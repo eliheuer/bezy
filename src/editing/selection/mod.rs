@@ -129,10 +129,10 @@ pub fn sync_selected_components(
     entities: Query<Entity>,
 ) {
     // Always run this system to ensure components stay synchronized
-    info!(
-        "Synchronizing Selected components with SelectionState (current: {})",
-        selection_state.selected.len()
-    );
+            debug!(
+            "Synchronizing Selected components with SelectionState (current: {})",
+            selection_state.selected.len()
+        );
 
     // First, ensure all entities in the selection_state have the Selected component
     for &entity in &selection_state.selected {

@@ -466,11 +466,14 @@ impl TextEditorState {
     
     /// Add a new freeform sort at the specified position
     pub fn add_freeform_sort(&mut self, glyph_name: String, position: Vec2, advance_width: f32) {
+        // Clear all states first
+        self.clear_all_states();
+        
         let new_sort = SortEntry {
             glyph_name: glyph_name.clone(),
             advance_width,
-            is_active: false,
-            is_selected: false,
+            is_active: true, // Automatically activate the new sort
+            is_selected: true, // Also select it
             layout_mode: SortLayoutMode::Freeform,
             freeform_position: position,
             buffer_index: None,
@@ -480,7 +483,7 @@ impl TextEditorState {
         
         let insert_index = self.buffer.len();
         self.buffer.insert(insert_index, new_sort);
-        info!("Added freeform sort '{}' at position ({:.1}, {:.1})", glyph_name, position.x, position.y);
+        info!("Added and activated freeform sort '{}' at position ({:.1}, {:.1})", glyph_name, position.x, position.y);
     }
     
     /// Calculate flow position for text sorts
@@ -518,10 +521,13 @@ impl TextEditorState {
 
     /// Create a new text root at the specified world position
     pub fn create_text_root(&mut self, world_position: Vec2) {
+        // Clear all states first
+        self.clear_all_states();
+        
         let text_root = SortEntry {
             glyph_name: String::new(), // Empty glyph name for text root placeholder
             advance_width: 0.0,
-            is_active: false,
+            is_active: true, // Automatically activate the new text root
             is_selected: true, // Select the new text root
             layout_mode: SortLayoutMode::Text,
             freeform_position: world_position,
@@ -538,18 +544,21 @@ impl TextEditorState {
         // This ensures when user types the first character, cursor ends up after that character
         self.cursor_position = insert_index;
         
-        info!("Created new text root at world position ({:.1}, {:.1}), cursor at position {}", 
+        info!("Created and activated new text root at world position ({:.1}, {:.1}), cursor at position {}", 
               world_position.x, world_position.y, self.cursor_position);
     }
     
     /// Create a text sort at a specific world position (for text tool)
     pub fn create_text_sort_at_position(&mut self, glyph_name: String, world_position: Vec2, advance_width: f32) {
+        // Clear all states first
+        self.clear_all_states();
+        
         // Always create each clicked text sort as a new text root to preserve exact positioning
         // This ensures text sorts stay exactly where clicked, just like freeform sorts
         let text_root = SortEntry {
             glyph_name: glyph_name.clone(),
             advance_width,
-            is_active: false,
+            is_active: true, // Automatically activate the new sort
             is_selected: true, // Select the new text root
             layout_mode: SortLayoutMode::Text,
             freeform_position: world_position,
@@ -565,7 +574,7 @@ impl TextEditorState {
         // Since we inserted a real glyph (not empty), cursor should be positioned to continue typing
         self.cursor_position = insert_index + 1;
         
-        info!("Created new text root '{}' at world position ({:.1}, {:.1}), cursor at position {}", 
+        info!("Created and activated new text root '{}' at world position ({:.1}, {:.1}), cursor at position {}", 
               glyph_name, world_position.x, world_position.y, self.cursor_position);
     }
     
@@ -758,6 +767,17 @@ impl TextEditorState {
         debug!("Cleared active state from all sorts");
     }
     
+    /// Clear both active state and selections from all sorts
+    pub fn clear_all_states(&mut self) {
+        for i in 0..self.buffer.len() {
+            if let Some(sort) = self.buffer.get_mut(i) {
+                sort.is_active = false;
+                sort.is_selected = false;
+            }
+        }
+        debug!("Cleared all active states and selections from all sorts");
+    }
+    
     /// Get the visual position (world coordinates) for a buffer position
     #[allow(dead_code)]
     pub fn get_world_position_for_buffer_position(&self, buffer_position: usize) -> Vec2 {
@@ -848,15 +868,19 @@ impl TextEditorState {
             if cursor_pos_in_buffer == 0 {
                 if let Some(root_sort) = self.buffer.get(root_index) {
                     if root_sort.glyph_name.is_empty() && root_sort.is_buffer_root {
+                        // Clear all states first
+                        self.clear_all_states();
+                        
                         // Replace the empty buffer root with the typed character
                         if let Some(sort) = self.buffer.get_mut(root_index) {
                             sort.glyph_name = glyph_name.clone();
                             sort.advance_width = advance_width;
                             sort.is_active = true;
+                            sort.is_selected = true;
                             // Update cursor position within this buffer
                             sort.buffer_cursor_position = Some(1);
                         }
-                        info!("Replaced empty buffer root with '{}', cursor now at position 1", glyph_name);
+                        info!("Replaced empty buffer root with '{}' and activated it, cursor now at position 1", glyph_name);
                         return;
                     }
                 }
@@ -1124,5 +1148,74 @@ impl TextEditorState {
             }
         }
         length
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sort_activation_on_creation() {
+        let mut text_editor = TextEditorState::default();
+        
+        // Test 1: Freeform sort should be activated when created
+        text_editor.add_freeform_sort("a".to_string(), Vec2::new(100.0, 200.0), 500.0);
+        
+        // Verify the sort was created and activated
+        assert_eq!(text_editor.buffer.len(), 1);
+        if let Some(sort) = text_editor.buffer.get(0) {
+            assert!(sort.is_active);
+            assert!(sort.is_selected);
+            assert_eq!(sort.glyph_name, "a");
+            assert_eq!(sort.freeform_position, Vec2::new(100.0, 200.0));
+        } else {
+            panic!("Sort should exist at index 0");
+        }
+        
+        // Test 2: Text sort should be activated when created
+        text_editor.create_text_sort_at_position("b".to_string(), Vec2::new(300.0, 400.0), 600.0);
+        
+        // Verify the new sort was created and activated, and the old one was deactivated
+        assert_eq!(text_editor.buffer.len(), 2);
+        
+        // First sort should be deactivated
+        if let Some(sort) = text_editor.buffer.get(0) {
+            assert!(!sort.is_active);
+            assert!(!sort.is_selected);
+        }
+        
+        // Second sort should be activated
+        if let Some(sort) = text_editor.buffer.get(1) {
+            assert!(sort.is_active);
+            assert!(sort.is_selected);
+            assert_eq!(sort.glyph_name, "b");
+            assert_eq!(sort.freeform_position, Vec2::new(300.0, 400.0));
+        } else {
+            panic!("Sort should exist at index 1");
+        }
+        
+        // Test 3: Text root should be activated when created
+        text_editor.create_text_root(Vec2::new(500.0, 600.0));
+        
+        // Verify the new text root was created and activated, and others were deactivated
+        assert_eq!(text_editor.buffer.len(), 3);
+        
+        // First two sorts should be deactivated
+        for i in 0..2 {
+            if let Some(sort) = text_editor.buffer.get(i) {
+                assert!(!sort.is_active);
+            }
+        }
+        
+        // Third sort (text root) should be activated
+        if let Some(sort) = text_editor.buffer.get(2) {
+            assert!(sort.is_active);
+            assert!(sort.is_selected);
+            assert!(sort.is_buffer_root);
+            assert_eq!(sort.freeform_position, Vec2::new(500.0, 600.0));
+        } else {
+            panic!("Text root should exist at index 2");
+        }
     }
 } 

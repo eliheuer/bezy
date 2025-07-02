@@ -150,7 +150,7 @@ impl Plugin for TextModePlugin {
                     // Text tool shortcuts should run first to handle tool switching
                     handle_text_tool_shortcuts,
                     handle_text_mode_cursor,
-                    handle_text_mode_clicks,
+                    // handle_text_mode_clicks, // DISABLED: Old input system conflicts with selection
                     handle_text_mode_keyboard,
                     render_sort_preview,
                     reset_text_mode_when_inactive,
@@ -336,78 +336,39 @@ pub fn handle_text_mode_cursor(
     text_mode_active: Res<TextModeActive>,
     mut text_mode_state: ResMut<TextModeState>,
     mut cursor_moved_events: EventReader<CursorMoved>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
-    viewport: Res<crate::ui::panes::design_space::ViewPort>,
+    pointer_info: Res<crate::core::pointer::PointerInfo>,
 ) {
+    // Don't track cursor when text mode is not active
     if !text_mode_active.0 {
         return;
     }
 
-    // Don't update cursor position when hovering over UI
+    // Don't track cursor when hovering over UI
     if ui_hover_state.is_hovering_ui {
-        text_mode_state.showing_preview = false;
         return;
     }
-
-    let Ok(window) = windows.single() else {
-        return;
-    };
-
-    let Ok((camera, camera_transform)) = camera_query.single() else {
-        return;
-    };
 
     let cursor_moved = !cursor_moved_events.is_empty();
     cursor_moved_events.clear(); // Consume the events
 
-    if let Some(cursor_position) = window.cursor_position() {
-        if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
-            // Apply sort-specific grid snapping for placement position
-            // This ensures sorts are placed on a predictable grid for alignment
-            let settings = BezySettings::default();
-            let snapped_position = settings.apply_sort_grid_snap(world_position);
-
-            // Update state with snapped position for sort placement
-            let position_changed = text_mode_state.cursor_position != Some(snapped_position);
-            text_mode_state.cursor_position = Some(snapped_position);
-            text_mode_state.showing_preview = true;
-            
-            // Debug logging (only when position changes or cursor moved)
-            if cursor_moved || position_changed {
-                debug!("Text mode cursor updated: snapped=({:.1}, {:.1}), raw=({:.1}, {:.1})", 
-                       snapped_position.x, snapped_position.y, world_position.x, world_position.y);
-            }
-        } else {
-            debug!("Failed to convert cursor position to world coordinates");
-        }
-    } else {
-        debug!("No cursor position available");
-    }
-
-    // Get the actual mouse cursor position in world coordinates (unsnapped)
-    let raw_cursor_world_pos = {
-        if let (Ok(window), Ok((camera, camera_transform))) = (windows.single(), camera_query.single()) {
-            if let Some(cursor_position) = window.cursor_position() {
-                let world_pos = camera.viewport_to_world_2d(camera_transform, cursor_position).ok();
-                // Debug logging
-                if let Some(pos) = world_pos {
-                    info!("Raw cursor: screen=({:.1}, {:.1}) -> world=({:.1}, {:.1})", 
-                           cursor_position.x, cursor_position.y, pos.x, pos.y);
-                }
-                world_pos
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    };
+    // Use the centralized pointer info for coordinate conversion
+    let raw_cursor_world_pos = pointer_info.design.to_raw();
     
-    if let (Some(cursor_pos), Some(raw_cursor_world_pos)) = (text_mode_state.cursor_position, raw_cursor_world_pos) {
-        // For preview mode, the handle should always be directly under the mouse cursor in screen space
-        // Use screen coordinates directly for the handle
+    // Apply sort-specific grid snapping for placement position
+    // This ensures sorts are placed on a predictable grid for alignment
+    let settings = BezySettings::default();
+    let snapped_position = settings.apply_sort_grid_snap(raw_cursor_world_pos);
+
+    // Update state with snapped position for sort placement
+    let position_changed = text_mode_state.cursor_position != Some(snapped_position);
+    text_mode_state.cursor_position = Some(snapped_position);
+    text_mode_state.showing_preview = true;
+    
+    // Debug logging (only when position changes or cursor moved)
+    if cursor_moved || position_changed {
+        debug!("Text mode cursor updated: snapped=({:.1}, {:.1}), raw=({:.1}, {:.1})", 
+               snapped_position.x, snapped_position.y, raw_cursor_world_pos.x, raw_cursor_world_pos.y);
     }
 }
 
@@ -480,11 +441,11 @@ pub fn handle_text_mode_clicks(
                     600.0 // Default width
                 };
                 
-                // Position calculation must match preview exactly
+                // Position calculation: sort should be at baseline, handle at descender
                 let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
                 let cursor_design_pos = viewport.from_screen(raw_cursor_world_pos);
-                // Use the exact same calculation as preview: cursor - descender
-                let raw_sort_position = Vec2::new(cursor_design_pos.x, cursor_design_pos.y) - Vec2::new(0.0, descender);
+                // Sort position should be at baseline (cursor position), not offset by descender
+                let raw_sort_position = Vec2::new(cursor_design_pos.x, cursor_design_pos.y);
                 
                 // Apply grid snapping to the final sort position  
                 let settings = crate::core::settings::BezySettings::default();
@@ -528,8 +489,7 @@ pub fn render_sort_preview(
     app_state: Res<AppState>,
     viewport: Res<crate::ui::panes::design_space::ViewPort>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
+    pointer_info: Res<crate::core::pointer::PointerInfo>,
 ) {
     // Don't render preview if text mode is not active
     if !text_mode_active.0 {
@@ -547,143 +507,80 @@ pub fn render_sort_preview(
         return;
     }
 
-    // Don't render preview if no cursor position is available
-    let Some(cursor_world_pos) = text_mode_state.cursor_position else {
-        return;
-    };
-
-    // Get the actual mouse cursor position in world coordinates (unsnapped)
-    let raw_cursor_world_pos = {
-        if let (Ok(window), Ok((camera, camera_transform))) = (windows.single(), camera_query.single()) {
-            if let Some(cursor_position) = window.cursor_position() {
-                let world_pos = camera.viewport_to_world_2d(camera_transform, cursor_position).ok();
-                // Debug logging
-                if let Some(pos) = world_pos {
-                    info!("Raw cursor: screen=({:.1}, {:.1}) -> world=({:.1}, {:.1})", 
-                           cursor_position.x, cursor_position.y, pos.x, pos.y);
-                }
-                world_pos
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    };
+    // Use the centralized pointer info for coordinate conversion (same as sort placement)
+    let preview_pos = pointer_info.design.to_raw();
     
-    if let (Some(cursor_pos), Some(raw_cursor_world_pos)) = (text_mode_state.cursor_position, raw_cursor_world_pos) {
-        let glyph_name = match &glyph_navigation.current_glyph {
-            Some(name) => name.clone(),
-            None => {
-                // Try to use 'a' as default, or first available glyph
-                if app_state.workspace.font.glyphs.contains_key("a") {
-                    "a".to_string()
-                } else if let Some(first_glyph) = app_state.workspace.font.glyphs.keys().next() {
-                    first_glyph.clone()
-                } else {
-                    return; // No glyphs available, no preview
-                }
-            }
-        };
-        
-        // Preview position calculation:
-        // The handle should be directly under the cursor (at descender line)
-        // So the sort baseline should be positioned so that baseline + descender = cursor
-        // Therefore: baseline = cursor - descender
-        let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
-        let cursor_design_pos = viewport.from_screen(raw_cursor_world_pos);
-        let raw_preview_pos = Vec2::new(cursor_design_pos.x, cursor_design_pos.y) - Vec2::new(0.0, descender);
-        
-        // Apply grid snapping to preview position to match final placement
-        let settings = crate::core::settings::BezySettings::default();
-        let preview_pos = settings.apply_sort_grid_snap(raw_preview_pos);
-        
-        info!("Preview positioning: cursor=({:.1}, {:.1}), descender={:.1}, preview_pos=({:.1}, {:.1})", 
-              raw_cursor_world_pos.x, raw_cursor_world_pos.y, descender, preview_pos.x, preview_pos.y);
-        
-        // Use orange color for active preview (consistent with active sorts)
-        let preview_color = Color::srgb(1.0, 0.5, 0.0).with_alpha(0.8); // Orange for active
-        
-        // Try to get glyph data for preview
-        if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
+    // Debug: Log that preview system is running
+    info!("Preview system: text_mode_active={}, placement_mode={:?}, ui_hovering={}, preview_pos=({:.1}, {:.1})", 
+          text_mode_active.0, current_placement_mode.0, ui_hover_state.is_hovering_ui, preview_pos.x, preview_pos.y);
+    
+    // Use orange color for active preview (consistent with active sorts)
+    let preview_color = Color::srgb(1.0, 0.5, 0.0).with_alpha(0.8); // Orange for active
+    
+    // Try to get glyph data for preview
+    if let Some(glyph_name) = &glyph_navigation.current_glyph {
+        info!("Preview: Found glyph name '{}'", glyph_name);
+        if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
+            info!("Preview: Found glyph data for '{}'", glyph_name);
             // Draw glyph outline preview if available
             if let Some(outline_data) = &glyph_data.outline {
+                info!("Preview: Found outline data with {} contours for '{}'", outline_data.contours.len(), glyph_name);
+                // Convert to norad glyph for proper rendering
+                let norad_glyph = glyph_data.to_norad_glyph();
+                
+                // Render the glyph outline at the preview position
                 crate::rendering::glyph_outline::draw_glyph_outline_at_position(
                     &mut gizmos,
                     &viewport,
                     outline_data,
                     preview_pos,
                 );
-            }
-            
-            // Draw metrics preview in orange
-            let norad_glyph = glyph_data.to_norad_glyph();
-            crate::rendering::metrics::draw_metrics_at_position_with_color(
-                &mut gizmos,
-                &viewport,
-                &norad_glyph,
-                &app_state.workspace.info.metrics,
-                preview_pos,
-                preview_color,
-            );
-            
-            // The handle should be at the descender line relative to the snapped baseline position
-            // preview_pos is the snapped baseline, so handle = baseline + descender
-            let handle_position = preview_pos + Vec2::new(0.0, descender);
-            
-            // Log every 60 frames (roughly once per second at 60 FPS)
-            static FRAME_COUNTER: AtomicU64 = AtomicU64::new(0);
-            let frame = FRAME_COUNTER.fetch_add(1, Ordering::Relaxed);
-            if frame % 60 == 0 {
-                info!("Preview handle: cursor=({:.1}, {:.1}), handle=({:.1}, {:.1}), preview_pos=({:.1}, {:.1})", 
-                       raw_cursor_world_pos.x, raw_cursor_world_pos.y, handle_position.x, handle_position.y, 
-                       preview_pos.x, preview_pos.y);
-            }
-            
-            // Draw handle for buffer root (larger size with green color when placing buffer sorts)
-            let (outer_color, inner_color, handle_size) = match current_placement_mode.0 {
-                TextPlacementMode::Buffer => {
-                    // Buffer mode: Blue colors for buffer sorts
-                    (Color::srgb(0.2, 0.4, 1.0).with_alpha(0.6), Color::srgb(0.4, 0.6, 1.0).with_alpha(0.4), 20.0)
-                },
-                TextPlacementMode::Insert => {
-                    // Insert mode: Green colors to indicate editing mode
-                    (Color::srgb(0.2, 1.0, 0.4).with_alpha(0.6), Color::srgb(0.4, 1.0, 0.6).with_alpha(0.4), 20.0)
-                },
-                TextPlacementMode::Freeform => {
-                    // Freeform mode: Orange colors for freeform sorts  
-                    (Color::srgb(1.0, 0.5, 0.0).with_alpha(0.6), Color::srgb(1.0, 0.7, 0.2).with_alpha(0.4), 16.0)
-                },
-            };
-            
-            // Convert handle position to screen space (same coordinate system as metrics)
-            let handle_screen_pos = viewport.to_screen(
-                crate::ui::panes::design_space::DPoint::from((handle_position.x, handle_position.y))
-            );
-            
-            // Draw the main handle circle in screen space
-            gizmos.circle_2d(
-                handle_screen_pos,
-                handle_size,
-                outer_color,
-            );
-            
-            // Draw the inner circle for visual clarity
-            gizmos.circle_2d(
-                handle_screen_pos,
-                handle_size * 0.6,
-                inner_color,
-            );
-            
-            // FIXED: Draw buffer root indicator (small square) for buffer mode
-            // Make it much smaller and more subtle to avoid visual clutter
-            if current_placement_mode.0 == TextPlacementMode::Buffer {
-                gizmos.rect_2d(
-                    handle_screen_pos,
-                    Vec2::new(4.0, 4.0), // Small white square indicator
-                    Color::srgb(1.0, 1.0, 1.0).with_alpha(0.8), // Semi-transparent white square
+                
+                // Also render metrics box for better visual feedback
+                crate::rendering::metrics::draw_metrics_at_position_with_color(
+                    &mut gizmos,
+                    &viewport,
+                    &norad_glyph,
+                    &app_state.workspace.info.metrics,
+                    preview_pos,
+                    preview_color,
                 );
+            } else {
+                info!("Preview: No outline data for glyph '{}'", glyph_name);
             }
+        } else {
+            info!("Preview: No glyph data found for '{}'", glyph_name);
+        }
+    } else {
+        info!("Preview: No current glyph name");
+    }
+    
+    // Draw handle preview (small circle at descender line)
+    // Use the same coordinate system as the main sort rendering system
+    let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
+    let handle_position = preview_pos + Vec2::new(0.0, descender);
+    
+    // Convert handle position to screen space for rendering (same as main sort rendering)
+    let handle_screen_pos = viewport.to_screen(
+        crate::ui::panes::design_space::DPoint::from(handle_position)
+    );
+    
+    // Draw handle as a small circle
+    gizmos.circle_2d(
+        handle_screen_pos,
+        8.0, // Small radius for handle
+        preview_color,
+    );
+    
+    // Debug logging (throttled to avoid spam)
+    static mut FRAME_COUNT: u32 = 0;
+    unsafe {
+        FRAME_COUNT += 1;
+        let frame = FRAME_COUNT;
+        if frame % 60 == 0 {
+            info!("Preview handle: cursor=({:.1}, {:.1}), handle=({:.1}, {:.1}), preview_pos=({:.1}, {:.1})", 
+                  pointer_info.design.x, pointer_info.design.y, handle_position.x, handle_position.y, 
+                  preview_pos.x, preview_pos.y);
         }
     }
 }

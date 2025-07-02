@@ -5,6 +5,8 @@
 //! and mapped to a visual grid for display.
 
 use crate::core::state::{AppState, TextEditorState, SortEntry, SortLayoutMode, SortBuffer, GridConfig};
+use crate::core::state::GlyphNavigation;
+use crate::core::pointer::PointerInfo;
 use crate::rendering::cameras::DesignCamera;
 use crate::systems::ui_interaction::UiHoverState;
 use crate::editing::sort::ActiveSortState;
@@ -63,10 +65,9 @@ pub fn handle_text_editor_sort_clicks(
     mut text_editor_state: ResMut<TextEditorState>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
     ui_hover_state: Res<UiHoverState>,
     app_state: Res<crate::core::state::AppState>,
+    pointer_info: Res<crate::core::pointer::PointerInfo>,
 ) {
     // Early return if hovering over UI
     if ui_hover_state.is_hovering_ui {
@@ -84,38 +85,18 @@ pub fn handle_text_editor_sort_clicks(
     
     debug!("Left mouse button pressed and no UI hover - processing click");
 
-    let Ok(window) = windows.single() else {
-        return;
-    };
-
-    let Ok((camera, camera_transform)) = camera_query.single() else {
-        return;
-    };
-
-    let Some(cursor_position) = window.cursor_position() else {
-        return;
-    };
-
-    let Ok(world_position) = 
-        camera.viewport_to_world_2d(camera_transform, cursor_position) else {
-        return;
-    };
+    // Use the centralized pointer info for coordinate conversion (same as sort placement)
+    let world_position = pointer_info.design.to_raw();
 
     debug!(
-        "Click at world position: ({:.1}, {:.1})", 
+        "Click at design position: ({:.1}, {:.1})", 
         world_position.x, 
         world_position.y
     );
-    
-    // Also log the cursor position for debugging coordinate transformation
-    debug!(
-        "Cursor screen position: ({:.1}, {:.1})",
-        cursor_position.x, cursor_position.y
-    );
 
     // Check for handle clicks first (more precise) 
-    // NOTE: Large tolerance needed due to coordinate system mismatch between font design space and screen space
-    let handle_tolerance = 1300.0; // Large tolerance to bridge coordinate system gap
+    // Now using consistent coordinate system, so we can use a reasonable tolerance
+    let handle_tolerance = 50.0; // Reasonable tolerance for handle clicks
     
     // Debug: Log what sorts we're checking against
     debug!("Checking {} sorts for handle clicks with tolerance {}", 
@@ -352,7 +333,7 @@ pub fn render_text_editor_sorts(
             let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
             let handle_position = world_pos + Vec2::new(0.0, descender);
             
-            info!("Sort '{}' handle: sort_pos=({:.1}, {:.1}), handle=({:.1}, {:.1})", 
+            debug!("Sort '{}' handle: sort_pos=({:.1}, {:.1}), handle=({:.1}, {:.1})", 
                    sort.glyph_name, world_pos.x, world_pos.y, handle_position.x, handle_position.y);
             
             // Determine handle colors based on state
@@ -551,34 +532,34 @@ pub fn handle_text_editor_keyboard_input(
     if has_text_sorts {
         if keyboard_input.just_pressed(KeyCode::ArrowRight) {
             text_editor_state.move_cursor_right();
-            info!("Insert mode: moved cursor right to position {}", text_editor_state.cursor_position);
+            debug!("Insert mode: moved cursor right to position {}", text_editor_state.cursor_position);
         }
         
         if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
             text_editor_state.move_cursor_left();
-            info!("Insert mode: moved cursor left to position {}", text_editor_state.cursor_position);
+            debug!("Insert mode: moved cursor left to position {}", text_editor_state.cursor_position);
         }
         
         if keyboard_input.just_pressed(KeyCode::ArrowUp) {
             text_editor_state.move_cursor_up();
-            info!("Insert mode: moved cursor up to position {}", text_editor_state.cursor_position);
+            debug!("Insert mode: moved cursor up to position {}", text_editor_state.cursor_position);
         }
         
         if keyboard_input.just_pressed(KeyCode::ArrowDown) {
             text_editor_state.move_cursor_down();
-            info!("Insert mode: moved cursor down to position {}", text_editor_state.cursor_position);
+            debug!("Insert mode: moved cursor down to position {}", text_editor_state.cursor_position);
         }
         
         // Home/End keys
         if keyboard_input.just_pressed(KeyCode::Home) {
             text_editor_state.move_cursor_to(0);
-            info!("Insert mode: moved cursor to beginning");
+            debug!("Insert mode: moved cursor to beginning");
         }
         
         if keyboard_input.just_pressed(KeyCode::End) {
             let buffer_len = text_editor_state.buffer.len();
             text_editor_state.move_cursor_to(buffer_len);
-            info!("Insert mode: moved cursor to end");
+            debug!("Insert mode: moved cursor to end");
         }
     }
     
@@ -863,12 +844,18 @@ pub fn sync_text_editor_active_sort(
     _selectable_points: Query<Entity, With<Selectable>>,
     app_state: Res<AppState>,
 ) {
+    debug!("=== SYNC TEXT EDITOR ACTIVE SORT ===");
+    debug!("TextEditorState buffer length: {}", text_editor_state.buffer.len());
+    
     // Find the active sort in TextEditorState
     let active_sort = text_editor_state.get_active_sort();
     
     if let Some((index, sort_entry)) = active_sort {
+        debug!("Found active sort: '{}' at index {}", sort_entry.glyph_name, index);
+        
         // Create a placeholder entity for the active sort if we don't have one
         let sort_entity = if let Some(entity) = active_sort_state.active_sort_entity {
+            debug!("Using existing sort entity: {:?}", entity);
             entity
         } else {
             let entity = commands.spawn_empty().id();
@@ -878,14 +865,20 @@ pub fn sync_text_editor_active_sort(
         };
         
         // Clear existing sort point entities
+        let existing_count = sort_point_entities.iter().count();
+        debug!("Clearing {} existing sort point entities", existing_count);
         for (entity, _) in sort_point_entities.iter() {
             commands.entity(entity).despawn();
         }
         
         // Create ECS entities for the active sort's points
+        debug!("Looking for glyph '{}' in font", sort_entry.glyph_name);
         if let Some(glyph) = app_state.workspace.font.get_glyph(&sort_entry.glyph_name) {
+            debug!("Found glyph '{}', checking for outline", sort_entry.glyph_name);
             if let Some(outline) = &glyph.outline {
+                debug!("Found outline with {} contours", outline.contours.len());
                 for (contour_index, contour) in outline.contours.iter().enumerate() {
+                    debug!("Processing contour {} with {} points", contour_index, contour.points.len());
                     for (point_index, point) in contour.points.iter().enumerate() {
                         let _entity_id = EntityId::point(index as u32, point_index as u16);
                         let is_on_curve = matches!(point.point_type, crate::core::state::font_data::PointTypeData::Move | crate::core::state::font_data::PointTypeData::Line);
@@ -920,9 +913,15 @@ pub fn sync_text_editor_active_sort(
                                point_entity, sort_entry.glyph_name, contour_index, point_index, point_world_pos.x, point_world_pos.y);
                     }
                 }
+                debug!("Finished creating ECS entities for sort '{}'", sort_entry.glyph_name);
+            } else {
+                debug!("Glyph '{}' has no outline", sort_entry.glyph_name);
             }
+        } else {
+            debug!("Glyph '{}' not found in font", sort_entry.glyph_name);
         }
     } else {
+        debug!("No active sort found in TextEditorState");
         // No active sort - clear the active sort state and remove point entities
         if active_sort_state.active_sort_entity.is_some() {
             info!("Clearing active sort state - no active sort in TextEditorState");
@@ -930,8 +929,133 @@ pub fn sync_text_editor_active_sort(
         }
         
         // Remove all sort point entities
+        let existing_count = sort_point_entities.iter().count();
+        debug!("Removing {} sort point entities (no active sort)", existing_count);
         for (entity, _) in sort_point_entities.iter() {
             commands.entity(entity).despawn();
+        }
+    }
+}
+
+/// Handle sort placement using the centralized input system
+pub fn handle_sort_placement_input(
+    mut input_events: EventReader<crate::core::input::InputEvent>,
+    _input_state: Res<crate::core::input::InputState>,
+    text_editor_state: Option<ResMut<TextEditorState>>,
+    app_state: Res<AppState>,
+    glyph_navigation: Res<GlyphNavigation>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    current_placement_mode: Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
+    ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
+    pointer_info: Res<crate::core::pointer::PointerInfo>,
+) {
+    // Debug: Log that this system is running
+    debug!("Sort placement system: checking for input events");
+    
+    // Only handle input if text tool is active
+    if current_tool.get_current() != Some("text") {
+        return;
+    }
+    
+    // Don't handle clicks when hovering over UI
+    if ui_hover_state.is_hovering_ui {
+        return;
+    }
+    
+    // Early exit if text editor state isn't ready yet
+    let Some(mut text_editor_state) = text_editor_state else {
+        return;
+    };
+    
+    // Process input events
+    for event in input_events.read() {
+        match event {
+            crate::core::input::InputEvent::MouseClick { button, position, modifiers: _ } => {
+                if *button == bevy::input::mouse::MouseButton::Left {
+                    debug!("Sort placement: MouseClick at position {:?}", position);
+                    
+                    // Use the centralized pointer info for coordinate conversion
+                    let world_position = pointer_info.design.to_raw();
+                    
+                    debug!("Sort placement: Using pointer_info.design = {:?} -> world_position = {:?}", 
+                           pointer_info.design, world_position);
+                    
+                    // Check if there's already a sort at this position (handle or body)
+                    let handle_tolerance = 50.0;
+                    let body_tolerance = 250.0;
+                    
+                    let has_existing_sort = text_editor_state.find_sort_handle_at_position(
+                        world_position, 
+                        handle_tolerance, 
+                        Some(&app_state.workspace.info.metrics)
+                    ).is_some() || text_editor_state.find_sort_body_at_position(
+                        world_position, 
+                        body_tolerance
+                    ).is_some();
+                    
+                    if has_existing_sort {
+                        debug!("Sort placement: Clicked on existing sort, skipping placement");
+                        return; // Exit early to let the click detection system handle this
+                    }
+                    
+                    // Get the current glyph name, with fallback to 'a' or first available glyph
+                    let glyph_name = match &glyph_navigation.current_glyph {
+                        Some(name) => name.clone(),
+                        None => {
+                            // Try to use 'a' as default, or first available glyph
+                            if app_state.workspace.font.glyphs.contains_key("a") {
+                                "a".to_string()
+                            } else if let Some(first_glyph) = app_state.workspace.font.glyphs.keys().next() {
+                                first_glyph.clone()
+                            } else {
+                                warn!("No glyphs available in font");
+                                continue;
+                            }
+                        }
+                    };
+                    
+                    // Get advance width for the glyph
+                    let advance_width = if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
+                        glyph_data.advance_width as f32
+                    } else {
+                        600.0 // Default width
+                    };
+                    
+                    // Position calculation: sort should be at baseline, handle at descender
+                    let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
+                    // Sort position should be at baseline (cursor position), not offset by descender
+                    let raw_sort_position = Vec2::new(world_position.x, world_position.y);
+                    
+                    // Apply grid snapping to the final sort position  
+                    let settings = crate::core::settings::BezySettings::default();
+                    let sort_position = settings.apply_sort_grid_snap(raw_sort_position);
+                    
+                    match current_placement_mode.0 {
+                        crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Buffer => {
+                            // Buffer mode: Create buffer sort at the calculated position
+                            text_editor_state.create_text_sort_at_position(glyph_name.clone(), sort_position, advance_width);
+                            info!("Placed sort '{}' in buffer mode at position ({:.1}, {:.1}) with descender offset {:.1}", 
+                                  glyph_name, sort_position.x, sort_position.y, descender);
+                            // Automatically switch to Insert mode after placing a buffer sort
+                            // Note: This would need to be handled by the text toolbar system
+                        }
+                        crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Insert => {
+                            // Insert mode: Don't place new sorts, this mode is for editing existing buffer sorts
+                            // User should use arrow keys and typing to edit buffer content
+                            info!("Insert mode: Use keyboard to edit buffer sorts, not mouse clicks");
+                        }
+                        crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Freeform => {
+                            // Freeform mode: Add sort at the calculated position
+                            text_editor_state.add_freeform_sort(glyph_name.clone(), sort_position, advance_width);
+                            info!("Placed sort '{}' in freeform mode at position ({:.1}, {:.1}) with descender offset {:.1}", 
+                                  glyph_name, sort_position.x, sort_position.y, descender);
+                        }
+                    }
+                }
+            }
+            _ => {
+                // Ignore other event types
+            }
         }
     }
 } 

@@ -363,17 +363,18 @@ fn update_gamepad_state(_gamepad_state: &mut GamepadState) {
 
 /// System to process input events and send them to consumers
 fn process_input_events(
-    _input_state: Res<InputState>,
+    input_state: Res<InputState>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut input_events: EventWriter<InputEvent>,
 ) {
     // Process mouse events
-    process_mouse_events(&_input_state, &mut input_events);
+    process_mouse_events(&input_state, &mut input_events);
     
     // Process keyboard events
-    process_keyboard_events(&_input_state, &mut input_events);
+    process_keyboard_events(&keyboard_input, &input_state, &mut input_events);
     
     // Process gamepad events
-    process_gamepad_events(&_input_state, &mut input_events);
+    process_gamepad_events(&input_state, &mut input_events);
 }
 
 /// Process mouse events and create InputEvent instances
@@ -407,81 +408,85 @@ fn process_mouse_events(
 
 /// System to generate MouseClick, MouseDrag, and MouseRelease events from mouse button state and motion
 fn generate_mouse_drag_events(
-    _mouse_button_input: Res<ButtonInput<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     input_state: Res<InputState>,
     mut input_events: EventWriter<InputEvent>,
     mut drag_state: Local<Option<(MouseButton, DPoint)>>,
 ) {
-    let _modifiers = &input_state.keyboard.modifiers;
-    
-    // Check if any mouse button is pressed
-    let pressed_buttons: Vec<MouseButton> = _mouse_button_input
-        .get_pressed()
-        .copied()
-        .collect();
+    let modifiers = &input_state.keyboard.modifiers;
     
     if let Some(position) = input_state.mouse.design_position {
-        if !pressed_buttons.is_empty() {
-            // A button is pressed - check if we need to start or continue a drag
-            let button = pressed_buttons[0]; // Use the first pressed button
-            
-            if let Some((drag_button, start_pos)) = *drag_state {
-                if drag_button == button {
-                    // Continue existing drag
-                    if input_state.mouse.motion != Vec2::ZERO {
-                        input_events.write(InputEvent::MouseDrag {
-                            button,
-                            start_position: start_pos,
-                            current_position: position,
-                            delta: input_state.mouse.motion,
-                            modifiers: _modifiers.clone(),
-                        });
-                    }
-                } else {
-                    // Different button pressed - start new drag
-                    *drag_state = Some((button, position));
-                }
-            } else {
-                // No drag in progress - start new drag and generate MouseClick event
-                *drag_state = Some((button, position));
-                input_events.write(InputEvent::MouseClick {
-                    button,
-                    position,
-                    modifiers: _modifiers.clone(),
-                });
-                info!("Generated MouseClick event for button {:?} at position {:?}", button, position);
-            }
-        } else {
-            // No buttons pressed - check if we need to generate MouseRelease events
+        // Check for just pressed buttons (MouseClick events)
+        for button in mouse_button_input.get_just_pressed() {
+            info!("Mouse button just pressed: {:?} at position {:?}", button, position);
+            info!("Mouse position details: screen={:?}, design={:?}", input_state.mouse.screen_position, input_state.mouse.design_position);
+            *drag_state = Some((*button, position));
+            input_events.write(InputEvent::MouseClick {
+                button: *button,
+                position,
+                modifiers: modifiers.clone(),
+            });
+        }
+        
+        // Check for just released buttons (MouseRelease events)
+        for button in mouse_button_input.get_just_released() {
+            debug!("Mouse button just released: {:?} at position {:?}", button, position);
+            input_events.write(InputEvent::MouseRelease {
+                button: *button,
+                position,
+                modifiers: modifiers.clone(),
+            });
+            // Clear drag state if this was the button we were dragging
             if let Some((drag_button, _)) = *drag_state {
-                // Generate MouseRelease event for the button that was just released
-                input_events.write(InputEvent::MouseRelease {
-                    button: drag_button,
-                    position,
-                    modifiers: _modifiers.clone(),
-                });
-                info!("Generated MouseRelease event for button {:?} at position {:?}", drag_button, position);
+                if drag_button == *button {
+                    *drag_state = None;
+                }
             }
-            // Clear drag state
-            *drag_state = None;
+        }
+        
+        // Check for ongoing drag (MouseDrag events)
+        if let Some((drag_button, start_pos)) = *drag_state {
+            if mouse_button_input.pressed(drag_button) && input_state.mouse.motion != Vec2::ZERO {
+                input_events.write(InputEvent::MouseDrag {
+                    button: drag_button,
+                    start_position: start_pos,
+                    current_position: position,
+                    delta: input_state.mouse.motion,
+                    modifiers: modifiers.clone(),
+                });
+            }
         }
     }
 }
 
 /// Process keyboard events and create InputEvent instances
 fn process_keyboard_events(
+    keyboard_input: &ButtonInput<KeyCode>,
     input_state: &InputState,
     input_events: &mut EventWriter<InputEvent>,
 ) {
-    let keyboard = &input_state.keyboard;
+    let modifiers = &input_state.keyboard.modifiers;
 
-    // Note: Key press/release events are now handled by the original ButtonInput resources
-    // This function is simplified since we removed the stored ButtonInput from InputState
+    // Generate KeyPress events for just pressed keys
+    for key in keyboard_input.get_just_pressed() {
+        input_events.write(InputEvent::KeyPress {
+            key: *key,
+            modifiers: modifiers.clone(),
+        });
+    }
 
-    // Text input events
-    if !keyboard.text_buffer.is_empty() {
+    // Generate KeyRelease events for just released keys
+    for key in keyboard_input.get_just_released() {
+        input_events.write(InputEvent::KeyRelease {
+            key: *key,
+            modifiers: modifiers.clone(),
+        });
+    }
+
+    // Text input events (if any)
+    if !input_state.keyboard.text_buffer.is_empty() {
         input_events.write(InputEvent::TextInput {
-            text: keyboard.text_buffer.clone(),
+            text: input_state.keyboard.text_buffer.clone(),
         });
     }
 }
