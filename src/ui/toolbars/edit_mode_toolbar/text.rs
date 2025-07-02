@@ -20,6 +20,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy::input::ButtonState;
 use std::sync::atomic::{AtomicU64, Ordering};
+use crate::rendering::checkerboard::calculate_dynamic_grid_size;
 
 pub struct TextTool;
 
@@ -355,39 +356,32 @@ pub fn handle_text_mode_cursor(
     // Use the centralized pointer info for coordinate conversion
     let raw_cursor_world_pos = pointer_info.design.to_raw();
     
-    // Apply sort-specific grid snapping for placement position
-    // This ensures sorts are placed on a predictable grid for alignment
-    let settings = BezySettings::default();
-    let snapped_position = settings.apply_sort_grid_snap(raw_cursor_world_pos);
-
     // Update state with snapped position for sort placement
-    let position_changed = text_mode_state.cursor_position != Some(snapped_position);
-    text_mode_state.cursor_position = Some(snapped_position);
+    let position_changed = text_mode_state.cursor_position != Some(raw_cursor_world_pos);
+    text_mode_state.cursor_position = Some(raw_cursor_world_pos);
     text_mode_state.showing_preview = true;
     
     // Debug logging (only when position changes or cursor moved)
     if cursor_moved || position_changed {
-        debug!("Text mode cursor updated: snapped=({:.1}, {:.1}), raw=({:.1}, {:.1})", 
-               snapped_position.x, snapped_position.y, raw_cursor_world_pos.x, raw_cursor_world_pos.y);
+        debug!("Text mode cursor updated: raw=({:.1}, {:.1})", 
+               raw_cursor_world_pos.x, raw_cursor_world_pos.y);
     }
 }
 
 /// System to handle mouse clicks in text mode for sort placement
-pub fn handle_text_mode_clicks(
-    text_mode_active: Res<TextModeActive>,
-    text_mode_state: Res<TextModeState>,
-    mut current_placement_mode: ResMut<CurrentTextPlacementMode>,
-    mut text_editor_state: Option<ResMut<TextEditorState>>,
-    mut mouse_button_input: EventReader<bevy::input::mouse::MouseButtonInput>,
+pub fn handle_text_mode_sort_placement(
+    mut commands: Commands,
+    mut text_editor_state: ResMut<TextEditorState>,
     app_state: Res<AppState>,
     glyph_navigation: Res<GlyphNavigation>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    current_placement_mode: Res<CurrentTextPlacementMode>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
-    viewport: Res<crate::ui::panes::design_space::ViewPort>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<DesignCamera>>,
-    mut text_mode_config: ResMut<TextModeConfig>,
+    pointer_info: Res<crate::core::pointer::PointerInfo>,
+    camera_query: Query<&Projection, With<DesignCamera>>,
 ) {
-    if !text_mode_active.0 {
+    // Fix: Only run if text tool is active
+    if current_tool.get_current() != Some("text") {
         return;
     }
 
@@ -396,84 +390,59 @@ pub fn handle_text_mode_clicks(
         return;
     }
 
-    // Early exit if text editor state isn't ready yet
-    let Some(mut text_editor_state) = text_editor_state else {
-        return;
+    // Get the camera zoom scale
+    let zoom_scale = match camera_query.single() {
+        Ok(Projection::Orthographic(ortho)) => ortho.scale,
+        _ => 1.0,
     };
+    let grid_size = calculate_dynamic_grid_size(zoom_scale);
 
-    // Get the actual mouse cursor position in world coordinates (same as preview)
-    let raw_cursor_world_pos = {
-        if let (Ok(window), Ok((camera, camera_transform))) = (windows.single(), camera_query.single()) {
-            if let Some(cursor_position) = window.cursor_position() {
-                camera.viewport_to_world_2d(camera_transform, cursor_position).ok()
+    // Use the centralized pointer info for coordinate conversion
+    let raw_cursor_world_pos = pointer_info.design.to_raw();
+    // Snap to checkerboard grid
+    let snapped_position = (raw_cursor_world_pos / grid_size).round() * grid_size;
+
+    // Get the current glyph name, with fallback to 'a' or first available glyph
+    let glyph_name = match &glyph_navigation.current_glyph {
+        Some(name) => name.clone(),
+        None => {
+            // Try to use 'a' as default, or first available glyph
+            if app_state.workspace.font.glyphs.contains_key("a") {
+                "a".to_string()
+            } else if let Some(first_glyph) = app_state.workspace.font.glyphs.keys().next() {
+                first_glyph.clone()
             } else {
-                None
+                warn!("No glyphs available in font");
+                return;
             }
-        } else {
-            None
         }
     };
-
-    // Only handle left mouse button presses
-    for event in mouse_button_input.read() {
-        if event.button == MouseButton::Left && event.state == ButtonState::Pressed {
-            if let Some(raw_cursor_world_pos) = raw_cursor_world_pos {
-                // Get the current glyph name, with fallback to 'a' or first available glyph
-                let glyph_name = match &glyph_navigation.current_glyph {
-                    Some(name) => name.clone(),
-                    None => {
-                        // Try to use 'a' as default, or first available glyph
-                        if app_state.workspace.font.glyphs.contains_key("a") {
-                            "a".to_string()
-                        } else if let Some(first_glyph) = app_state.workspace.font.glyphs.keys().next() {
-                            first_glyph.clone()
-                        } else {
-                            warn!("No glyphs available in font");
-                            return;
-                        }
-                    }
-                };
-                
-                // Get advance width for the glyph
-                let advance_width = if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
-                    glyph_data.advance_width as f32
-                } else {
-                    600.0 // Default width
-                };
-                
-                // Position calculation: sort should be at baseline, handle at descender
-                let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
-                let cursor_design_pos = viewport.from_screen(raw_cursor_world_pos);
-                // Sort position should be at baseline (cursor position), not offset by descender
-                let raw_sort_position = Vec2::new(cursor_design_pos.x, cursor_design_pos.y);
-                
-                // Apply grid snapping to the final sort position  
-                let settings = crate::core::settings::BezySettings::default();
-                let sort_position = settings.apply_sort_grid_snap(raw_sort_position);
-                
-                match current_placement_mode.0 {
-                    TextPlacementMode::Buffer => {
-                        // Buffer mode: Create buffer sort at the calculated position
-                                                    text_editor_state.create_text_sort_at_position(glyph_name.clone(), sort_position, advance_width);
-                        info!("Placed sort '{}' in buffer mode at position ({:.1}, {:.1}) with descender offset {:.1}", 
-                              glyph_name, sort_position.x, sort_position.y, descender);
-                        // Automatically switch to Insert mode after placing a buffer sort
-                        current_placement_mode.0 = TextPlacementMode::Insert;
-                        text_mode_config.default_placement_mode = TextPlacementMode::Insert.to_sort_layout_mode();
-                    }
-                    TextPlacementMode::Insert => {
-                        // Insert mode: Don't place new sorts, this mode is for editing existing buffer sorts
-                        // User should use arrow keys and typing to edit buffer content
-                        info!("Insert mode: Use keyboard to edit buffer sorts, not mouse clicks");
-                    }
-                    TextPlacementMode::Freeform => {
-                        // Freeform mode: Add sort at the calculated position
-                        text_editor_state.add_freeform_sort(glyph_name.clone(), sort_position, advance_width);
-                        info!("Placed sort '{}' in freeform mode at position ({:.1}, {:.1}) with descender offset {:.1}", 
-                              glyph_name, sort_position.x, sort_position.y, descender);
-                    }
-                }
-            }
+    
+    // Get advance width for the glyph
+    let advance_width = if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
+        glyph_data.advance_width as f32
+    } else {
+        600.0 // Default width
+    };
+    
+    // Position calculation: sort should be at baseline, handle at descender
+    let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
+    // Use snapped_position directly for sort placement
+    let sort_position = snapped_position;
+    
+    match current_placement_mode.0 {
+        TextPlacementMode::Buffer => {
+            text_editor_state.create_text_sort_at_position(glyph_name.clone(), sort_position, advance_width);
+            info!("Placed sort '{}' in buffer mode at position ({:.1}, {:.1}) with descender offset {:.1}", 
+                  glyph_name, sort_position.x, sort_position.y, descender);
+        }
+        TextPlacementMode::Insert => {
+            info!("Insert mode: Use keyboard to edit buffer sorts, not mouse clicks");
+        }
+        TextPlacementMode::Freeform => {
+            text_editor_state.add_freeform_sort(glyph_name.clone(), sort_position, advance_width);
+            info!("Placed sort '{}' in freeform mode at position ({:.1}, {:.1}) with descender offset {:.1}", 
+                  glyph_name, sort_position.x, sort_position.y, descender);
         }
     }
 }
@@ -490,6 +459,7 @@ pub fn render_sort_preview(
     viewport: Res<crate::ui::panes::design_space::ViewPort>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
     pointer_info: Res<crate::core::pointer::PointerInfo>,
+    camera_query: Query<&Projection, With<DesignCamera>>,
 ) {
     // Don't render preview if text mode is not active
     if !text_mode_active.0 {
@@ -507,8 +477,14 @@ pub fn render_sort_preview(
         return;
     }
 
-    // Use the centralized pointer info for coordinate conversion (same as sort placement)
-    let preview_pos = pointer_info.design.to_raw();
+    // Snap preview position to checkerboard grid
+    let zoom_scale = match camera_query.single() {
+        Ok(Projection::Orthographic(ortho)) => ortho.scale,
+        _ => 1.0,
+    };
+    let grid_size = calculate_dynamic_grid_size(zoom_scale);
+    let raw_pos = pointer_info.design.to_raw();
+    let preview_pos = (raw_pos / grid_size).round() * grid_size;
     
     // Debug: Log that preview system is running
     info!("Preview system: text_mode_active={}, placement_mode={:?}, ui_hovering={}, preview_pos=({:.1}, {:.1})", 

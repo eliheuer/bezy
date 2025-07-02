@@ -97,7 +97,7 @@ pub struct CheckerboardState {
 /// Bevy's OrthographicProjection.scale represents how much world space is visible:
 /// - LARGER scale = more world space visible = more ZOOMED OUT
 /// - SMALLER scale = less world space visible = more ZOOMED IN
-fn calculate_dynamic_grid_size(zoom_scale: f32) -> f32 {
+pub fn calculate_dynamic_grid_size(zoom_scale: f32) -> f32 {
     let base_size = CHECKERBOARD_DEFAULT_UNIT_SIZE;
     
     // CORRECTED LOGIC: Higher zoom_scale (more zoomed out) = larger grid squares

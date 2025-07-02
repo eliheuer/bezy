@@ -14,6 +14,7 @@ use crate::systems::sort_manager::SortPointEntity;
 use crate::editing::selection::components::{Selectable, PointType, GlyphPointReference};
 use crate::geometry::point::{EditPoint, EntityId, EntityKind};
 use kurbo::Point;
+use crate::rendering::checkerboard::calculate_dynamic_grid_size;
 
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -948,6 +949,7 @@ pub fn handle_sort_placement_input(
     current_placement_mode: Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
     pointer_info: Res<crate::core::pointer::PointerInfo>,
+    camera_query: Query<&Projection, With<DesignCamera>>,
 ) {
     // Debug: Log that this system is running
     debug!("Sort placement system: checking for input events");
@@ -967,6 +969,22 @@ pub fn handle_sort_placement_input(
         return;
     };
     
+    // Get the camera zoom scale
+    let projection = match camera_query.single() {
+        Ok(proj) => proj,
+        Err(_) => return,
+    };
+    let zoom_scale = match projection {
+        Projection::Orthographic(ortho) => ortho.scale,
+        _ => 1.0,
+    };
+    let grid_size = calculate_dynamic_grid_size(zoom_scale);
+
+    // Use the centralized pointer info for coordinate conversion
+    let raw_cursor_world_pos = pointer_info.design.to_raw();
+    // Snap to checkerboard grid
+    let snapped_position = (raw_cursor_world_pos / grid_size).round() * grid_size;
+    
     // Process input events
     for event in input_events.read() {
         match event {
@@ -974,22 +992,16 @@ pub fn handle_sort_placement_input(
                 if *button == bevy::input::mouse::MouseButton::Left {
                     debug!("Sort placement: MouseClick at position {:?}", position);
                     
-                    // Use the centralized pointer info for coordinate conversion
-                    let world_position = pointer_info.design.to_raw();
-                    
-                    debug!("Sort placement: Using pointer_info.design = {:?} -> world_position = {:?}", 
-                           pointer_info.design, world_position);
-                    
                     // Check if there's already a sort at this position (handle or body)
                     let handle_tolerance = 50.0;
                     let body_tolerance = 250.0;
                     
                     let has_existing_sort = text_editor_state.find_sort_handle_at_position(
-                        world_position, 
+                        snapped_position, 
                         handle_tolerance, 
                         Some(&app_state.workspace.info.metrics)
                     ).is_some() || text_editor_state.find_sort_body_at_position(
-                        world_position, 
+                        snapped_position, 
                         body_tolerance
                     ).is_some();
                     
@@ -1024,18 +1036,14 @@ pub fn handle_sort_placement_input(
                     // Position calculation: sort should be at baseline, handle at descender
                     let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
                     // Sort position should be at baseline (cursor position), not offset by descender
-                    let raw_sort_position = Vec2::new(world_position.x, world_position.y);
-                    
-                    // Apply grid snapping to the final sort position  
-                    let settings = crate::core::settings::BezySettings::default();
-                    let sort_position = settings.apply_sort_grid_snap(raw_sort_position);
+                    let raw_sort_position = snapped_position;
                     
                     match current_placement_mode.0 {
                         crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Buffer => {
                             // Buffer mode: Create buffer sort at the calculated position
-                            text_editor_state.create_text_sort_at_position(glyph_name.clone(), sort_position, advance_width);
+                            text_editor_state.create_text_sort_at_position(glyph_name.clone(), raw_sort_position, advance_width);
                             info!("Placed sort '{}' in buffer mode at position ({:.1}, {:.1}) with descender offset {:.1}", 
-                                  glyph_name, sort_position.x, sort_position.y, descender);
+                                  glyph_name, raw_sort_position.x, raw_sort_position.y, descender);
                             // Automatically switch to Insert mode after placing a buffer sort
                             // Note: This would need to be handled by the text toolbar system
                         }
@@ -1046,9 +1054,9 @@ pub fn handle_sort_placement_input(
                         }
                         crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Freeform => {
                             // Freeform mode: Add sort at the calculated position
-                            text_editor_state.add_freeform_sort(glyph_name.clone(), sort_position, advance_width);
+                            text_editor_state.add_freeform_sort(glyph_name.clone(), raw_sort_position, advance_width);
                             info!("Placed sort '{}' in freeform mode at position ({:.1}, {:.1}) with descender offset {:.1}", 
-                                  glyph_name, sort_position.x, sort_position.y, descender);
+                                  glyph_name, raw_sort_position.x, raw_sort_position.y, descender);
                         }
                     }
                 }

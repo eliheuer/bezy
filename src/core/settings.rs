@@ -136,6 +136,7 @@ impl BezySettings {
     /// 
     /// Sorts use a coarser grid than regular points for better placement.
     /// This makes it easier to align entire glyphs.
+    #[deprecated(note = "Use checkerboard dynamic grid size for sort snapping instead")] 
     pub fn apply_sort_grid_snap(&self, position: Vec2) -> Vec2 {
         if self.grid.enabled {
             let sort_grid_size = self.grid.unit_size * self.grid.sort_multiplier;
