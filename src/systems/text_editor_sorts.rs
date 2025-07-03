@@ -240,7 +240,7 @@ pub fn render_text_editor_sorts(
             if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&entry.glyph_name) {
                 if let Some(outline_data) = &glyph_data.outline {
                     if let Some(position) = text_editor_state.get_sort_visual_position(active_sort_idx) {
-                        crate::rendering::glyph_outline::draw_glyph_points_at_position(
+                        crate::rendering::glyph_outline::draw_glyph_points_and_handles_at_position(
                             &mut gizmos,
                             outline_data,
                             position,

@@ -307,7 +307,7 @@ fn render_active_sort(
                 sort.position,
             );
             if let Some(outline_data) = &glyph_data.outline {
-                crate::rendering::glyph_outline::draw_glyph_points_at_position(
+                crate::rendering::glyph_outline::draw_glyph_points_and_handles_at_position(
                     gizmos,
                     outline_data,
                     sort.position,
