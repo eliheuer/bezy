@@ -1,21 +1,17 @@
-//! Text Mode - Sort Placement Tool
+//! Text Tool - Sort Placement and text editing
 //!
-//! The text mode allows users to place sorts by clicking in the design space.
-//! Sorts can be placed in two modes:
+//! The text tool allows users to place sorts by clicking in the design space.
+//! Sorts can be placed and edited with different modes:
 //! - Text mode: Sorts follow the gap buffer layout in a grid
+//! - Insert mode: Sorts are positioned freely in the design space
 //! - Freeform mode: Sorts are positioned freely in the design space
-
-#![allow(unused_mut)]
-#![allow(unused_variables)]
-
-// -- Imports --
+//! - Vim mode: Sorts are edited with vim-like keybindings
 
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy::input::ButtonState;
 use bevy::log::info;
 use std::sync::atomic::{AtomicU64, Ordering};
-
 use crate::core::state::{
     AppState, GlyphNavigation, TextEditorState, TextModeConfig, SortLayoutMode
 };
@@ -26,7 +22,7 @@ use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
 use crate::ui::theme::*;
 use crate::rendering::checkerboard::calculate_dynamic_grid_size;
 
-// -- Resources, Structs, Enums --
+// --------- Resources, Structs, Enums -----------
 
 /// Resource to track if text mode is active
 #[derive(Resource, Default)]
@@ -35,9 +31,9 @@ pub struct TextModeActive(pub bool);
 /// Resource to track text mode state for sort placement
 #[derive(Resource, Default)]
 pub struct TextModeState {
-    /// Current cursor position in world coordinates
+    /// Current cursor position in design-space coordinates
     pub cursor_position: Option<Vec2>,
-    /// Whether we're showing a preview
+    /// Whether we're showing a sort placement preview
     pub showing_preview: bool,
 }
 
@@ -140,7 +136,7 @@ impl EditTool for TextTool {
     }
 }
 
-// -- Plugins and Registration --
+// --------- Plugins and Registration -----------
 
 pub struct TextModePlugin;
 
@@ -183,7 +179,50 @@ fn register_text_tool(
     tool_registry.register_tool(Box::new(TextTool));
 }
 
-// -- UI Systems --
+// --------- UI Systems -----------
+
+/// Helper function to spawn a single text mode button
+fn spawn_text_mode_button(
+    parent: &mut ChildSpawnerCommands,
+    mode: TextPlacementMode,
+    asset_server: &Res<AssetServer>,
+) {
+    parent
+        .spawn(Node {
+            margin: UiRect::all(Val::Px(TOOLBAR_ITEM_SPACING)),
+            ..default()
+        })
+        .with_children(|button_container| {
+            button_container.spawn((
+                Button,
+                Node {
+                    width: Val::Px(64.0),
+                    height: Val::Px(64.0),
+                    padding: UiRect::all(Val::ZERO),
+                    border: UiRect::all(Val::Px(TOOLBAR_BORDER_WIDTH)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BorderRadius::all(Val::Px(TOOLBAR_BORDER_RADIUS)),
+                BorderColor(NORMAL_BUTTON_OUTLINE_COLOR),
+                BackgroundColor(NORMAL_BUTTON),
+                TextSubMenuButton,
+                TextModeButton { mode },
+            ))
+            .with_children(|button| {
+                button.spawn((
+                    Text::new(mode.get_icon().to_string()),
+                    TextFont {
+                        font: asset_server.load(DEFAULT_FONT_PATH),
+                        font_size: 48.0,
+                        ..default()
+                    },
+                    TextColor(TOOLBAR_ICON_COLOR),
+                ));
+            });
+        });
+}
 
 pub fn spawn_text_submenu(
     mut commands: Commands,
@@ -195,62 +234,25 @@ pub fn spawn_text_submenu(
         TextPlacementMode::Freeform,
     ];
 
+    // Create the parent submenu node
+    let submenu_node = Node {
+        position_type: PositionType::Absolute,
+        top: Val::Px(TOOLBAR_MARGIN + 74.0),
+        left: Val::Px(TOOLBAR_MARGIN),
+        flex_direction: FlexDirection::Row,
+        padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),
+        margin: UiRect::all(Val::ZERO),
+        row_gap: Val::Px(TOOLBAR_PADDING),
+        display: Display::None,
+        ..default()
+    };
+
+    // Spawn the submenu with all buttons
     commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(TOOLBAR_MARGIN + 74.0),
-                left: Val::Px(TOOLBAR_MARGIN),
-                flex_direction: FlexDirection::Row,
-                padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),
-                margin: UiRect::all(Val::ZERO),
-                row_gap: Val::Px(TOOLBAR_PADDING),
-                display: Display::None,
-                ..default()
-            },
-            Name::new("TextSubMenu"),
-        ))
+        .spawn((submenu_node, Name::new("TextSubMenu")))
         .with_children(|parent| {
             for mode in modes {
-                parent
-                    .spawn(Node {
-                        margin: UiRect::all(Val::Px(TOOLBAR_ITEM_SPACING)),
-                        ..default()
-                    })
-                    .with_children(|button_container| {
-                        button_container
-                            .spawn((
-                                Button,
-                                Node {
-                                    width: Val::Px(64.0),
-                                    height: Val::Px(64.0),
-                                    padding: UiRect::all(Val::ZERO),
-                                    border: UiRect::all(Val::Px(
-                                        TOOLBAR_BORDER_WIDTH)),
-                                    justify_content: JustifyContent::Center,
-                                    align_items: AlignItems::Center,
-                                    ..default()
-                                },
-                                BorderRadius::all(Val::Px(
-                                    TOOLBAR_BORDER_RADIUS)),
-                                BorderColor(NORMAL_BUTTON_OUTLINE_COLOR),
-                                BackgroundColor(NORMAL_BUTTON),
-                                TextSubMenuButton,
-                                TextModeButton { mode },
-                            ))
-                            .with_children(|button| {
-                                button.spawn((
-                                    Text::new(mode.get_icon().to_string()),
-                                    TextFont {
-                                        font: asset_server.load(
-                                            DEFAULT_FONT_PATH),
-                                        font_size: 48.0,
-                                        ..default()
-                                    },
-                                    TextColor(TOOLBAR_ICON_COLOR),
-                                ));
-                            });
-                    });
+                spawn_text_mode_button(parent, mode, &asset_server);
             }
         });
 
@@ -355,7 +357,7 @@ pub fn handle_text_mode_cursor(
 }
 
 pub fn handle_text_mode_sort_placement(
-    mut commands: Commands,
+    _commands: Commands,
     mut text_editor_state: ResMut<TextEditorState>,
     app_state: Res<AppState>,
     glyph_navigation: Res<GlyphNavigation>,
@@ -371,6 +373,8 @@ pub fn handle_text_mode_sort_placement(
     if ui_hover_state.is_hovering_ui {
         return;
     }
+    
+    // Get camera zoom for grid snapping
     let zoom_scale = match camera_query.single() {
         Ok(Projection::Orthographic(ortho)) => ortho.scale,
         _ => 1.0,
@@ -378,13 +382,15 @@ pub fn handle_text_mode_sort_placement(
     let grid_size = calculate_dynamic_grid_size(zoom_scale);
     let raw_cursor_world_pos = pointer_info.design.to_raw();
     let snapped_position = (raw_cursor_world_pos / grid_size).round() * grid_size;
+
+    // Determine which glyph to place
     let glyph_name = match &glyph_navigation.current_glyph {
         Some(name) => name.clone(),
         None => {
             if app_state.workspace.font.glyphs.contains_key("a") {
                 "a".to_string()
-            } else if let Some(first_glyph) =
-                app_state.workspace.font.glyphs.keys().next()
+            } else if let Some(first_glyph) = 
+                app_state.workspace.font.glyphs.keys().next() 
             {
                 first_glyph.clone()
             } else {
@@ -393,20 +399,24 @@ pub fn handle_text_mode_sort_placement(
             }
         }
     };
-    let advance_width = if let Some(glyph_data) =
-        app_state.workspace.font.glyphs.get(&glyph_name)
+
+    // Get glyph advance width
+    let advance_width = if let Some(glyph_data) = 
+        app_state.workspace.font.glyphs.get(&glyph_name) 
     {
         glyph_data.advance_width as f32
     } else {
         600.0
     };
-    let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
-    let sort_position = snapped_position;
+
+    let sort_position = snapped_position; // SIMPLIFIED: no offset
     let raw_pos = pointer_info.design.to_raw();
+
     info!(
         "DEBUG: [PLACE] pointer raw = ({:.1}, {:.1}), snapped = ({:.1}, {:.1}), grid_size = {:.1}",
         raw_pos.x, raw_pos.y, snapped_position.x, snapped_position.y, grid_size
     );
+
     match current_placement_mode.0 {
         TextPlacementMode::Text => {
             text_editor_state.create_text_sort_at_position(
@@ -419,8 +429,8 @@ pub fn handle_text_mode_sort_placement(
                 sort_position.x, sort_position.y
             );
             info!(
-                "Placed sort '{}' in text mode at position ({:.1}, {:.1}) with descender offset {:.1}",
-                glyph_name, sort_position.x, sort_position.y, descender
+                "Placed sort '{}' in text mode at position ({:.1}, {:.1})",
+                glyph_name, sort_position.x, sort_position.y
             );
         }
         TextPlacementMode::Insert => {
@@ -433,8 +443,10 @@ pub fn handle_text_mode_sort_placement(
                 advance_width,
             );
             info!(
-                "Placed sort '{}' in freeform mode at position ({:.1}, {:.1}) with descender offset {:.1}",
-                glyph_name, sort_position.x, sort_position.y, descender
+                "Placed sort '{}' in freeform mode at position ({:.1}, {:.1})",
+                glyph_name, 
+                sort_position.x, 
+                sort_position.y
             );
         }
     }
@@ -445,8 +457,8 @@ pub fn handle_text_mode_sort_placement(
 pub fn render_sort_preview(
     mut gizmos: Gizmos,
     text_mode_active: Res<TextModeActive>,
-    text_mode_state: Res<TextModeState>,
-    text_editor_state: Option<Res<TextEditorState>>,
+    _text_mode_state: Res<TextModeState>,
+    _text_editor_state: Option<Res<TextEditorState>>,
     current_placement_mode: Res<CurrentTextPlacementMode>,
     glyph_navigation: Res<GlyphNavigation>,
     app_state: Res<AppState>,
@@ -470,18 +482,25 @@ pub fn render_sort_preview(
     };
     let grid_size = calculate_dynamic_grid_size(zoom_scale);
     let raw_pos = pointer_info.design.to_raw();
-    let preview_pos = (raw_pos / grid_size).round() * grid_size;
-    let raw_pos = pointer_info.design.to_raw();
+    let snapped_position = (raw_pos / grid_size).round() * grid_size;
+    // SIMPLIFIED: preview is at snapped_position, no offset
+    let sort_preview_pos = snapped_position;
+    let handle_preview_pos = snapped_position;
+    // Debug logging and visual debug helpers
     info!(
-        "DEBUG: [PREVIEW] pointer raw = ({:.1}, {:.1}), snapped = ({:.1}, {:.1}), grid_size = {:.1}",
-        raw_pos.x, raw_pos.y, preview_pos.x, preview_pos.y, grid_size
+        "DEBUG: [PREVIEW] pointer raw = ({:.1}, {:.1}), snapped = ({:.1}, {:.1}), sort_pos = ({:.1}, {:.1}), grid_size = {:.1}",
+        raw_pos.x, raw_pos.y, snapped_position.x, snapped_position.y, sort_preview_pos.x, sort_preview_pos.y, grid_size
     );
     use bevy::prelude::Color;
-    gizmos.circle_2d(preview_pos, 30.0, Color::RED);
+    // Green circle shows where the sort will be placed (baseline)
+    gizmos.circle_2d(sort_preview_pos, 16.0, Color::srgb(0.0, 1.0, 0.0));
+    // Red circle shows where the handle will be (at clicked position)
+    gizmos.circle_2d(handle_preview_pos, 8.0, Color::srgb(1.0, 0.0, 0.0));
     info!(
-        "Preview system: text_mode_active={}, placement_mode={:?}, ui_hovering={}, preview_pos=({:.1}, {:.1})",
-        text_mode_active.0, current_placement_mode.0, ui_hover_state.is_hovering_ui, preview_pos.x, preview_pos.y
+        "Preview system: text_mode_active={}, placement_mode={:?}, ui_hovering={}, sort_preview_pos=({:.1}, {:.1})",
+        text_mode_active.0, current_placement_mode.0, ui_hover_state.is_hovering_ui, sort_preview_pos.x, sort_preview_pos.y
     );
+    
     let preview_color = Color::srgb(1.0, 0.5, 0.0).with_alpha(0.8);
     if let Some(glyph_name) = &glyph_navigation.current_glyph {
         info!("Preview: Found glyph name '{}'", glyph_name);
@@ -497,14 +516,14 @@ pub fn render_sort_preview(
                     &mut gizmos,
                     &viewport,
                     outline_data,
-                    preview_pos,
+                    sort_preview_pos,
                 );
                 crate::rendering::metrics::draw_metrics_at_position_with_color(
                     &mut gizmos,
                     &viewport,
                     &norad_glyph,
                     &app_state.workspace.info.metrics,
-                    preview_pos,
+                    sort_preview_pos,
                     preview_color,
                 );
             } else {
@@ -516,10 +535,9 @@ pub fn render_sort_preview(
     } else {
         info!("Preview: No current glyph name");
     }
-    let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
-    let handle_position = preview_pos + Vec2::new(0.0, descender);
+    // The handle preview is already calculated as handle_preview_pos (at the clicked position)
     let handle_screen_pos = viewport.to_screen(
-        crate::ui::panes::design_space::DPoint::from(handle_position)
+        crate::ui::panes::design_space::DPoint::from(handle_preview_pos)
     );
     gizmos.circle_2d(
         handle_screen_pos,
@@ -532,8 +550,8 @@ pub fn render_sort_preview(
         let frame = FRAME_COUNT;
         if frame % 60 == 0 {
             info!(
-                "Preview handle: cursor=({:.1}, {:.1}), handle=({:.1}, {:.1}), preview_pos=({:.1}, {:.1})",
-                pointer_info.design.x, pointer_info.design.y, handle_position.x, handle_position.y, preview_pos.x, preview_pos.y
+                "Preview handle: cursor=({:.1}, {:.1}), handle=({:.1}, {:.1}), sort_pos=({:.1}, {:.1})",
+                pointer_info.design.x, pointer_info.design.y, handle_preview_pos.x, handle_preview_pos.y, sort_preview_pos.x, sort_preview_pos.y
             );
         }
     }
@@ -641,7 +659,7 @@ pub fn reset_text_mode_when_inactive(
 pub fn handle_text_mode_keyboard(
     text_mode_active: Res<TextModeActive>,
     current_placement_mode: Res<CurrentTextPlacementMode>,
-    mut text_editor_state: Option<ResMut<TextEditorState>>,
+    _text_editor_state: Option<ResMut<TextEditorState>>,
     mut keyboard_input: ResMut<ButtonInput<KeyCode>>,
     app_state: Res<AppState>,
     glyph_navigation: Res<GlyphNavigation>,
@@ -654,7 +672,7 @@ pub fn handle_text_mode_keyboard(
     if current_placement_mode.0 == TextPlacementMode::Insert {
         return;
     }
-    let Some(mut text_editor_state) = text_editor_state else {
+    let Some(mut text_editor_state) = _text_editor_state else {
         return;
     };
     if current_placement_mode.0 == TextPlacementMode::Text {

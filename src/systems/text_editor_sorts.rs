@@ -261,6 +261,54 @@ pub fn render_text_editor_sorts(
                 // No additional descender offset needed here since placement already handled it
                 let sort_baseline_position = world_pos;
                 
+                // --- DEBUG MARKERS ---
+                // 1. Blue X at baseline position
+                let baseline_screen = viewport.to_screen(crate::ui::panes::design_space::DPoint::from(sort_baseline_position));
+                let x_size = 18.0;
+                gizmos.line_2d(
+                    baseline_screen + Vec2::new(-x_size, -x_size),
+                    baseline_screen + Vec2::new(x_size, x_size),
+                    Color::srgb(0.2, 0.6, 1.0), // Blue
+                );
+                gizmos.line_2d(
+                    baseline_screen + Vec2::new(-x_size, x_size),
+                    baseline_screen + Vec2::new(x_size, -x_size),
+                    Color::srgb(0.2, 0.6, 1.0), // Blue
+                );
+
+                // 2. Magenta diamond at glyph (0,0) (first point in first contour)
+                if let Some(outline_data) = &glyph_data.outline {
+                    if let Some(first_contour) = outline_data.contours.first() {
+                        if let Some(first_point) = first_contour.points.first() {
+                            let glyph_zero = sort_baseline_position + Vec2::new(first_point.x as f32, first_point.y as f32);
+                            let zero_screen = viewport.to_screen(crate::ui::panes::design_space::DPoint::from(glyph_zero));
+                            let d_size = 14.0;
+                            gizmos.line_2d(
+                                zero_screen + Vec2::new(0.0, -d_size),
+                                zero_screen + Vec2::new(-d_size, 0.0),
+                                Color::srgb(1.0, 0.0, 1.0), // Magenta
+                            );
+                            gizmos.line_2d(
+                                zero_screen + Vec2::new(-d_size, 0.0),
+                                zero_screen + Vec2::new(0.0, d_size),
+                                Color::srgb(1.0, 0.0, 1.0),
+                            );
+                            gizmos.line_2d(
+                                zero_screen + Vec2::new(0.0, d_size),
+                                zero_screen + Vec2::new(d_size, 0.0),
+                                Color::srgb(1.0, 0.0, 1.0),
+                            );
+                            gizmos.line_2d(
+                                zero_screen + Vec2::new(d_size, 0.0),
+                                zero_screen + Vec2::new(0.0, -d_size),
+                                Color::srgb(1.0, 0.0, 1.0),
+                            );
+                            // Log the first point's coordinates
+                            info!("DEBUG: Glyph '{}' first point at ({:.1}, {:.1})", sort.glyph_name, first_point.x, first_point.y);
+                        }
+                    }
+                }
+                
                 // Convert to norad glyph for proper rendering
                 let norad_glyph = glyph_data.to_norad_glyph();
                 
@@ -417,6 +465,13 @@ pub fn render_text_editor_sorts(
                     sort.glyph_name, sort.is_selected, sort.is_active, handle_position.x, handle_position.y
                 );
             }
+
+            // 3. Green circle at handle position (already present, but make color distinctive)
+            gizmos.circle_2d(
+                handle_screen_pos,
+                10.0,
+                Color::srgb(0.0, 1.0, 0.0), // Bright green
+            );
         }
     }
     
@@ -1039,7 +1094,7 @@ pub fn handle_sort_placement_input(
                     let raw_sort_position = snapped_position;
                     
                     match current_placement_mode.0 {
-                        crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Buffer => {
+                        crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Text => {
                             // Buffer mode: Create buffer sort at the calculated position
                             text_editor_state.create_text_sort_at_position(glyph_name.clone(), raw_sort_position, advance_width);
                             info!("Placed sort '{}' in buffer mode at position ({:.1}, {:.1}) with descender offset {:.1}", 
