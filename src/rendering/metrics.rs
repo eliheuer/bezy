@@ -66,10 +66,7 @@ pub fn draw_metrics_at_position(
     draw_rect(gizmos, top_left, bottom_right, color.with_alpha(0.7));
 }
 
-/// Draw a line in design space
-fn draw_line(gizmos: &mut Gizmos, start: (f32, f32), end: (f32, f32), color: Color) {
-    gizmos.line_2d(start.into(), end.into(), color);
-}
+
 
 /// Draw a rectangle outline in design space, This is the sort bounding box
 fn draw_rect(gizmos: &mut Gizmos, top_left: Vec2, bottom_right: (f32, f32), color: Color) {

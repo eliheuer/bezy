@@ -207,7 +207,7 @@ pub fn handle_text_editor_sort_clicks(
 /// Render the text editor sorts
 pub fn render_text_editor_sorts(
     mut gizmos: Gizmos,
-    mut text_editor_state: ResMut<TextEditorState>,
+    text_editor_state: Res<TextEditorState>,
     app_state: Res<AppState>,
 ) {
     let font_metrics = &app_state.workspace.info.metrics;
