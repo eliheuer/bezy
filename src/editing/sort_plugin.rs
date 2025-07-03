@@ -73,10 +73,13 @@ impl Plugin for SortPlugin {
                     .in_set(SortSystemSet::PointSpawning),
             )
             // Rendering systems (must run after all data is updated)
+            // DISABLED: Old sort rendering system conflicts with new text editor system
+            // The new text editor system (render_text_editor_sorts) handles all sort rendering
+            // with proper TextBuffer vs Freeform style distinction
             .add_systems(
                 Update,
                 (
-                    render_sorts_system,
+                    // render_sorts_system, // DISABLED: Conflicts with text editor rendering
                     manage_sort_labels,
                     update_sort_label_positions,
                     update_sort_label_colors,
