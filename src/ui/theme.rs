@@ -170,7 +170,7 @@ pub const FOCUS_BACKGROUND_COLOR: Color = Color::srgb(1.0, 0.5, 0.0);
 #[allow(dead_code)]
 pub const OFF_CURVE_POINT_OUTER_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 #[allow(dead_code)]
-pub const PATH_FILL_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
+pub const PATH_STROKE_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 
 // Background Color
 #[allow(dead_code)]

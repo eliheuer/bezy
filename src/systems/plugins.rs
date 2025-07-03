@@ -38,8 +38,6 @@ fn configure_gizmos(mut gizmo_store: ResMut<GizmoConfigStore>) {
     info!("Configured gizmo line width to {}px", GIZMO_LINE_WIDTH);
 }
 
-// Camera plugin is now handled by src/rendering/cameras.rs
-
 /// Plugin to organize drawing-related systems
 pub struct DrawPlugin;
 

@@ -20,6 +20,7 @@ pub struct TextEditorPlugin;
 impl Plugin for TextEditorPlugin {
     fn build(&self, app: &mut App) {
         app
+            .init_resource::<crate::core::state::text_editor::TextEditorState>()
             .add_systems(
                 Update,
                 (
@@ -37,7 +38,7 @@ impl Plugin for TextEditorPlugin {
                     sync_text_editor_active_sort,
                     // Render the sorts
                     render_text_editor_sorts,
-                ).chain(), // Run in order to ensure proper initialization
+                ), // Run systems in parallel
             );
     }
 } 

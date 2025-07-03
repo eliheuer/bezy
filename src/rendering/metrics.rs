@@ -68,7 +68,7 @@ fn draw_line(gizmos: &mut Gizmos, start: (f32, f32), end: (f32, f32), color: Col
     gizmos.line_2d(start.into(), end.into(), color);
 }
 
-/// Draw a rectangle outline in design space
+/// Draw a rectangle outline in design space, This is the sort bounding box
 fn draw_rect(gizmos: &mut Gizmos, top_left: Vec2, bottom_right: (f32, f32), color: Color) {
     let br: Vec2 = bottom_right.into();
     gizmos.line_2d(top_left, Vec2::new(br.x, top_left.y), color);

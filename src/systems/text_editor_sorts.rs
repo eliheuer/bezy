@@ -15,6 +15,7 @@ use crate::editing::selection::components::{Selectable, PointType, GlyphPointRef
 use crate::geometry::point::{EditPoint, EntityId, EntityKind};
 use kurbo::Point;
 use crate::rendering::checkerboard::calculate_dynamic_grid_size;
+use crate::rendering::sort_visuals::{render_sort_visuals, SortRenderStyle};
 
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -205,67 +206,60 @@ pub fn handle_text_editor_sort_clicks(
 /// Render the text editor sorts
 pub fn render_text_editor_sorts(
     mut gizmos: Gizmos,
-    text_editor_state: Res<TextEditorState>,
+    mut text_editor_state: ResMut<TextEditorState>,
     app_state: Res<AppState>,
 ) {
     let font_metrics = &app_state.workspace.info.metrics;
-    
-    // Draw a magenta X at (0,0) in design space. This should now align with the red checkerboard cross.
-    let x_size = 40.0;
-    gizmos.line_2d(Vec2::new(-x_size, -x_size), Vec2::new(x_size, x_size), Color::srgb(1.0, 0.0, 1.0));
-    gizmos.line_2d(Vec2::new(-x_size, x_size), Vec2::new(x_size, -x_size), Color::srgb(1.0, 0.0, 1.0));
 
-    // Render each sort in the buffer
-    for buffer_position in 0..text_editor_state.buffer.len() {
-        if let Some(sort) = text_editor_state.buffer.get(buffer_position) {
-            if sort.glyph_name.is_empty() && !sort.is_buffer_root { continue; }
-            
-            let world_pos = match text_editor_state.get_sort_visual_position(buffer_position) {
-                Some(pos) => pos,
-                None => continue,
-            };
-            
-            if sort.glyph_name.is_empty() && sort.is_buffer_root {
-                gizmos.rect_2d(world_pos, Vec2::new(50.0, 100.0), Color::srgba(0.5, 0.5, 0.5, 0.3));
-                continue;
-            }
-            
-            let metrics_color = if sort.is_active { 
-                Color::srgba(0.3, 1.0, 0.5, 0.5) // Green for active
-            } else {
-                Color::srgba(0.5, 0.5, 0.5, 0.5) // Gray for inactive
-            };
-
-            if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
+    // Render sort outlines
+    for (i, entry) in text_editor_state.buffer.iter().enumerate() {
+        if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&entry.glyph_name) {
+            if let Some(position) = text_editor_state.get_sort_visual_position(i) {
                 let norad_glyph = glyph_data.to_norad_glyph();
-                crate::rendering::metrics::draw_metrics_at_position(
-                    &mut gizmos, &norad_glyph, font_metrics, world_pos, metrics_color
+                render_sort_visuals(
+                    &mut gizmos,
+                    &glyph_data.outline,
+                    &norad_glyph,
+                    &app_state.workspace.info.metrics,
+                    position,
+                    SortRenderStyle::TextBuffer,
                 );
-                crate::rendering::glyph_outline::draw_glyph_outline_at_position(
-                    &mut gizmos, &glyph_data.outline, world_pos
-                );
-                if sort.is_active {
-                    if let Some(outline_data) = &glyph_data.outline {
+            }
+        }
+    }
+    
+    // Render points for the active sort
+    if let Some((active_sort_idx, _)) = text_editor_state.get_active_sort() {
+        if let Some(entry) = text_editor_state.buffer.get(active_sort_idx) {
+            if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&entry.glyph_name) {
+                if let Some(outline_data) = &glyph_data.outline {
+                    if let Some(position) = text_editor_state.get_sort_visual_position(active_sort_idx) {
                         crate::rendering::glyph_outline::draw_glyph_points_at_position(
-                            &mut gizmos, outline_data, world_pos
+                            &mut gizmos,
+                            outline_data,
+                            position,
                         );
                     }
                 }
             }
         }
     }
-    
+
     // Render cursor
     if text_editor_state.cursor_position < text_editor_state.buffer.len() {
         let cursor_world_pos = text_editor_state.get_sort_visual_position(text_editor_state.cursor_position).unwrap_or(Vec2::ZERO);
         let ascender = font_metrics.ascender.unwrap_or(800.0) as f32;
         let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
-        let cursor_height = ascender - descender;
-        let cursor_width = 20.0;
-        gizmos.rect_2d(
-            cursor_world_pos + Vec2::new(0.0, cursor_height / 2.0),
-            Vec2::new(cursor_width, cursor_height),
-            Color::srgb(1.0, 0.5, 0.0), // Orange
+
+        gizmos.line_2d(
+            Vec2::new(cursor_world_pos.x - 100.0, cursor_world_pos.y),
+            Vec2::new(cursor_world_pos.x + 100.0, cursor_world_pos.y),
+            Color::srgb(1.0, 0.0, 0.0),
+        );
+        gizmos.line_2d(
+            Vec2::new(cursor_world_pos.x, cursor_world_pos.y - descender),
+            Vec2::new(cursor_world_pos.x, cursor_world_pos.y + ascender),
+            Color::srgb(1.0, 0.0, 0.0),
         );
     }
 }

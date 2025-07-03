@@ -3,14 +3,13 @@
 //! Renders glyph outlines with proper cubic Bézier curves, control points, and handles.
 //! This uses our thread-safe FontData structures for performance.
 
-use crate::core::state::{OutlineData, ContourData, PointData, PointTypeData};
+use crate::core::state::{ContourData, OutlineData, PointData, PointTypeData};
 use crate::ui::theme::{
-    PATH_LINE_COLOR, HANDLE_LINE_COLOR, ON_CURVE_POINT_COLOR, ON_CURVE_POINT_RADIUS,
-    OFF_CURVE_POINT_COLOR, OFF_CURVE_POINT_RADIUS, USE_SQUARE_FOR_ON_CURVE,
-    ON_CURVE_SQUARE_ADJUSTMENT, ON_CURVE_INNER_CIRCLE_RATIO, OFF_CURVE_INNER_CIRCLE_RATIO,
+    HANDLE_LINE_COLOR, OFF_CURVE_INNER_CIRCLE_RATIO, OFF_CURVE_POINT_COLOR,
+    OFF_CURVE_POINT_RADIUS, ON_CURVE_INNER_CIRCLE_RATIO, ON_CURVE_POINT_COLOR,
+    ON_CURVE_POINT_RADIUS, ON_CURVE_SQUARE_ADJUSTMENT, PATH_STROKE_COLOR, USE_SQUARE_FOR_ON_CURVE,
 };
 use bevy::prelude::*;
-use bevy::gizmos::gizmos::Gizmos;
 
 /// Draw a complete glyph outline at a specific design-space position
 pub fn draw_glyph_outline_at_position(
@@ -44,11 +43,14 @@ pub fn draw_glyph_points_at_position(
             };
             if is_on_curve && USE_SQUARE_FOR_ON_CURVE {
                 let half_size = size / ON_CURVE_SQUARE_ADJUSTMENT;
-                gizmos.rect_2d(point_pos, Vec2::new(size * 2.0, size * 2.0), color);
-                gizmos.circle_2d(point_pos, half_size * ON_CURVE_INNER_CIRCLE_RATIO, color);
+                let square_size = Vec2::new(size * 2.0, size * 2.0);
+                gizmos.rect_2d(point_pos, square_size, color);
+                let inner_radius = half_size * ON_CURVE_INNER_CIRCLE_RATIO;
+                gizmos.circle_2d(point_pos, inner_radius, color);
             } else {
                 gizmos.circle_2d(point_pos, size, color);
-                gizmos.circle_2d(point_pos, size * OFF_CURVE_INNER_CIRCLE_RATIO, color);
+                let inner_radius = size * OFF_CURVE_INNER_CIRCLE_RATIO;
+                gizmos.circle_2d(point_pos, inner_radius, color);
             }
         }
     }
@@ -61,77 +63,52 @@ pub fn draw_contour_path_at_position(
     offset: Vec2,
 ) {
     let points = &contour.points;
-    if points.is_empty() { return; }
-
-    let mut segment_start_idx = 0;
-    if !is_on_curve(&points[0]) {
-        if let Some(last_on_curve_idx) = points.iter().rposition(|p| is_on_curve(p)) {
-            segment_start_idx = last_on_curve_idx;
-        }
+    if points.len() < 2 {
+        return;
     }
-    
-    let mut last_was_on_curve = true;
-    for i in 0..=points.len() {
-        let point_idx = (segment_start_idx + i) % points.len();
-        let next_point_idx = (segment_start_idx + i + 1) % points.len();
-        if i == points.len() { break; } // Completed full loop
 
-        let is_on = is_on_curve(&points[next_point_idx]);
-        if is_on && last_was_on_curve {
-            let start_point = &points[point_idx];
-            let end_point = &points[next_point_idx];
-            let start_pos = Vec2::new(start_point.x as f32, start_point.y as f32) + offset;
-            let end_pos = Vec2::new(end_point.x as f32, end_point.y as f32) + offset;
-            gizmos.line_2d(start_pos, end_pos, PATH_LINE_COLOR);
-        } else if is_on {
-            let mut segment_points = Vec::new();
-            let mut idx = point_idx;
-            loop {
-                segment_points.push(&points[idx]);
-                idx = (idx + 1) % points.len();
-                if idx == (next_point_idx + 1) % points.len() { break; }
+    let mut last_on_curve: Option<Vec2> = None;
+    if points[0].point_type == PointTypeData::Move {
+        last_on_curve = Some(Vec2::new(points[0].x as f32, points[0].y as f32) + offset);
+    }
+
+    for i in 0..points.len() {
+        let p1_idx = i;
+        let p2_idx = (i + 1) % points.len();
+        
+        let p1 = &points[p1_idx];
+        let p2 = &points[p2_idx];
+
+        let p1_pos = Vec2::new(p1.x as f32, p1.y as f32) + offset;
+
+        if p2.point_type == PointTypeData::Line {
+            let p2_pos = Vec2::new(p2.x as f32, p2.y as f32) + offset;
+            gizmos.line_2d(p1_pos, p2_pos, PATH_STROKE_COLOR);
+            last_on_curve = Some(p2_pos);
+        } else if p2.point_type == PointTypeData::Curve {
+            let p3_idx = (i + 2) % points.len();
+            let p4_idx = (i + 3) % points.len();
+
+            if let (Some(p3), Some(p4)) = (points.get(p3_idx), points.get(p4_idx)) {
+                 if let Some(p0_pos) = last_on_curve {
+                    let p2_pos = Vec2::new(p2.x as f32, p2.y as f32) + offset;
+                    let p3_pos = Vec2::new(p3.x as f32, p3.y as f32) + offset;
+                    draw_cubic_bezier(gizmos, p0_pos, p1_pos, p2_pos, p3_pos, PATH_STROKE_COLOR);
+                    last_on_curve = Some(p3_pos);
+                 }
             }
-            draw_curve_segment_at_position(gizmos, &segment_points, PATH_LINE_COLOR, offset);
         }
-        last_was_on_curve = is_on;
     }
 }
 
-/// Draw a curve segment (line, quadratic, or cubic) at a specific design-space position
-fn draw_curve_segment_at_position(
-    gizmos: &mut Gizmos,
-    points: &[&PointData],
-    color: Color,
-    offset: Vec2,
-) {
-    if points.len() < 2 { return; }
-    let p0 = Vec2::new(points[0].x as f32, points[0].y as f32) + offset;
-    match points.len() {
-        2 => {
-            let p1 = Vec2::new(points[1].x as f32, points[1].y as f32) + offset;
-            gizmos.line_2d(p0, p1, color);
-        }
-        3 => {
-            let p1 = Vec2::new(points[1].x as f32, points[1].y as f32) + offset;
-            let p2 = Vec2::new(points[2].x as f32, points[2].y as f32) + offset;
-            let c1 = p0 + (2.0/3.0) * (p1 - p0);
-            let c2 = p2 + (2.0/3.0) * (p1 - p2);
-            draw_cubic_bezier(gizmos, p0, c1, c2, p2, color);
-        }
-        4 => {
-            let p1 = Vec2::new(points[1].x as f32, points[1].y as f32) + offset;
-            let p2 = Vec2::new(points[2].x as f32, points[2].y as f32) + offset;
-            let p3 = Vec2::new(points[3].x as f32, points[3].y as f32) + offset;
-            draw_cubic_bezier(gizmos, p0, p1, p2, p3, color);
-        }
-        _ => {}
-    }
-}
 
 /// Draw a cubic bezier curve using line segments
 fn draw_cubic_bezier(
     gizmos: &mut Gizmos,
-    p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2,
+    p0: Vec2,
+    p1: Vec2,
+    p2: Vec2,
+    p3: Vec2,
     color: Color,
 ) {
     let num_segments = 32;
@@ -149,5 +126,48 @@ fn draw_cubic_bezier(
 
 /// Check if a point is on the curve
 fn is_on_curve(point: &PointData) -> bool {
-    matches!(point.point_type, PointTypeData::Move | PointTypeData::Line | PointTypeData::Curve)
+    matches!(
+        point.point_type,
+        PointTypeData::Move | PointTypeData::Line | PointTypeData::Curve
+    )
+}
+
+fn draw_control_handles_at_position(
+    gizmos: &mut Gizmos,
+    contour: &ContourData,
+    offset: Vec2,
+) {
+    for i in 0..contour.points.len() {
+        let p = &contour.points[i];
+        if p.point_type != PointTypeData::OffCurve {
+            continue;
+        }
+
+        let p_pos = Vec2::new(p.x as f32, p.y as f32) + offset;
+
+        // Find previous on-curve point
+        let mut prev_on_curve = None;
+        for j in (0..i).rev() {
+            if is_on_curve(&contour.points[j]) {
+                prev_on_curve = Some(Vec2::new(contour.points[j].x as f32, contour.points[j].y as f32) + offset);
+                break;
+            }
+        }
+
+        // Find next on-curve point
+        let mut next_on_curve = None;
+        for j in (i + 1)..contour.points.len() {
+            if is_on_curve(&contour.points[j]) {
+                next_on_curve = Some(Vec2::new(contour.points[j].x as f32, contour.points[j].y as f32) + offset);
+                break;
+            }
+        }
+
+        if let Some(prev) = prev_on_curve {
+            gizmos.line_2d(p_pos, prev, HANDLE_LINE_COLOR);
+        }
+        if let Some(next) = next_on_curve {
+             gizmos.line_2d(p_pos, next, HANDLE_LINE_COLOR);
+        }
+    }
 } 

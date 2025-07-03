@@ -56,7 +56,7 @@ pub struct PointData {
 }
 
 /// Thread-safe point type
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PointTypeData {
     Move,
     Line, 

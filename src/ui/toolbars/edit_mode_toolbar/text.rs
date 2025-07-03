@@ -365,7 +365,7 @@ pub fn handle_text_mode_sort_placement(
     current_placement_mode: Res<CurrentTextPlacementMode>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
     pointer_info: Res<crate::core::pointer::PointerInfo>,
-    camera_query: Query<&Projection, With<DesignCamera>>,
+    mut camera_query: Query<&mut Projection, With<DesignCamera>>,
 ) {
     if current_tool.get_current() != Some("text") {
         return;
@@ -375,10 +375,13 @@ pub fn handle_text_mode_sort_placement(
     }
     
     // Get camera zoom for grid snapping
-    let zoom_scale = match camera_query.single() {
-        Ok(Projection::Orthographic(ortho)) => ortho.scale,
-        _ => 1.0,
-    };
+    let zoom_scale = camera_query.single_mut().map(|mut p| {
+        if let Projection::Orthographic(ortho) = p.as_mut() {
+            ortho.scale
+        } else {
+            1.0
+        }
+    }).unwrap_or(1.0);
     let grid_size = calculate_dynamic_grid_size(zoom_scale);
     let raw_cursor_world_pos = pointer_info.design.to_raw();
     let snapped_position = (raw_cursor_world_pos / grid_size).round() * grid_size;
@@ -468,17 +471,28 @@ pub fn render_sort_preview(
 ) {
     if !text_mode_active.0 || current_placement_mode.0 == TextPlacementMode::Insert { return; }
 
-    let zoom_scale = if let Ok(Projection::Orthographic(ortho)) = camera_query.single() { ortho.scale } else { 1.0 };
+    let zoom_scale = camera_query.single().map(|p| {
+        if let Projection::Orthographic(ortho) = p {
+            ortho.scale
+        } else {
+            1.0
+        }
+    }).unwrap_or(1.0);
     let grid_size = calculate_dynamic_grid_size(zoom_scale);
     let snapped_position = (pointer_info.design.to_raw() / grid_size).round() * grid_size;
     
     let preview_color = Color::srgb(1.0, 0.5, 0.0).with_alpha(0.8);
+
     if let Some(glyph_name) = &glyph_navigation.current_glyph {
         if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
             let norad_glyph = glyph_data.to_norad_glyph();
+            
+            // Draw glyph outline
             crate::rendering::glyph_outline::draw_glyph_outline_at_position(
                 &mut gizmos, &glyph_data.outline, snapped_position
             );
+            
+            // Draw metrics if available
             crate::rendering::metrics::draw_metrics_at_position(
                 &mut gizmos, &norad_glyph, &app_state.workspace.info.metrics, snapped_position, preview_color
             );
@@ -521,7 +535,7 @@ pub fn handle_text_tool_shortcuts(
         && (keyboard_input.pressed(KeyCode::ControlLeft)
             || keyboard_input.pressed(KeyCode::ControlRight))
     {
-        if let Some(text_editor_state) = text_editor_state.as_ref() {
+        if let Some(text_editor_state) = text_editor_state {
             let buffer_text: String = text_editor_state
                 .buffer
                 .iter()
@@ -591,7 +605,7 @@ pub fn handle_text_mode_keyboard(
     _text_editor_state: Option<ResMut<TextEditorState>>,
     mut keyboard_input: ResMut<ButtonInput<KeyCode>>,
     app_state: Res<AppState>,
-    glyph_navigation: Res<GlyphNavigation>,
+    mut glyph_navigation: ResMut<GlyphNavigation>,
     text_mode_state: Res<TextModeState>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
 ) {
@@ -601,9 +615,12 @@ pub fn handle_text_mode_keyboard(
     if current_placement_mode.0 == TextPlacementMode::Insert {
         return;
     }
-    let Some(mut text_editor_state) = _text_editor_state else {
-        return;
+
+    let mut text_editor_state = match _text_editor_state {
+        Some(state) => state,
+        None => return,
     };
+    
     if current_placement_mode.0 == TextPlacementMode::Text {
         if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
             text_editor_state.move_cursor_left();
@@ -672,18 +689,22 @@ pub fn handle_text_mode_keyboard(
             let glyph_names: Vec<String> =
                 app_state.workspace.font.glyphs.keys().cloned().collect();
             if let Some(glyph_name) = glyph_names.get(i) {
+                glyph_navigation.current_glyph = Some(glyph_name.clone());
                 info!(
                     "Switched to glyph '{}' via number key {}",
                     glyph_name, i + 1
                 );
                 glyph_switched = true;
+                keyboard_input.clear_just_pressed(*key);
                 break;
             }
         }
     }
+
     if glyph_switched {
         return;
     }
+
     let default_glyph_name = match &glyph_navigation.current_glyph {
         Some(name) => name.clone(),
         None => {
@@ -698,6 +719,7 @@ pub fn handle_text_mode_keyboard(
             }
         }
     };
+
     let default_advance_width = if let Some(glyph_data) =
         app_state.workspace.font.glyphs.get(&default_glyph_name)
     {
@@ -705,9 +727,10 @@ pub fn handle_text_mode_keyboard(
     } else {
         600.0
     };
+    
     let pressed_keys: Vec<KeyCode> =
         keyboard_input.get_just_pressed().cloned().collect();
-    let mut keys_to_clear = Vec::new();
+
     for key in pressed_keys {
         let character_glyph = match key {
             KeyCode::KeyA => Some("a"),
@@ -791,13 +814,10 @@ pub fn handle_text_mode_keyboard(
                         );
                     }
                 }
-                keys_to_clear.push(key);
+                keyboard_input.clear_just_pressed(key);
             } else {
                 debug!("Glyph '{}' not found in font, skipping", char_glyph);
             }
         }
-    }
-    for key in keys_to_clear {
-        keyboard_input.clear_just_pressed(key);
     }
 } 

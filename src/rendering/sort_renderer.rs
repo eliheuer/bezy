@@ -7,6 +7,8 @@
 use crate::editing::sort::{Sort, ActiveSort, InactiveSort};
 use crate::core::state::{AppState, FontMetrics};
 use crate::rendering::cameras::DesignCamera;
+use crate::rendering::sort_visuals::{render_sort_visuals, SortRenderStyle};
+use kurbo::BezPath;
 
 use crate::ui::theme::{SORT_ACTIVE_METRICS_COLOR, SORT_INACTIVE_METRICS_COLOR, MONO_FONT_PATH};
 use bevy::prelude::*;
@@ -37,11 +39,31 @@ pub fn render_sorts_system(
     let font_metrics = &app_state.workspace.info.metrics;
 
     for sort in inactive_sorts_query.iter() {
-        render_inactive_sort(&mut gizmos, sort, font_metrics, &app_state);
+        if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
+            let norad_glyph = glyph_data.to_norad_glyph();
+            render_sort_visuals(
+                &mut gizmos,
+                &glyph_data.outline,
+                &norad_glyph,
+                font_metrics,
+                sort.position,
+                SortRenderStyle::Freeform,
+            );
+        }
     }
 
     for (_entity, sort) in active_sorts_query.iter() {
-        render_active_sort(&mut gizmos, sort, font_metrics, &app_state);
+        if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
+            let norad_glyph = glyph_data.to_norad_glyph();
+            render_sort_visuals(
+                &mut gizmos,
+                &glyph_data.outline,
+                &norad_glyph,
+                font_metrics,
+                sort.position,
+                SortRenderStyle::Freeform,
+            );
+        }
     }
 }
 
@@ -259,11 +281,11 @@ fn render_inactive_sort(
             gizmos, &norad_glyph, font_metrics, sort.position, SORT_INACTIVE_METRICS_COLOR
         );
         if let Some(outline_data) = &glyph_data.outline {
-            for contour in &outline_data.contours {
-                crate::rendering::glyph_outline::draw_contour_path_at_position(
-                    gizmos, contour, sort.position
-                );
-            }
+            crate::rendering::glyph_outline::draw_glyph_outline_at_position(
+                gizmos,
+                &glyph_data.outline,
+                sort.position,
+            );
         }
     }
 }
@@ -282,11 +304,17 @@ fn render_active_sort(
         );
         if let Some(outline) = &glyph_data.outline {
             crate::rendering::glyph_outline::draw_glyph_outline_at_position(
-                gizmos, &glyph_data.outline, sort.position
+                gizmos,
+                &glyph_data.outline,
+                sort.position,
             );
-            crate::rendering::glyph_outline::draw_glyph_points_at_position(
-                gizmos, outline, sort.position
-            );
+            if let Some(outline_data) = &glyph_data.outline {
+                crate::rendering::glyph_outline::draw_glyph_points_at_position(
+                    gizmos,
+                    outline_data,
+                    sort.position,
+                );
+            }
         }
     }
 }
