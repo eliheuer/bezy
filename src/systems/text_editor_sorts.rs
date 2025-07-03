@@ -234,13 +234,9 @@ pub fn render_text_editor_sorts(
                 None => continue,
             };
             
-            debug!(
-                "Rendering sort {} '{}' at world pos ({:.1}, {:.1}) in {:?} mode", 
-                buffer_position, 
-                sort.glyph_name, 
-                world_pos.x, 
-                world_pos.y, 
-                sort.layout_mode
+            info!(
+                "RENDER: Rendering sort '{}' at world_pos = ({:.2}, {:.2})",
+                sort.glyph_name, world_pos.x, world_pos.y
             );
             
             // Handle empty buffer roots (show placeholder)

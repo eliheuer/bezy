@@ -413,8 +413,10 @@ pub fn handle_text_mode_sort_placement(
     let raw_pos = pointer_info.design.to_raw();
 
     info!(
-        "DEBUG: [PLACE] pointer raw = ({:.1}, {:.1}), snapped = ({:.1}, {:.1}), grid_size = {:.1}",
-        raw_pos.x, raw_pos.y, snapped_position.x, snapped_position.y, grid_size
+        "DEBUG: pointer_info.design = ({:.2}, {:.2}), snapped_position = ({:.2}, {:.2}), sort_position = ({:.2}, {:.2})",
+        pointer_info.design.x, pointer_info.design.y,
+        snapped_position.x, snapped_position.y,
+        sort_position.x, sort_position.y
     );
 
     match current_placement_mode.0 {
