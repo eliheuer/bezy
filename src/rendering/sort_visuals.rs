@@ -22,12 +22,40 @@ pub fn render_sort_visuals(
     position: Vec2,
     metrics_color: Color,
     style: SortRenderStyle,
+    is_selected: bool,
 ) {
     // Draw outline
     draw_glyph_outline_at_position(gizmos, outline, position);
     // Draw metrics
     draw_metrics_at_position(gizmos, advance_width, metrics, position, metrics_color);
-    // Draw handles (for now, just a circle at the position)
-    gizmos.circle_2d(position, 12.0, metrics_color);
-    // TODO: Use different handle shapes for each style if desired
+    
+    // Draw handle at descender position (matching click detection logic)
+    let descender = metrics.descender.unwrap_or(-200.0) as f32;
+    let handle_position = position + Vec2::new(0.0, descender);
+    
+    if is_selected {
+        // Selected handle: bigger and yellow
+        let selected_color = Color::srgb(1.0, 1.0, 0.0); // Bright yellow
+        let selected_radius = 32.0; // Bigger than normal
+        gizmos.circle_2d(
+            handle_position,
+            selected_radius,
+            selected_color
+        );
+        
+        // Add a small inner circle for better visibility
+        gizmos.circle_2d(
+            handle_position,
+            selected_radius * 0.5,
+            selected_color
+        );
+    } else {
+        // Normal handle: smaller and uses metrics color
+        let normal_radius = 16.0;
+        gizmos.circle_2d(
+            handle_position,
+            normal_radius,
+            metrics_color
+        );
+    }
 } 

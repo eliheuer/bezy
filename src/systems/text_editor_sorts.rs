@@ -229,6 +229,7 @@ pub fn render_text_editor_sorts(
                     position,
                     metrics_color,
                     SortRenderStyle::TextBuffer,
+                    entry.is_selected,
                 );
             }
         }
