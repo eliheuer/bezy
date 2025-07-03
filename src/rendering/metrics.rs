@@ -59,6 +59,11 @@ pub fn draw_metrics_at_position(
         Vec2::new(position.x + advance_width, descender_y),
         color,
     );
+
+    // Draw bounding box from descender to UPM (units per em)
+    let top_left = Vec2::new(position.x, position.y + upm as f32);
+    let bottom_right = (position.x + advance_width, position.y + descender);
+    draw_rect(gizmos, top_left, bottom_right, color.with_alpha(0.7));
 }
 
 /// Draw a line in design space
