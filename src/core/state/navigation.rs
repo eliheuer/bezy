@@ -7,7 +7,7 @@ use bevy::prelude::*;
 use crate::core::state::app_state::AppState;
 
 /// Glyph navigation state
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct GlyphNavigation {
     /// The current Unicode codepoint being viewed (like "0061" for 'a')
     pub current_codepoint: Option<String>,
@@ -19,6 +19,18 @@ pub struct GlyphNavigation {
     pub glyph_list: Vec<String>,
     #[allow(dead_code)]
     pub current_index: usize,
+}
+
+impl Default for GlyphNavigation {
+    fn default() -> Self {
+        Self {
+            current_codepoint: None,
+            codepoint_found: false,
+            current_glyph: Some("a".to_string()),
+            glyph_list: Vec::new(),
+            current_index: 0,
+        }
+    }
 }
 
 /// Navigation direction for cycling through codepoints

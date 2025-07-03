@@ -470,7 +470,15 @@ pub fn render_sort_preview(
     pointer_info: Res<crate::core::pointer::PointerInfo>,
     camera_query: Query<&Projection, With<DesignCamera>>,
 ) {
-    if !text_mode_active.0 || current_placement_mode.0 == TextPlacementMode::Insert { return; }
+    debug!("[PREVIEW] Entered render_sort_preview");
+    if !text_mode_active.0 {
+        debug!("[PREVIEW] Early return: text_mode_active is false");
+        return;
+    }
+    if current_placement_mode.0 == TextPlacementMode::Insert {
+        debug!("[PREVIEW] Early return: placement mode is Insert");
+        return;
+    }
 
     let zoom_scale = camera_query.single().map(|p| {
         if let Projection::Orthographic(ortho) = p {
@@ -481,21 +489,27 @@ pub fn render_sort_preview(
     }).unwrap_or(1.0);
     let grid_size = calculate_dynamic_grid_size(zoom_scale);
     let snapped_position = (pointer_info.design.to_raw() / grid_size).round() * grid_size;
+    debug!("[PREVIEW] Placement mode: {:?}, snapped_position: ({:.1}, {:.1})", current_placement_mode.0, snapped_position.x, snapped_position.y);
     
     let preview_color = Color::srgb(1.0, 0.5, 0.0).with_alpha(0.8);
 
     if let Some(glyph_name) = &glyph_navigation.current_glyph {
+        debug!("[PREVIEW] current_glyph: {}", glyph_name);
         if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
+            debug!("[PREVIEW] Drawing preview for glyph '{}' at ({:.1}, {:.1})", glyph_name, snapped_position.x, snapped_position.y);
             // Draw glyph outline
             crate::rendering::glyph_outline::draw_glyph_outline_at_position(
                 &mut gizmos, &glyph_data.outline, snapped_position
             );
-            
             // Draw metrics if available
             crate::rendering::metrics::draw_metrics_at_position(
-                &mut gizmos, glyph_data.advance_width as f32, &app_state.workspace.info.metrics, snapped_position, SORT_ACTIVE_METRICS_COLOR
+                &mut gizmos, glyph_data.advance_width as f32, &app_state.workspace.info.metrics, snapped_position, preview_color
             );
+        } else {
+            debug!("[PREVIEW] No glyph_data found for '{}', cannot draw preview", glyph_name);
         }
+    } else {
+        debug!("[PREVIEW] No current_glyph set, cannot draw preview");
     }
 }
 
