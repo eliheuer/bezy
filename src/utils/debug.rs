@@ -6,7 +6,6 @@
 
 use crate::core::state::{AppState, FontMetrics};
 use bevy::prelude::*;
-use norad::Glyph;
 
 /// Debug font metrics information
 ///
@@ -20,20 +19,6 @@ pub fn debug_font_metrics(app_state: &AppState) {
     debug!("Cap-height: {:?}", metrics.cap_height);
     debug!("Ascender: {:?}", metrics.ascender);
     debug!("Descender: {:?}", metrics.descender);
-}
-
-/// Debug glyph information
-///
-/// Logs detailed information about a specific glyph.
-#[allow(dead_code)]
-pub fn debug_glyph_info(glyph: &Glyph, context: &str) {
-    debug!(
-        "{}: Glyph '{}' - advance width: {:?}, has outline: {}",
-        context,
-        glyph.name(),
-        glyph.width,
-        !glyph.contours.is_empty()
-    );
 }
 
 /// Debug layer information

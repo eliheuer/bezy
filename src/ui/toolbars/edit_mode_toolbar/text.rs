@@ -485,8 +485,6 @@ pub fn render_sort_preview(
 
     if let Some(glyph_name) = &glyph_navigation.current_glyph {
         if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
-            let norad_glyph = glyph_data.to_norad_glyph();
-            
             // Draw glyph outline
             crate::rendering::glyph_outline::draw_glyph_outline_at_position(
                 &mut gizmos, &glyph_data.outline, snapped_position
@@ -494,7 +492,7 @@ pub fn render_sort_preview(
             
             // Draw metrics if available
             crate::rendering::metrics::draw_metrics_at_position(
-                &mut gizmos, &norad_glyph, &app_state.workspace.info.metrics, snapped_position, preview_color
+                &mut gizmos, glyph_data.advance_width as f32, &app_state.workspace.info.metrics, snapped_position, preview_color
             );
         }
     }

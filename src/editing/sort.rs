@@ -11,7 +11,6 @@
 //! Only one sort can be active at a time.
 
 use bevy::prelude::*;
-use norad::Glyph;
 
 /// Core Sort entity - represents a single piece of movable type
 #[derive(Component, Debug, Clone)]
@@ -67,12 +66,7 @@ impl Sort {
         }
     }
 
-    /// Create a new sort from a glyph (extracts name and advance width)
-    pub fn _from_glyph(glyph: &Glyph, position: Vec2) -> Self {
-        let advance_width = glyph.width as f32;
 
-        Self::new(glyph.name().to_string(), position, advance_width)
-    }
 
     /// Get the metrics box bounds for this sort
     /// This matches the backup implementation: from descender to ascender, full glyph width

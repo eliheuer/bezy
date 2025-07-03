@@ -6,12 +6,11 @@
 use bevy::prelude::*;
 use crate::core::state::font_metrics::FontMetrics;
 use crate::ui::theme::METRICS_GUIDE_COLOR;
-use norad::Glyph;
 
 /// Draw complete font metrics for a glyph at a specific design-space position
 pub fn draw_metrics_at_position(
     gizmos: &mut Gizmos,
-    glyph: &norad::Glyph,
+    advance_width: f32,
     metrics: &FontMetrics,
     position: Vec2,
     color: Color,
@@ -21,7 +20,6 @@ pub fn draw_metrics_at_position(
     let descender = metrics.descender.unwrap_or(upm * -0.2) as f32;
     let x_height = metrics.x_height.unwrap_or(upm * 0.5) as f32;
     let cap_height = metrics.cap_height.unwrap_or(upm * 0.7) as f32;
-    let advance_width = glyph.width as f32;
 
     // Baseline (most important)
     gizmos.line_2d(

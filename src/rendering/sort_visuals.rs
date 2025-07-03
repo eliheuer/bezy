@@ -17,7 +17,7 @@ pub enum SortRenderStyle {
 pub fn render_sort_visuals(
     gizmos: &mut Gizmos,
     outline: &Option<OutlineData>,
-    norad_glyph: &norad::Glyph,
+    advance_width: f32,
     metrics: &FontMetrics,
     position: Vec2,
     style: SortRenderStyle,
@@ -40,7 +40,7 @@ pub fn render_sort_visuals(
     // Draw outline
     draw_glyph_outline_at_position(gizmos, outline, position);
     // Draw metrics
-    draw_metrics_at_position(gizmos, norad_glyph, metrics, position, metrics_color);
+    draw_metrics_at_position(gizmos, advance_width, metrics, position, metrics_color);
     // Draw handles (for now, just a circle at the position)
     gizmos.circle_2d(position, 12.0, handle_color);
     // TODO: Use different handle shapes for each style if desired

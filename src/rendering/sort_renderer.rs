@@ -40,11 +40,10 @@ pub fn render_sorts_system(
 
     for sort in inactive_sorts_query.iter() {
         if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
-            let norad_glyph = glyph_data.to_norad_glyph();
             render_sort_visuals(
                 &mut gizmos,
                 &glyph_data.outline,
-                &norad_glyph,
+                glyph_data.advance_width as f32,
                 font_metrics,
                 sort.position,
                 SortRenderStyle::Freeform,
@@ -54,11 +53,10 @@ pub fn render_sorts_system(
 
     for (_entity, sort) in active_sorts_query.iter() {
         if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
-            let norad_glyph = glyph_data.to_norad_glyph();
             render_sort_visuals(
                 &mut gizmos,
                 &glyph_data.outline,
-                &norad_glyph,
+                glyph_data.advance_width as f32,
                 font_metrics,
                 sort.position,
                 SortRenderStyle::Freeform,
@@ -276,9 +274,8 @@ fn render_inactive_sort(
     app_state: &AppState,
 ) {
     if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
-        let norad_glyph = glyph_data.to_norad_glyph();
         crate::rendering::metrics::draw_metrics_at_position(
-            gizmos, &norad_glyph, font_metrics, sort.position, SORT_INACTIVE_METRICS_COLOR
+            gizmos, glyph_data.advance_width as f32, font_metrics, sort.position, SORT_INACTIVE_METRICS_COLOR
         );
         if let Some(outline_data) = &glyph_data.outline {
             crate::rendering::glyph_outline::draw_glyph_outline_at_position(
@@ -298,9 +295,8 @@ fn render_active_sort(
     app_state: &AppState,
 ) {
     if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
-        let norad_glyph = glyph_data.to_norad_glyph();
         crate::rendering::metrics::draw_metrics_at_position(
-            gizmos, &norad_glyph, font_metrics, sort.position, SORT_ACTIVE_METRICS_COLOR
+            gizmos, glyph_data.advance_width as f32, font_metrics, sort.position, SORT_ACTIVE_METRICS_COLOR
         );
         if let Some(outline) = &glyph_data.outline {
             crate::rendering::glyph_outline::draw_glyph_outline_at_position(

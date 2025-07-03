@@ -14,6 +14,36 @@
 
 - **UFO Persistence**: Norad library used only for loading/saving, not runtime storage
 
+### Norad Library Usage (CRITICAL)
+
+**Norad is ONLY for UFO I/O operations**: The norad library should be used exclusively for:
+- Loading UFO files into our internal `FontData` structures
+- Saving our internal `FontData` structures back to UFO format
+- Data conversion between UFO format and our thread-safe runtime structures
+
+**NEVER use norad for runtime operations**: This includes:
+- ❌ Passing `norad::Glyph` to rendering functions
+- ❌ Using `norad::Glyph` in UI components
+- ❌ Creating `norad::Glyph` instances for metrics calculations
+- ❌ Using norad types in ECS components or resources
+
+**Correct Pattern**: 
+```rust
+// ✅ GOOD: Use internal data structures for runtime operations
+let advance_width = glyph_data.advance_width as f32;
+draw_metrics_at_position(gizmos, advance_width, metrics, position, color);
+
+// ❌ BAD: Don't convert to norad just to extract data
+let norad_glyph = glyph_data.to_norad_glyph();
+draw_metrics_at_position(gizmos, &norad_glyph, metrics, position, color);
+```
+
+**Why This Matters**: 
+- Performance: Avoids unnecessary data conversions
+- Architecture: Maintains clear separation between I/O and runtime layers
+- Thread Safety: Our internal structures are designed for concurrent access
+- Maintainability: Reduces coupling between runtime logic and file format specifics
+
 ## Input System Architecture
 
 Bezy uses a centralized input system that provides consistent, predictable input handling across all tools and modes. This system eliminates the scattered input handling that was causing conflicts and coordinate system inconsistencies.

@@ -215,11 +215,10 @@ pub fn render_text_editor_sorts(
     for (i, entry) in text_editor_state.buffer.iter().enumerate() {
         if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&entry.glyph_name) {
             if let Some(position) = text_editor_state.get_sort_visual_position(i) {
-                let norad_glyph = glyph_data.to_norad_glyph();
                 render_sort_visuals(
                     &mut gizmos,
                     &glyph_data.outline,
-                    &norad_glyph,
+                    glyph_data.advance_width as f32,
                     &app_state.workspace.info.metrics,
                     position,
                     SortRenderStyle::TextBuffer,
