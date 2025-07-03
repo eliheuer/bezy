@@ -16,7 +16,7 @@ use crate::geometry::point::{EditPoint, EntityId, EntityKind};
 use kurbo::Point;
 use crate::rendering::checkerboard::calculate_dynamic_grid_size;
 use crate::rendering::sort_visuals::{render_sort_visuals, SortRenderStyle};
-use crate::ui::theme::{SORT_ACTIVE_METRICS_COLOR, SORT_INACTIVE_METRICS_COLOR};
+use crate::ui::theme::{SORT_ACTIVE_METRICS_COLOR, SORT_INACTIVE_METRICS_COLOR, SORT_ACTIVE_OUTLINE_COLOR};
 
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -252,22 +252,35 @@ pub fn render_text_editor_sorts(
         }
     }
 
-    // Render cursor
-    if text_editor_state.cursor_position < text_editor_state.buffer.len() {
-        let cursor_world_pos = text_editor_state.get_sort_visual_position(text_editor_state.cursor_position).unwrap_or(Vec2::ZERO);
-        let ascender = font_metrics.ascender.unwrap_or(800.0) as f32;
-        let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
+    // Render cursor for the active text buffer
+    if let Some((root_index, root_sort)) = text_editor_state.get_active_sort() {
+        if root_sort.is_buffer_root && root_sort.buffer_cursor_position.is_some() {
+            let cursor_pos_in_text = root_sort.buffer_cursor_position.unwrap();
+            let cursor_world_pos = calculate_cursor_position_in_text(&text_editor_state, root_index, cursor_pos_in_text);
+            let ascender = font_metrics.ascender.unwrap_or(800.0) as f32;
+            let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
+            let cursor_color = SORT_ACTIVE_OUTLINE_COLOR;
+            let circle_radius = 12.0;
 
-        gizmos.line_2d(
-            Vec2::new(cursor_world_pos.x - 100.0, cursor_world_pos.y),
-            Vec2::new(cursor_world_pos.x + 100.0, cursor_world_pos.y),
-            Color::srgb(1.0, 0.0, 0.0),
-        );
-        gizmos.line_2d(
-            Vec2::new(cursor_world_pos.x, cursor_world_pos.y - descender),
-            Vec2::new(cursor_world_pos.x, cursor_world_pos.y + ascender),
-            Color::srgb(1.0, 0.0, 0.0),
-        );
+            // Draw vertical line from descender to ascender
+            gizmos.line_2d(
+                Vec2::new(cursor_world_pos.x, cursor_world_pos.y + descender),
+                Vec2::new(cursor_world_pos.x, cursor_world_pos.y + ascender),
+                cursor_color,
+            );
+            // Draw circle at top (ascender)
+            gizmos.circle_2d(
+                Vec2::new(cursor_world_pos.x, cursor_world_pos.y + ascender),
+                circle_radius,
+                cursor_color,
+            );
+            // Draw circle at bottom (descender)
+            gizmos.circle_2d(
+                Vec2::new(cursor_world_pos.x, cursor_world_pos.y + descender),
+                circle_radius,
+                cursor_color,
+            );
+        }
     }
 }
 
@@ -457,39 +470,6 @@ pub fn handle_text_editor_keyboard_input(
     }
 }
 
-/// Find the currently active text root (selected or in insert mode)
-fn find_active_text_root(text_editor_state: &TextEditorState) -> Option<(usize, &SortEntry)> {
-    // FIXED: Use more robust logic to find active text root
-    // First try to find a selected text root
-    for i in 0..text_editor_state.buffer.len() {
-        if let Some(sort) = text_editor_state.buffer.get(i) {
-            if sort.is_buffer_root && sort.is_selected {
-                return Some((i, sort));
-            }
-        }
-    }
-    
-    // If no selected text root, look for any text root with a cursor position
-    for i in 0..text_editor_state.buffer.len() {
-        if let Some(sort) = text_editor_state.buffer.get(i) {
-            if sort.is_buffer_root && sort.buffer_cursor_position.is_some() {
-                return Some((i, sort));
-            }
-        }
-    }
-    
-    // If still no text root found, look for the most recently added text root
-    for i in (0..text_editor_state.buffer.len()).rev() {
-        if let Some(sort) = text_editor_state.buffer.get(i) {
-            if sort.is_buffer_root {
-                return Some((i, sort));
-            }
-        }
-    }
-    
-    None
-}
-
 /// Calculate cursor position within a text sequence
 fn calculate_cursor_position_in_text(
     text_editor_state: &TextEditorState, 
@@ -501,13 +481,7 @@ fn calculate_cursor_position_in_text(
         
         if cursor_pos_in_text == 0 {
             // Cursor is at the root position (for empty roots or at the start)
-            if root_sort.glyph_name.is_empty() {
-                // Empty root - cursor at root position for replacement
-                root_position
-            } else {
-                // Non-empty root - cursor at left edge
-                root_position
-            }
+            root_position
         } else {
             // Cursor is after one or more sorts - calculate cumulative x offset
             let mut x_offset = 0.0;
@@ -518,16 +492,11 @@ fn calculate_cursor_position_in_text(
                 if let Some(sort) = text_editor_state.buffer.get(sort_index) {
                     if sort.layout_mode == SortLayoutMode::Text && !sort.glyph_name.is_empty() {
                         x_offset += sort.advance_width;
-                        debug!("Adding advance width {:.1} for sort '{}' at index {}", 
-                               sort.advance_width, sort.glyph_name, sort_index);
                     }
                 }
             }
             
-            let cursor_pos = root_position + Vec2::new(x_offset, 0.0);
-            debug!("Cursor position: root=({:.1}, {:.1}), offset={:.1}, final=({:.1}, {:.1})", 
-                   root_position.x, root_position.y, x_offset, cursor_pos.x, cursor_pos.y);
-            cursor_pos
+            root_position + Vec2::new(x_offset, 0.0)
         }
     } else {
         Vec2::ZERO
