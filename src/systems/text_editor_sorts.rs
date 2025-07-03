@@ -207,359 +207,66 @@ pub fn render_text_editor_sorts(
     mut gizmos: Gizmos,
     text_editor_state: Res<TextEditorState>,
     app_state: Res<AppState>,
-    viewport: Res<crate::ui::panes::design_space::ViewPort>,
 ) {
     let font_metrics = &app_state.workspace.info.metrics;
     
-    // Debug: Log rendering info
-    if text_editor_state.buffer.len() > 0 {
-        debug!(
-            "Rendering {} sorts from text editor buffer", 
-            text_editor_state.buffer.len()
-        );
-    }
-    
-    // Render each sort in the buffer (both buffer and freeform)
+    // Draw a magenta X at (0,0) in design space. This should now align with the red checkerboard cross.
+    let x_size = 40.0;
+    gizmos.line_2d(Vec2::new(-x_size, -x_size), Vec2::new(x_size, x_size), Color::srgb(1.0, 0.0, 1.0));
+    gizmos.line_2d(Vec2::new(-x_size, x_size), Vec2::new(x_size, -x_size), Color::srgb(1.0, 0.0, 1.0));
+
+    // Render each sort in the buffer
     for buffer_position in 0..text_editor_state.buffer.len() {
         if let Some(sort) = text_editor_state.buffer.get(buffer_position) {
-            // Skip empty glyph names unless it's a buffer root (which we want to show)
-            if sort.glyph_name.is_empty() && !sort.is_buffer_root {
-                continue;
-            }
+            if sort.glyph_name.is_empty() && !sort.is_buffer_root { continue; }
             
-            // Get the visual position based on the sort's layout mode
-            let world_pos = match text_editor_state
-                .get_sort_visual_position(buffer_position) {
+            let world_pos = match text_editor_state.get_sort_visual_position(buffer_position) {
                 Some(pos) => pos,
                 None => continue,
             };
             
-            info!(
-                "RENDER: Rendering sort '{}' at world_pos = ({:.2}, {:.2})",
-                sort.glyph_name, world_pos.x, world_pos.y
-            );
-            
-            // Handle empty buffer roots (show placeholder)
             if sort.glyph_name.is_empty() && sort.is_buffer_root {
-                // Draw a placeholder rectangle for empty buffer root
-                let placeholder_size = Vec2::new(50.0, 100.0);
-                gizmos.rect_2d(
-                    world_pos,
-                    placeholder_size,
-                    Color::srgba(0.5, 0.5, 0.5, 0.3), // Semi-transparent gray
-                );
-                
-                                // Draw text "Empty" as indicator
-                // Note: We'll skip glyph outline rendering for empty buffer roots
-            } else if let Some(glyph_data) = 
-                app_state.workspace.font.glyphs.get(&sort.glyph_name) {
-                // The world_pos is the baseline position (already offset correctly during placement)
-                // No additional descender offset needed here since placement already handled it
-                let sort_baseline_position = world_pos;
-                
-                // --- DEBUG MARKERS ---
-                // 1. Blue X at baseline position
-                let baseline_screen = viewport.to_screen(crate::ui::panes::design_space::DPoint::from(sort_baseline_position));
-                let x_size = 18.0;
-                gizmos.line_2d(
-                    baseline_screen + Vec2::new(-x_size, -x_size),
-                    baseline_screen + Vec2::new(x_size, x_size),
-                    Color::srgb(0.2, 0.6, 1.0), // Blue
-                );
-                gizmos.line_2d(
-                    baseline_screen + Vec2::new(-x_size, x_size),
-                    baseline_screen + Vec2::new(x_size, -x_size),
-                    Color::srgb(0.2, 0.6, 1.0), // Blue
-                );
-
-                // 2. Magenta diamond at glyph (0,0) (first point in first contour)
-                if let Some(outline_data) = &glyph_data.outline {
-                    if let Some(first_contour) = outline_data.contours.first() {
-                        if let Some(first_point) = first_contour.points.first() {
-                            let glyph_zero = sort_baseline_position + Vec2::new(first_point.x as f32, first_point.y as f32);
-                            let zero_screen = viewport.to_screen(crate::ui::panes::design_space::DPoint::from(glyph_zero));
-                            let d_size = 14.0;
-                            gizmos.line_2d(
-                                zero_screen + Vec2::new(0.0, -d_size),
-                                zero_screen + Vec2::new(-d_size, 0.0),
-                                Color::srgb(1.0, 0.0, 1.0), // Magenta
-                            );
-                            gizmos.line_2d(
-                                zero_screen + Vec2::new(-d_size, 0.0),
-                                zero_screen + Vec2::new(0.0, d_size),
-                                Color::srgb(1.0, 0.0, 1.0),
-                            );
-                            gizmos.line_2d(
-                                zero_screen + Vec2::new(0.0, d_size),
-                                zero_screen + Vec2::new(d_size, 0.0),
-                                Color::srgb(1.0, 0.0, 1.0),
-                            );
-                            gizmos.line_2d(
-                                zero_screen + Vec2::new(d_size, 0.0),
-                                zero_screen + Vec2::new(0.0, -d_size),
-                                Color::srgb(1.0, 0.0, 1.0),
-                            );
-                            // Log the first point's coordinates
-                            info!("DEBUG: Glyph '{}' first point at ({:.1}, {:.1})", sort.glyph_name, first_point.x, first_point.y);
-                        }
-                    }
-                }
-                
-                // Convert to norad glyph for proper rendering
-                let norad_glyph = glyph_data.to_norad_glyph();
-                
-                // Render proper metrics box at the baseline position
-                let metrics_color = if sort.is_active { 
-                    Color::srgba(0.3, 1.0, 0.5, 0.5) // Green for active
-                } else {
-                    Color::srgba(0.5, 0.5, 0.5, 0.5) // Gray for inactive
-                };
-                
-                crate::rendering::metrics::draw_metrics_at_position_with_color(
-                    &mut gizmos,
-                    &viewport,
-                    &norad_glyph,
-                    font_metrics,
-                    sort_baseline_position,
-                    metrics_color,
-                );
-                
-                // Then render the glyph outline at the baseline position
-                if let Some(outline_data) = &glyph_data.outline {
-                    if sort.is_active {
-                        // Active sorts: full outline with control handles 
-                        // and points
-                        crate::rendering::glyph_outline::
-                            draw_glyph_outline_at_position(
-                                &mut gizmos,
-                                &viewport,
-                                outline_data,
-                                sort_baseline_position,
-                            );
-                        
-                        crate::rendering::glyph_outline::
-                            draw_glyph_points_at_position(
-                                &mut gizmos,
-                                &viewport,
-                                outline_data,
-                                sort_baseline_position,
-                            );
-                    } else {
-                        // Inactive sorts: just the outline path 
-                        // (no control handles)
-                        for contour in &outline_data.contours {
-                            if !contour.points.is_empty() {
-                                crate::rendering::glyph_outline::
-                                    draw_contour_path_at_position(
-                                        &mut gizmos,
-                                        &viewport,
-                                        contour,
-                                        sort_baseline_position,
-                                    );
-                            }
-                        }
-                    }
-                } else {
-                    debug!(
-                        "Glyph '{}' has no outline data", 
-                        sort.glyph_name
-                    );
-                }
-            } else if !sort.glyph_name.is_empty() {
-                debug!(
-                    "Glyph '{}' not found in font data", 
-                    sort.glyph_name
-                );
+                gizmos.rect_2d(world_pos, Vec2::new(50.0, 100.0), Color::srgba(0.5, 0.5, 0.5, 0.3));
+                continue;
             }
-            // Note: Empty buffer roots are handled above and don't need glyph data
             
-            // Draw handles for all sorts (regardless of glyph data)
-            // The handle should be at the descender line relative to the baseline (world_pos)
-            let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
-            let handle_position = world_pos + Vec2::new(0.0, descender);
-            
-            debug!("Sort '{}' handle: sort_pos=({:.1}, {:.1}), handle=({:.1}, {:.1})", 
-                   sort.glyph_name, world_pos.x, world_pos.y, handle_position.x, handle_position.y);
-            
-            // Determine handle colors based on state
-            let (outer_color, inner_color, handle_size) = if sort.is_buffer_root {
-                // Buffer root handles are larger and have special colors
-                if sort.is_selected {
-                    // BRIGHT, obvious selection colors for buffer roots
-                    (Color::srgb(0.0, 1.0, 0.0), Color::srgb(1.0, 1.0, 1.0), 32.0) // Bright green with white center
-                } else {
-                    (Color::srgb(0.0, 0.6, 0.0), Color::srgb(0.4, 0.8, 0.4), 24.0) // Dark green
-                }
-            } else if sort.is_selected {
-                // BRIGHT ORANGE selection colors for freeform sorts as requested
-                (Color::srgb(1.0, 0.5, 0.0), Color::srgb(1.0, 0.7, 0.2), 24.0) // Bright orange outer, lighter orange inner
-            } else if sort.is_active {
-                // Active but not selected - blue
-                (Color::srgb(0.0, 0.5, 1.0), Color::srgb(0.6, 0.8, 1.0), 20.0) // Blue
+            let metrics_color = if sort.is_active { 
+                Color::srgba(0.3, 1.0, 0.5, 0.5) // Green for active
             } else {
-                // Unselected handles are subtle
-                (Color::srgb(0.6, 0.6, 0.6), Color::srgb(0.8, 0.8, 0.8), 16.0) // Gray
+                Color::srgba(0.5, 0.5, 0.5, 0.5) // Gray for inactive
             };
-            
-            // Convert handle position to screen space (same as metrics)
-            let handle_screen_pos = viewport.to_screen(
-                crate::ui::panes::design_space::DPoint::from((handle_position.x, handle_position.y))
-            );
-            
-            // Debug coordinate transformation when handle is selected
-            if sort.is_selected {
-                debug!(
-                    "Handle coordinate transform: world=({:.1}, {:.1}) -> screen=({:.1}, {:.1})",
-                    handle_position.x, handle_position.y, handle_screen_pos.x, handle_screen_pos.y
-                );
-            }
-            
-            // Draw the main handle circle in screen space
-            gizmos.circle_2d(
-                handle_screen_pos,
-                handle_size,
-                outer_color,
-            );
-            
-            // Draw the inner circle for visual clarity
-            gizmos.circle_2d(
-                handle_screen_pos,
-                handle_size * 0.6,
-                inner_color,
-            );
-            
-            // Add extra visual feedback for selected handles - pulsing ring
-            if sort.is_selected {
-                // Use orange for the selection ring to match the handle colors
-                let ring_color = if sort.is_buffer_root {
-                    Color::srgb(1.0, 1.0, 1.0).with_alpha(0.8) // White for buffer roots
-                } else {
-                    Color::srgb(1.0, 0.6, 0.1).with_alpha(0.8) // Orange for freeform sorts
-                };
-                
-                gizmos.circle_2d(
-                    handle_screen_pos,
-                    handle_size + 8.0, // Larger outer ring
-                    ring_color,
-                );
-            }
-            
-            // Draw buffer root indicator (small square) for buffer mode
-            // Make it smaller and more subtle to reduce visual clutter
-            if sort.is_buffer_root {
-                gizmos.rect_2d(
-                    handle_screen_pos,
-                    Vec2::new(6.0, 6.0), // Slightly larger for better visibility
-                    Color::srgb(1.0, 1.0, 1.0).with_alpha(0.9), // More opaque white square
-                );
-            }
-            
-            // Debug: Log handle state for troubleshooting
-            if sort.is_selected || sort.is_active {
-                debug!(
-                    "Rendering handle for sort '{}': selected={}, active={}, position=({:.1}, {:.1})", 
-                    sort.glyph_name, sort.is_selected, sort.is_active, handle_position.x, handle_position.y
-                );
-            }
 
-            // 3. Green circle at handle position (already present, but make color distinctive)
-            gizmos.circle_2d(
-                handle_screen_pos,
-                10.0,
-                Color::srgb(0.0, 1.0, 0.0), // Bright green
-            );
+            if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
+                let norad_glyph = glyph_data.to_norad_glyph();
+                crate::rendering::metrics::draw_metrics_at_position(
+                    &mut gizmos, &norad_glyph, font_metrics, world_pos, metrics_color
+                );
+                crate::rendering::glyph_outline::draw_glyph_outline_at_position(
+                    &mut gizmos, &glyph_data.outline, world_pos
+                );
+                if sort.is_active {
+                    if let Some(outline_data) = &glyph_data.outline {
+                        crate::rendering::glyph_outline::draw_glyph_points_at_position(
+                            &mut gizmos, outline_data, world_pos
+                        );
+                    }
+                }
+            }
         }
     }
     
-    // Render cursor for buffer mode (only show if we have buffer sorts)
-    let text_sorts = text_editor_state.get_text_sorts();
-    if !text_sorts.is_empty() {
-        debug!("Rendering cursor: {} text sorts found", text_sorts.len());
-        
-        // Find the active text root and calculate cursor position within that text
-        let cursor_world_pos = if let Some(active_text_root) = find_active_text_root(&text_editor_state) {
-            let (root_index, root_sort) = active_text_root;
-            let cursor_pos_in_buffer = root_sort.buffer_cursor_position.unwrap_or(0);
-            
-            debug!("Active text root '{}' at index {}, cursor position in text: {}", 
-                   root_sort.glyph_name, root_index, cursor_pos_in_buffer);
-            
-            // Calculate position within this text sequence
-            calculate_cursor_position_in_text(&text_editor_state, root_index, cursor_pos_in_buffer)
-        } else {
-            debug!("No active text root found, positioning cursor at zero");
-            Vec2::ZERO
-        };
-        
-        // Get font metrics for proper cursor height spanning
+    // Render cursor
+    if text_editor_state.cursor_position < text_editor_state.buffer.len() {
+        let cursor_world_pos = text_editor_state.get_sort_visual_position(text_editor_state.cursor_position).unwrap_or(Vec2::ZERO);
         let ascender = font_metrics.ascender.unwrap_or(800.0) as f32;
         let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
-        
-        // Convert cursor position from design space to screen space (like the handles and metrics)
-        let cursor_top_design = cursor_world_pos + Vec2::new(0.0, ascender);
-        let cursor_bottom_design = cursor_world_pos + Vec2::new(0.0, descender);
-        
-        let cursor_top_screen = viewport.to_screen(
-            crate::ui::panes::design_space::DPoint::from((cursor_top_design.x, cursor_top_design.y))
-        );
-        let cursor_bottom_screen = viewport.to_screen(
-            crate::ui::panes::design_space::DPoint::from((cursor_bottom_design.x, cursor_bottom_design.y))
-        );
-        
-        // Draw a thicker cursor line using a rectangle for better visibility
-        let line_thickness = 2.0;
-        let line_center_x = (cursor_top_screen.x + cursor_bottom_screen.x) / 2.0;
-        let line_center_y = (cursor_top_screen.y + cursor_bottom_screen.y) / 2.0;
-        let line_height = (cursor_top_screen.y - cursor_bottom_screen.y).abs();
-        
+        let cursor_height = ascender - descender;
+        let cursor_width = 20.0;
         gizmos.rect_2d(
-            Vec2::new(line_center_x, line_center_y),
-            Vec2::new(line_thickness, line_height),
-            Color::srgb(1.0, 1.0, 0.0), // Yellow cursor
+            cursor_world_pos + Vec2::new(0.0, cursor_height / 2.0),
+            Vec2::new(cursor_width, cursor_height),
+            Color::srgb(1.0, 0.5, 0.0), // Orange
         );
-        
-        // Draw larger outer circles (16px) for better visibility
-        gizmos.circle_2d(
-            cursor_top_screen,    // Top circle (at ascender)
-            16.0,
-            Color::srgb(1.0, 1.0, 0.0), // Yellow cursor
-        );
-        gizmos.circle_2d(
-            cursor_bottom_screen, // Bottom circle (at descender)
-            16.0,
-            Color::srgb(1.0, 1.0, 0.0), // Yellow cursor
-        );
-        
-        // Draw smaller inner circles (8px) on top
-        gizmos.circle_2d(
-            cursor_top_screen,    // Top circle (at ascender)
-            8.0,
-            Color::srgb(1.0, 1.0, 0.0), // Yellow cursor
-        );
-        gizmos.circle_2d(
-            cursor_bottom_screen, // Bottom circle (at descender)
-            8.0,
-            Color::srgb(1.0, 1.0, 0.0), // Yellow cursor
-        );
-        
-        // Draw a circle indicator for the cursor position in screen space (for debugging)
-        let cursor_baseline_screen = viewport.to_screen(
-            crate::ui::panes::design_space::DPoint::from((cursor_world_pos.x, cursor_world_pos.y))
-        );
-        // Larger outer circle
-        gizmos.circle_2d(
-            cursor_baseline_screen, 
-            16.0, 
-            Color::srgb(1.0, 1.0, 0.0)
-        );
-        // Smaller inner circle
-        gizmos.circle_2d(
-            cursor_baseline_screen, 
-            8.0, 
-            Color::srgb(1.0, 1.0, 0.0)
-        );
-    } else {
-        debug!("No cursor rendered: {} text sorts found", text_sorts.len());
     }
 }
 

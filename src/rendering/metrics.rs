@@ -4,161 +4,75 @@
 //! by both the main metrics system and individual sorts.
 
 use bevy::prelude::*;
-use crate::core::state::FontMetrics;
+use crate::core::state::font_metrics::FontMetrics;
 use crate::ui::theme::METRICS_GUIDE_COLOR;
-use crate::ui::panes::design_space::{DPoint, ViewPort};
 use norad::Glyph;
 
-/// Draw complete font metrics for a glyph at a specific position
+/// Draw complete font metrics for a glyph at a specific design-space position
 pub fn draw_metrics_at_position(
     gizmos: &mut Gizmos,
-    viewport: &ViewPort,
-    glyph: &Glyph,
-    metrics: &FontMetrics,
-    position: Vec2,
-) {
-    draw_metrics_at_position_with_color(gizmos, viewport, glyph, metrics, position, METRICS_GUIDE_COLOR);
-}
-
-/// Draw complete font metrics for a glyph at a specific position with custom color
-pub fn draw_metrics_at_position_with_color(
-    gizmos: &mut Gizmos,
-    viewport: &ViewPort,
-    glyph: &Glyph,
+    glyph: &norad::Glyph,
     metrics: &FontMetrics,
     position: Vec2,
     color: Color,
 ) {
-    let upm = metrics.units_per_em as f32;
-    let ascender = metrics.ascender.unwrap() as f32;
-    let descender = metrics.descender.unwrap() as f32;
-    
-    // Use actual font metrics if available, otherwise fallback to reasonable defaults
-    let x_height = metrics.x_height.unwrap_or((upm * 0.5).round() as f64) as f32;
-    let cap_height = metrics.cap_height.unwrap_or((upm * 0.7).round() as f64) as f32;
+    let upm = metrics.units_per_em;
+    let ascender = metrics.ascender.unwrap_or(upm * 0.8) as f32;
+    let descender = metrics.descender.unwrap_or(upm * -0.2) as f32;
+    let x_height = metrics.x_height.unwrap_or(upm * 0.5) as f32;
+    let cap_height = metrics.cap_height.unwrap_or(upm * 0.7) as f32;
+    let advance_width = glyph.width as f32;
 
-    let width = glyph.width as f32;
-
-    // All coordinates are offset by the position
-    let offset_x = position.x;
-    let offset_y = position.y;
-
-    // Draw the standard metrics bounding box (descender to ascender)
-    draw_rect(
-        gizmos,
-        viewport,
-        (offset_x, offset_y + descender),
-        (offset_x + width, offset_y + ascender),
+    // Baseline (most important)
+    gizmos.line_2d(
+        position,
+        Vec2::new(position.x + advance_width, position.y),
         color,
     );
 
-    // Draw the full UPM bounding box (from 0 to UPM height)
-    draw_rect(
-        gizmos,
-        viewport,
-        (offset_x, offset_y),
-        (offset_x + width, offset_y + upm),
+    // x-height
+    let x_height_y = position.y + x_height;
+    gizmos.line_2d(
+        Vec2::new(position.x, x_height_y),
+        Vec2::new(position.x + advance_width, x_height_y),
         color,
     );
 
-    // Draw baseline (most important)
-    draw_line(
-        gizmos,
-        viewport,
-        (offset_x, offset_y),
-        (offset_x + width, offset_y),
+    // cap-height
+    let cap_height_y = position.y + cap_height;
+    gizmos.line_2d(
+        Vec2::new(position.x, cap_height_y),
+        Vec2::new(position.x + advance_width, cap_height_y),
         color,
     );
 
-    // Draw x-height line
-    draw_line(
-        gizmos,
-        viewport,
-        (offset_x, offset_y + x_height),
-        (offset_x + width, offset_y + x_height),
+    // ascender
+    let ascender_y = position.y + ascender;
+    gizmos.line_2d(
+        Vec2::new(position.x, ascender_y),
+        Vec2::new(position.x + advance_width, ascender_y),
         color,
     );
 
-    // Draw cap-height line
-    draw_line(
-        gizmos,
-        viewport,
-        (offset_x, offset_y + cap_height),
-        (offset_x + width, offset_y + cap_height),
-        color,
-    );
-
-    // Draw ascender line
-    draw_line(
-        gizmos,
-        viewport,
-        (offset_x, offset_y + ascender),
-        (offset_x + width, offset_y + ascender),
-        color,
-    );
-
-    // Draw descender line
-    draw_line(
-        gizmos,
-        viewport,
-        (offset_x, offset_y + descender),
-        (offset_x + width, offset_y + descender),
-        color,
-    );
-
-    // Draw UPM top line
-    draw_line(
-        gizmos,
-        viewport,
-        (offset_x, offset_y + upm),
-        (offset_x + width, offset_y + upm),
+    // descender
+    let descender_y = position.y + descender;
+    gizmos.line_2d(
+        Vec2::new(position.x, descender_y),
+        Vec2::new(position.x + advance_width, descender_y),
         color,
     );
 }
 
 /// Draw a line in design space
-fn draw_line(
-    gizmos: &mut Gizmos,
-    viewport: &ViewPort,
-    start: (f32, f32),
-    end: (f32, f32),
-    color: Color,
-) {
-    let start_screen = viewport.to_screen(DPoint::from(start));
-    let end_screen = viewport.to_screen(DPoint::from(end));
-    gizmos.line_2d(start_screen, end_screen, color);
+fn draw_line(gizmos: &mut Gizmos, start: (f32, f32), end: (f32, f32), color: Color) {
+    gizmos.line_2d(start.into(), end.into(), color);
 }
 
 /// Draw a rectangle outline in design space
-fn draw_rect(
-    gizmos: &mut Gizmos,
-    viewport: &ViewPort,
-    top_left: (f32, f32),
-    bottom_right: (f32, f32),
-    color: Color,
-) {
-    let tl_screen = viewport.to_screen(DPoint::from(top_left));
-    let br_screen = viewport.to_screen(DPoint::from(bottom_right));
-
-    // Draw the rectangle outline (four lines)
-    gizmos.line_2d(
-        Vec2::new(tl_screen.x, tl_screen.y),
-        Vec2::new(br_screen.x, tl_screen.y),
-        color,
-    );
-    gizmos.line_2d(
-        Vec2::new(br_screen.x, tl_screen.y),
-        Vec2::new(br_screen.x, br_screen.y),
-        color,
-    );
-    gizmos.line_2d(
-        Vec2::new(br_screen.x, br_screen.y),
-        Vec2::new(tl_screen.x, br_screen.y),
-        color,
-    );
-    gizmos.line_2d(
-        Vec2::new(tl_screen.x, br_screen.y),
-        Vec2::new(tl_screen.x, tl_screen.y),
-        color,
-    );
+fn draw_rect(gizmos: &mut Gizmos, top_left: Vec2, bottom_right: (f32, f32), color: Color) {
+    let br: Vec2 = bottom_right.into();
+    gizmos.line_2d(top_left, Vec2::new(br.x, top_left.y), color);
+    gizmos.line_2d(Vec2::new(br.x, top_left.y), br, color);
+    gizmos.line_2d(br, Vec2::new(top_left.x, br.y), color);
+    gizmos.line_2d(Vec2::new(top_left.x, br.y), top_left, color);
 }

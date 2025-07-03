@@ -7,6 +7,7 @@ use crate::ui::panes::design_space::ViewPort;
 use crate::ui::theme::DEBUG_SHOW_ORIGIN_CROSS;
 use bevy::prelude::*;
 use norad::Glyph;
+use crate::rendering::cameras::DesignCamera;
 
 /// System that draws the debug origin cross and square
 pub fn draw_origin_cross(mut gizmos: Gizmos) {
@@ -40,36 +41,13 @@ pub fn draw_origin_cross(mut gizmos: Gizmos) {
 pub fn draw_metrics_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
-    viewports: Query<&ViewPort>,
     glyph_navigation: Res<GlyphNavigation>,
 ) {
-    // Early exit if no font is loaded
-    if app_state.workspace.font.glyphs.is_empty() {
-        return;
-    }
-
-    // Get viewport for coordinate transformations
-    let viewport = match viewports.get_single() {
-        Ok(viewport) => *viewport,
-        Err(_) => ViewPort::default(),
-    };
-
-    // Skip drawing if we're looking for a specific codepoint that wasn't found
+    if app_state.workspace.font.glyphs.is_empty() { return; }
     let codepoint_string = glyph_navigation.get_codepoint_string();
-    if !codepoint_string.is_empty() && !glyph_navigation.codepoint_found {
-        return;
-    }
-
-    // Find a glyph to use for metrics display
+    if !codepoint_string.is_empty() && !glyph_navigation.codepoint_found { return; }
     let glyph = find_glyph_for_metrics(&glyph_navigation, &app_state);
-    
-    // Draw the metrics using the found or placeholder glyph
-    draw_metrics(
-        &mut gizmos,
-        &viewport,
-        &glyph,
-        &app_state.workspace.info.metrics,
-    );
+    draw_metrics(&mut gizmos, &glyph, &app_state.workspace.info.metrics);
 }
 
 /// Finds the best glyph to use for determining the width of metric lines
@@ -102,16 +80,16 @@ fn create_placeholder_glyph(
     placeholder
 }
 
-/// Draws the actual metric lines using the glyph and viewport
+/// Draws the actual metric lines using the glyph
 #[allow(dead_code)]
 fn draw_metrics(
     gizmos: &mut Gizmos,
-    viewport: &ViewPort,
     glyph: &Glyph,
     metrics: &FontMetrics,
 ) {
-    // Use the shared metrics rendering function
-    crate::rendering::metrics::draw_metrics_at_position(gizmos, viewport, glyph, metrics, Vec2::ZERO);
+    crate::rendering::metrics::draw_metrics_at_position(
+        gizmos, glyph, metrics, Vec2::ZERO, crate::ui::theme::METRICS_GUIDE_COLOR
+    );
 }
 
 /// Event for signaling app state changes that might affect rendering

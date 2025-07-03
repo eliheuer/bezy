@@ -26,12 +26,11 @@ impl Plugin for CameraPlugin {
 
 pub fn setup_camera(mut commands: Commands) {
     // Create a 2D camera with proper configuration positioned to view font design space
-    // Center the camera vertically on typical font metrics (between ascender and descender)
-    // Typical font metrics: ascender ~800, descender ~-800, so center at ~0
-    // But since our glyphs are positioned at y ≈ -900, center the camera there
-    let camera_center_y = -900.0; // Center on typical glyph position
+    // Center the camera at (0,0) in design space for simplicity
+    // This makes the design space origin appear at the center of the screen
+    let camera_center_y = 0.0; // Center on design space origin
     
-    info!("Setting up camera at y={} to center on glyph area", camera_center_y);
+    info!("Setting up camera at y={} to center on design space origin", camera_center_y);
     
     commands.spawn((
         Camera2d,

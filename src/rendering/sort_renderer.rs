@@ -6,6 +6,7 @@
 
 use crate::editing::sort::{Sort, ActiveSort, InactiveSort};
 use crate::core::state::{AppState, FontMetrics};
+use crate::rendering::cameras::DesignCamera;
 
 use crate::ui::theme::{SORT_ACTIVE_METRICS_COLOR, SORT_INACTIVE_METRICS_COLOR, MONO_FONT_PATH};
 use bevy::prelude::*;
@@ -29,35 +30,18 @@ pub struct SortUnicodeText {
 pub fn render_sorts_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
-    viewports: Query<&crate::ui::panes::design_space::ViewPort>,
     _sorts_query: Query<&Sort>,
     active_sorts_query: Query<(Entity, &Sort), With<ActiveSort>>,
     inactive_sorts_query: Query<&Sort, With<InactiveSort>>,
-    mut app_state_events: EventReader<crate::editing::selection::systems::AppStateChanged>,
 ) {
-    // Only log when we actually receive AppStateChanged events (not every frame)
-    let event_count = app_state_events.len();
-    if event_count > 0 {
-        info!("🎨 SORT RENDERER: Received {} AppStateChanged events - updating glyph rendering", event_count);
-        // Consume the events
-        for _ in app_state_events.read() {}
-    }
-    // Get viewport for coordinate transformations
-    let viewport = match viewports.single() {
-        Ok(viewport) => *viewport,
-        Err(_) => crate::ui::panes::design_space::ViewPort::default(),
-    };
-
     let font_metrics = &app_state.workspace.info.metrics;
 
-    // Render inactive sorts as metrics boxes with glyph outlines
     for sort in inactive_sorts_query.iter() {
-        render_inactive_sort(&mut gizmos, &viewport, sort, font_metrics, &app_state);
+        render_inactive_sort(&mut gizmos, sort, font_metrics, &app_state);
     }
 
-    // Render active sorts with full outline detail
     for (_entity, sort) in active_sorts_query.iter() {
-        render_active_sort(&mut gizmos, &viewport, sort, font_metrics, &app_state);
+        render_active_sort(&mut gizmos, sort, font_metrics, &app_state);
     }
 }
 
@@ -250,8 +234,6 @@ fn calculate_glyph_name_transform(sort: &Sort, font_metrics: &FontMetrics, viewp
     Transform::from_translation(Vec3::new(screen_point.x, screen_point.y, 10.0)) // Higher Z to render above sorts
 }
 
-
-
 /// Get the unicode value for a given glyph name
 fn get_unicode_for_glyph(glyph_name: &str, app_state: &AppState) -> Option<String> {
     if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
@@ -267,37 +249,19 @@ fn get_unicode_for_glyph(glyph_name: &str, app_state: &AppState) -> Option<Strin
 /// Render an inactive sort with metrics box and glyph outline only
 fn render_inactive_sort(
     gizmos: &mut Gizmos,
-    viewport: &crate::ui::panes::design_space::ViewPort,
     sort: &Sort,
     font_metrics: &FontMetrics,
     app_state: &AppState,
 ) {
-    // Get the glyph from our internal data
-    let glyph = app_state.workspace.font.glyphs.get(&sort.glyph_name);
-
-    if let Some(glyph) = glyph {
-        // Convert our internal glyph data to norad format for metrics rendering
-        let norad_glyph = glyph.to_norad_glyph();
-        
-        // First render the metrics box using the inactive color and proper viewport
-        crate::rendering::metrics::draw_metrics_at_position_with_color(
-            gizmos,
-            viewport,
-            &norad_glyph,
-            font_metrics,
-            sort.position,
-            SORT_INACTIVE_METRICS_COLOR,
+    if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
+        let norad_glyph = glyph_data.to_norad_glyph();
+        crate::rendering::metrics::draw_metrics_at_position(
+            gizmos, &norad_glyph, font_metrics, sort.position, SORT_INACTIVE_METRICS_COLOR
         );
-        
-        // Then render only the glyph outline (no control handles) if it exists
-        if let Some(outline) = &glyph.outline {
-            // Draw only the path, no control handles for inactive sorts
-            for contour in outline.contours.iter() {
+        if let Some(outline_data) = &glyph_data.outline {
+            for contour in &outline_data.contours {
                 crate::rendering::glyph_outline::draw_contour_path_at_position(
-                    gizmos,
-                    viewport,
-                    contour,
-                    sort.position,
+                    gizmos, contour, sort.position
                 );
             }
         }
@@ -307,43 +271,21 @@ fn render_inactive_sort(
 /// Render an active sort with full glyph outline and control handles
 fn render_active_sort(
     gizmos: &mut Gizmos,
-    viewport: &crate::ui::panes::design_space::ViewPort,
     sort: &Sort,
     font_metrics: &FontMetrics,
     app_state: &AppState,
 ) {
-    // Get the glyph from our internal data
-    let glyph = app_state.workspace.font.glyphs.get(&sort.glyph_name);
-
-    if let Some(glyph) = glyph {
-        // Convert our internal glyph data to norad format for metrics rendering
-        let norad_glyph = glyph.to_norad_glyph();
-        
-        // First render the metrics box using the active color and proper viewport
-        crate::rendering::metrics::draw_metrics_at_position_with_color(
-            gizmos,
-            viewport,
-            &norad_glyph,
-            font_metrics,
-            sort.position,
-            SORT_ACTIVE_METRICS_COLOR,
+    if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
+        let norad_glyph = glyph_data.to_norad_glyph();
+        crate::rendering::metrics::draw_metrics_at_position(
+            gizmos, &norad_glyph, font_metrics, sort.position, SORT_ACTIVE_METRICS_COLOR
         );
-        
-        // Then render the full glyph outline with control handles if it exists
-        if let Some(outline) = &glyph.outline {
+        if let Some(outline) = &glyph_data.outline {
             crate::rendering::glyph_outline::draw_glyph_outline_at_position(
-                gizmos,
-                viewport,
-                outline,
-                sort.position,
+                gizmos, &glyph_data.outline, sort.position
             );
-            
-            // Also render the glyph points (on-curve and off-curve)
             crate::rendering::glyph_outline::draw_glyph_points_at_position(
-                gizmos,
-                viewport,
-                outline,
-                sort.position,
+                gizmos, outline, sort.position
             );
         }
     }

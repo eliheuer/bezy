@@ -410,7 +410,6 @@ pub fn handle_text_mode_sort_placement(
     };
 
     let sort_position = snapped_position; // SIMPLIFIED: no offset
-    let raw_pos = pointer_info.design.to_raw();
 
     info!(
         "DEBUG: pointer_info.design = ({:.2}, {:.2}), snapped_position = ({:.2}, {:.2}), sort_position = ({:.2}, {:.2})",
@@ -464,96 +463,24 @@ pub fn render_sort_preview(
     current_placement_mode: Res<CurrentTextPlacementMode>,
     glyph_navigation: Res<GlyphNavigation>,
     app_state: Res<AppState>,
-    viewport: Res<crate::ui::panes::design_space::ViewPort>,
-    ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
     pointer_info: Res<crate::core::pointer::PointerInfo>,
     camera_query: Query<&Projection, With<DesignCamera>>,
 ) {
-    if !text_mode_active.0 {
-        return;
-    }
-    if current_placement_mode.0 == TextPlacementMode::Insert {
-        return;
-    }
-    if ui_hover_state.is_hovering_ui {
-        return;
-    }
-    let zoom_scale = match camera_query.single() {
-        Ok(Projection::Orthographic(ortho)) => ortho.scale,
-        _ => 1.0,
-    };
+    if !text_mode_active.0 || current_placement_mode.0 == TextPlacementMode::Insert { return; }
+
+    let zoom_scale = if let Ok(Projection::Orthographic(ortho)) = camera_query.single() { ortho.scale } else { 1.0 };
     let grid_size = calculate_dynamic_grid_size(zoom_scale);
-    let raw_pos = pointer_info.design.to_raw();
-    let snapped_position = (raw_pos / grid_size).round() * grid_size;
-    // SIMPLIFIED: preview is at snapped_position, no offset
-    let sort_preview_pos = snapped_position;
-    let handle_preview_pos = snapped_position;
-    // Debug logging and visual debug helpers
-    info!(
-        "DEBUG: [PREVIEW] pointer raw = ({:.1}, {:.1}), snapped = ({:.1}, {:.1}), sort_pos = ({:.1}, {:.1}), grid_size = {:.1}",
-        raw_pos.x, raw_pos.y, snapped_position.x, snapped_position.y, sort_preview_pos.x, sort_preview_pos.y, grid_size
-    );
-    use bevy::prelude::Color;
-    // Green circle shows where the sort will be placed (baseline)
-    gizmos.circle_2d(sort_preview_pos, 16.0, Color::srgb(0.0, 1.0, 0.0));
-    // Red circle shows where the handle will be (at clicked position)
-    gizmos.circle_2d(handle_preview_pos, 8.0, Color::srgb(1.0, 0.0, 0.0));
-    info!(
-        "Preview system: text_mode_active={}, placement_mode={:?}, ui_hovering={}, sort_preview_pos=({:.1}, {:.1})",
-        text_mode_active.0, current_placement_mode.0, ui_hover_state.is_hovering_ui, sort_preview_pos.x, sort_preview_pos.y
-    );
+    let snapped_position = (pointer_info.design.to_raw() / grid_size).round() * grid_size;
     
     let preview_color = Color::srgb(1.0, 0.5, 0.0).with_alpha(0.8);
     if let Some(glyph_name) = &glyph_navigation.current_glyph {
-        info!("Preview: Found glyph name '{}'", glyph_name);
         if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
-            info!("Preview: Found glyph data for '{}'", glyph_name);
-            if let Some(outline_data) = &glyph_data.outline {
-                info!(
-                    "Preview: Found outline data with {} contours for '{}'",
-                    outline_data.contours.len(), glyph_name
-                );
-                let norad_glyph = glyph_data.to_norad_glyph();
-                crate::rendering::glyph_outline::draw_glyph_outline_at_position(
-                    &mut gizmos,
-                    &viewport,
-                    outline_data,
-                    sort_preview_pos,
-                );
-                crate::rendering::metrics::draw_metrics_at_position_with_color(
-                    &mut gizmos,
-                    &viewport,
-                    &norad_glyph,
-                    &app_state.workspace.info.metrics,
-                    sort_preview_pos,
-                    preview_color,
-                );
-            } else {
-                info!("Preview: No outline data for glyph '{}'", glyph_name);
-            }
-        } else {
-            info!("Preview: No glyph data found for '{}'", glyph_name);
-        }
-    } else {
-        info!("Preview: No current glyph name");
-    }
-    // The handle preview is already calculated as handle_preview_pos (at the clicked position)
-    let handle_screen_pos = viewport.to_screen(
-        crate::ui::panes::design_space::DPoint::from(handle_preview_pos)
-    );
-    gizmos.circle_2d(
-        handle_screen_pos,
-        8.0,
-        preview_color,
-    );
-    static mut FRAME_COUNT: u32 = 0;
-    unsafe {
-        FRAME_COUNT += 1;
-        let frame = FRAME_COUNT;
-        if frame % 60 == 0 {
-            info!(
-                "Preview handle: cursor=({:.1}, {:.1}), handle=({:.1}, {:.1}), sort_pos=({:.1}, {:.1})",
-                pointer_info.design.x, pointer_info.design.y, handle_preview_pos.x, handle_preview_pos.y, sort_preview_pos.x, sort_preview_pos.y
+            let norad_glyph = glyph_data.to_norad_glyph();
+            crate::rendering::glyph_outline::draw_glyph_outline_at_position(
+                &mut gizmos, &glyph_data.outline, snapped_position
+            );
+            crate::rendering::metrics::draw_metrics_at_position(
+                &mut gizmos, &norad_glyph, &app_state.workspace.info.metrics, snapped_position, preview_color
             );
         }
     }
