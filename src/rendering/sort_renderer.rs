@@ -46,6 +46,7 @@ pub fn render_sorts_system(
                 glyph_data.advance_width as f32,
                 font_metrics,
                 sort.position,
+                SORT_INACTIVE_METRICS_COLOR,
                 SortRenderStyle::Freeform,
             );
         }
@@ -59,6 +60,7 @@ pub fn render_sorts_system(
                 glyph_data.advance_width as f32,
                 font_metrics,
                 sort.position,
+                SORT_ACTIVE_METRICS_COLOR,
                 SortRenderStyle::Freeform,
             );
         }

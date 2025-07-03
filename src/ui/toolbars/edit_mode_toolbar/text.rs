@@ -21,6 +21,7 @@ use crate::rendering::cameras::DesignCamera;
 use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
 use crate::ui::theme::*;
 use crate::rendering::checkerboard::calculate_dynamic_grid_size;
+use crate::ui::theme::SORT_ACTIVE_METRICS_COLOR;
 
 // --------- Resources, Structs, Enums -----------
 
@@ -492,7 +493,7 @@ pub fn render_sort_preview(
             
             // Draw metrics if available
             crate::rendering::metrics::draw_metrics_at_position(
-                &mut gizmos, glyph_data.advance_width as f32, &app_state.workspace.info.metrics, snapped_position, preview_color
+                &mut gizmos, glyph_data.advance_width as f32, &app_state.workspace.info.metrics, snapped_position, SORT_ACTIVE_METRICS_COLOR
             );
         }
     }

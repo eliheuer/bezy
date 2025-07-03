@@ -16,6 +16,7 @@ use crate::geometry::point::{EditPoint, EntityId, EntityKind};
 use kurbo::Point;
 use crate::rendering::checkerboard::calculate_dynamic_grid_size;
 use crate::rendering::sort_visuals::{render_sort_visuals, SortRenderStyle};
+use crate::ui::theme::{SORT_ACTIVE_METRICS_COLOR, SORT_INACTIVE_METRICS_COLOR};
 
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -215,12 +216,18 @@ pub fn render_text_editor_sorts(
     for (i, entry) in text_editor_state.buffer.iter().enumerate() {
         if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&entry.glyph_name) {
             if let Some(position) = text_editor_state.get_sort_visual_position(i) {
+                let metrics_color = if entry.is_active {
+                    SORT_ACTIVE_METRICS_COLOR
+                } else {
+                    SORT_INACTIVE_METRICS_COLOR
+                };
                 render_sort_visuals(
                     &mut gizmos,
                     &glyph_data.outline,
                     glyph_data.advance_width as f32,
                     &app_state.workspace.info.metrics,
                     position,
+                    metrics_color,
                     SortRenderStyle::TextBuffer,
                 );
             }
