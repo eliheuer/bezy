@@ -442,4 +442,39 @@ app.add_plugins((
 **Why:**
 - These tests catch coordinate system bugs and selection logic regressions early.
 - They make refactoring and debugging safer and more transparent for LLMs and junior developers.
-- They provide a safety net for the marquee selection tool and all pointer-based interactions. 
+- They provide a safety net for the marquee selection tool and all pointer-based interactions.
+
+## Text Editor Architecture and the Backspace Bug
+
+Bezy's text editor is built on top of the "sorts" system. Each glyph in a line of text is a `Sort` entity. These sorts are stored in a single, contiguous buffer (`SortBuffer`) which is implemented as a **gap buffer**. This data structure is optimized for fast insertions and deletions at a specific point (the "gap" or cursor).
+
+### Key Concepts
+
+*   **`TextEditorState`**: The high-level resource that manages the editor. It tracks things like the active line of text.
+*   **Buffer Roots (`is_buffer_root`)**: Because all text for all lines lives in one flat buffer, we need a way to distinguish where one line of text ends and another begins. The first sort in a line of text has its `is_buffer_root` flag set to `true`. All subsequent sorts in that line do not.
+*   **Per-Root Cursor (`buffer_cursor_position`)**: Instead of a single global cursor, the cursor's position is stored on the active buffer root. This is an integer representing the cursor's position within that specific line of text (e.g., 0 is the beginning, 5 is after the 5th character).
+*   **Gap Buffer (`SortBuffer`)**: A specialized vector that keeps an empty "gap" at the cursor's position. Inserting a character is fast because it just fills a slot in the gap. Deleting is fast because it just widens the gap. Moving the cursor involves moving the gap itself, which is a fast memory copy.
+
+### The Backspace Bug: A Cascade Failure
+
+A very tricky bug caused backspace to delete the wrong character. It appeared to be an off-by-one error in the backspace logic, but the true root cause was deeper, demonstrating how a low-level bug can cause confusing high-level symptoms.
+
+1.  **The Real Bug: Flawed `SortBuffer::delete` Method**: The fundamental bug was in the `SortBuffer`'s `delete` method. When asked to delete the element at a specific index, its internal gap-buffer logic was incorrectly written to delete the element at `index - 1` instead.
+2.  **Symptom 1: Flawed `get_buffer_sequence_length`**: Because the buffer was behaving unpredictably, the function to calculate the length of a text line was also written incorrectly, leading to an inaccurate understanding of the line's length.
+3.  **Symptom 2: Flawed `insert_sort_at_cursor`**: With an incorrect line length, the logic for inserting new characters was also flawed, placing new sorts at the wrong physical index within the flat buffer.
+4.  **The Final Symptom: Incorrect Backspace**: The high-level `delete_sort_at_cursor` function was acting on bad data from the start. The cursor position it received was often wrong, and even when it was right, the underlying `SortBuffer::delete` call would fail. This led to the seemingly random "delete the character to the left of the one I wanted" behavior.
+
+### The Fix
+
+The bug was resolved by fixing the entire cascade, from the bottom up:
+
+1.  **Corrected `SortBuffer::delete`**: The gap buffer's deletion logic was completely rewritten to correctly "swallow" the element at the specified index.
+2.  **Corrected `get_buffer_sequence_length`**: With the buffer now reliable, the length calculation was fixed to properly account for buffer roots and placeholder characters.
+3.  **Corrected `insert_sort_at_cursor`**: With length and deletion fixed, the insertion logic was corrected to place new characters at the correct physical buffer index.
+4.  **Simplified `delete_sort_at_cursor`**: Finally, with the underlying system now trustworthy, the high-level backspace logic was simplified to a standard, easy-to-understand implementation that correctly identifies and deletes the glyph to the left of the cursor.
+
+This experience serves as a critical lesson: when high-level behavior is erratic, investigate the lowest-level data structures and primitives first. A small bug in a core data structure will create baffling and seemingly unrelated bugs in every system that uses it.
+
+---
+
+[//]: # (This is the end of the file, please append above this line) 
