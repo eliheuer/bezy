@@ -260,19 +260,17 @@ impl SortBuffer {
         if index >= self.len() {
             return None;
         }
-        
-        // Move gap to deletion point
+
+        // Move the start of the gap to the deletion index.
         self.move_gap_to(index);
+
+        // The element to be deleted is now at the end of the gap.
+        // We "delete" it by incrementing the gap's end, effectively swallowing the element.
+        let deleted_item = self.buffer[self.gap_end].clone();
+        self.buffer[self.gap_end] = SortEntry::default(); // Clear the old slot
+        self.gap_end += 1;
         
-        // The element to delete is now just before the gap
-        if self.gap_start > 0 {
-            self.gap_start -= 1;
-            let deleted = self.buffer[self.gap_start].clone();
-            self.buffer[self.gap_start] = SortEntry::default();
-            Some(deleted)
-        } else {
-            None
-        }
+        Some(deleted_item)
     }
     
     /// Grow the gap when it gets too small
@@ -817,183 +815,68 @@ impl TextEditorState {
     
     /// Insert a new sort at the cursor position (for typing)
     pub fn insert_sort_at_cursor(&mut self, glyph_name: String, advance_width: f32) {
-        // Find an active buffer root using more robust logic
-        let mut buffer_root_index = None;
-        let mut cursor_pos_in_buffer = 0;
-        
-        // FIXED: Use more robust logic to find active buffer root
-        // First try to find a selected buffer root
-        for i in 0..self.buffer.len() {
-            if let Some(sort) = self.buffer.get(i) {
-                if sort.is_buffer_root && sort.is_selected {
-                    buffer_root_index = Some(i);
-                    cursor_pos_in_buffer = sort.buffer_cursor_position.unwrap_or(0);
-                    break;
-                }
-            }
-        }
-        
-        // If no selected buffer root found, look for any buffer root with a cursor position
-        if buffer_root_index.is_none() {
-            for i in 0..self.buffer.len() {
-                if let Some(sort) = self.buffer.get(i) {
-                    if sort.is_buffer_root && sort.buffer_cursor_position.is_some() {
-                        buffer_root_index = Some(i);
-                        cursor_pos_in_buffer = sort.buffer_cursor_position.unwrap_or(0);
-                        break;
-                    }
-                }
-            }
-        }
-        
-        // If still no buffer root found, look for the most recently added buffer root
-        if buffer_root_index.is_none() {
-            for i in (0..self.buffer.len()).rev() {
-                if let Some(sort) = self.buffer.get(i) {
-                    if sort.is_buffer_root {
-                        buffer_root_index = Some(i);
-                        cursor_pos_in_buffer = 0; // Start at beginning if no cursor position set
-                        // Set the cursor position on this buffer root
-                        break;
-                    }
-                }
-            }
-        }
-        
-        if let Some(root_index) = buffer_root_index {
-            // We have an active buffer root - handle insertion within this buffer sequence
-            let actual_insert_position = root_index + cursor_pos_in_buffer;
-            
-            // Check if we're replacing an empty buffer root
-            if cursor_pos_in_buffer == 0 {
-                if let Some(root_sort) = self.buffer.get(root_index) {
-                    if root_sort.glyph_name.is_empty() && root_sort.is_buffer_root {
-                        // Clear all states first
-                        self.clear_all_states();
-                        
-                        // Replace the empty buffer root with the typed character
-                        if let Some(sort) = self.buffer.get_mut(root_index) {
-                            sort.glyph_name = glyph_name.clone();
-                            sort.advance_width = advance_width;
-                            sort.is_active = true;
-                            sort.is_selected = true;
-                            // Update cursor position within this buffer
-                            sort.buffer_cursor_position = Some(1);
-                        }
-                        info!("Replaced empty buffer root with '{}' and activated it, cursor now at position 1", glyph_name);
-                        return;
-                    }
-                }
-            }
-            
-            // Calculate position for the new sort based on text flow from buffer root
-            let buffer_root_position = self.buffer.get(root_index)
-                .map(|sort| sort.freeform_position)
-                .unwrap_or(Vec2::ZERO);
-            
-            // Calculate cumulative advance width up to cursor position
-            let mut x_offset = 0.0;
-            for i in 0..cursor_pos_in_buffer {
-                let sort_index = root_index + i;
-                if let Some(sort) = self.buffer.get(sort_index) {
-                    if sort.layout_mode == SortLayoutMode::Text && !sort.glyph_name.is_empty() {
-                        x_offset += sort.advance_width;
-                    }
-                }
-            }
-            
-            let new_position = buffer_root_position + Vec2::new(x_offset, 0.0);
-            
+        if let Some(root_index) = self.find_active_buffer_root_index() {
+            let cursor_pos_in_buffer = self.buffer.get(root_index)
+                .and_then(|rs| rs.buffer_cursor_position)
+                .unwrap_or(0);
+
             let new_sort = SortEntry {
-                glyph_name: glyph_name.clone(),
+                glyph_name,
                 advance_width,
-                is_active: false,
-                is_selected: false,
                 layout_mode: SortLayoutMode::Text,
-                freeform_position: new_position,
-                buffer_index: Some(actual_insert_position),
-                is_buffer_root: false,
-                buffer_cursor_position: None,
+                ..Default::default()
             };
-            
-            // Insert the new sort
-            self.buffer.insert(actual_insert_position, new_sort);
-            
-            // Update the buffer root's cursor position
+
+            // If the buffer root is an empty placeholder, the new sort replaces it.
+            if let Some(root_sort) = self.buffer.get(root_index) {
+                if root_sort.is_buffer_root && root_sort.glyph_name.is_empty() {
+                    if let Some(root_sort_mut) = self.buffer.get_mut(root_index) {
+                        *root_sort_mut = new_sort;
+                        root_sort_mut.is_buffer_root = true;
+                        root_sort_mut.is_active = true;
+                        root_sort_mut.is_selected = true;
+                        root_sort_mut.buffer_cursor_position = Some(1);
+                    }
+                    return;
+                }
+            }
+
+            // Otherwise, insert the new sort at the correct physical index in the buffer.
+            let insert_buffer_index = root_index + cursor_pos_in_buffer;
+            self.buffer.insert(insert_buffer_index, new_sort);
+
+            // Update the cursor position in the root.
             if let Some(root_sort) = self.buffer.get_mut(root_index) {
                 root_sort.buffer_cursor_position = Some(cursor_pos_in_buffer + 1);
             }
-            
-            info!("Inserted '{}' at buffer position {}, cursor now at position {}", 
-                  glyph_name, actual_insert_position, cursor_pos_in_buffer + 1);
         } else {
-            // No active buffer root found - this shouldn't happen in normal typing flow
-            warn!("No active buffer root found for typing - this should not happen");
+            // No active text buffer, so create a new one with this character.
+            self.create_text_root_with_glyph(glyph_name, advance_width);
         }
     }
     
     /// Delete the sort at the cursor position
     pub fn delete_sort_at_cursor(&mut self) {
-        // FIXED: Use per-buffer-root cursor system instead of global cursor position
-        // Find the active buffer root and delete from its cursor position
-        let mut buffer_root_index = None;
-        let mut cursor_pos_in_buffer = 0;
-        
-        // Find active buffer root using the same logic as insert_sort_at_cursor
-        for i in 0..self.buffer.len() {
-            if let Some(sort) = self.buffer.get(i) {
-                if sort.is_buffer_root && sort.is_selected {
-                    buffer_root_index = Some(i);
-                    cursor_pos_in_buffer = sort.buffer_cursor_position.unwrap_or(0);
-                    break;
-                }
+        if let Some(root_index) = self.find_active_buffer_root_index() {
+            let cursor_pos_in_buffer = self.buffer.get(root_index)
+                .and_then(|rs| rs.buffer_cursor_position)
+                .unwrap_or(0);
+
+            // Backspace does nothing if the cursor is at the beginning of the line.
+            if cursor_pos_in_buffer == 0 {
+                // We could implement joining with a previous line here in the future.
+                return;
             }
-        }
-        
-        if buffer_root_index.is_none() {
-            for i in 0..self.buffer.len() {
-                if let Some(sort) = self.buffer.get(i) {
-                    if sort.is_buffer_root && sort.buffer_cursor_position.is_some() {
-                        buffer_root_index = Some(i);
-                        cursor_pos_in_buffer = sort.buffer_cursor_position.unwrap_or(0);
-                        break;
-                    }
-                }
-            }
-        }
-        
-        if buffer_root_index.is_none() {
-            for i in (0..self.buffer.len()).rev() {
-                if let Some(sort) = self.buffer.get(i) {
-                    if sort.is_buffer_root {
-                        buffer_root_index = Some(i);
-                        cursor_pos_in_buffer = 0;
-                        break;
-                    }
-                }
-            }
-        }
-        
-        if let Some(root_index) = buffer_root_index {
-            if cursor_pos_in_buffer > 0 {
-                let delete_position = root_index + cursor_pos_in_buffer - 1;
-                if delete_position < self.buffer.len() {
-                    self.buffer.delete(delete_position);
-                    // Update the buffer root's cursor position
-                    if let Some(root_sort) = self.buffer.get_mut(root_index) {
-                        root_sort.buffer_cursor_position = Some(cursor_pos_in_buffer - 1);
-                    }
-                    info!("Deleted sort at position {}, cursor now at position {}", 
-                          delete_position, cursor_pos_in_buffer - 1);
-                }
-            } else {
-                // At position 0 - check if this is an empty buffer root we can delete
-                if let Some(root_sort) = self.buffer.get(root_index) {
-                    if root_sort.glyph_name.is_empty() && root_sort.is_buffer_root {
-                        self.buffer.delete(root_index);
-                        info!("Deleted empty buffer root at position {}", root_index);
-                    }
-                }
+
+            // A cursor at text position `k` is to the right of the glyph at `k-1`.
+            // Backspace deletes the glyph to the left, which is at buffer index `root_index + k - 1`.
+            let delete_buffer_index = root_index + cursor_pos_in_buffer - 1;
+
+            self.buffer.delete(delete_buffer_index);
+
+            // Update cursor position in the root
+            if let Some(root_sort) = self.buffer.get_mut(root_index) {
+                root_sort.buffer_cursor_position = Some(cursor_pos_in_buffer - 1);
             }
         }
     }
@@ -1134,20 +1017,46 @@ impl TextEditorState {
         let mut length = 0;
         for i in root_index..self.buffer.len() {
             if let Some(sort) = self.buffer.get(i) {
-                if sort.layout_mode == SortLayoutMode::Text {
-                    if i == root_index || !sort.is_buffer_root {
-                        length += 1;
-                    } else {
-                        // Hit another buffer root, stop counting
-                        break;
-                    }
-                } else {
-                    // Hit a freeform sort, stop counting
+                // A text sequence ends when we hit another buffer root or a non-text sort.
+                if (i > root_index && sort.is_buffer_root) || sort.layout_mode != SortLayoutMode::Text {
                     break;
                 }
+
+                // The root placeholder doesn't count towards the string's length.
+                if i == root_index && sort.glyph_name.is_empty() {
+                    continue;
+                }
+
+                length += 1;
+            } else {
+                // End of the main buffer.
+                break;
             }
         }
         length
+    }
+
+    pub fn create_text_root_with_glyph(&mut self, glyph_name: String, advance_width: f32) {
+        // For now, create the new text root at a default position.
+        // TODO: This should be based on the mouse cursor or some other context.
+        let world_position = Vec2::new(500.0, 0.0);
+
+        self.clear_all_states();
+
+        let new_root = SortEntry {
+            glyph_name,
+            advance_width,
+            is_active: true,
+            is_selected: true,
+            layout_mode: SortLayoutMode::Text,
+            freeform_position: world_position,
+            is_buffer_root: true,
+            buffer_cursor_position: Some(1), // Cursor is after the typed character.
+            ..Default::default()
+        };
+
+        let insert_index = self.buffer.len();
+        self.buffer.insert(insert_index, new_root);
     }
 }
 

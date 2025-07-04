@@ -354,11 +354,10 @@ pub fn handle_text_editor_keyboard_input(
         }
         
         if keyboard_input.just_pressed(KeyCode::Backspace) {
-            if text_editor_state.cursor_position > 0 {
-                text_editor_state.move_cursor_left();
-                text_editor_state.delete_sort_at_cursor();
-                info!("Insert mode: backspaced sort at cursor position");
-            }
+            // The delete_sort_at_cursor function handles all logic,
+            // including checking if deletion is possible and moving the cursor.
+            text_editor_state.delete_sort_at_cursor();
+            info!("Insert mode: backspace pressed");
         }
     }
     
