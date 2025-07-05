@@ -1,13 +1,15 @@
 //! # Edit Mode Toolbar Module
 //!
-//! This is the main module for the edit mode toolbar system, which provides a comprehensive
-//! tool switching interface for graphics and design applications. It orchestrates all the
+//! This is the main module for the edit mode toolbar system, which provides a 
+//! comprehensive tool switching interface for graphics and design applications. 
+//! It orchestrates all the
 //! different editing modes and their associated UI components.
 //!
 //! ## Architecture Overview
 //!
-//! The module uses a dynamic tool registration system that allows tools to be easily added
-//! by simply implementing the `EditTool` trait and registering with the `ToolRegistry`.
+//! The module uses a dynamic tool registration system that allows tools to be 
+//! easily added by simply implementing the `EditTool` trait and registering with 
+//! the `ToolRegistry`.
 //!
 //! ### Core Components
 //! - **Tool Registry**: Dynamic registration system for edit tools
@@ -70,17 +72,20 @@
 //!    }
 //!    ```
 //!
-//! 2. **Add module declaration**: `mod my_tool;` and `pub use my_tool::MyToolPlugin;`
+//! 2. **Add module declaration**: `mod my_tool;` and 
+//!    `pub use my_tool::MyToolPlugin;`
 //!
 //! 3. **Register plugin**: `app.add_plugins(MyToolPlugin);`
 //!
-//! The tool automatically appears in the toolbar with proper ordering and functionality.
+//! The tool automatically appears in the toolbar with proper ordering and 
+//! functionality.
 //!
 //! ## Key Features
 //!
 //! - **Dynamic Registration**: Tools register themselves at runtime
 //! - **Configurable Ordering**: Control the order tools appear in the toolbar
-//! - **Temporary Modes**: Support for temporary mode activation (e.g., holding spacebar for pan)
+//! - **Temporary Modes**: Support for temporary mode activation (e.g., holding 
+//!   spacebar for pan)
 //! - **State Management**: Proper enter/exit lifecycle for each tool
 //! - **UI Integration**: Visual feedback and interactive toolbar
 //! - **Extensibility**: Easy to add new tools with minimal code changes
@@ -105,10 +110,18 @@ mod ui;
 mod temporary_mode;
 
 // Re-export the new tool system
-pub use ui::{handle_toolbar_mode_selection, spawn_edit_mode_toolbar, update_current_edit_mode};
-pub use temporary_mode::{handle_temporary_mode_switching, TemporaryModeState};
+pub use ui::{
+    handle_toolbar_mode_selection, 
+    spawn_edit_mode_toolbar, 
+    update_current_edit_mode
+};
+pub use temporary_mode::{
+    handle_temporary_mode_switching, 
+    TemporaryModeState
+};
 
-// Re-export legacy types for backward compatibility (commented out until UI is ported)
+// Re-export legacy types for backward compatibility (commented out until UI is 
+// ported)
 // pub use ui::{CurrentEditMode, EditMode};
 
 /// Unique identifier for an edit tool
@@ -404,7 +417,8 @@ pub struct ToolOrdering {
 }
 
 impl ToolOrdering {
-    /// Set a custom order for tools (tools not listed will use default ordering after these)
+    /// Set a custom order for tools (tools not listed will use default ordering 
+    /// after these)
     #[allow(dead_code)]
     pub fn set_order(&mut self, order: Vec<ToolId>) {
         self.custom_order = order;
