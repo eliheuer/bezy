@@ -175,6 +175,8 @@ pub enum InputMode {
     Knife,
     /// Shape tool mode
     Shape,
+    /// Metaballs tool mode
+    Metaballs,
     /// Hyper tool mode
     Hyper,
     /// Temporary mode

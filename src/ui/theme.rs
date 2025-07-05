@@ -220,6 +220,14 @@ pub const KNIFE_GAP_LENGTH: f32 = 4.0;
 #[allow(dead_code)]
 pub const KNIFE_CROSS_SIZE: f32 = 8.0;
 
+// Metaballs Configuration
+#[allow(dead_code)]
+pub const METABALL_GIZMO_COLOR: Color = Color::srgba(0.3, 0.7, 1.0, 0.6);
+#[allow(dead_code)]
+pub const METABALL_OUTLINE_COLOR: Color = Color::srgba(1.0, 1.0, 1.0, 1.0);
+#[allow(dead_code)]
+pub const METABALL_SELECTED_COLOR: Color = Color::srgba(1.0, 0.8, 0.0, 0.8);
+
 /// Creates a consistent styled container for UI widgets/panes
 ///
 /// Returns a bundle of components that can be used to spawn a widget with

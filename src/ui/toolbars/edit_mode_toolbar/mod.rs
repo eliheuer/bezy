@@ -93,6 +93,7 @@ use std::collections::HashMap;
 mod hyper;
 pub mod knife;
 mod measure;
+mod metaballs;
 mod pan;
 mod pen;
 mod shapes;
@@ -445,6 +446,7 @@ impl ToolOrdering {
 pub use hyper::HyperToolPlugin;
 pub use knife::{KnifeModeActive, KnifeToolPlugin};
 pub use measure::MeasureToolPlugin;
+pub use metaballs::MetaballsToolPlugin;
 pub use text::TextToolPlugin;
 
 // Legacy compatibility exports (will be removed after migration)
@@ -532,6 +534,7 @@ impl Plugin for EditModeToolbarPlugin {
             .add_plugins(ShapesToolPlugin)
             .add_plugins(knife::KnifeToolPlugin)
             .add_plugins(hyper::HyperToolPlugin)
+            .add_plugins(metaballs::MetaballsToolPlugin)
             
             .add_systems(PostStartup, (
                 spawn_edit_mode_toolbar,

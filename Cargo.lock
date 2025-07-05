@@ -1387,6 +1387,7 @@ dependencies = [
  "bevy_pancam",
  "clap",
  "console_error_panic_hook",
+ "contour-isobands",
  "env_logger",
  "kurbo 0.11.2",
  "log",
@@ -1761,6 +1762,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1aaf9b65849a68662ac6c0810c8893a765c960b907dd7cfab9c4a50bf764fbc"
 dependencies = [
  "const_soft_float",
+]
+
+[[package]]
+name = "contour-isobands"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26974550046afe18364b9b7352499bf650d98d304e22bd0598d148aada488b6a"
+dependencies = [
+ "geo-types",
+ "rustc-hash 1.1.0",
 ]
 
 [[package]]
@@ -2294,6 +2305,17 @@ dependencies = [
  "futures-io",
  "parking",
  "pin-project-lite",
+]
+
+[[package]]
+name = "geo-types"
+version = "0.7.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62ddb1950450d67efee2bbc5e429c68d052a822de3aad010d28b351fbb705224"
+dependencies = [
+ "approx",
+ "num-traits",
+ "serde",
 ]
 
 [[package]]
