@@ -65,7 +65,7 @@ pub struct MetaballGizmos {
 pub struct MetaballSettings {
     pub resolution: f32,
     pub threshold: f32,
-    pub smoothing: f32,
+    pub _smoothing: f32,
 }
 
 impl Default for MetaballSettings {
@@ -73,7 +73,7 @@ impl Default for MetaballSettings {
         Self {
             resolution: 0.5,
             threshold: 0.2,
-            smoothing: 0.1,
+            _smoothing: 0.1,
         }
     }
 }

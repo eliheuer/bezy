@@ -4,9 +4,9 @@ use bevy::prelude::*;
 #[allow(unused_imports)]
 use bevy::ui::prelude::*;
 
-// Font Path
+// Font Paths
 #[allow(dead_code)]
-pub const DEFAULT_FONT_PATH: &str = "fonts/bezy-grotesk-regular.ttf";
+pub const GROTESK_FONT_PATH: &str = "fonts/bezy-grotesk-regular.ttf";
 #[allow(dead_code)]
 pub const MONO_FONT_PATH: &str = "fonts/HasubiMono-Regular.ttf";
 
@@ -63,13 +63,9 @@ pub const TOOLBAR_BORDER_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
 pub const TOOLBAR_BORDER_RADIUS: f32 = 0.0;
 #[allow(dead_code)]
 pub const TOOLBAR_BORDER_WIDTH: f32 = 2.0;
-#[allow(dead_code)]
-pub const TOOLBAR_PADDING: f32 = 8.0;
-#[allow(dead_code)]
-pub const TOOLBAR_MARGIN: f32 = 16.0;
-#[allow(dead_code)]
-pub const TOOLBAR_ROW_GAP: f32 = 4.0;
-#[allow(dead_code)]
+
+pub const TOOLBAR_PADDING: f32 = 0.0;
+pub const TOOLBAR_CONTAINER_MARGIN: f32 = 16.0;
 pub const TOOLBAR_ITEM_SPACING: f32 = 4.0;
 
 // Window Configuration
@@ -81,32 +77,24 @@ pub const WINDOW_WIDTH: f32 = 1024.0;
 pub const WINDOW_HEIGHT: f32 = 768.0;
 
 // Button Colors
-#[allow(dead_code)]
-pub const NORMAL_BUTTON: Color = Color::srgb(0.1, 0.1, 0.1);
-#[allow(dead_code)]
-pub const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-#[allow(dead_code)]
-pub const PRESSED_BUTTON: Color = Color::srgb(1.0, 0.4, 0.0);
+pub const NORMAL_BUTTON_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
+pub const HOVERED_BUTTON_COLOR: Color = Color::srgb(0.25, 0.25, 0.25);
+pub const PRESSED_BUTTON_COLOR: Color = Color::srgb(1.0, 0.4, 0.0);
 
 // Button Outline Colors
-#[allow(dead_code)]
 pub const NORMAL_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
-#[allow(dead_code)]
 pub const HOVERED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
-#[allow(dead_code)]
 pub const PRESSED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(1.0, 0.8, 0.3);
-#[allow(dead_code)]
-pub const PRESSED_BUTTON_ICON_COLOR: Color = Color::srgb(1.0, 1.0, 1.0); // Pure white for active toolbar icons
+pub const PRESSED_BUTTON_ICON_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
+
+// Button Sizes
+pub const BUTTON_SIZE: f32 = 64.0;
+pub const BUTTON_ICON_SIZE: f32 = 48.0;
 
 // Glyph Point Rendering
-#[allow(dead_code)]
 pub const ON_CURVE_POINT_RADIUS: f32 = 4.0;
-#[allow(dead_code)]
 pub const OFF_CURVE_POINT_RADIUS: f32 = 4.0;
-
-#[allow(dead_code)]
 pub const ON_CURVE_POINT_COLOR: Color = Color::srgb(0.3, 1.0, 0.5);
-#[allow(dead_code)]
 pub const OFF_CURVE_POINT_COLOR: Color = Color::srgb(0.6, 0.4, 1.0);
 
 // Point Layout Details

@@ -112,6 +112,7 @@ mod temporary_mode;
 // Re-export the new tool system
 pub use ui::{
     handle_toolbar_mode_selection, 
+    update_toolbar_button_appearances,
     spawn_edit_mode_toolbar, 
     update_current_edit_mode
 };
@@ -557,20 +558,18 @@ impl Plugin for EditModeToolbarPlugin {
             ))
             .add_systems(
                 Update,
+                handle_temporary_mode_switching,
+            )
+            .add_systems(
+                Update,
                 (
-                    // Temporary mode switching (should run first to potentially change current mode)
-                    handle_temporary_mode_switching,
-                    // UI systems
                     handle_toolbar_mode_selection,
-                    update_current_edit_mode,
-                    // Shapes sub-menu systems (will be added when shapes is ported)
-                    // handle_primitive_selection,
-                    // toggle_shapes_submenu_visibility,
-                    // Mouse event handling for drawing shapes
-                    // handle_primitive_mouse_events,
-                    // Render the active shape while drawing
-                    // render_active_primitive_drawing,
+                    update_toolbar_button_appearances,
                 ),
+            )
+            .add_systems(
+                Update,
+                update_current_edit_mode,
             );
     }
 } 

@@ -288,9 +288,9 @@ pub fn spawn_coord_pane(
                                     ..default()
                                 },
                                 BackgroundColor(if is_selected {
-                                    PRESSED_BUTTON
+                                    PRESSED_BUTTON_COLOR
                                 } else {
-                                    NORMAL_BUTTON
+                                    NORMAL_BUTTON_COLOR
                                 }),
                                 BorderColor(if is_selected {
                                     PRESSED_BUTTON_OUTLINE_COLOR
@@ -376,11 +376,11 @@ fn handle_quadrant_buttons(
                 for (other_button, mut other_bg, mut other_border) in all_buttons.iter_mut() {
                     if other_button.0 == button.0 {
                         // This is the selected button
-                        *other_bg = BackgroundColor(PRESSED_BUTTON);
+                        *other_bg = BackgroundColor(PRESSED_BUTTON_COLOR);
                         *other_border = BorderColor(PRESSED_BUTTON_OUTLINE_COLOR);
                     } else {
                         // This is an unselected button
-                        *other_bg = BackgroundColor(NORMAL_BUTTON);
+                        *other_bg = BackgroundColor(NORMAL_BUTTON_COLOR);
                         *other_border = BorderColor(NORMAL_BUTTON_OUTLINE_COLOR);
                     }
                 }
@@ -390,7 +390,7 @@ fn handle_quadrant_buttons(
                     // Update this specific button's appearance
                     for (other_button, mut other_bg, mut other_border) in all_buttons.iter_mut() {
                         if other_button.0 == button.0 {
-                            *other_bg = BackgroundColor(HOVERED_BUTTON);
+                            *other_bg = BackgroundColor(HOVERED_BUTTON_COLOR);
                             *other_border = BorderColor(HOVERED_BUTTON_OUTLINE_COLOR);
                             break;
                         }
@@ -402,7 +402,7 @@ fn handle_quadrant_buttons(
                     // Update this specific button's appearance
                     for (other_button, mut other_bg, mut other_border) in all_buttons.iter_mut() {
                         if other_button.0 == button.0 {
-                            *other_bg = BackgroundColor(NORMAL_BUTTON);
+                            *other_bg = BackgroundColor(NORMAL_BUTTON_COLOR);
                             *other_border = BorderColor(NORMAL_BUTTON_OUTLINE_COLOR);
                             break;
                         }

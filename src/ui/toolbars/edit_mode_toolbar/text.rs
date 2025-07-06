@@ -206,8 +206,8 @@ fn spawn_text_mode_button(
                     ..default()
                 },
                 BorderRadius::all(Val::Px(TOOLBAR_BORDER_RADIUS)),
-                BorderColor(NORMAL_BUTTON_OUTLINE_COLOR),
-                BackgroundColor(NORMAL_BUTTON),
+                            BorderColor(NORMAL_BUTTON_OUTLINE_COLOR),
+            BackgroundColor(NORMAL_BUTTON_COLOR),
                 TextSubMenuButton,
                 TextModeButton { mode },
             ))
@@ -215,7 +215,7 @@ fn spawn_text_mode_button(
                 button.spawn((
                     Text::new(mode.get_icon().to_string()),
                     TextFont {
-                        font: asset_server.load(DEFAULT_FONT_PATH),
+                        font: asset_server.load(GROTESK_FONT_PATH),
                         font_size: 48.0,
                         ..default()
                     },
@@ -238,8 +238,8 @@ pub fn spawn_text_submenu(
     // Create the parent submenu node
     let submenu_node = Node {
         position_type: PositionType::Absolute,
-        top: Val::Px(TOOLBAR_MARGIN + 74.0),
-        left: Val::Px(TOOLBAR_MARGIN),
+        top: Val::Px(TOOLBAR_CONTAINER_MARGIN + 74.0),
+        left: Val::Px(TOOLBAR_CONTAINER_MARGIN),
         flex_direction: FlexDirection::Row,
         padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),
         margin: UiRect::all(Val::ZERO),
@@ -286,15 +286,15 @@ pub fn handle_text_mode_selection(
 
         match (*interaction, is_current_mode) {
             (Interaction::Pressed, _) | (_, true) => {
-                *color = PRESSED_BUTTON.into();
+                *color = PRESSED_BUTTON_COLOR.into();
                 border_color.0 = PRESSED_BUTTON_OUTLINE_COLOR;
             }
             (Interaction::Hovered, false) => {
-                *color = HOVERED_BUTTON.into();
+                *color = HOVERED_BUTTON_COLOR.into();
                 border_color.0 = HOVERED_BUTTON_OUTLINE_COLOR;
             }
             (Interaction::None, false) => {
-                *color = NORMAL_BUTTON.into();
+                *color = NORMAL_BUTTON_COLOR.into();
                 border_color.0 = NORMAL_BUTTON_OUTLINE_COLOR;
             }
         }
