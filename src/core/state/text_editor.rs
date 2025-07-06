@@ -1036,6 +1036,55 @@ impl TextEditorState {
         length
     }
 
+    /// Create a new line at the current cursor position
+    /// This splits the current line and creates a new buffer root below it
+    pub fn create_new_line(&mut self, font_metrics: &FontMetrics) {
+        // Find the current active buffer root
+        if let Some(current_root_index) = self.find_active_buffer_root_index() {
+            if let Some(current_root) = self.buffer.get(current_root_index) {
+                let current_position = current_root.freeform_position;
+                let _current_cursor_pos = current_root.buffer_cursor_position.unwrap_or(0);
+                
+                // Calculate the position for the new line using font metrics
+                // Line height = ascender - descender
+                let line_height = (font_metrics.ascender.unwrap_or(1024.0) - font_metrics.descender.unwrap_or(-256.0)) as f32;
+                let leading = 0.0; // As requested, leading = 0
+                let new_line_y = current_position.y - line_height - leading;
+                
+                // Create a new buffer root at the new line position
+                let new_root = SortEntry {
+                    glyph_name: String::new(), // Empty placeholder
+                    advance_width: 0.0,
+                    is_active: true,
+                    is_selected: true,
+                    layout_mode: SortLayoutMode::Text,
+                    freeform_position: Vec2::new(current_position.x, new_line_y),
+                    is_buffer_root: true,
+                    buffer_cursor_position: Some(0), // Cursor at beginning of new line
+                    ..Default::default()
+                };
+                
+                // Insert the new buffer root after the current one
+                let insert_index = current_root_index + 1;
+                self.buffer.insert(insert_index, new_root);
+                
+                // Deactivate the current buffer root
+                if let Some(current_root_mut) = self.buffer.get_mut(current_root_index) {
+                    current_root_mut.is_active = false;
+                    current_root_mut.is_selected = false;
+                }
+                
+                info!("Created new line at position ({:.1}, {:.1}) with line height {:.1}", 
+                      current_position.x, new_line_y, line_height);
+            }
+        } else {
+            // No active buffer root, create a new one at default position
+            let default_position = Vec2::new(500.0, 0.0);
+            self.create_text_root(default_position);
+            info!("Created new line at default position ({:.1}, {:.1})", default_position.x, default_position.y);
+        }
+    }
+
     pub fn create_text_root_with_glyph(&mut self, glyph_name: String, advance_width: f32) {
         // For now, create the new text root at a default position.
         // TODO: This should be based on the mouse cursor or some other context.

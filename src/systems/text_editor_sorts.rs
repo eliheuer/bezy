@@ -1151,6 +1151,12 @@ pub fn handle_unicode_text_input(
             text_editor_state.delete_sort_at_cursor();
             info!("Unicode input: backspace pressed");
         }
+        
+        // Enter key - create new line
+        if keyboard_input.just_pressed(KeyCode::Enter) {
+            text_editor_state.create_new_line(&app_state.workspace.info.metrics);
+            info!("Unicode input: created new line");
+        }
     }
     
     // Ctrl+T to create a new text buffer
