@@ -106,8 +106,8 @@ pub mod select;
 pub mod text;
 mod ui;
 
-// Add the temporary mode switching module
-mod temporary_mode;
+// Add the spacebar toggle module
+mod spacebar_toggle;
 
 // Re-export the new tool system
 pub use ui::{
@@ -116,9 +116,9 @@ pub use ui::{
     spawn_edit_mode_toolbar, 
     update_current_edit_mode
 };
-pub use temporary_mode::{
-    handle_temporary_mode_switching, 
-    TemporaryModeState
+pub use spacebar_toggle::{
+    handle_spacebar_toggle, 
+    SpacebarToggleState
 };
 
 // Re-export legacy types for backward compatibility (commented out until UI is 
@@ -148,7 +148,7 @@ pub type ToolId = &'static str;
 /// - `description()`: Tooltip text and help documentation
 /// - `on_enter()`: Setup when tool becomes active
 /// - `on_exit()`: Cleanup when switching away from tool
-/// - `supports_temporary_mode()`: Whether tool can be temporarily activated
+/// - `supports_temporary_mode()`: Whether tool can be temporarily activated via spacebar
 ///
 /// # Example Implementation
 ///
@@ -224,7 +224,7 @@ pub trait EditTool: Send + Sync + 'static {
     /// Called when switching away from this tool  
     fn on_exit(&self) {}
     
-    /// Whether this tool supports temporary activation (e.g., spacebar for pan)
+    /// Whether this tool supports temporary activation via spacebar (e.g., pan tool)
     #[allow(dead_code)]
     fn supports_temporary_mode(&self) -> bool { false }
 }
@@ -538,7 +538,7 @@ impl Plugin for EditModeToolbarPlugin {
             // .init_resource::<ActivePrimitiveDrawing>()  // Will be added when shapes is ported
             // .init_resource::<CurrentCornerRadius>()  // Will be added when shapes is ported
             // .init_resource::<UiInteractionState>()  // Will be added when shapes is ported
-            .init_resource::<TemporaryModeState>()
+            .init_resource::<SpacebarToggleState>()
             
             // Add tool plugins (they will register themselves)
             .add_plugins(SelectToolPlugin)
@@ -558,7 +558,7 @@ impl Plugin for EditModeToolbarPlugin {
             ))
             .add_systems(
                 Update,
-                handle_temporary_mode_switching,
+                handle_spacebar_toggle,
             )
             .add_systems(
                 Update,

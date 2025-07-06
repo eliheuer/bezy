@@ -1,6 +1,6 @@
-//! Temporary Mode Switching
+//! Spacebar Toggle for Temporary Tool Switching
 //!
-//! This module handles temporary mode switching using the spacebar key.
+//! This module handles temporary tool switching using the spacebar key.
 //! When spacebar is held down, the mode switches to Pan mode. When released,
 //! it switches back to the previous mode. This provides a better UX than
 //! the hybrid approach.
@@ -11,14 +11,16 @@ use crate::ui::toolbars::edit_mode_toolbar::text::{
 };
 use bevy::prelude::*;
 
-/// Resource to track temporary mode switching state
+/// Resource to track spacebar toggle state
 #[derive(Resource, Default)]
-pub struct TemporaryModeState {
+pub struct SpacebarToggleState {
     /// The tool that was active before switching to temporary mode
     pub previous_tool: Option<ToolId>,
-    /// Whether we're currently in temporary mode
+    /// Whether we're currently in temporary mode via spacebar
     pub in_temporary_mode: bool,
 }
+
+
 
 /// System to handle spacebar for temporary Pan mode switching
 ///
@@ -32,10 +34,10 @@ pub struct TemporaryModeState {
 /// **Special handling for text tool**: When the text tool is active and 
 /// in insert mode, spacebar is used for typing spaces and temporary 
 /// mode switching is disabled.
-pub fn handle_temporary_mode_switching(
+pub fn handle_spacebar_toggle(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut current_tool: ResMut<CurrentTool>,
-    mut temp_state: ResMut<TemporaryModeState>,
+    mut toggle_state: ResMut<SpacebarToggleState>,
     tool_registry: Res<ToolRegistry>,
     current_text_placement_mode: Option<Res<CurrentTextPlacementMode>>,
 ) {
@@ -55,14 +57,14 @@ pub fn handle_temporary_mode_switching(
     handle_spacebar_press(
         &keyboard,
         &mut current_tool,
-        &mut temp_state,
+        &mut toggle_state,
         &tool_registry,
     );
 
     handle_spacebar_release(
         &keyboard,
         &mut current_tool,
-        &mut temp_state,
+        &mut toggle_state,
         &tool_registry,
     );
 }
@@ -71,22 +73,22 @@ pub fn handle_temporary_mode_switching(
 fn handle_spacebar_press(
     keyboard: &Res<ButtonInput<KeyCode>>,
     current_tool: &mut ResMut<CurrentTool>,
-    temp_state: &mut ResMut<TemporaryModeState>,
+    toggle_state: &mut ResMut<SpacebarToggleState>,
     tool_registry: &Res<ToolRegistry>,
 ) {
-    if !keyboard.just_pressed(KeyCode::Space) || temp_state.in_temporary_mode {
+    if !keyboard.just_pressed(KeyCode::Space) || toggle_state.in_temporary_mode {
         return;
     }
 
     // Check if pan tool is available
     let Some(pan_tool) = tool_registry.get_tool("pan") else {
-        warn!("Pan tool not found in registry for temporary mode switching");
+        warn!("Pan tool not found in registry for spacebar toggle");
         return;
     };
 
     // Store the current tool and switch to Pan
-    temp_state.previous_tool = current_tool.get_current();
-    temp_state.in_temporary_mode = true;
+    toggle_state.previous_tool = current_tool.get_current();
+    toggle_state.in_temporary_mode = true;
 
     // Exit the current tool if any
     exit_current_tool(current_tool, tool_registry);
@@ -102,10 +104,10 @@ fn handle_spacebar_press(
 fn handle_spacebar_release(
     keyboard: &Res<ButtonInput<KeyCode>>,
     current_tool: &mut ResMut<CurrentTool>,
-    temp_state: &mut ResMut<TemporaryModeState>,
+    toggle_state: &mut ResMut<SpacebarToggleState>,
     tool_registry: &Res<ToolRegistry>,
 ) {
-    if !keyboard.just_released(KeyCode::Space) || !temp_state.in_temporary_mode {
+    if !keyboard.just_released(KeyCode::Space) || !toggle_state.in_temporary_mode {
         return;
     }
 
@@ -115,11 +117,11 @@ fn handle_spacebar_release(
     }
 
     // Switch back to the previous tool
-    switch_to_previous_tool(current_tool, temp_state, tool_registry);
+    switch_to_previous_tool(current_tool, toggle_state, tool_registry);
 
     // Reset temporary mode state
-    temp_state.previous_tool = None;
-    temp_state.in_temporary_mode = false;
+    toggle_state.previous_tool = None;
+    toggle_state.in_temporary_mode = false;
 }
 
 /// Exit the currently active tool
@@ -137,10 +139,10 @@ fn exit_current_tool(
 /// Switch back to the previous tool or default to select
 fn switch_to_previous_tool(
     current_tool: &mut ResMut<CurrentTool>,
-    temp_state: &TemporaryModeState,
+    toggle_state: &SpacebarToggleState,
     tool_registry: &Res<ToolRegistry>,
 ) {
-    if let Some(previous_tool_id) = temp_state.previous_tool {
+    if let Some(previous_tool_id) = toggle_state.previous_tool {
         if let Some(previous_tool) = tool_registry.get_tool(previous_tool_id) {
             current_tool.switch_to(previous_tool_id);
             previous_tool.on_enter();

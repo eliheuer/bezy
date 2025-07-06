@@ -284,6 +284,19 @@ pub fn render_text_editor_sorts(
     }
 }
 
+/// Check if a key is used as a tool shortcut
+fn is_tool_shortcut_key(key: KeyCode) -> bool {
+    matches!(key, 
+        KeyCode::KeyT |  // Text tool
+        KeyCode::KeyP |  // Pen tool  
+        KeyCode::KeyV |  // Select tool
+        KeyCode::KeyK |  // Knife tool
+        KeyCode::KeyH |  // Hyper tool
+        KeyCode::KeyR |  // Shapes tool
+        KeyCode::KeyM    // Measure/Metaballs tool
+    )
+}
+
 /// Handle keyboard input for text editing
 pub fn handle_text_editor_keyboard_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
@@ -420,8 +433,10 @@ pub fn handle_text_editor_keyboard_input(
         KeyCode::Digit9, KeyCode::Digit0, 
         KeyCode::Space,
     ] {
-        // Skip T key if pressed without modifiers to avoid conflict with tool shortcut
-        if key == KeyCode::KeyT && !(keyboard_input.pressed(KeyCode::ControlLeft) || keyboard_input.pressed(KeyCode::ControlRight)) {
+        // Skip tool shortcut keys when in text insert mode to allow typing
+        if is_tool_shortcut_key(key) && 
+           current_tool.get_current() == Some("text") && 
+           current_placement_mode.0 == crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Insert {
             continue;
         }
         
