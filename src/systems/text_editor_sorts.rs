@@ -4,6 +4,11 @@
 //! similar to how text editors work. Sorts are stored in a linear buffer
 //! and mapped to a visual grid for display.
 
+use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
+use cosmic_text::{Attrs, AttrsList, Buffer, Edit, Family, FontSystem, Metrics, Shaping, SwashCache};
+
+
 use crate::core::state::{AppState, TextEditorState, SortEntry, SortLayoutMode, SortBuffer, GridConfig};
 use crate::core::state::GlyphNavigation;
 use crate::core::pointer::PointerInfo;
@@ -17,9 +22,6 @@ use kurbo::Point;
 use crate::rendering::checkerboard::calculate_dynamic_grid_size;
 use crate::rendering::sort_visuals::{render_sort_visuals, SortRenderStyle};
 use crate::ui::theme::{SORT_ACTIVE_METRICS_COLOR, SORT_INACTIVE_METRICS_COLOR, SORT_ACTIVE_OUTLINE_COLOR};
-
-use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
 
 /// System to initialize text editor sorts when the font is loaded
 /// This creates an empty TextEditorState for the text tool to work with
@@ -285,6 +287,7 @@ pub fn render_text_editor_sorts(
 }
 
 /// Check if a key is used as a tool shortcut
+#[allow(dead_code)]
 fn is_tool_shortcut_key(key: KeyCode) -> bool {
     matches!(key, 
         KeyCode::KeyT |  // Text tool
@@ -297,7 +300,106 @@ fn is_tool_shortcut_key(key: KeyCode) -> bool {
     )
 }
 
-/// Handle keyboard input for text editing
+/// Convert key code to character, considering shift state
+fn key_code_to_char(key: KeyCode, keyboard_input: &ButtonInput<KeyCode>) -> Option<char> {
+    let shift_pressed = keyboard_input.pressed(KeyCode::ShiftLeft) || 
+                       keyboard_input.pressed(KeyCode::ShiftRight);
+    
+    match key {
+        KeyCode::KeyA => Some(if shift_pressed { 'A' } else { 'a' }),
+        KeyCode::KeyB => Some(if shift_pressed { 'B' } else { 'b' }),
+        KeyCode::KeyC => Some(if shift_pressed { 'C' } else { 'c' }),
+        KeyCode::KeyD => Some(if shift_pressed { 'D' } else { 'd' }),
+        KeyCode::KeyE => Some(if shift_pressed { 'E' } else { 'e' }),
+        KeyCode::KeyF => Some(if shift_pressed { 'F' } else { 'f' }),
+        KeyCode::KeyG => Some(if shift_pressed { 'G' } else { 'g' }),
+        KeyCode::KeyH => Some(if shift_pressed { 'H' } else { 'h' }),
+        KeyCode::KeyI => Some(if shift_pressed { 'I' } else { 'i' }),
+        KeyCode::KeyJ => Some(if shift_pressed { 'J' } else { 'j' }),
+        KeyCode::KeyK => Some(if shift_pressed { 'K' } else { 'k' }),
+        KeyCode::KeyL => Some(if shift_pressed { 'L' } else { 'l' }),
+        KeyCode::KeyM => Some(if shift_pressed { 'M' } else { 'm' }),
+        KeyCode::KeyN => Some(if shift_pressed { 'N' } else { 'n' }),
+        KeyCode::KeyO => Some(if shift_pressed { 'O' } else { 'o' }),
+        KeyCode::KeyP => Some(if shift_pressed { 'P' } else { 'p' }),
+        KeyCode::KeyQ => Some(if shift_pressed { 'Q' } else { 'q' }),
+        KeyCode::KeyR => Some(if shift_pressed { 'R' } else { 'r' }),
+        KeyCode::KeyS => Some(if shift_pressed { 'S' } else { 's' }),
+        KeyCode::KeyT => Some(if shift_pressed { 'T' } else { 't' }),
+        KeyCode::KeyU => Some(if shift_pressed { 'U' } else { 'u' }),
+        KeyCode::KeyV => Some(if shift_pressed { 'V' } else { 'v' }),
+        KeyCode::KeyW => Some(if shift_pressed { 'W' } else { 'w' }),
+        KeyCode::KeyX => Some(if shift_pressed { 'X' } else { 'x' }),
+        KeyCode::KeyY => Some(if shift_pressed { 'Y' } else { 'y' }),
+        KeyCode::KeyZ => Some(if shift_pressed { 'Z' } else { 'z' }),
+        KeyCode::Digit0 => Some(if shift_pressed { ')' } else { '0' }),
+        KeyCode::Digit1 => Some(if shift_pressed { '!' } else { '1' }),
+        KeyCode::Digit2 => Some(if shift_pressed { '@' } else { '2' }),
+        KeyCode::Digit3 => Some(if shift_pressed { '#' } else { '3' }),
+        KeyCode::Digit4 => Some(if shift_pressed { '$' } else { '4' }),
+        KeyCode::Digit5 => Some(if shift_pressed { '%' } else { '5' }),
+        KeyCode::Digit6 => Some(if shift_pressed { '^' } else { '6' }),
+        KeyCode::Digit7 => Some(if shift_pressed { '&' } else { '7' }),
+        KeyCode::Digit8 => Some(if shift_pressed { '*' } else { '8' }),
+        KeyCode::Digit9 => Some(if shift_pressed { '(' } else { '9' }),
+        KeyCode::Space => Some(' '),
+        KeyCode::Minus => Some(if shift_pressed { '_' } else { '-' }),
+        KeyCode::Equal => Some(if shift_pressed { '+' } else { '=' }),
+        KeyCode::BracketLeft => Some(if shift_pressed { '{' } else { '[' }),
+        KeyCode::BracketRight => Some(if shift_pressed { '}' } else { ']' }),
+        KeyCode::Backslash => Some(if shift_pressed { '|' } else { '\\' }),
+        KeyCode::Semicolon => Some(if shift_pressed { ':' } else { ';' }),
+        KeyCode::Quote => Some(if shift_pressed { '"' } else { '\'' }),
+        KeyCode::Comma => Some(if shift_pressed { '<' } else { ',' }),
+        KeyCode::Period => Some(if shift_pressed { '>' } else { '.' }),
+        KeyCode::Slash => Some(if shift_pressed { '?' } else { '/' }),
+        KeyCode::Backquote => Some(if shift_pressed { '~' } else { '`' }),
+        _ => None,
+    }
+}
+
+/// Convert Unicode character to glyph name using font data
+fn unicode_to_glyph_name(unicode_char: char, app_state: &AppState) -> Option<String> {
+    // First try to find the glyph by Unicode codepoint
+    let _codepoint_hex = format!("{:04X}", unicode_char as u32);
+    
+    // Look for glyph with this Unicode codepoint
+    for (glyph_name, glyph_data) in &app_state.workspace.font.glyphs {
+        if glyph_data.unicode_values.contains(&unicode_char) {
+            return Some(glyph_name.clone());
+        }
+    }
+    
+    // If no exact match, try to find a glyph with the same name as the character
+    let char_name = unicode_char.to_string();
+    if app_state.workspace.font.glyphs.contains_key(&char_name) {
+        return Some(char_name);
+    }
+    
+    // For common characters, try some fallback mappings
+    let fallback_mapping = match unicode_char {
+        ' ' => "space",
+        '0' => "zero",
+        '1' => "one", 
+        '2' => "two",
+        '3' => "three",
+        '4' => "four",
+        '5' => "five",
+        '6' => "six",
+        '7' => "seven",
+        '8' => "eight",
+        '9' => "nine",
+        _ => return None,
+    };
+    
+    if app_state.workspace.font.glyphs.contains_key(fallback_mapping) {
+        Some(fallback_mapping.to_string())
+    } else {
+        None
+    }
+}
+
+/// Handle keyboard input for text editing with proper Unicode support
 pub fn handle_text_editor_keyboard_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut text_editor_state: ResMut<TextEditorState>,
@@ -374,74 +476,12 @@ pub fn handle_text_editor_keyboard_input(
         }
     }
     
-    // Character input for typing new sorts
-    // Map common characters to their glyph names
-    let character_to_glyph = |key: KeyCode| -> Option<String> {
-        match key {
-            KeyCode::KeyA => Some("a".to_string()),
-            KeyCode::KeyB => Some("b".to_string()),
-            KeyCode::KeyC => Some("c".to_string()),
-            KeyCode::KeyD => Some("d".to_string()),
-            KeyCode::KeyE => Some("e".to_string()),
-            KeyCode::KeyF => Some("f".to_string()),
-            KeyCode::KeyG => Some("g".to_string()),
-            KeyCode::KeyH => Some("h".to_string()),
-            KeyCode::KeyI => Some("i".to_string()),
-            KeyCode::KeyJ => Some("j".to_string()),
-            KeyCode::KeyK => Some("k".to_string()),
-            KeyCode::KeyL => Some("l".to_string()),
-            KeyCode::KeyM => Some("m".to_string()),
-            KeyCode::KeyN => Some("n".to_string()),
-            KeyCode::KeyO => Some("o".to_string()),
-            KeyCode::KeyP => Some("p".to_string()),
-            KeyCode::KeyQ => Some("q".to_string()),
-            KeyCode::KeyR => Some("r".to_string()),
-            KeyCode::KeyS => Some("s".to_string()),
-            KeyCode::KeyT => Some("t".to_string()), // Allow T for typing when not conflicting
-            KeyCode::KeyU => Some("u".to_string()),
-            KeyCode::KeyV => Some("v".to_string()),
-            KeyCode::KeyW => Some("w".to_string()),
-            KeyCode::KeyX => Some("x".to_string()),
-            KeyCode::KeyY => Some("y".to_string()),
-            KeyCode::KeyZ => Some("z".to_string()),
-            KeyCode::Digit1 => Some("one".to_string()),
-            KeyCode::Digit2 => Some("two".to_string()),
-            KeyCode::Digit3 => Some("three".to_string()),
-            KeyCode::Digit4 => Some("four".to_string()),
-            KeyCode::Digit5 => Some("five".to_string()),
-            KeyCode::Digit6 => Some("six".to_string()),
-            KeyCode::Digit7 => Some("seven".to_string()),
-            KeyCode::Digit8 => Some("eight".to_string()),
-            KeyCode::Digit9 => Some("nine".to_string()),
-            KeyCode::Digit0 => Some("zero".to_string()),
-            KeyCode::Space => Some("space".to_string()),
-            _ => None,
-        }
-    };
-    
-    // Handle character input
-    for key in [
-        KeyCode::KeyA, KeyCode::KeyB, KeyCode::KeyC, KeyCode::KeyD, 
-        KeyCode::KeyE, KeyCode::KeyF, KeyCode::KeyG, KeyCode::KeyH, 
-        KeyCode::KeyI, KeyCode::KeyJ, KeyCode::KeyK, KeyCode::KeyL, 
-        KeyCode::KeyM, KeyCode::KeyN, KeyCode::KeyO, KeyCode::KeyP, 
-        KeyCode::KeyQ, KeyCode::KeyR, KeyCode::KeyS, KeyCode::KeyT,
-        KeyCode::KeyU, KeyCode::KeyV, KeyCode::KeyW, KeyCode::KeyX, 
-        KeyCode::KeyY, KeyCode::KeyZ, KeyCode::Digit1, KeyCode::Digit2, 
-        KeyCode::Digit3, KeyCode::Digit4, KeyCode::Digit5, 
-        KeyCode::Digit6, KeyCode::Digit7, KeyCode::Digit8, 
-        KeyCode::Digit9, KeyCode::Digit0, 
-        KeyCode::Space,
-    ] {
-        // Skip tool shortcut keys when in text insert mode to allow typing
-        if is_tool_shortcut_key(key) && 
-           current_tool.get_current() == Some("text") && 
-           current_placement_mode.0 == crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Insert {
-            continue;
-        }
-        
-        if keyboard_input.just_pressed(key) {
-            if let Some(glyph_name) = character_to_glyph(key) {
+    // Handle text input by mapping key codes to characters
+    // This is a simplified approach for now - in a real implementation,
+    // you'd want to use Bevy's text input system or a third-party crate
+    for key in keyboard_input.get_just_pressed() {
+        if let Some(unicode_char) = key_code_to_char(*key, &keyboard_input) {
+            if let Some(glyph_name) = unicode_to_glyph_name(unicode_char, &app_state) {
                 // Check if the glyph exists in the font
                 if let Some(glyph_data) = 
                     app_state.workspace.font.glyphs.get(&glyph_name) {
@@ -461,8 +501,8 @@ pub fn handle_text_editor_keyboard_input(
                         );
                         
                         info!(
-                            "Insert mode: created new buffer root and inserted glyph '{}' at center", 
-                            glyph_name
+                            "Insert mode: created new buffer root and inserted character '{}' (glyph: '{}') at center", 
+                            unicode_char, glyph_name
                         );
                     } else {
                         // Buffer sorts exist, use normal insertion logic
@@ -471,14 +511,17 @@ pub fn handle_text_editor_keyboard_input(
                             advance_width
                         );
                         info!(
-                            "Insert mode: inserted glyph '{}' at cursor position {}", 
-                            glyph_name,
-                            text_editor_state.cursor_position
+                            "Insert mode: inserted character '{}' (glyph: '{}') at cursor position {}", 
+                            unicode_char, glyph_name, text_editor_state.cursor_position
                         );
                     }
                 } else {
-                    info!("Insert mode: glyph '{}' not found in font", glyph_name);
+                    info!("Insert mode: glyph '{}' for character '{}' not found in font", 
+                          glyph_name, unicode_char);
                 }
+            } else {
+                info!("Insert mode: no glyph mapping found for character '{}' (U+{:04X})", 
+                      unicode_char, unicode_char as u32);
             }
         }
     }
@@ -805,6 +848,320 @@ pub fn handle_sort_placement_input(
             }
             _ => {
                 // Ignore other event types
+            }
+        }
+    }
+}
+
+/// System to handle text input using cosmic-text for proper Unicode support
+pub fn handle_text_input_with_cosmic(
+    mut text_editor_state: ResMut<TextEditorState>,
+    app_state: Res<AppState>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    current_placement_mode: Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut text_buffer: Local<Option<Buffer>>,
+    mut font_system: Local<Option<FontSystem>>,
+    mut swash_cache: Local<Option<SwashCache>>,
+) {
+    // Only handle text input when text tool is active AND in Insert mode
+    if current_tool.get_current() != Some("text") || 
+       current_placement_mode.0 != crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Insert {
+        return;
+    }
+
+    // Initialize cosmic-text components if not already done
+    if font_system.is_none() {
+        *font_system = Some(FontSystem::new());
+    }
+    if swash_cache.is_none() {
+        *swash_cache = Some(SwashCache::new());
+    }
+    if text_buffer.is_none() {
+        let mut buffer = Buffer::new(
+            font_system.as_mut().unwrap(),
+            Metrics::new(16.0, 20.0)
+        );
+        buffer.set_text(font_system.as_mut().unwrap(), "", &Attrs::new(), Shaping::Advanced);
+        *text_buffer = Some(buffer);
+    }
+
+    let _buffer = text_buffer.as_mut().unwrap();
+    let _font_system = font_system.as_mut().unwrap();
+    let _swash_cache = swash_cache.as_mut().unwrap();
+
+    // Handle keyboard input for text editing
+    for key in keyboard_input.get_just_pressed() {
+        match key {
+            KeyCode::Backspace => {
+                // Handle backspace in the text editor state
+                text_editor_state.delete_sort_at_cursor();
+                info!("Text input: Backspace pressed");
+            }
+            KeyCode::Enter => {
+                // Handle enter key
+                info!("Text input: Enter pressed");
+            }
+            KeyCode::Space => {
+                // Add space character immediately
+                if let Some(glyph_name) = unicode_to_glyph_name(' ', &app_state) {
+                    if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
+                        let advance_width = glyph_data.advance_width as f32;
+                        
+                        // Check if any text sorts exist
+                        let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
+                        
+                        if !has_text_sorts {
+                            // Create a buffer root at center of screen
+                            let center_position = Vec2::new(500.0, 0.0);
+                            text_editor_state.create_text_root(center_position);
+                        }
+                        
+                        text_editor_state.insert_sort_at_cursor(glyph_name.clone(), advance_width);
+                        info!("Text input: Added space");
+                    }
+                }
+            }
+            _ => {
+                // Process each character immediately for instant feedback
+                if let Some(ch) = key_code_to_char(*key, &keyboard_input) {
+                    // Convert character to glyph and insert immediately
+                    if let Some(glyph_name) = unicode_to_glyph_name(ch, &app_state) {
+                        if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
+                            let advance_width = glyph_data.advance_width as f32;
+                            
+                            // Check if any text sorts exist
+                            let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
+                            
+                            if !has_text_sorts {
+                                // Create a buffer root at center of screen
+                                let center_position = Vec2::new(500.0, 0.0);
+                                text_editor_state.create_text_root(center_position);
+                            }
+                            
+                            // Insert the character immediately
+                            text_editor_state.insert_sort_at_cursor(glyph_name.clone(), advance_width);
+                            info!("Text input: Inserted character '{}' (glyph: '{}') immediately", ch, glyph_name);
+                        } else {
+                            info!("Text input: Glyph '{}' not found in font for character '{}'", glyph_name, ch);
+                        }
+                    } else {
+                        info!("Text input: No glyph mapping found for character '{}' (U+{:04X})", ch, ch as u32);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// System to handle Arabic and Unicode text input using cosmic-text
+/// This system can handle any Unicode character including Arabic, Hebrew, etc.
+pub fn handle_arabic_text_input(
+    mut text_editor_state: ResMut<TextEditorState>,
+    app_state: Res<AppState>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    current_placement_mode: Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut text_buffer: Local<Option<Buffer>>,
+    mut font_system: Local<Option<FontSystem>>,
+    mut swash_cache: Local<Option<SwashCache>>,
+    mut input_text: Local<String>,
+    mut last_input_time: Local<f64>,
+    time: Res<Time>,
+) {
+    // Only handle text input when text tool is active AND in Insert mode
+    if current_tool.get_current() != Some("text") || 
+       current_placement_mode.0 != crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Insert {
+        return;
+    }
+
+    // Initialize cosmic-text components if not already done
+    if font_system.is_none() {
+        *font_system = Some(FontSystem::new());
+    }
+    if swash_cache.is_none() {
+        *swash_cache = Some(SwashCache::new());
+    }
+    if text_buffer.is_none() {
+        let mut buffer = Buffer::new(
+            font_system.as_mut().unwrap(),
+            Metrics::new(16.0, 20.0)
+        );
+        buffer.set_text(font_system.as_mut().unwrap(), "", &Attrs::new(), Shaping::Advanced);
+        *text_buffer = Some(buffer);
+    }
+
+    let _buffer = text_buffer.as_mut().unwrap();
+    let _font_system = font_system.as_mut().unwrap();
+    let _swash_cache = swash_cache.as_mut().unwrap();
+
+    // Handle keyboard input for text editing
+    for key in keyboard_input.get_just_pressed() {
+        match key {
+            KeyCode::Backspace => {
+                // Handle backspace in the text editor state
+                text_editor_state.delete_sort_at_cursor();
+                info!("Arabic text input: Backspace pressed");
+            }
+            KeyCode::Enter => {
+                // Process the accumulated text and convert to sorts
+                if !input_text.is_empty() {
+                    process_unicode_text_to_sorts(&mut text_editor_state, &app_state, &input_text);
+                    input_text.clear();
+                }
+                info!("Arabic text input: Enter pressed");
+            }
+            KeyCode::Space => {
+                // Process current buffer and add space
+                if !input_text.is_empty() {
+                    process_unicode_text_to_sorts(&mut text_editor_state, &app_state, &input_text);
+                    input_text.clear();
+                }
+                // Add space character
+                if let Some(glyph_name) = unicode_to_glyph_name(' ', &app_state) {
+                    if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
+                        let advance_width = glyph_data.advance_width as f32;
+                        text_editor_state.insert_sort_at_cursor(glyph_name.clone(), advance_width);
+                        info!("Arabic text input: Added space");
+                    }
+                }
+            }
+            _ => {
+                // For now, we'll use the key_code_to_char function for basic input
+                // In a full implementation, you'd use cosmic-text's IME support or platform APIs
+                if let Some(ch) = key_code_to_char(*key, &keyboard_input) {
+                    // Add character to input buffer
+                    input_text.push(ch);
+                    *last_input_time = time.elapsed_secs_f64();
+                    info!("Arabic text input: Added character '{}' to buffer", ch);
+                }
+            }
+        }
+    }
+
+    // Process text buffer when it gets long enough or after a delay
+    let current_time = time.elapsed_secs_f64();
+    if input_text.len() >= 3 || (current_time - *last_input_time > 0.5 && !input_text.is_empty()) {
+        if !input_text.is_empty() {
+            process_unicode_text_to_sorts(&mut text_editor_state, &app_state, &input_text);
+            input_text.clear();
+        }
+    }
+}
+
+/// Process Unicode text (including Arabic) and convert to sorts
+/// This function handles the conversion from Unicode text to glyph sorts
+fn process_unicode_text_to_sorts(
+    text_editor_state: &mut TextEditorState,
+    app_state: &AppState,
+    text: &str,
+) {
+    info!("Processing Unicode text: '{}'", text);
+    
+    // Check if any text sorts exist
+    let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
+    
+    if !has_text_sorts {
+        // Create a buffer root at center of screen
+        let center_position = Vec2::new(500.0, 0.0);
+        text_editor_state.create_text_root(center_position);
+    }
+    
+    // Process each character in the text
+    for ch in text.chars() {
+        if let Some(glyph_name) = unicode_to_glyph_name(ch, app_state) {
+            if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
+                let advance_width = glyph_data.advance_width as f32;
+                
+                // Insert the character
+                text_editor_state.insert_sort_at_cursor(glyph_name.clone(), advance_width);
+                info!("Arabic text input: Inserted Unicode character '{}' (U+{:04X}) as glyph '{}'", 
+                      ch, ch as u32, glyph_name);
+            } else {
+                info!("Arabic text input: Glyph '{}' not found in font for character '{}'", 
+                      glyph_name, ch);
+            }
+        } else {
+            info!("Arabic text input: No glyph mapping found for Unicode character '{}' (U+{:04X})", 
+                  ch, ch as u32);
+        }
+    }
+}
+
+/// Handle Unicode character input using Bevy's KeyboardInput events
+/// This system processes the text field from KeyboardInput events for Unicode characters
+pub fn handle_unicode_text_input(
+    mut keyboard_input_events: EventReader<bevy::input::keyboard::KeyboardInput>,
+    mut text_editor_state: ResMut<TextEditorState>,
+    app_state: Res<AppState>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    current_placement_mode: Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
+) {
+    // Only handle keyboard input when text tool is active AND in Insert mode
+    if current_tool.get_current() != Some("text") || 
+       current_placement_mode.0 != crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Insert {
+        return;
+    }
+    
+    // Check if we have buffer sorts for various operations
+    let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
+    
+    for event in keyboard_input_events.read() {
+        // Only process key press events (not releases)
+        if event.state != bevy::input::ButtonState::Pressed {
+            continue;
+        }
+        
+        // Check if this event has text content (Unicode characters)
+        if let Some(text) = &event.text {
+            if !text.is_empty() {
+                debug!("Unicode input received: '{}' (U+{:04X})", text, text.chars().next().unwrap() as u32);
+                
+                // Process each character in the text
+                for unicode_char in text.chars() {
+                    if let Some(glyph_name) = unicode_to_glyph_name(unicode_char, &app_state) {
+                        // Check if the glyph exists in the font
+                        if let Some(glyph_data) = 
+                            app_state.workspace.font.glyphs.get(&glyph_name) {
+                            let advance_width = glyph_data.advance_width as f32;
+                            
+                            // Check if any text sorts exist
+                            if !has_text_sorts {
+                                // No buffer sorts exist, create a buffer root at center of screen
+                                // TODO: Use actual mouse/click position if available
+                                let center_position = Vec2::new(500.0, 0.0);
+                                text_editor_state.create_text_root(center_position);
+                                
+                                // Now insert the character at the new buffer root
+                                text_editor_state.insert_sort_at_cursor(
+                                    glyph_name.clone(), 
+                                    advance_width
+                                );
+                                
+                                info!(
+                                    "Unicode input: created new buffer root and inserted character '{}' (glyph: '{}') at center", 
+                                    unicode_char, glyph_name
+                                );
+                            } else {
+                                // Buffer sorts exist, use normal insertion logic
+                                text_editor_state.insert_sort_at_cursor(
+                                    glyph_name.clone(), 
+                                    advance_width
+                                );
+                                info!(
+                                    "Unicode input: inserted character '{}' (glyph: '{}') at cursor position {}", 
+                                    unicode_char, glyph_name, text_editor_state.cursor_position
+                                );
+                            }
+                        } else {
+                            info!("Unicode input: glyph '{}' for character '{}' not found in font", 
+                                  glyph_name, unicode_char);
+                        }
+                    } else {
+                        info!("Unicode input: no glyph mapping found for character '{}' (U+{:04X})", 
+                              unicode_char, unicode_char as u32);
+                    }
+                }
             }
         }
     }

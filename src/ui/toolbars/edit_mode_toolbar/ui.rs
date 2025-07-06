@@ -188,7 +188,7 @@ pub fn handle_toolbar_mode_selection(
 
 /// Updates button visual states
 pub fn update_toolbar_button_appearances(
-    mut interaction_query: Query<
+    interaction_query: Query<
         (
             &Interaction,
             &mut BackgroundColor,
@@ -289,6 +289,7 @@ fn enter_new_tool(
 }
 
 /// Updates button visual states based on interaction and current tool
+#[allow(dead_code)]
 fn update_button_appearances(
     interaction_query: &mut Query<
         (

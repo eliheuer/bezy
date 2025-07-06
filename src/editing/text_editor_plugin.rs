@@ -8,6 +8,9 @@ use crate::systems::text_editor_sorts::{
     handle_text_editor_sort_clicks, // ENABLED: Fixed coordinate system issues
     render_text_editor_sorts,
     handle_text_editor_keyboard_input,
+    // handle_text_input_with_cosmic, // DISABLED: Legacy system causing double input
+    handle_arabic_text_input, // NEW: Arabic and Unicode text input
+    handle_unicode_text_input, // NEW: Unicode character input using Bevy events
     debug_text_editor_state,
     sync_text_editor_active_sort,
     handle_sort_placement_input, // NEW: Uses centralized input system
@@ -30,8 +33,14 @@ impl Plugin for TextEditorPlugin {
                     handle_text_editor_sort_clicks,
                     // NEW: Handle sort placement using centralized input system
                     handle_sort_placement_input,
-                    // Handle keyboard navigation
-                    handle_text_editor_keyboard_input,
+                    // NEW: Handle Unicode text input with cosmic-text (DISABLED: old system)
+                    // handle_text_editor_keyboard_input,
+                    // DISABLED: Legacy system causing double input
+                    // handle_text_input_with_cosmic,
+                    // NEW: Handle Unicode character input using Bevy events
+                    handle_unicode_text_input,
+                    // NEW: Handle Arabic text input (DISABLED: conflicts with cosmic-text)
+                    // handle_arabic_text_input,
                     // Debug system
                     debug_text_editor_state,
                     // Sync active sort with selection system

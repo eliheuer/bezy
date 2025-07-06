@@ -344,7 +344,7 @@ fn update_keyboard_state(
     // Update key states - ButtonInput doesn't implement Clone, so we need to handle this differently
     // For now, we'll use the original ButtonInput resource directly
 
-    // Update text buffer - simplified for now
+    // Clear text buffer - we now use Bevy's native TextInputEvent system
     keyboard_state.text_buffer.clear();
     
     // Update modifier states
@@ -485,12 +485,7 @@ fn process_keyboard_events(
         });
     }
 
-    // Text input events (if any)
-    if !input_state.keyboard.text_buffer.is_empty() {
-        input_events.write(InputEvent::TextInput {
-            text: input_state.keyboard.text_buffer.clone(),
-        });
-    }
+    // Text input events are now handled separately by process_text_input_events
 }
 
 /// Process gamepad events and create InputEvent instances
