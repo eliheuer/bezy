@@ -1037,45 +1037,135 @@ impl TextEditorState {
     }
 
     /// Create a new line at the current cursor position
-    /// This splits the current line and creates a new buffer root below it
+    /// This implements standard text editor behavior: split the current line at cursor position
     pub fn create_new_line(&mut self, font_metrics: &FontMetrics) {
         // Find the current active buffer root
         if let Some(current_root_index) = self.find_active_buffer_root_index() {
             if let Some(current_root) = self.buffer.get(current_root_index) {
                 let current_position = current_root.freeform_position;
-                let _current_cursor_pos = current_root.buffer_cursor_position.unwrap_or(0);
+                let cursor_pos_in_line = current_root.buffer_cursor_position.unwrap_or(0);
                 
                 // Calculate the position for the new line using font metrics
-                // Line height = ascender - descender
                 let line_height = (font_metrics.ascender.unwrap_or(1024.0) - font_metrics.descender.unwrap_or(-256.0)) as f32;
                 let leading = 0.0; // As requested, leading = 0
                 let new_line_y = current_position.y - line_height - leading;
                 
-                // Create a new buffer root at the new line position
-                let new_root = SortEntry {
-                    glyph_name: String::new(), // Empty placeholder
-                    advance_width: 0.0,
-                    is_active: true,
-                    is_selected: true,
-                    layout_mode: SortLayoutMode::Text,
-                    freeform_position: Vec2::new(current_position.x, new_line_y),
-                    is_buffer_root: true,
-                    buffer_cursor_position: Some(0), // Cursor at beginning of new line
-                    ..Default::default()
-                };
+                // Get the sequence length to determine if we need to split
+                let sequence_length = self.get_buffer_sequence_length(current_root_index);
                 
-                // Insert the new buffer root after the current one
-                let insert_index = current_root_index + 1;
-                self.buffer.insert(insert_index, new_root);
-                
-                // Deactivate the current buffer root
-                if let Some(current_root_mut) = self.buffer.get_mut(current_root_index) {
-                    current_root_mut.is_active = false;
-                    current_root_mut.is_selected = false;
+                if cursor_pos_in_line == 0 {
+                    // Cursor is at the beginning of the line - just create a new line above
+                    let new_root = SortEntry {
+                        glyph_name: String::new(), // Empty placeholder
+                        advance_width: 0.0,
+                        is_active: true,
+                        is_selected: true,
+                        layout_mode: SortLayoutMode::Text,
+                        freeform_position: Vec2::new(current_position.x, current_position.y + line_height + leading),
+                        is_buffer_root: true,
+                        buffer_cursor_position: Some(0),
+                        ..Default::default()
+                    };
+                    
+                    // Insert the new buffer root before the current one
+                    self.buffer.insert(current_root_index, new_root);
+                    
+                    // Deactivate the current buffer root
+                    if let Some(current_root_mut) = self.buffer.get_mut(current_root_index + 1) {
+                        current_root_mut.is_active = false;
+                        current_root_mut.is_selected = false;
+                    }
+                    
+                    info!("Created new line above at position ({:.1}, {:.1})", current_position.x, current_position.y + line_height + leading);
+                } else if cursor_pos_in_line >= sequence_length {
+                    // Cursor is at the end of the line - create a new line below
+                    let new_root = SortEntry {
+                        glyph_name: String::new(), // Empty placeholder
+                        advance_width: 0.0,
+                        is_active: true,
+                        is_selected: true,
+                        layout_mode: SortLayoutMode::Text,
+                        freeform_position: Vec2::new(current_position.x, new_line_y),
+                        is_buffer_root: true,
+                        buffer_cursor_position: Some(0),
+                        ..Default::default()
+                    };
+                    
+                    // Insert the new buffer root after the current sequence
+                    let insert_index = current_root_index + sequence_length;
+                    self.buffer.insert(insert_index, new_root);
+                    
+                    // Deactivate the current buffer root
+                    if let Some(current_root_mut) = self.buffer.get_mut(current_root_index) {
+                        current_root_mut.is_active = false;
+                        current_root_mut.is_selected = false;
+                    }
+                    
+                    info!("Created new line below at position ({:.1}, {:.1})", current_position.x, new_line_y);
+                } else {
+                    // Cursor is in the middle of the line - split the line
+                    // This is the most complex case: we need to move characters after the cursor to the new line
+                    
+                    // Create a new buffer root for the second part of the line
+                    let new_root = SortEntry {
+                        glyph_name: String::new(), // Empty placeholder
+                        advance_width: 0.0,
+                        is_active: true,
+                        is_selected: true,
+                        layout_mode: SortLayoutMode::Text,
+                        freeform_position: Vec2::new(current_position.x, new_line_y),
+                        is_buffer_root: true,
+                        buffer_cursor_position: Some(0),
+                        ..Default::default()
+                    };
+                    
+                    // Insert the new buffer root after the current sequence
+                    let insert_index = current_root_index + sequence_length;
+                    self.buffer.insert(insert_index, new_root);
+                    
+                    // Now move the characters after the cursor to the new line
+                    let chars_to_move = sequence_length - cursor_pos_in_line;
+                    if chars_to_move > 0 {
+                        // Move characters from the current line to the new line
+                        for i in 0..chars_to_move {
+                            let src_index = current_root_index + cursor_pos_in_line + i;
+                            let dst_index = insert_index + 1 + i; // +1 because we inserted the new root
+                            
+                            if let Some(sort_to_move) = self.buffer.get(src_index) {
+                                let moved_sort = SortEntry {
+                                    glyph_name: sort_to_move.glyph_name.clone(),
+                                    advance_width: sort_to_move.advance_width,
+                                    is_active: false,
+                                    is_selected: false,
+                                    layout_mode: SortLayoutMode::Text,
+                                    freeform_position: Vec2::new(current_position.x, new_line_y), // Will be calculated by flow
+                                    is_buffer_root: false,
+                                    buffer_cursor_position: None,
+                                    ..Default::default()
+                                };
+                                
+                                // Insert the moved sort at the new line
+                                self.buffer.insert(dst_index, moved_sort);
+                                
+                                // Delete the original sort
+                                self.buffer.delete(src_index);
+                            }
+                        }
+                        
+                        // Update the cursor position in the new line
+                        if let Some(new_root_mut) = self.buffer.get_mut(insert_index) {
+                            new_root_mut.buffer_cursor_position = Some(chars_to_move);
+                        }
+                    }
+                    
+                    // Deactivate the current buffer root
+                    if let Some(current_root_mut) = self.buffer.get_mut(current_root_index) {
+                        current_root_mut.is_active = false;
+                        current_root_mut.is_selected = false;
+                    }
+                    
+                    info!("Split line at cursor position {}, moved {} characters to new line", cursor_pos_in_line, chars_to_move);
                 }
-                
-                info!("Created new line at position ({:.1}, {:.1}) with line height {:.1}", 
-                      current_position.x, new_line_y, line_height);
             }
         } else {
             // No active buffer root, create a new one at default position
