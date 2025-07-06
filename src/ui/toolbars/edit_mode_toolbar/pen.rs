@@ -514,8 +514,8 @@ fn add_contour_to_glyph(
     active_sort_info: Option<(usize, &crate::core::state::SortEntry)>,
 ) {
     let glyph_name = if let Some((_sort_index, sort_entry)) = active_sort_info {
-        info!("PEN TOOL: Using active sort glyph: {}", sort_entry.glyph_name);
-        sort_entry.glyph_name.clone()
+        info!("PEN TOOL: Using active sort glyph: {}", sort_entry.kind.glyph_name());
+        sort_entry.kind.glyph_name().to_string()
     } else {
         let Some(glyph_name) = glyph_navigation.current_glyph.clone() else {
             warn!("PEN TOOL: No glyph found in navigation and no active sort");

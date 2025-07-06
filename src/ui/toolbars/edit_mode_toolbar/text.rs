@@ -552,7 +552,7 @@ pub fn handle_text_tool_shortcuts(
             let buffer_text: String = text_editor_state
                 .buffer
                 .iter()
-                .map(|entry| entry.glyph_name.clone())
+                .map(|entry| entry.kind.glyph_name().to_string())
                 .collect::<Vec<String>>()
                 .join(" ");
             info!("Current text buffer: {}", buffer_text);

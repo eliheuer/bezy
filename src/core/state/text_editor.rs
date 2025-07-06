@@ -41,6 +41,16 @@ pub struct TextModeConfig {
     pub show_mode_toggle: bool,
 }
 
+/// An entry in the sort buffer representing a glyph or a line break
+#[derive(Clone, Debug, PartialEq)]
+pub enum SortKind {
+    Glyph {
+        glyph_name: String,
+        advance_width: f32,
+    },
+    LineBreak,
+}
+
 /// Unified buffer of all sorts (both text and freeform) using gap buffer for efficient editing
 #[derive(Clone)]
 pub struct SortBuffer {
@@ -55,10 +65,7 @@ pub struct SortBuffer {
 /// An entry in the sort buffer representing a glyph
 #[derive(Clone, Debug)]
 pub struct SortEntry {
-    /// The name of the glyph this sort represents
-    pub glyph_name: String,
-    /// The advance width of the glyph (for spacing)
-    pub advance_width: f32,
+    pub kind: SortKind,
     /// Whether this sort is currently active (in edit mode with points showing)
     pub is_active: bool,
     /// Whether this sort is currently selected (handle is highlighted)
@@ -104,8 +111,10 @@ impl Default for SortBuffer {
 impl Default for SortEntry {
     fn default() -> Self {
         Self {
-            glyph_name: String::new(),
-            advance_width: 0.0,
+            kind: SortKind::Glyph {
+                glyph_name: String::new(),
+                advance_width: 0.0,
+            },
             is_active: false,
             is_selected: false,
             layout_mode: SortLayoutMode::Text,
@@ -366,8 +375,10 @@ impl TextEditorState {
                 );
                 
                 sorts.push(SortEntry {
-                    glyph_name: glyph_name.to_string(),
-                    advance_width: glyph_data.advance_width as f32,
+                    kind: SortKind::Glyph {
+                        glyph_name: glyph_name.to_string(),
+                        advance_width: glyph_data.advance_width as f32,
+                    },
                     is_active: false,
                     is_selected: false,
                     layout_mode: SortLayoutMode::Freeform, // Changed to Freeform
@@ -468,8 +479,10 @@ impl TextEditorState {
         self.clear_all_states();
         
         let new_sort = SortEntry {
-            glyph_name: glyph_name.clone(),
-            advance_width,
+            kind: SortKind::Glyph {
+                glyph_name: glyph_name.clone(),
+                advance_width,
+            },
             is_active: true, // Automatically activate the new sort
             is_selected: true, // Also select it
             layout_mode: SortLayoutMode::Freeform,
@@ -485,7 +498,7 @@ impl TextEditorState {
     }
     
     /// Calculate flow position for text sorts
-    fn get_text_sort_flow_position(&self, buffer_position: usize) -> Option<Vec2> {
+    pub fn get_text_sort_flow_position(&self, buffer_position: usize) -> Option<Vec2> {
         if let Some(sort) = self.buffer.get(buffer_position) {
             if sort.layout_mode == SortLayoutMode::Text {
                 // Find the text buffer root for this sort
@@ -501,8 +514,8 @@ impl TextEditorState {
                             // Calculate cumulative advance width from root to current position
                             for j in i..buffer_position {
                                 if let Some(text_sort) = self.buffer.get(j) {
-                                    if text_sort.layout_mode == SortLayoutMode::Text && !text_sort.glyph_name.is_empty() {
-                                        x_offset += text_sort.advance_width;
+                                    if text_sort.layout_mode == SortLayoutMode::Text && text_sort.kind.is_glyph() {
+                                        x_offset += text_sort.kind.glyph_advance_width();
                                     }
                                 }
                             }
@@ -523,8 +536,10 @@ impl TextEditorState {
         self.clear_all_states();
         
         let text_root = SortEntry {
-            glyph_name: String::new(), // Empty glyph name for text root placeholder
-            advance_width: 0.0,
+            kind: SortKind::Glyph {
+                glyph_name: String::new(), // Empty glyph name for text root placeholder
+                advance_width: 0.0,
+            },
             is_active: true, // Automatically activate the new text root
             is_selected: true, // Select the new text root
             layout_mode: SortLayoutMode::Text,
@@ -551,11 +566,12 @@ impl TextEditorState {
         // Clear all states first
         self.clear_all_states();
         
-        // Always create each clicked text sort as a new text root to preserve exact positioning
-        // This ensures text sorts stay exactly where clicked, just like freeform sorts
+        // Create a text root that will be ready for typing
         let text_root = SortEntry {
-            glyph_name: glyph_name.clone(),
-            advance_width,
+            kind: SortKind::Glyph {
+                glyph_name: glyph_name.clone(),
+                advance_width,
+            },
             is_active: true, // Automatically activate the new sort
             is_selected: true, // Select the new text root
             layout_mode: SortLayoutMode::Text,
@@ -568,12 +584,11 @@ impl TextEditorState {
         let insert_index = self.buffer.len();
         self.buffer.insert(insert_index, text_root);
         
-        // FIXED: Position cursor after the new sort for immediate typing continuation
-        // Since we inserted a real glyph (not empty), cursor should be positioned to continue typing
-        self.cursor_position = insert_index + 1;
+        // FIXED: Don't set global cursor_position - the buffer_cursor_position on the root is what matters
+        // The cursor rendering system looks at buffer_cursor_position, not the global cursor_position
         
-        info!("Created and activated new text root '{}' at world position ({:.1}, {:.1}), cursor at position {}", 
-              glyph_name, world_position.x, world_position.y, self.cursor_position);
+        info!("Created and activated new text root '{}' at world position ({:.1}, {:.1}), cursor at position 1", 
+              glyph_name, world_position.x, world_position.y);
     }
     
     /// Get the visual position for a sort based on its layout mode
@@ -622,11 +637,11 @@ impl TextEditorState {
                     
                     debug!(
                         "Checking sort '{}' at index {}: sort_pos=({:.1}, {:.1}), handle_pos=({:.1}, {:.1}), click_pos=({:.1}, {:.1}), distance={:.1}, tolerance={:.1}",
-                        sort.glyph_name, i, sort_pos.x, sort_pos.y, handle_pos.x, handle_pos.y, world_position.x, world_position.y, distance, tolerance
+                        sort.kind.glyph_name(), i, sort_pos.x, sort_pos.y, handle_pos.x, handle_pos.y, world_position.x, world_position.y, distance, tolerance
                     );
                     
                     if distance < tolerance {
-                        debug!("Found matching handle for sort '{}' at index {} (distance={:.1} < tolerance={:.1})", sort.glyph_name, i, distance, tolerance);
+                        debug!("Found matching handle for sort '{}' at index {} (distance={:.1} < tolerance={:.1})", sort.kind.glyph_name(), i, distance, tolerance);
                         return Some(i);
                     }
                 }
@@ -642,7 +657,7 @@ impl TextEditorState {
             if let Some(sort) = self.buffer.get(i) {
                 if let Some(sort_pos) = self.get_sort_visual_position(i) {
                     if world_position.distance(sort_pos) < tolerance {
-                        debug!("Found matching body for sort {} at index {}", sort.glyph_name, i);
+                        debug!("Found matching body for sort {} at index {}", sort.kind.glyph_name(), i);
                         return Some(i);
                     }
                 }
@@ -680,7 +695,7 @@ impl TextEditorState {
         // Then activate the specified sort
         if let Some(sort) = self.buffer.get_mut(position) {
             sort.is_active = true;
-            debug!("Activated sort '{}' at buffer position {}", sort.glyph_name, position);
+            debug!("Activated sort '{}' at buffer position {}", sort.kind.glyph_name(), position);
             true
         } else {
             false
@@ -691,7 +706,7 @@ impl TextEditorState {
     pub fn select_sort(&mut self, position: usize) -> bool {
         if let Some(sort) = self.buffer.get_mut(position) {
             sort.is_selected = true;
-            debug!("Selected sort '{}' at buffer position {}", sort.glyph_name, position);
+            debug!("Selected sort '{}' at buffer position {}", sort.kind.glyph_name(), position);
             true
         } else {
             false
@@ -703,7 +718,7 @@ impl TextEditorState {
     pub fn deselect_sort(&mut self, position: usize) -> bool {
         if let Some(sort) = self.buffer.get_mut(position) {
             sort.is_selected = false;
-            debug!("Deselected sort '{}' at buffer position {}", sort.glyph_name, position);
+            debug!("Deselected sort '{}' at buffer position {}", sort.kind.glyph_name(), position);
             true
         } else {
             false
@@ -715,7 +730,7 @@ impl TextEditorState {
         if let Some(sort) = self.buffer.get_mut(position) {
             sort.is_selected = !sort.is_selected;
             let action = if sort.is_selected { "Selected" } else { "Deselected" };
-            debug!("{} sort '{}' at buffer position {}", action, sort.glyph_name, position);
+            debug!("{} sort '{}' at buffer position {}", action, sort.kind.glyph_name(), position);
             true
         } else {
             false
@@ -820,16 +835,26 @@ impl TextEditorState {
                 .and_then(|rs| rs.buffer_cursor_position)
                 .unwrap_or(0);
 
+            info!("Inserting sort '{}' at cursor position {} in buffer root at index {}", 
+                  glyph_name, cursor_pos_in_buffer, root_index);
+
             let new_sort = SortEntry {
-                glyph_name,
-                advance_width,
+                kind: SortKind::Glyph {
+                    glyph_name: glyph_name.clone(),
+                    advance_width,
+                },
+                is_active: false, // Don't make new sorts active by default
+                is_selected: false, // Don't select new sorts by default
                 layout_mode: SortLayoutMode::Text,
-                ..Default::default()
+                freeform_position: Vec2::ZERO, // Will be calculated by flow
+                buffer_index: None,
+                is_buffer_root: false, // New sorts are not buffer roots
+                buffer_cursor_position: None,
             };
 
             // If the buffer root is an empty placeholder, the new sort replaces it.
             if let Some(root_sort) = self.buffer.get(root_index) {
-                if root_sort.is_buffer_root && root_sort.glyph_name.is_empty() {
+                if root_sort.is_buffer_root && root_sort.kind.is_glyph() && root_sort.kind.glyph_name().is_empty() {
                     if let Some(root_sort_mut) = self.buffer.get_mut(root_index) {
                         *root_sort_mut = new_sort;
                         root_sort_mut.is_buffer_root = true;
@@ -837,20 +862,28 @@ impl TextEditorState {
                         root_sort_mut.is_selected = true;
                         root_sort_mut.buffer_cursor_position = Some(1);
                     }
+                    info!("Replaced empty placeholder with new sort '{}'", glyph_name);
                     return;
                 }
             }
 
-            // Otherwise, insert the new sort at the correct physical index in the buffer.
+            // FIXED: For real buffer roots (not empty placeholders), insert at the correct position
+            // The cursor position represents how many characters are before the cursor
+            // Since the root is the first character, we insert at root_index + cursor_pos_in_buffer
             let insert_buffer_index = root_index + cursor_pos_in_buffer;
             self.buffer.insert(insert_buffer_index, new_sort);
+
+            info!("Inserted sort '{}' at buffer index {} (root_index: {}, cursor_pos: {})", 
+                  glyph_name, insert_buffer_index, root_index, cursor_pos_in_buffer);
 
             // Update the cursor position in the root.
             if let Some(root_sort) = self.buffer.get_mut(root_index) {
                 root_sort.buffer_cursor_position = Some(cursor_pos_in_buffer + 1);
+                info!("Updated cursor position to {} in buffer root", cursor_pos_in_buffer + 1);
             }
         } else {
             // No active text buffer, so create a new one with this character.
+            info!("No active buffer root found, creating new text root with glyph '{}'", glyph_name);
             self.create_text_root_with_glyph(glyph_name, advance_width);
         }
     }
@@ -1023,7 +1056,7 @@ impl TextEditorState {
                 }
 
                 // The root placeholder doesn't count towards the string's length.
-                if i == root_index && sort.glyph_name.is_empty() {
+                if i == root_index && sort.kind.is_glyph() && sort.kind.glyph_name().is_empty() {
                     continue;
                 }
 
@@ -1056,15 +1089,17 @@ impl TextEditorState {
                 if cursor_pos_in_line == 0 {
                     // Cursor is at the beginning of the line - just create a new line above
                     let new_root = SortEntry {
-                        glyph_name: String::new(), // Empty placeholder
-                        advance_width: 0.0,
+                        kind: SortKind::Glyph {
+                            glyph_name: String::new(), // Empty placeholder
+                            advance_width: 0.0,
+                        },
                         is_active: true,
                         is_selected: true,
                         layout_mode: SortLayoutMode::Text,
                         freeform_position: Vec2::new(current_position.x, current_position.y + line_height + leading),
+                        buffer_index: None,
                         is_buffer_root: true,
                         buffer_cursor_position: Some(0),
-                        ..Default::default()
                     };
                     
                     // Insert the new buffer root before the current one
@@ -1080,15 +1115,17 @@ impl TextEditorState {
                 } else if cursor_pos_in_line >= sequence_length {
                     // Cursor is at the end of the line - create a new line below
                     let new_root = SortEntry {
-                        glyph_name: String::new(), // Empty placeholder
-                        advance_width: 0.0,
+                        kind: SortKind::Glyph {
+                            glyph_name: String::new(), // Empty placeholder
+                            advance_width: 0.0,
+                        },
                         is_active: true,
                         is_selected: true,
                         layout_mode: SortLayoutMode::Text,
                         freeform_position: Vec2::new(current_position.x, new_line_y),
+                        buffer_index: None,
                         is_buffer_root: true,
                         buffer_cursor_position: Some(0),
-                        ..Default::default()
                     };
                     
                     // Insert the new buffer root after the current sequence
@@ -1108,15 +1145,17 @@ impl TextEditorState {
                     
                     // Create a new buffer root for the second part of the line
                     let new_root = SortEntry {
-                        glyph_name: String::new(), // Empty placeholder
-                        advance_width: 0.0,
+                        kind: SortKind::Glyph {
+                            glyph_name: String::new(), // Empty placeholder
+                            advance_width: 0.0,
+                        },
                         is_active: true,
                         is_selected: true,
                         layout_mode: SortLayoutMode::Text,
                         freeform_position: Vec2::new(current_position.x, new_line_y),
+                        buffer_index: None,
                         is_buffer_root: true,
                         buffer_cursor_position: Some(0),
-                        ..Default::default()
                     };
                     
                     // Insert the new buffer root after the current sequence
@@ -1133,15 +1172,17 @@ impl TextEditorState {
                             
                             if let Some(sort_to_move) = self.buffer.get(src_index) {
                                 let moved_sort = SortEntry {
-                                    glyph_name: sort_to_move.glyph_name.clone(),
-                                    advance_width: sort_to_move.advance_width,
+                                    kind: SortKind::Glyph {
+                                        glyph_name: sort_to_move.kind.glyph_name().to_string(),
+                                        advance_width: sort_to_move.kind.glyph_advance_width(),
+                                    },
                                     is_active: false,
                                     is_selected: false,
                                     layout_mode: SortLayoutMode::Text,
                                     freeform_position: Vec2::new(current_position.x, new_line_y), // Will be calculated by flow
+                                    buffer_index: None,
                                     is_buffer_root: false,
                                     buffer_cursor_position: None,
-                                    ..Default::default()
                                 };
                                 
                                 // Insert the moved sort at the new line
@@ -1183,19 +1224,180 @@ impl TextEditorState {
         self.clear_all_states();
 
         let new_root = SortEntry {
-            glyph_name,
-            advance_width,
+            kind: SortKind::Glyph {
+                glyph_name,
+                advance_width,
+            },
             is_active: true,
             is_selected: true,
             layout_mode: SortLayoutMode::Text,
             freeform_position: world_position,
+            buffer_index: None,
             is_buffer_root: true,
             buffer_cursor_position: Some(1), // Cursor is after the typed character.
-            ..Default::default()
         };
 
         let insert_index = self.buffer.len();
         self.buffer.insert(insert_index, new_root);
+    }
+
+    /// Insert a line break at the cursor position (for Enter key)
+    pub fn insert_line_break_at_cursor(&mut self) {
+        if let Some(root_index) = self.find_active_buffer_root_index() {
+            let cursor_pos_in_buffer = self.buffer.get(root_index)
+                .and_then(|rs| rs.buffer_cursor_position)
+                .unwrap_or(0);
+
+            let new_sort = SortEntry {
+                kind: SortKind::LineBreak,
+                is_active: false,
+                is_selected: false,
+                layout_mode: SortLayoutMode::Text,
+                ..Default::default()
+            };
+
+            let insert_buffer_index = root_index + cursor_pos_in_buffer;
+            self.buffer.insert(insert_buffer_index, new_sort);
+
+            // Move cursor to the start of the new line (right after the line break)
+            if let Some(root_sort) = self.buffer.get_mut(root_index) {
+                root_sort.buffer_cursor_position = Some(cursor_pos_in_buffer + 1);
+            }
+        }
+    }
+
+    /// Move cursor up to the previous line (multi-line aware)
+    pub fn move_cursor_up_multiline(&mut self) {
+        if let Some(root_index) = self.find_active_buffer_root_index() {
+            let cursor_pos = self.buffer.get(root_index)
+                .and_then(|rs| rs.buffer_cursor_position)
+                .unwrap_or(0);
+            // Build line starts and x offsets
+            let mut line_starts = vec![0];
+            let mut x_offsets = vec![0.0];
+            let mut x = 0.0;
+            for (i, entry) in self.buffer.iter().enumerate().skip(root_index + 1) {
+                match &entry.kind {
+                    SortKind::Glyph { advance_width, .. } => {
+                        x += *advance_width;
+                        x_offsets.push(x);
+                    }
+                    SortKind::LineBreak => {
+                        line_starts.push(i - root_index);
+                        x = 0.0;
+                        x_offsets.push(x);
+                    }
+                }
+            }
+            // Find current line
+            let mut current_line = 0;
+            for (i, &start) in line_starts.iter().enumerate() {
+                if cursor_pos < start {
+                    break;
+                }
+                current_line = i;
+            }
+            if current_line == 0 {
+                return; // Already at top line
+            }
+            let prev_line_start = line_starts[current_line - 1];
+            let curr_x = x_offsets.get(cursor_pos).copied().unwrap_or(0.0);
+            // Find closest x in previous line
+            let prev_line_end = if current_line < line_starts.len() {
+                line_starts[current_line]
+            } else {
+                x_offsets.len()
+            };
+            let mut best_idx = prev_line_start;
+            let mut best_dist = f32::MAX;
+            for idx in prev_line_start..prev_line_end {
+                let dist = (x_offsets[idx] - curr_x).abs();
+                if dist < best_dist {
+                    best_dist = dist;
+                    best_idx = idx;
+                }
+            }
+            if let Some(root_sort) = self.buffer.get_mut(root_index) {
+                root_sort.buffer_cursor_position = Some(best_idx);
+            }
+        }
+    }
+    /// Move cursor down to the next line (multi-line aware)
+    pub fn move_cursor_down_multiline(&mut self) {
+        if let Some(root_index) = self.find_active_buffer_root_index() {
+            let cursor_pos = self.buffer.get(root_index)
+                .and_then(|rs| rs.buffer_cursor_position)
+                .unwrap_or(0);
+            // Build line starts and x offsets
+            let mut line_starts = vec![0];
+            let mut x_offsets = vec![0.0];
+            let mut x = 0.0;
+            for (i, entry) in self.buffer.iter().enumerate().skip(root_index + 1) {
+                match &entry.kind {
+                    SortKind::Glyph { advance_width, .. } => {
+                        x += *advance_width;
+                        x_offsets.push(x);
+                    }
+                    SortKind::LineBreak => {
+                        line_starts.push(i - root_index);
+                        x = 0.0;
+                        x_offsets.push(x);
+                    }
+                }
+            }
+            // Find current line
+            let mut current_line = 0;
+            for (i, &start) in line_starts.iter().enumerate() {
+                if cursor_pos < start {
+                    break;
+                }
+                current_line = i;
+            }
+            if current_line + 1 >= line_starts.len() {
+                return; // Already at last line
+            }
+            let next_line_start = line_starts[current_line + 1];
+            let next_line_end = if current_line + 2 < line_starts.len() {
+                line_starts[current_line + 2]
+            } else {
+                x_offsets.len()
+            };
+            let curr_x = x_offsets.get(cursor_pos).copied().unwrap_or(0.0);
+            // Find closest x in next line
+            let mut best_idx = next_line_start;
+            let mut best_dist = f32::MAX;
+            for idx in next_line_start..next_line_end {
+                let dist = (x_offsets[idx] - curr_x).abs();
+                if dist < best_dist {
+                    best_dist = dist;
+                    best_idx = idx;
+                }
+            }
+            if let Some(root_sort) = self.buffer.get_mut(root_index) {
+                root_sort.buffer_cursor_position = Some(best_idx);
+            }
+        }
+    }
+}
+
+impl SortKind {
+    pub fn is_glyph(&self) -> bool {
+        matches!(self, SortKind::Glyph { .. })
+    }
+    pub fn is_line_break(&self) -> bool {
+        matches!(self, SortKind::LineBreak)
+    }
+    pub fn glyph_name(&self) -> &str {
+        match self {
+            SortKind::Glyph { glyph_name, .. } => glyph_name,
+            _ => "",
+        }
+    }
+    pub fn glyph_advance_width(&self) -> f32 {
+        match self {
+            SortKind::Glyph { advance_width, .. } => *advance_width,
+            _ => 0.0,
+        }
     }
 }
 
@@ -1215,7 +1417,7 @@ mod tests {
         if let Some(sort) = text_editor.buffer.get(0) {
             assert!(sort.is_active);
             assert!(sort.is_selected);
-            assert_eq!(sort.glyph_name, "a");
+            assert_eq!(sort.kind.glyph_name(), "a");
             assert_eq!(sort.freeform_position, Vec2::new(100.0, 200.0));
         } else {
             panic!("Sort should exist at index 0");
@@ -1237,7 +1439,7 @@ mod tests {
         if let Some(sort) = text_editor.buffer.get(1) {
             assert!(sort.is_active);
             assert!(sort.is_selected);
-            assert_eq!(sort.glyph_name, "b");
+            assert_eq!(sort.kind.glyph_name(), "b");
             assert_eq!(sort.freeform_position, Vec2::new(300.0, 400.0));
         } else {
             panic!("Sort should exist at index 1");
