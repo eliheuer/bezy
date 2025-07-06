@@ -1092,6 +1092,7 @@ fn process_unicode_text_to_sorts(
 /// This system processes the text field from KeyboardInput events for Unicode characters
 pub fn handle_unicode_text_input(
     mut keyboard_input_events: EventReader<bevy::input::keyboard::KeyboardInput>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut text_editor_state: ResMut<TextEditorState>,
     app_state: Res<AppState>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
@@ -1105,6 +1106,60 @@ pub fn handle_unicode_text_input(
     
     // Check if we have buffer sorts for various operations
     let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
+    
+    // Handle navigation keys (arrow keys, home, end, etc.)
+    if has_text_sorts {
+        if keyboard_input.just_pressed(KeyCode::ArrowRight) {
+            text_editor_state.move_cursor_right();
+            debug!("Unicode input: moved cursor right to position {}", text_editor_state.cursor_position);
+        }
+        
+        if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
+            text_editor_state.move_cursor_left();
+            debug!("Unicode input: moved cursor left to position {}", text_editor_state.cursor_position);
+        }
+        
+        if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+            text_editor_state.move_cursor_up();
+            debug!("Unicode input: moved cursor up to position {}", text_editor_state.cursor_position);
+        }
+        
+        if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+            text_editor_state.move_cursor_down();
+            debug!("Unicode input: moved cursor down to position {}", text_editor_state.cursor_position);
+        }
+        
+        // Home/End keys
+        if keyboard_input.just_pressed(KeyCode::Home) {
+            text_editor_state.move_cursor_to(0);
+            debug!("Unicode input: moved cursor to beginning");
+        }
+        
+        if keyboard_input.just_pressed(KeyCode::End) {
+            let buffer_len = text_editor_state.buffer.len();
+            text_editor_state.move_cursor_to(buffer_len);
+            debug!("Unicode input: moved cursor to end");
+        }
+        
+        // Delete/Backspace
+        if keyboard_input.just_pressed(KeyCode::Delete) {
+            text_editor_state.delete_sort_at_cursor();
+            info!("Unicode input: deleted sort at cursor position");
+        }
+        
+        if keyboard_input.just_pressed(KeyCode::Backspace) {
+            text_editor_state.delete_sort_at_cursor();
+            info!("Unicode input: backspace pressed");
+        }
+    }
+    
+    // Ctrl+T to create a new text buffer
+    if keyboard_input.just_pressed(KeyCode::KeyT) && 
+       (keyboard_input.pressed(KeyCode::ControlLeft) || 
+        keyboard_input.pressed(KeyCode::ControlRight)) {
+        text_editor_state.create_text_root(Vec2::new(500.0, 0.0));
+        info!("Unicode input: created new text buffer");
+    }
     
     for event in keyboard_input_events.read() {
         // Only process key press events (not releases)
