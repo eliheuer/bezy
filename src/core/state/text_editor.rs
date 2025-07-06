@@ -1082,6 +1082,7 @@ impl TextEditorState {
                 let line_height = (font_metrics.ascender.unwrap_or(1024.0) - font_metrics.descender.unwrap_or(-256.0)) as f32;
                 let leading = 0.0; // As requested, leading = 0
                 let new_line_y = current_position.y - line_height - leading;
+                let new_line_x = current_position.x;
                 
                 // Get the sequence length to determine if we need to split
                 let sequence_length = self.get_buffer_sequence_length(current_root_index);
@@ -1096,7 +1097,7 @@ impl TextEditorState {
                         is_active: true,
                         is_selected: true,
                         layout_mode: SortLayoutMode::Text,
-                        freeform_position: Vec2::new(current_position.x, current_position.y + line_height + leading),
+                        freeform_position: Vec2::new(new_line_x, current_position.y + line_height + leading),
                         buffer_index: None,
                         is_buffer_root: true,
                         buffer_cursor_position: Some(0),
@@ -1111,7 +1112,7 @@ impl TextEditorState {
                         current_root_mut.is_selected = false;
                     }
                     
-                    info!("Created new line above at position ({:.1}, {:.1})", current_position.x, current_position.y + line_height + leading);
+                    info!("Created new line above at position ({:.1}, {:.1})", new_line_x, current_position.y + line_height + leading);
                 } else if cursor_pos_in_line >= sequence_length {
                     // Cursor is at the end of the line - create a new line below
                     let new_root = SortEntry {
@@ -1122,7 +1123,7 @@ impl TextEditorState {
                         is_active: true,
                         is_selected: true,
                         layout_mode: SortLayoutMode::Text,
-                        freeform_position: Vec2::new(current_position.x, new_line_y),
+                        freeform_position: Vec2::new(new_line_x, new_line_y),
                         buffer_index: None,
                         is_buffer_root: true,
                         buffer_cursor_position: Some(0),
@@ -1138,7 +1139,7 @@ impl TextEditorState {
                         current_root_mut.is_selected = false;
                     }
                     
-                    info!("Created new line below at position ({:.1}, {:.1})", current_position.x, new_line_y);
+                    info!("Created new line below at position ({:.1}, {:.1})", new_line_x, new_line_y);
                 } else {
                     // Cursor is in the middle of the line - split the line
                     // This is the most complex case: we need to move characters after the cursor to the new line
@@ -1152,7 +1153,7 @@ impl TextEditorState {
                         is_active: true,
                         is_selected: true,
                         layout_mode: SortLayoutMode::Text,
-                        freeform_position: Vec2::new(current_position.x, new_line_y),
+                        freeform_position: Vec2::new(new_line_x, new_line_y),
                         buffer_index: None,
                         is_buffer_root: true,
                         buffer_cursor_position: Some(0),
@@ -1179,7 +1180,7 @@ impl TextEditorState {
                                     is_active: false,
                                     is_selected: false,
                                     layout_mode: SortLayoutMode::Text,
-                                    freeform_position: Vec2::new(current_position.x, new_line_y), // Will be calculated by flow
+                                    freeform_position: Vec2::new(new_line_x, new_line_y), // Will be calculated by flow
                                     buffer_index: None,
                                     is_buffer_root: false,
                                     buffer_cursor_position: None,
