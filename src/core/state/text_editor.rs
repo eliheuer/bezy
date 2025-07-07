@@ -1,7 +1,4 @@
 //! Text editor state and sort buffer management
-//!
-//! This module contains all the text editing functionality for the font editor,
-//! including the gap buffer-based sort system that allows dynamic text composition.
 
 use bevy::prelude::*;
 use crate::core::state::{FontData, FontMetrics};
@@ -501,43 +498,76 @@ impl TextEditorState {
     pub fn get_text_sort_flow_position(&self, buffer_position: usize, font_metrics: &FontMetrics, leading: f32) -> Option<Vec2> {
         if let Some(sort) = self.buffer.get(buffer_position) {
             if sort.layout_mode == SortLayoutMode::Text {
-                // Find the text buffer root for this sort
                 let mut root_position = Vec2::ZERO;
                 let mut x_offset = 0.0;
                 let mut y_offset = 0.0;
                 let mut found_root = false;
-
-                // Calculate line height from font metrics and leading
                 let line_height = (font_metrics.ascender.unwrap_or(1024.0) - font_metrics.descender.unwrap_or(-256.0)) as f32 + leading;
-
-                // Find the buffer root by searching backwards
+                
+                debug!("Calculating flow position for buffer_position {} (glyph: '{}')", buffer_position, sort.kind.glyph_name());
+                
                 for i in (0..=buffer_position).rev() {
                     if let Some(candidate) = self.buffer.get(i) {
                         if candidate.is_buffer_root && candidate.layout_mode == SortLayoutMode::Text {
                             root_position = candidate.root_position;
                             found_root = true;
-                            // Now walk forward from root to current position
-                            for j in (i + 1)..=buffer_position {
+                            debug!("Found text root at index {} with position ({:.1}, {:.1})", i, root_position.x, root_position.y);
+                            
+                            // For the root itself, return the root position
+                            if buffer_position == i {
+                                debug!("This is the root, returning root position");
+                                return Some(root_position);
+                            }
+                            
+                            // For glyphs after the root, sum advance widths including the root's advance width
+                            let mut total_advance = 0.0;
+                            
+                            // Add the root's advance width if it's a real glyph (not empty placeholder)
+                            if candidate.kind.is_glyph() && !candidate.kind.glyph_name().is_empty() {
+                                total_advance += candidate.kind.glyph_advance_width();
+                                debug!("Added root advance width {} for glyph '{}', total: {:.1}", 
+                                       candidate.kind.glyph_advance_width(), candidate.kind.glyph_name(), total_advance);
+                            }
+                            
+                            // Add advance widths for all glyphs between root and current position
+                            debug!("Summing advance widths from index {} to {}", i + 1, buffer_position);
+                            for j in (i + 1)..buffer_position {
                                 if let Some(text_sort) = self.buffer.get(j) {
+                                    debug!("Processing index {}: glyph '{}'", j, text_sort.kind.glyph_name());
                                     match &text_sort.kind {
                                         SortKind::Glyph { advance_width, .. } => {
-                                            x_offset += *advance_width;
+                                            total_advance += *advance_width;
+                                            debug!("Added advance width {} for glyph '{}', total: {:.1}", 
+                                                   advance_width, text_sort.kind.glyph_name(), total_advance);
                                         }
                                         SortKind::LineBreak => {
-                                            x_offset = 0.0;
+                                            total_advance = 0.0;
                                             y_offset -= line_height;
+                                            debug!("Line break: reset total_advance to 0.0, y_offset: {:.1}", y_offset);
                                         }
                                     }
                                 }
                             }
+                            
+                            x_offset = total_advance;
+                            debug!("Final total_advance: {:.1}, x_offset: {:.1}", total_advance, x_offset);
                             break;
                         }
                     }
                 }
                 if found_root {
-                    return Some(root_position + Vec2::new(x_offset, y_offset));
+                    let final_position = root_position + Vec2::new(x_offset, y_offset);
+                    debug!("Calculated flow position for sort at index {}: root({:.1}, {:.1}) + offset({:.1}, {:.1}) = ({:.1}, {:.1})", 
+                           buffer_position, root_position.x, root_position.y, x_offset, y_offset, final_position.x, final_position.y);
+                    return Some(final_position);
+                } else {
+                    debug!("No root found for buffer_position {}", buffer_position);
                 }
+            } else {
+                debug!("Sort at index {} is not in Text layout mode", buffer_position);
             }
+        } else {
+            debug!("No sort found at buffer_position {}", buffer_position);
         }
         None
     }
@@ -573,6 +603,7 @@ impl TextEditorState {
     pub fn create_text_sort_at_position(&mut self, glyph_name: String, world_position: Vec2, advance_width: f32) {
         // Only create a new root if there are no buffer roots yet
         if self.find_active_buffer_root_index().is_none() {
+            // FIXED: Use the actual click position for the text root
             self.create_text_root(world_position);
         }
         // After root is created, insert the glyph at the cursor
@@ -843,14 +874,20 @@ impl TextEditorState {
             // If the buffer root is an empty placeholder, the new sort replaces it.
             if let Some(root_sort) = self.buffer.get(root_index) {
                 if root_sort.is_buffer_root && root_sort.kind.is_glyph() && root_sort.kind.glyph_name().is_empty() {
+                    // FIXED: Get the original root position before getting mutable reference
+                    let original_root_position = root_sort.root_position;
                     if let Some(root_sort_mut) = self.buffer.get_mut(root_index) {
+                        // FIXED: Preserve the root position from the original placeholder
                         *root_sort_mut = new_sort;
                         root_sort_mut.is_buffer_root = true;
                         root_sort_mut.is_active = true;
                         root_sort_mut.is_selected = true;
                         root_sort_mut.buffer_cursor_position = Some(1);
+                        // FIXED: Set the root position to the original position
+                        root_sort_mut.root_position = original_root_position;
                     }
-                    info!("Replaced empty placeholder with new sort '{}'", glyph_name);
+                    info!("Replaced empty placeholder with new sort '{}' at position ({:.1}, {:.1})", 
+                          glyph_name, original_root_position.x, original_root_position.y);
                     return;
                 }
             }
@@ -870,7 +907,9 @@ impl TextEditorState {
         } else {
             // No active text buffer, so create a new one with this character.
             info!("No active buffer root found, creating new text root with glyph '{}'", glyph_name);
-            self.create_text_root_with_glyph(glyph_name, advance_width);
+            // FIXED: Use a reasonable default position instead of Vec2::ZERO
+            let default_position = Vec2::new(500.0, 0.0);
+            self.create_text_root_with_glyph(glyph_name, advance_width, default_position);
         }
     }
     
@@ -1083,11 +1122,8 @@ impl TextEditorState {
         }
     }
 
-    pub fn create_text_root_with_glyph(&mut self, glyph_name: String, advance_width: f32) {
-        // For now, create the new text root at a default position.
-        // TODO: This should be based on the mouse cursor or some other context.
-        let world_position = Vec2::new(500.0, 0.0);
-
+    pub fn create_text_root_with_glyph(&mut self, glyph_name: String, advance_width: f32, world_position: Vec2) {
+        // FIXED: Use the provided position instead of hardcoded position
         self.clear_all_states();
 
         let new_root = SortEntry {
@@ -1336,6 +1372,63 @@ mod tests {
             assert_eq!(sort.root_position, Vec2::new(500.0, 600.0));
         } else {
             panic!("Text root should exist at index 2");
+        }
+    }
+
+    #[test]
+    fn test_text_flow_calculation() {
+        let mut text_editor = TextEditorState::default();
+        
+        // Create a text root at position (100, 200)
+        text_editor.create_text_root(Vec2::new(100.0, 200.0));
+        println!("After create_text_root: buffer length = {}", text_editor.buffer.len());
+        
+        // Insert some glyphs with known advance widths
+        text_editor.insert_sort_at_cursor("a".to_string(), 100.0);
+        println!("After inserting 'a': buffer length = {}", text_editor.buffer.len());
+        text_editor.insert_sort_at_cursor("b".to_string(), 150.0);
+        println!("After inserting 'b': buffer length = {}", text_editor.buffer.len());
+        text_editor.insert_sort_at_cursor("c".to_string(), 120.0);
+        println!("After inserting 'c': buffer length = {}", text_editor.buffer.len());
+        
+        // Print buffer contents
+        println!("\nBuffer contents:");
+        for (i, sort) in text_editor.buffer.iter().enumerate() {
+            println!("  [{}] '{}' (root: {}, active: {}, selected: {}) at ({:.1}, {:.1})", 
+                     i, sort.kind.glyph_name(), sort.is_buffer_root, sort.is_active, sort.is_selected,
+                     sort.root_position.x, sort.root_position.y);
+        }
+        
+        // Verify the text flow positions
+        let font_metrics = FontMetrics::default();
+        
+        // Root (placeholder) is at index 0
+        if let Some(pos) = text_editor.get_text_sort_flow_position(0, &font_metrics, 0.0) {
+            println!("Index 0 (root): calculated position = ({:.1}, {:.1})", pos.x, pos.y);
+            assert_eq!(pos, Vec2::new(100.0, 200.0));
+        } else {
+            panic!("Should have flow position for root");
+        }
+        // First glyph after root is at index 1
+        if let Some(pos) = text_editor.get_text_sort_flow_position(1, &font_metrics, 0.0) {
+            println!("Index 1 (first glyph): calculated position = ({:.1}, {:.1})", pos.x, pos.y);
+            assert_eq!(pos, Vec2::new(200.0, 200.0)); // 100 + 100
+        } else {
+            panic!("Should have flow position for first glyph");
+        }
+        // Second glyph after root is at index 2
+        if let Some(pos) = text_editor.get_text_sort_flow_position(2, &font_metrics, 0.0) {
+            println!("Index 2 (second glyph): calculated position = ({:.1}, {:.1})", pos.x, pos.y);
+            assert_eq!(pos, Vec2::new(350.0, 200.0)); // 100 + 100 + 150
+        } else {
+            panic!("Should have flow position for second glyph");
+        }
+        // Third glyph after root is at index 2
+        if let Some(pos) = text_editor.get_text_sort_flow_position(2, &font_metrics, 0.0) {
+            println!("Index 2 (third glyph): calculated position = ({:.1}, {:.1})", pos.x, pos.y);
+            assert_eq!(pos, Vec2::new(350.0, 200.0)); // 100 + 100 + 150
+        } else {
+            panic!("Should have flow position for third glyph");
         }
     }
 } 

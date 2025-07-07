@@ -234,6 +234,9 @@ pub fn render_text_editor_sorts(
                         }
                     };
                     
+                    debug!("Rendering sort '{}' at index {}: position=({:.1}, {:.1}), is_buffer_root={}, advance_width={:.1}", 
+                           glyph_name, index, position.x, position.y, entry.is_buffer_root, advance_width);
+                    
                     let metrics_color = if entry.is_active {
                         SORT_ACTIVE_METRICS_COLOR
                     } else {
