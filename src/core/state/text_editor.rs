@@ -542,8 +542,10 @@ impl TextEditorState {
                                         }
                                         SortKind::LineBreak => {
                                             total_advance = 0.0;
-                                            y_offset -= line_height;
-                                            debug!("Line break: reset total_advance to 0.0, y_offset: {:.1}", y_offset);
+                                            let upm = font_metrics.units_per_em as f32;
+                                            let descender = font_metrics.descender.unwrap_or(-256.0) as f32;
+                                            y_offset += descender - upm;
+                                            debug!("Line break: reset total_advance to 0.0, y_offset: {:.1} (upm: {:.1}, descender: {:.1})", y_offset, upm, descender);
                                         }
                                     }
                                 }
