@@ -211,11 +211,13 @@ pub fn render_text_editor_sorts(
     mut gizmos: Gizmos,
     text_editor_state: Res<TextEditorState>,
     app_state: Res<AppState>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    current_placement_mode: Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
 ) {
     let font_metrics = &app_state.workspace.info.metrics;
     let line_height = (font_metrics.ascender.unwrap_or(1024.0) - font_metrics.descender.unwrap_or(-256.0)) as f32;
 
-    // Render all sorts in the buffer
+    // Always render all sorts
     for (index, entry) in text_editor_state.buffer.iter().enumerate() {
         match &entry.kind {
             SortKind::Glyph { glyph_name, advance_width } => {
@@ -233,16 +235,11 @@ pub fn render_text_editor_sorts(
                             entry.root_position
                         }
                     };
-                    
-                    debug!("Rendering sort '{}' at index {}: position=({:.1}, {:.1}), is_buffer_root={}, advance_width={:.1}", 
-                           glyph_name, index, position.x, position.y, entry.is_buffer_root, advance_width);
-                    
                     let metrics_color = if entry.is_active {
                         SORT_ACTIVE_METRICS_COLOR
                     } else {
                         SORT_INACTIVE_METRICS_COLOR
                     };
-                    
                     render_sort_visuals(
                         &mut gizmos,
                         &glyph_data.outline,
@@ -259,6 +256,12 @@ pub fn render_text_editor_sorts(
                 // Line breaks don't render visually
             }
         }
+    }
+
+    // Only render the cursor in Insert mode
+    if current_tool.get_current() != Some("text") ||
+       current_placement_mode.0 != crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Insert {
+        return;
     }
 
     // Render cursor for active buffer root
@@ -803,7 +806,7 @@ pub fn handle_sort_placement_input(
     app_state: Res<AppState>,
     glyph_navigation: Res<GlyphNavigation>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
-    current_placement_mode: Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
+    mut current_placement_mode: ResMut<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
     pointer_info: Res<crate::core::pointer::PointerInfo>,
     camera_query: Query<&Projection, With<DesignCamera>>,
@@ -898,20 +901,16 @@ pub fn handle_sort_placement_input(
                     
                     match current_placement_mode.0 {
                         crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Text => {
-                            // Buffer mode: Create buffer sort at the calculated position
                             text_editor_state.create_text_sort_at_position(glyph_name.clone(), raw_sort_position, advance_width);
                             info!("Placed sort '{}' in buffer mode at position ({:.1}, {:.1}) with descender offset {:.1}", 
                                   glyph_name, raw_sort_position.x, raw_sort_position.y, descender);
                             // Automatically switch to Insert mode after placing a buffer sort
-                            // Note: This would need to be handled by the text toolbar system
+                            current_placement_mode.0 = crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Insert;
                         }
                         crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Insert => {
-                            // Insert mode: Don't place new sorts, this mode is for editing existing buffer sorts
-                            // User should use arrow keys and typing to edit buffer content
                             info!("Insert mode: Use keyboard to edit buffer sorts, not mouse clicks");
                         }
                         crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Freeform => {
-                            // Freeform mode: Add sort at the calculated position
                             text_editor_state.add_freeform_sort(glyph_name.clone(), raw_sort_position, advance_width);
                             info!("Placed sort '{}' in freeform mode at position ({:.1}, {:.1}) with descender offset {:.1}", 
                                   glyph_name, raw_sort_position.x, raw_sort_position.y, descender);
