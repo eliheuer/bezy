@@ -296,4 +296,6 @@ pub fn get_default_text_style(asset_server: &Res<AssetServer>) -> Text {
 #[allow(dead_code)]
 pub fn create_text_style(text: &str, font_size: f32) -> Text {
     Text::new(text)
-} 
+}
+
+pub const LINE_LEADING: f32 = 0.0; 

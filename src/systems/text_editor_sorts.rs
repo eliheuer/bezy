@@ -223,14 +223,14 @@ pub fn render_text_editor_sorts(
                     // Get the visual position for this sort
                     let position = if entry.is_buffer_root {
                         // Buffer roots use their exact stored position
-                        entry.freeform_position
+                        entry.root_position
                     } else {
                         // Non-root text sorts flow from their text root
-                        if let Some(flow_pos) = text_editor_state.get_text_sort_flow_position(index) {
+                        if let Some(flow_pos) = text_editor_state.get_text_sort_flow_position(index, &app_state.workspace.info.metrics, crate::ui::theme::LINE_LEADING) {
                             flow_pos
                         } else {
                             // Fallback to stored position
-                            entry.freeform_position
+                            entry.root_position
                         }
                     };
                     
@@ -261,7 +261,7 @@ pub fn render_text_editor_sorts(
     // Render cursor for active buffer root
     if let Some((root_index, root_sort)) = text_editor_state.get_active_sort() {
         if root_sort.is_buffer_root {
-            let root_pos = root_sort.freeform_position;
+            let root_pos = root_sort.root_position;
             let cursor_pos_in_text = root_sort.buffer_cursor_position.unwrap_or(0);
             
             // Calculate cursor position by iterating through the buffer sequence
@@ -324,7 +324,7 @@ pub fn render_text_editor_sorts(
         // If no active sort, look for any buffer root with a cursor position
         for (index, entry) in text_editor_state.buffer.iter().enumerate() {
             if entry.is_buffer_root && entry.buffer_cursor_position.is_some() {
-                let root_pos = entry.freeform_position;
+                let root_pos = entry.root_position;
                 let cursor_pos_in_text = entry.buffer_cursor_position.unwrap_or(0);
                 
                 // Calculate cursor position by iterating through the buffer sequence
@@ -743,7 +743,7 @@ pub fn sync_text_editor_active_sort(
                         let _entity_id = EntityId::point(index as u32, point_index as u16);
                         let is_on_curve = matches!(point.point_type, crate::core::state::font_data::PointTypeData::Move | crate::core::state::font_data::PointTypeData::Line);
                         // Calculate the world position: sort position + point offset
-                        let point_world_pos = sort_entry.freeform_position + Vec2::new(point.x as f32, point.y as f32);
+                        let point_world_pos = sort_entry.root_position + Vec2::new(point.x as f32, point.y as f32);
                         
                         let point_entity = commands.spawn((
                             EditPoint {
