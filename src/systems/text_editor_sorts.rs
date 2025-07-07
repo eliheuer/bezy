@@ -266,19 +266,18 @@ pub fn render_text_editor_sorts(
         if root_sort.is_buffer_root {
             let root_pos = root_sort.root_position;
             let cursor_pos_in_text = root_sort.buffer_cursor_position.unwrap_or(0);
-            
-            // Calculate cursor position by iterating through the buffer sequence
+            let upm = font_metrics.units_per_em as f32;
+            let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
+            let line_height = upm - descender;
             let mut x = 0.0;
-            let mut y = 0.0;
             let mut glyph_idx = 0;
-            let mut cursor_world_pos = None;
-            
-            // FIXED: Start from the root itself, not after it
-            // The root is the first character in the sequence
+            let mut line_number = 0;
+            let mut cursor_x = 0.0;
+            let mut cursor_line = 0;
             for entry in text_editor_state.buffer.iter().skip(root_index) {
-                // If this is the cursor position, record the world position
                 if glyph_idx == cursor_pos_in_text {
-                    cursor_world_pos = Some(root_pos + Vec2::new(x, y));
+                    cursor_x = x;
+                    cursor_line = line_number;
                     break;
                 }
                 match &entry.kind {
@@ -287,41 +286,39 @@ pub fn render_text_editor_sorts(
                         glyph_idx += 1;
                     }
                     SortKind::LineBreak => {
-                        // Move to next line
                         x = 0.0;
-                        y -= line_height;
+                        line_number += 1;
                         glyph_idx += 1;
                     }
                 }
             }
-            
-            // If cursor is at the end, place it after the last glyph
             if glyph_idx == cursor_pos_in_text {
-                cursor_world_pos = Some(root_pos + Vec2::new(x, y));
+                cursor_x = x;
+                cursor_line = line_number;
             }
-            
-            // Render cursor
-            if let Some(cursor_pos) = cursor_world_pos {
-                let ascender = font_metrics.ascender.unwrap_or(800.0) as f32;
-                let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
-                let cursor_color = SORT_ACTIVE_OUTLINE_COLOR;
-                let circle_radius = 12.0;
-                gizmos.line_2d(
-                    Vec2::new(cursor_pos.x, cursor_pos.y + descender),
-                    Vec2::new(cursor_pos.x, cursor_pos.y + ascender),
-                    cursor_color,
-                );
-                gizmos.circle_2d(
-                    Vec2::new(cursor_pos.x, cursor_pos.y + ascender),
-                    circle_radius,
-                    cursor_color,
-                );
-                gizmos.circle_2d(
-                    Vec2::new(cursor_pos.x, cursor_pos.y + descender),
-                    circle_radius,
-                    cursor_color,
-                );
-            }
+            let baseline_y = root_pos.y + (cursor_line as f32) * -line_height;
+            let cursor_x = root_pos.x + cursor_x;
+            debug!(
+                "[CURSOR DEBUG] line_number: {}, baseline_y: {:.1}, cursor_x: {:.1}, upm: {:.1}, descender: {:.1}, cursor_top_y: {:.1}, cursor_bottom_y: {:.1}",
+                cursor_line, baseline_y, cursor_x, upm, descender, baseline_y + upm, baseline_y + descender
+            );
+            let cursor_color = SORT_ACTIVE_OUTLINE_COLOR;
+            let circle_radius = 12.0;
+            gizmos.line_2d(
+                Vec2::new(cursor_x, baseline_y + descender),
+                Vec2::new(cursor_x, baseline_y + upm),
+                cursor_color,
+            );
+            gizmos.circle_2d(
+                Vec2::new(cursor_x, baseline_y + upm),
+                circle_radius,
+                cursor_color,
+            );
+            gizmos.circle_2d(
+                Vec2::new(cursor_x, baseline_y + descender),
+                circle_radius,
+                cursor_color,
+            );
         }
     } else {
         // If no active sort, look for any buffer root with a cursor position
@@ -329,18 +326,18 @@ pub fn render_text_editor_sorts(
             if entry.is_buffer_root && entry.buffer_cursor_position.is_some() {
                 let root_pos = entry.root_position;
                 let cursor_pos_in_text = entry.buffer_cursor_position.unwrap_or(0);
-                
-                // Calculate cursor position by iterating through the buffer sequence
+                let upm = font_metrics.units_per_em as f32;
+                let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
+                let line_height = upm - descender;
                 let mut x = 0.0;
-                let mut y = 0.0;
                 let mut glyph_idx = 0;
-                let mut cursor_world_pos = None;
-                
-                // FIXED: Start from the root itself, not after it
+                let mut line_number = 0;
+                let mut cursor_x = 0.0;
+                let mut cursor_line = 0;
                 for entry in text_editor_state.buffer.iter().skip(index) {
-                    // If this is the cursor position, record the world position
                     if glyph_idx == cursor_pos_in_text {
-                        cursor_world_pos = Some(root_pos + Vec2::new(x, y));
+                        cursor_x = x;
+                        cursor_line = line_number;
                         break;
                     }
                     match &entry.kind {
@@ -349,41 +346,39 @@ pub fn render_text_editor_sorts(
                             glyph_idx += 1;
                         }
                         SortKind::LineBreak => {
-                            // Move to next line
                             x = 0.0;
-                            y -= line_height;
+                            line_number += 1;
                             glyph_idx += 1;
                         }
                     }
                 }
-                
-                // If cursor is at the end, place it after the last glyph
                 if glyph_idx == cursor_pos_in_text {
-                    cursor_world_pos = Some(root_pos + Vec2::new(x, y));
+                    cursor_x = x;
+                    cursor_line = line_number;
                 }
-                
-                // Render cursor
-                if let Some(cursor_pos) = cursor_world_pos {
-                    let ascender = font_metrics.ascender.unwrap_or(800.0) as f32;
-                    let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
-                    let cursor_color = SORT_ACTIVE_OUTLINE_COLOR;
-                    let circle_radius = 12.0;
-                    gizmos.line_2d(
-                        Vec2::new(cursor_pos.x, cursor_pos.y + descender),
-                        Vec2::new(cursor_pos.x, cursor_pos.y + ascender),
-                        cursor_color,
-                    );
-                    gizmos.circle_2d(
-                        Vec2::new(cursor_pos.x, cursor_pos.y + ascender),
-                        circle_radius,
-                        cursor_color,
-                    );
-                    gizmos.circle_2d(
-                        Vec2::new(cursor_pos.x, cursor_pos.y + descender),
-                        circle_radius,
-                        cursor_color,
-                    );
-                }
+                let baseline_y = root_pos.y + (cursor_line as f32) * -line_height;
+                let cursor_x = root_pos.x + cursor_x;
+                debug!(
+                    "[CURSOR DEBUG] line_number: {}, baseline_y: {:.1}, cursor_x: {:.1}, upm: {:.1}, descender: {:.1}, cursor_top_y: {:.1}, cursor_bottom_y: {:.1}",
+                    cursor_line, baseline_y, cursor_x, upm, descender, baseline_y + upm, baseline_y + descender
+                );
+                let cursor_color = SORT_ACTIVE_OUTLINE_COLOR;
+                let circle_radius = 12.0;
+                gizmos.line_2d(
+                    Vec2::new(cursor_x, baseline_y + descender),
+                    Vec2::new(cursor_x, baseline_y + upm),
+                    cursor_color,
+                );
+                gizmos.circle_2d(
+                    Vec2::new(cursor_x, baseline_y + upm),
+                    circle_radius,
+                    cursor_color,
+                );
+                gizmos.circle_2d(
+                    Vec2::new(cursor_x, baseline_y + descender),
+                    circle_radius,
+                    cursor_color,
+                );
                 break; // Only render cursor for the first buffer root with a cursor
             }
         }
