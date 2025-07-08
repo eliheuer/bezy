@@ -43,11 +43,17 @@ impl Plugin for TextEditorPlugin {
                     // handle_arabic_text_input,
                     // Debug system
                     debug_text_editor_state,
-                    // Sync active sort with selection system
-                    sync_text_editor_active_sort,
-                    // Render the sorts
-                    render_text_editor_sorts,
-                ), // Run systems in parallel
+                ), // Run input systems in parallel
+            )
+            .add_systems(
+                Update,
+                // Sync active sort with selection system AFTER input processing
+                sync_text_editor_active_sort,
+            )
+            .add_systems(
+                Update,
+                // Render the sorts AFTER all state changes
+                render_text_editor_sorts,
             );
     }
 } 

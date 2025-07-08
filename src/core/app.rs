@@ -118,9 +118,9 @@ fn add_core_plugins(app: &mut App) {
         PointerPlugin,
         InputPlugin,
         // InputConsumerPlugin, // Temporarily disabled - broken architecture
-        // Then editing systems
-        SelectionPlugin,
+        // Then editing systems (TextEditor first so it can set up active sort state)
         TextEditorPlugin,
+        SelectionPlugin,
         UndoPlugin,
         // Then UI and interaction
         UiInteractionPlugin,

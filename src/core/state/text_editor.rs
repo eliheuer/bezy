@@ -502,7 +502,7 @@ impl TextEditorState {
                 let mut x_offset = 0.0;
                 let mut y_offset = 0.0;
                 let mut found_root = false;
-                let line_height = (font_metrics.ascender.unwrap_or(1024.0) - font_metrics.descender.unwrap_or(-256.0)) as f32 + leading;
+                let _line_height = (font_metrics.ascender.unwrap_or(1024.0) - font_metrics.descender.unwrap_or(-256.0)) as f32 + leading;
                 
                 debug!("Calculating flow position for buffer_position {} (glyph: '{}')", buffer_position, sort.kind.glyph_name());
                 
@@ -716,7 +716,8 @@ impl TextEditorState {
         // Then activate the specified sort
         if let Some(sort) = self.buffer.get_mut(position) {
             sort.is_active = true;
-            debug!("Activated sort '{}' at buffer position {}", sort.kind.glyph_name(), position);
+            debug!("[activate_sort] Activated sort '{}' at buffer position {}", sort.kind.glyph_name(), position);
+            debug!("[activate_sort] is_selected: {}, is_active: {}", sort.is_selected, sort.is_active);
             true
         } else {
             false

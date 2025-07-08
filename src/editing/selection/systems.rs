@@ -606,15 +606,16 @@ pub fn process_selection_input_events(
     sort_point_entities: Query<&crate::systems::sort_manager::SortPointEntity>,
     select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>>,
 ) {
+    debug!("[process_selection_input_events] Called");
     // Only process if in select mode
     if let Some(select_mode) = select_mode {
         if !select_mode.0 {
+            debug!("[process_selection_input_events] Not in select mode, returning early");
             return;
         }
     }
-
     for event in input_events.read() {
-        info!("Selection: Processing event: {:?}", event);
+        debug!("[process_selection_input_events] Processing event: {:?}", event);
         
         // Skip if UI is consuming input
         if crate::core::input::helpers::is_ui_consuming(&input_state) {
@@ -629,6 +630,7 @@ pub fn process_selection_input_events(
                     debug!("Selection: Processing mouse click at {:?} with modifiers {:?}", position, modifiers);
                     // Call the selection click handler
                     if let Some(active_sort_entity) = active_sort_state.active_sort_entity {
+                        debug!("Selection: Found active sort entity {:?}, processing click", active_sort_entity);
                         handle_selection_click(
                             &mut commands,
                             position,
@@ -643,7 +645,7 @@ pub fn process_selection_input_events(
                             &sort_point_entities,
                         );
                     } else {
-                        debug!("Selection: No active sort, skipping click handling");
+                        debug!("Selection: No active sort entity, skipping click handling");
                     }
                 }
             }

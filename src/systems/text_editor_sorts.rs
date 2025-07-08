@@ -74,8 +74,10 @@ pub fn handle_text_editor_sort_clicks(
     app_state: Res<crate::core::state::AppState>,
     pointer_info: Res<crate::core::pointer::PointerInfo>,
 ) {
+    debug!("[handle_text_editor_sort_clicks] Called");
     // Early return if hovering over UI
     if ui_hover_state.is_hovering_ui {
+        debug!("[handle_text_editor_sort_clicks] UI is hovered, returning early");
         return;
     }
 
@@ -83,6 +85,7 @@ pub fn handle_text_editor_sort_clicks(
     if !mouse_button_input.just_pressed(MouseButton::Left) {
         return;
     }
+    debug!("[handle_text_editor_sort_clicks] Left mouse button pressed");
     
     // DEBUG: Log that we detected a left click
     debug!("LEFT MOUSE CLICKED - handle_text_editor_sort_clicks processing");
@@ -118,6 +121,12 @@ pub fn handle_text_editor_sort_clicks(
     ) {
         debug!("Handle click detected on sort at index {}", clicked_sort_index);
         
+        // Debug: Log the sort details before processing
+        if let Some(sort) = text_editor_state.get_sort_at_position(clicked_sort_index) {
+            debug!("Clicked sort: '{}' - currently selected: {}, active: {}", 
+                   sort.kind.glyph_name(), sort.is_selected, sort.is_active);
+        }
+        
         // Handle click - manage selection and active state relationship
         let is_ctrl_held = keyboard_input.pressed(KeyCode::ControlLeft) || 
                           keyboard_input.pressed(KeyCode::ControlRight);
@@ -128,16 +137,21 @@ pub fn handle_text_editor_sort_clicks(
             text_editor_state.toggle_sort_selection(clicked_sort_index);
             
             // Update active state based on selection count
-            let selected_sorts = text_editor_state.get_selected_sorts();
-            if selected_sorts.len() == 1 {
-                // Only one sort selected → make it active
-                let (selected_index, _) = selected_sorts[0];
+            let selected_indices: Vec<usize> = text_editor_state
+                .get_selected_sorts()
+                .iter()
+                .map(|(idx, _)| *idx)
+                .collect();
+
+            if !selected_indices.is_empty() {
+                // One or more sorts selected → make the first one active
+                let selected_index = selected_indices[0];
                 text_editor_state.activate_sort(selected_index);
-                debug!("Single selection: activated sort {}", selected_index);
+                debug!("Selection: activated sort {} ({} selected)", selected_index, selected_indices.len());
             } else {
-                // Multiple sorts selected → clear active state
+                // No sorts selected → clear active state
                 text_editor_state.clear_active_state();
-                debug!("Multiple selections: cleared active state");
+                debug!("No selections: cleared active state");
             }
         } else {
             // Regular click: clear other selections, select this one, and make it active
@@ -161,6 +175,14 @@ pub fn handle_text_editor_sort_clicks(
                 selected_count,
                 is_active
             );
+            
+            // Debug: Verify the activation worked
+            if let Some(active_sort) = text_editor_state.get_active_sort() {
+                debug!("Active sort after click: '{}' at index {}", 
+                       active_sort.1.kind.glyph_name(), active_sort.0);
+            } else {
+                debug!("No active sort after click!");
+            }
         }
     } else {
         debug!("No handle click detected, checking for sort area clicks");
@@ -215,7 +237,7 @@ pub fn render_text_editor_sorts(
     current_placement_mode: Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
 ) {
     let font_metrics = &app_state.workspace.info.metrics;
-    let line_height = (font_metrics.ascender.unwrap_or(1024.0) - font_metrics.descender.unwrap_or(-256.0)) as f32;
+    let _line_height = (font_metrics.ascender.unwrap_or(1024.0) - font_metrics.descender.unwrap_or(-256.0)) as f32;
 
     // Always render all sorts
     for (index, entry) in text_editor_state.buffer.iter().enumerate() {
@@ -705,47 +727,39 @@ pub fn sync_text_editor_active_sort(
     _selectable_points: Query<Entity, With<Selectable>>,
     app_state: Res<AppState>,
 ) {
-    debug!("=== SYNC TEXT EDITOR ACTIVE SORT ===");
-    debug!("TextEditorState buffer length: {}", text_editor_state.buffer.len());
-    
+    debug!("[sync_text_editor_active_sort] Called");
+    debug!("[sync_text_editor_active_sort] TextEditorState buffer length: {}", text_editor_state.buffer.len());
     // Find the active sort in TextEditorState
     let active_sort = text_editor_state.get_active_sort();
-    
     if let Some((index, sort_entry)) = active_sort {
-        debug!("Found active sort: '{}' at index {}", sort_entry.kind.glyph_name(), index);
-        
+        debug!("[sync_text_editor_active_sort] Found active sort: '{}' at index {}", sort_entry.kind.glyph_name(), index);
+        debug!("[sync_text_editor_active_sort] is_selected: {}, is_active: {}", sort_entry.is_selected, sort_entry.is_active);
         // Create a placeholder entity for the active sort if we don't have one
         let sort_entity = if let Some(entity) = active_sort_state.active_sort_entity {
-            debug!("Using existing sort entity: {:?}", entity);
+            debug!("[sync_text_editor_active_sort] Using existing sort entity: {:?}", entity);
             entity
         } else {
             let entity = commands.spawn_empty().id();
             active_sort_state.active_sort_entity = Some(entity);
-            info!("Created new sort entity {:?} for active sort '{}'", entity, sort_entry.kind.glyph_name());
+            info!("[sync_text_editor_active_sort] Created new sort entity {:?} for active sort '{}'", entity, sort_entry.kind.glyph_name());
             entity
         };
-        
         // Clear existing sort point entities
         let existing_count = sort_point_entities.iter().count();
-        debug!("Clearing {} existing sort point entities", existing_count);
+        debug!("[sync_text_editor_active_sort] Clearing {} existing sort point entities", existing_count);
         for (entity, _) in sort_point_entities.iter() {
             commands.entity(entity).despawn();
         }
-        
         // Create ECS entities for the active sort's points
-        debug!("Looking for glyph '{}' in font", sort_entry.kind.glyph_name());
+        debug!("[sync_text_editor_active_sort] Looking for glyph '{}' in font", sort_entry.kind.glyph_name());
         if let Some(glyph) = app_state.workspace.font.get_glyph(&sort_entry.kind.glyph_name()) {
-            debug!("Found glyph '{}', checking for outline", sort_entry.kind.glyph_name());
+            debug!("[sync_text_editor_active_sort] Found glyph '{}', checking for outline", sort_entry.kind.glyph_name());
             if let Some(outline) = &glyph.outline {
-                debug!("Found outline with {} contours", outline.contours.len());
+                debug!("[sync_text_editor_active_sort] Found outline with {} contours", outline.contours.len());
                 for (contour_index, contour) in outline.contours.iter().enumerate() {
-                    debug!("Processing contour {} with {} points", contour_index, contour.points.len());
+                    debug!("[sync_text_editor_active_sort] Processing contour {} with {} points", contour_index, contour.points.len());
                     for (point_index, point) in contour.points.iter().enumerate() {
-                        let _entity_id = EntityId::point(index as u32, point_index as u16);
-                        let is_on_curve = matches!(point.point_type, crate::core::state::font_data::PointTypeData::Move | crate::core::state::font_data::PointTypeData::Line);
-                        // Calculate the world position: sort position + point offset
                         let point_world_pos = sort_entry.root_position + Vec2::new(point.x as f32, point.y as f32);
-                        
                         let point_entity = commands.spawn((
                             EditPoint {
                                 position: Point::new(point.x, point.y),
@@ -763,35 +777,34 @@ pub fn sync_text_editor_active_sort(
                                 point_index: point_index,
                             },
                             PointType {
-                                is_on_curve,
+                                is_on_curve: matches!(point.point_type, crate::core::state::font_data::PointTypeData::Move | crate::core::state::font_data::PointTypeData::Line),
                             },
                             Selectable,
                             SortPointEntity { sort_entity },
                             Transform::from_translation(point_world_pos.extend(0.0)),
                             GlobalTransform::default(),
                         )).id();
-                        debug!("Created point entity {:?} for sort '{}' point ({}, {}) at world position ({:.1}, {:.1})", 
+                        debug!("[sync_text_editor_active_sort] Created point entity {:?} for sort '{}' point ({}, {}) at world position ({:.1}, {:.1})", 
                                point_entity, sort_entry.kind.glyph_name(), contour_index, point_index, point_world_pos.x, point_world_pos.y);
                     }
                 }
-                debug!("Finished creating ECS entities for sort '{}'", sort_entry.kind.glyph_name());
+                debug!("[sync_text_editor_active_sort] Finished creating ECS entities for sort '{}'", sort_entry.kind.glyph_name());
             } else {
-                debug!("Glyph '{}' has no outline", sort_entry.kind.glyph_name());
+                debug!("[sync_text_editor_active_sort] Glyph '{}' has no outline", sort_entry.kind.glyph_name());
             }
         } else {
-            debug!("Glyph '{}' not found in font", sort_entry.kind.glyph_name());
+            debug!("[sync_text_editor_active_sort] Glyph '{}' not found in font", sort_entry.kind.glyph_name());
         }
     } else {
-        debug!("No active sort found in TextEditorState");
+        debug!("[sync_text_editor_active_sort] No active sort found in TextEditorState");
         // No active sort - clear the active sort state and remove point entities
         if active_sort_state.active_sort_entity.is_some() {
-            info!("Clearing active sort state - no active sort in TextEditorState");
+            info!("[sync_text_editor_active_sort] Clearing active sort state - no active sort in TextEditorState");
             active_sort_state.active_sort_entity = None;
         }
-        
         // Remove all sort point entities
         let existing_count = sort_point_entities.iter().count();
-        debug!("Removing {} sort point entities (no active sort)", existing_count);
+        debug!("[sync_text_editor_active_sort] Removing {} sort point entities (no active sort)", existing_count);
         for (entity, _) in sort_point_entities.iter() {
             commands.entity(entity).despawn();
         }
