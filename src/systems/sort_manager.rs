@@ -70,8 +70,8 @@ pub fn handle_sort_events(
     mut sort_events: EventReader<SortEvent>,
     mut active_sort_state: ResMut<ActiveSortState>,
     app_state: Res<AppState>,
-    sorts_query: Query<&Sort>,
-    active_sorts_query: Query<Entity, With<ActiveSort>>,
+    _sorts_query: Query<&Sort>,
+    _active_sorts_query: Query<Entity, With<ActiveSort>>,
 ) {
     for event in sort_events.read() {
         match event {
@@ -87,17 +87,8 @@ pub fn handle_sort_events(
                 let entity = create_sort(&mut commands, glyph_name.clone(), *position, advance_width);
                 info!("Created sort entity {:?} for '{}'", entity, glyph_name);
             }
-            SortEvent::ActivateSort { sort_entity } => {
-                activate_sort(
-                    &mut commands,
-                    &mut active_sort_state,
-                    *sort_entity,
-                    &active_sorts_query,
-                    &sorts_query,
-                );
-            }
-            SortEvent::DeactivateSort => {
-                deactivate_current_sort(&mut commands, &mut active_sort_state, &active_sorts_query);
+            SortEvent::ActivateSort { .. } | SortEvent::DeactivateSort => {
+                debug!("Ignoring ActivateSort/DeactivateSort event - now handled by TextEditorState");
             }
             SortEvent::_MoveSort {
                 sort_entity,
@@ -139,51 +130,6 @@ fn create_sort(
     )).id()
 }
 
-/// Activate a sort for editing
-fn activate_sort(
-    commands: &mut Commands,
-    active_sort_state: &mut ResMut<ActiveSortState>,
-    sort_entity: Entity,
-    active_sorts_query: &Query<Entity, With<ActiveSort>>,
-    _sorts_query: &Query<&Sort>,
-) {
-    // First deactivate any currently active sort
-    for active_entity in active_sorts_query.iter() {
-        commands
-            .entity(active_entity)
-            .remove::<ActiveSort>()
-            .insert(InactiveSort);
-    }
-
-    // Activate the new sort
-    commands
-        .entity(sort_entity)
-        .remove::<InactiveSort>()
-        .insert(ActiveSort);
-
-    active_sort_state.active_sort_entity = Some(sort_entity);
-
-    info!("Activated sort entity {:?}", sort_entity);
-}
-
-/// Deactivate the currently active sort
-fn deactivate_current_sort(
-    commands: &mut Commands,
-    active_sort_state: &mut ResMut<ActiveSortState>,
-    active_sorts_query: &Query<Entity, With<ActiveSort>>,
-) {
-    for active_entity in active_sorts_query.iter() {
-        commands
-            .entity(active_entity)
-            .remove::<ActiveSort>()
-            .insert(InactiveSort);
-
-        info!("Deactivated sort entity {:?}", active_entity);
-    }
-
-    active_sort_state.active_sort_entity = None;
-}
-
 /// Move a sort to a new position
 fn move_sort(commands: &mut Commands, sort_entity: Entity, new_position: Vec2) {
     commands
@@ -219,24 +165,6 @@ pub fn sync_sort_transforms(mut sorts_query: Query<(&mut Sort, &Transform), Chan
                 sort.position.x, sort.position.y, new_position.x, new_position.y
             );
             sort.position = new_position;
-        }
-    }
-}
-
-/// System to ensure only one sort is active at a time
-pub fn enforce_single_active_sort(
-    mut commands: Commands,
-    active_sorts: Query<Entity, With<ActiveSort>>,
-) {
-    let active_count = active_sorts.iter().count();
-    if active_count > 1 {
-        warn!("Multiple active sorts detected ({}), deactivating all but first", active_count);
-        
-        // Keep the first one, deactivate the rest
-        for (index, entity) in active_sorts.iter().enumerate() {
-            if index > 0 {
-                commands.entity(entity).remove::<ActiveSort>().insert(InactiveSort);
-            }
         }
     }
 }

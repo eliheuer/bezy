@@ -6,6 +6,27 @@
 
 **Sorts System**: Bezy's key innovation is the "sorts" system - named after metal typesetting pieces. Sorts are movable type entities that can be arranged freely or in buffer layouts, acting like Lego-like building blocks for text composition. Each sort represents a glyph instance with its own position and state.
 
+**Active Sort**
+
+**Definition:**  
+An **active sort** is the single sort in the workspace that is currently in "edit mode." Only one sort can be active at a time.
+
+**Behavior and Visuals:**
+- The active sort's outline points (on-curve and off-curve) are visible and editable.
+- The user can move, add, or delete points, and manipulate anchors for the active sort.
+- The active sort is visually distinguished (e.g., highlighted handle, visible outline points).
+- All editing tools (pen, knife, nudge, etc.) operate on the active sort.
+
+**Activation Rules:**
+- Clicking a sort handle selects and activates that sort.
+- If multiple sorts are selected, the first in the selection order is active.
+- The active sort remains active until another sort is activated or all are deselected.
+- If no sorts are selected, there is no active sort (no outline points are shown).
+
+**ECS/State:**
+- The active sort is tracked in `TextEditorState` and synchronized to ECS via `ActiveSortState`.
+- Only the active sort's points/entities are spawned for editing in the ECS.
+
 **Unified Grid Workspace**: Everything happens on one continuous design space rather than switching between overview and edit modes.
 
 **Dual State Architecture**: The app maintains two representations of font data:

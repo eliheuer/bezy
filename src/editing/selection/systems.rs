@@ -17,6 +17,10 @@ use bevy::window::PrimaryWindow;
 use crate::geometry::point::{EditPoint, EntityId, EntityKind};
 #[allow(unused_imports)]
 use crate::ui::panes::design_space::{DPoint, ViewPort};
+use crate::core::state::TextEditorState;
+use crate::core::state::FontMetrics;
+use bevy::input::mouse::MouseButton;
+use bevy::log::info;
 
 /// Event to signal that app state has changed
 #[derive(Event, Debug, Clone)]
@@ -160,75 +164,92 @@ pub fn render_selection_rect(
         let max_y = rect_bounds.max.y;
         
         // Define dash properties
-        let dash_length = 10.0;
-        let gap_length = 5.0;
+        let _dash_length = 10.0;
+        let _gap_length = 5.0;
         
         // Draw dashed lines for each side of the rectangle
         draw_dashed_line(
             &mut gizmos,
             Vec2::new(min_x, min_y),
             Vec2::new(max_x, min_y),
-            dash_length,
-            gap_length,
             orange_color,
+            16.0,
+            8.0,
         );
         
         draw_dashed_line(
             &mut gizmos,
             Vec2::new(max_x, min_y),
             Vec2::new(max_x, max_y),
-            dash_length,
-            gap_length,
             orange_color,
+            16.0,
+            8.0,
         );
         
         draw_dashed_line(
             &mut gizmos,
             Vec2::new(max_x, max_y),
             Vec2::new(min_x, max_y),
-            dash_length,
-            gap_length,
             orange_color,
+            16.0,
+            8.0,
         );
         
         draw_dashed_line(
             &mut gizmos,
             Vec2::new(min_x, max_y),
             Vec2::new(min_x, min_y),
-            dash_length,
-            gap_length,
             orange_color,
+            16.0,
+            8.0,
         );
     }
 }
 
-// Helper function to draw a dashed line between two points
-fn draw_dashed_line(
-    gizmos: &mut Gizmos,
-    start: Vec2,
-    end: Vec2,
-    dash_length: f32,
-    gap_length: f32,
-    color: Color,
+/// System to render the selection marquee rectangle using Gizmos
+pub fn render_selection_marquee(
+    mut gizmos: Gizmos,
+    selection_rects: Query<&SelectionRect>,
 ) {
-    let direction = (end - start).normalize();
-    let total_length = start.distance(end);
-    
-    let segment_length = dash_length + gap_length;
-    let num_segments = (total_length / segment_length).ceil() as usize;
-    
-    for i in 0..num_segments {
-        let segment_start = start + direction * (i as f32 * segment_length);
-        let raw_segment_end = segment_start + direction * dash_length;
-        
-        // Make sure we don't go past the end point
-        let segment_end = if raw_segment_end.distance(start) > total_length {
-            end
-        } else {
-            raw_segment_end
-        };
-        
-        gizmos.line_2d(segment_start, segment_end, color);
+    let count = selection_rects.iter().count();
+    info!("[render_selection_marquee] Called, found {} SelectionRect entities", count);
+    for rect in selection_rects.iter() {
+        info!("[render_selection_marquee] Drawing marquee: start={:?}, end={:?}", rect.start, rect.end);
+        let start = rect.start;
+        let end = rect.end;
+        let color = Color::srgb(1.0, 0.5, 0.0); // Orange
+        let _dash_length = 16.0;
+        let _gap_length = 8.0;
+        // Four corners
+        let p1 = Vec2::new(start.x, start.y);
+        let p2 = Vec2::new(end.x, start.y);
+        let p3 = Vec2::new(end.x, end.y);
+        let p4 = Vec2::new(start.x, end.y);
+        // Draw dashed lines for each edge
+        draw_dashed_line(&mut gizmos, p1, p2, color, 16.0, 8.0);
+        draw_dashed_line(&mut gizmos, p2, p3, color, 16.0, 8.0);
+        draw_dashed_line(&mut gizmos, p3, p4, color, 16.0, 8.0);
+        draw_dashed_line(&mut gizmos, p4, p1, color, 16.0, 8.0);
+    }
+}
+
+/// Helper to draw a dashed line between two points
+fn draw_dashed_line(gizmos: &mut Gizmos, start: Vec2, end: Vec2, color: Color, dash_length: f32, gap_length: f32) {
+    let total_length = (end - start).length();
+    let direction = (end - start).normalize_or_zero();
+    let mut current_length = 0.0;
+    let mut draw = true;
+    let mut p = start;
+    while current_length < total_length {
+        let segment_length = if draw { dash_length } else { gap_length };
+        let next_length = (current_length + segment_length).min(total_length);
+        let next_p = start + direction * next_length;
+        if draw {
+            gizmos.line_2d(p, next_p, color);
+        }
+        p = next_p;
+        current_length = next_length;
+        draw = !draw;
     }
 }
 
@@ -605,6 +626,8 @@ pub fn process_selection_input_events(
     active_sort_state: Res<crate::editing::sort::ActiveSortState>,
     sort_point_entities: Query<&crate::systems::sort_manager::SortPointEntity>,
     select_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>>,
+    mut text_editor_state: ResMut<TextEditorState>,
+    app_state: Res<crate::core::state::AppState>,
 ) {
     debug!("[process_selection_input_events] Called");
     // Only process if in select mode
@@ -626,11 +649,59 @@ pub fn process_selection_input_events(
         // Only handle events that are relevant to selection
         match event {
             crate::core::input::InputEvent::MouseClick { button, position, modifiers } => {
-                if *button == bevy::input::mouse::MouseButton::Left {
-                    debug!("Selection: Processing mouse click at {:?} with modifiers {:?}", position, modifiers);
-                    // Call the selection click handler
-                    if let Some(active_sort_entity) = active_sort_state.active_sort_entity {
-                        debug!("Selection: Found active sort entity {:?}, processing click", active_sort_entity);
+                if *button == MouseButton::Left {
+                    let world_position = position.to_raw();
+                    let handle_tolerance = 50.0;
+                    let font_metrics = &app_state.workspace.info.metrics;
+                    debug!("[sort-handle-hit] Click at world position: ({:.1}, {:.1})", world_position.x, world_position.y);
+                    // Print all handle positions and distances
+                    for i in 0..text_editor_state.buffer.len() {
+                        if let Some(_sort) = text_editor_state.buffer.get(i) {
+                            if let Some(sort_pos) = text_editor_state.get_sort_visual_position(i) {
+                                let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
+                                let handle_pos = sort_pos + Vec2::new(0.0, descender);
+                                let distance = world_position.distance(handle_pos);
+                                debug!("[sort-handle-hit] Sort {}: handle_pos=({:.1}, {:.1}), distance={:.1}, tolerance={:.1}",
+                                    i, handle_pos.x, handle_pos.y, distance, handle_tolerance);
+                            }
+                        }
+                    }
+                    if let Some(clicked_sort_index) = text_editor_state.find_sort_handle_at_position(
+                        world_position,
+                        handle_tolerance,
+                        Some(font_metrics),
+                    ) {
+                        debug!("[process_selection_input_events] Clicked near sort handle at index {}", clicked_sort_index);
+                        let is_ctrl_held = modifiers.ctrl;
+                        if is_ctrl_held {
+                            text_editor_state.toggle_sort_selection(clicked_sort_index);
+                            let selected_indices: Vec<usize> = text_editor_state
+                                .get_selected_sorts()
+                                .iter()
+                                .map(|(idx, _)| *idx)
+                                .collect();
+                            if !selected_indices.is_empty() {
+                                let selected_index = selected_indices[0];
+                                text_editor_state.activate_sort(selected_index);
+                                debug!("[process_selection_input_events] Ctrl: activated sort {} ({} selected)", selected_index, selected_indices.len());
+                            } else {
+                                text_editor_state.clear_active_state();
+                                debug!("[process_selection_input_events] Ctrl: no selections, cleared active state");
+                            }
+                        } else {
+                            text_editor_state.clear_selections();
+                            text_editor_state.select_sort(clicked_sort_index);
+                            text_editor_state.activate_sort(clicked_sort_index);
+                            debug!("[process_selection_input_events] Regular click: selected and activated sort {}", clicked_sort_index);
+                        }
+                        // Early return: don't run the rest of the selection logic for this click
+                        return;
+                    } else {
+                        debug!("[sort-handle-hit] No sort handle hit detected");
+                        
+                        // Fallback to general selection click handling
+                        // Use a dummy entity if no active sort exists
+                        let active_sort_entity = active_sort_state.active_sort_entity.unwrap_or(Entity::PLACEHOLDER);
                         handle_selection_click(
                             &mut commands,
                             position,
@@ -644,75 +715,70 @@ pub fn process_selection_input_events(
                             active_sort_entity,
                             &sort_point_entities,
                         );
-                    } else {
-                        debug!("Selection: No active sort entity, skipping click handling");
                     }
                 }
             }
             crate::core::input::InputEvent::MouseDrag { button, start_position, current_position, delta, modifiers } => {
-                if *button == bevy::input::mouse::MouseButton::Left {
-                            debug!("Selection: Processing mouse drag from {:?} to {:?} with modifiers {:?}",
-              start_position, current_position, modifiers);
-        debug!("Selection: active_sort_entity={:?}", active_sort_state.active_sort_entity);
-                    // Call the selection drag handler
-                    if let Some(active_sort_entity) = active_sort_state.active_sort_entity {
-                        debug!("Selection: Calling handle_selection_drag...");
-                        handle_selection_drag(
-                            &mut commands,
-                            &start_position,
-                            &current_position,
-                            &delta,
-                            modifiers,
-                            &mut drag_state,
-                            &mut drag_point_state,
-                            &mut event_writer,
-                            &selectable_query,
-                            &mut selection_state,
-                            active_sort_entity,
-                            &sort_point_entities,
-                            &selection_rect_query,
-                        );
-                        debug!("Selection: handle_selection_drag completed");
-                    } else {
-                        debug!("Selection: No active sort entity, skipping drag handling");
-                    }
+                if *button == MouseButton::Left {
+                    debug!("Selection: Processing mouse drag from {:?} to {:?} with modifiers {:?}",
+                          start_position, current_position, modifiers);
+                    debug!("Selection: active_sort_entity={:?}", active_sort_state.active_sort_entity);
+                    
+                    // Always allow drag selection, regardless of active sort state
+                    // Use a dummy entity if no active sort exists
+                    let active_sort_entity = active_sort_state.active_sort_entity.unwrap_or(Entity::PLACEHOLDER);
+                    debug!("Selection: Calling handle_selection_drag...");
+                    handle_selection_drag(
+                        &mut commands,
+                        &start_position,
+                        &current_position,
+                        &delta,
+                        modifiers,
+                        &mut drag_state,
+                        &mut drag_point_state,
+                        &mut event_writer,
+                        &selectable_query,
+                        &mut selection_state,
+                        active_sort_entity,
+                        &sort_point_entities,
+                        &selection_rect_query,
+                    );
+                    debug!("Selection: handle_selection_drag completed");
                 }
             }
             crate::core::input::InputEvent::MouseRelease { button, position, modifiers } => {
-                if *button == bevy::input::mouse::MouseButton::Left {
+                if *button == MouseButton::Left {
                     debug!("Selection: Processing mouse release at {:?} with modifiers {:?}", position, modifiers);
-                    // Call the selection release handler
-                    if let Some(_active_sort_entity) = active_sort_state.active_sort_entity {
-                        handle_selection_release(
-                            &mut commands,
-                            position,
-                            modifiers,
-                            &mut drag_state,
-                            &mut drag_point_state,
-                            &mut event_writer,
-                            &mut selection_state,
-                            &selection_rect_query,
-                        );
-                    }
+                    // Always handle mouse release for selection, regardless of active sort state
+                    handle_selection_release(
+                        &mut commands,
+                        position,
+                        modifiers,
+                        &mut drag_state,
+                        &mut drag_point_state,
+                        &mut event_writer,
+                        &mut selection_state,
+                        &selection_rect_query,
+                    );
                 }
             }
             crate::core::input::InputEvent::KeyPress { key, modifiers } => {
                 if matches!(key, bevy::input::keyboard::KeyCode::KeyA | bevy::input::keyboard::KeyCode::Escape) {
                     debug!("Selection: Processing key press {:?} with modifiers {:?}", key, modifiers);
-                    // Call the selection key press handler
-                    if let Some(active_sort_entity) = active_sort_state.active_sort_entity {
-                        handle_selection_key_press(
-                            &mut commands,
-                            key,
-                            modifiers,
-                            &selectable_query,
-                            &selected_query,
-                            &mut selection_state,
-                            &mut event_writer,
-                            active_sort_entity,
-                            &sort_point_entities,
-                        );
-                    }
+                    // Always handle key presses for selection, regardless of active sort state
+                    // Use a dummy entity if no active sort exists
+                    let active_sort_entity = active_sort_state.active_sort_entity.unwrap_or(Entity::PLACEHOLDER);
+                    handle_selection_key_press(
+                        &mut commands,
+                        key,
+                        modifiers,
+                        &selectable_query,
+                        &selected_query,
+                        &mut selection_state,
+                        &mut event_writer,
+                        active_sort_entity,
+                        &sort_point_entities,
+                    );
                 }
             }
             _ => {}
@@ -897,31 +963,28 @@ pub fn handle_selection_drag(
     _sort_point_entities: &Query<&crate::systems::sort_manager::SortPointEntity>,
     _selection_rect_query: &Query<Entity, With<SelectionRect>>,
 ) {
-    info!("=== HANDLE_SELECTION_DRAG START ===");
-    info!("handle_selection_drag called: start={:?}, current={:?}, delta={:?}, is_dragging={}", start_position, current_position, delta, drag_state.is_dragging);
-    info!("drag_state: is_dragging={}, start_position={:?}, current_position={:?}, selection_rect_entity={:?}", 
-          drag_state.is_dragging, drag_state.start_position, drag_state.current_position, drag_state.selection_rect_entity);
-    // Only set start_position and create entity at the very start of a drag
+    info!("[handle_selection_drag] Called: start={:?}, current={:?}, delta={:?}, is_dragging={}", start_position, current_position, delta, drag_state.is_dragging);
     if !drag_state.is_dragging {
-        info!("Starting new drag selection...");
+        info!("[handle_selection_drag] Starting new drag selection at start={:?}, end={:?}", start_position.to_raw(), current_position.to_raw());
+        
+        // Initialize drag state
         drag_state.is_dragging = true;
         drag_state.start_position = Some(*start_position);
         drag_state.current_position = Some(*current_position);
         drag_state.is_multi_select = modifiers.shift;
         
-        // Store previous selection for multi-select mode
+        // Store previous selection for multi-select
         if modifiers.shift {
             drag_state.previous_selection = selection_state.selected.iter().cloned().collect();
-            info!("Multi-select mode: stored {} previous selections", drag_state.previous_selection.len());
         }
         
-        info!("Drag selection started at {:?}", start_position);
+        // Spawn selection rectangle entity
         let rect_entity = commands.spawn(SelectionRect {
             start: start_position.to_raw(),
             end: current_position.to_raw(),
         }).id();
         drag_state.selection_rect_entity = Some(rect_entity);
-        info!("SelectionRect entity created with ID {:?}: start={:?}, end={:?}", rect_entity, start_position.to_raw(), current_position.to_raw());
+        info!("[handle_selection_drag] SelectionRect entity created with ID {:?}", rect_entity);
     } else {
         // Only update current_position during drag
         info!("Continuing existing drag selection...");
@@ -1132,6 +1195,17 @@ pub fn handle_selection_key_press(
             });
         }
         _ => {}
+    }
+}
+
+/// TEMP: Debug system to print all SelectionRect entities every frame
+pub fn debug_print_selection_rects(selection_rects: Query<(Entity, &SelectionRect)>) {
+    let count = selection_rects.iter().count();
+    if count > 0 {
+        info!("[debug_print_selection_rects] Found {} SelectionRect entities:", count);
+        for (entity, rect) in selection_rects.iter() {
+            info!("  Entity {:?}: start={:?}, end={:?}", entity, rect.start, rect.end);
+        }
     }
 }
 

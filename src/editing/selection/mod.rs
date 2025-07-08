@@ -99,8 +99,9 @@ impl Plugin for SelectionPlugin {
             .add_systems(
                 Update,
                 (
-                    systems::render_selection_rect,
+                    systems::render_selection_marquee,
                     systems::render_selected_entities,
+                    systems::debug_print_selection_rects, // TEMP: debug system
                 )
                     .in_set(SelectionSystemSet::Render)
                     .after(SelectionSystemSet::Processing),

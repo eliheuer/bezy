@@ -79,7 +79,8 @@ impl Plugin for SelectToolPlugin {
         app
             .init_resource::<SelectModeActive>()
             .add_systems(Startup, register_select_tool)
-            .add_systems(Update, reset_select_mode_when_inactive);
+            .add_systems(Update, reset_select_mode_when_inactive)
+            .add_systems(Update, ensure_select_mode_active);
     }
 }
 
@@ -97,5 +98,18 @@ pub fn reset_select_mode_when_inactive(
         commands.insert_resource(SelectModeActive(false));
         // Reset input mode to Normal when not in select mode
         commands.insert_resource(crate::core::input::InputMode::Normal);
+    }
+}
+
+/// System to ensure select mode is active by default
+pub fn ensure_select_mode_active(
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    mut commands: Commands,
+) {
+    // If no tool is currently selected, default to select
+    if current_tool.get_current().is_none() {
+        commands.insert_resource(SelectModeActive(true));
+        commands.insert_resource(crate::core::input::InputMode::Select);
+        info!("No tool selected, defaulting to select mode");
     }
 } 
