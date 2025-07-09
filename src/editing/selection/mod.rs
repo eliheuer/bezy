@@ -72,9 +72,14 @@ impl Plugin for SelectionPlugin {
                 (
                     SelectionSystemSet::Input,
                     SelectionSystemSet::Processing,
-                    SelectionSystemSet::Render,
                 )
                     .chain(),
+            )
+            .configure_sets(
+                PostUpdate,
+                (
+                    SelectionSystemSet::Render,
+                ),
             )
             // Input systems - the process_selection_input_events system handles the actual selection logic
             // It's called by the centralized input consumer system when in select mode
@@ -95,16 +100,16 @@ impl Plugin for SelectionPlugin {
                     .in_set(SelectionSystemSet::Processing)
                     .after(SelectionSystemSet::Input),
             )
-            // Rendering systems
+            // Rendering systems - moved to PostUpdate to run after transform propagation
             .add_systems(
-                Update,
+                PostUpdate,
                 (
                     systems::render_selection_marquee,
                     systems::render_selected_entities,
+                    systems::render_all_point_entities,
                     systems::debug_print_selection_rects, // TEMP: debug system
                 )
-                    .in_set(SelectionSystemSet::Render)
-                    .after(SelectionSystemSet::Processing),
+                    .in_set(SelectionSystemSet::Render),
             )
             // Add the nudge plugin
             .add_plugins(NudgePlugin);

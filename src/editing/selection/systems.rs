@@ -1209,6 +1209,70 @@ pub fn debug_print_selection_rects(selection_rects: Query<(Entity, &SelectionRec
     }
 }
 
+/// System to render all point entities (not just selected ones)
+pub fn render_all_point_entities(
+    mut gizmos: Gizmos,
+    point_entities: Query<
+        (
+            &GlobalTransform,
+            &crate::editing::selection::components::PointType,
+        ),
+        With<crate::systems::sort_manager::SortPointEntity>,
+    >,
+    camera_query: Query<(&Camera, &GlobalTransform, &Projection), With<crate::rendering::cameras::DesignCamera>>,
+) {
+    let point_count = point_entities.iter().count();
+    info!("[render_all_point_entities] Called, found {} point entities", point_count);
+
+    // Debug camera information
+    if let Ok((_camera, camera_transform, projection)) = camera_query.single() {
+        let camera_pos = camera_transform.translation();
+        let camera_scale = match projection {
+            Projection::Orthographic(ortho) => ortho.scale,
+            _ => 1.0,
+        };
+        info!("[render_all_point_entities] Camera: pos=({:.1}, {:.1}, {:.1}), scale={:.3}", 
+              camera_pos.x, camera_pos.y, camera_pos.z, camera_scale);
+    } else {
+        warn!("[render_all_point_entities] No camera found");
+    }
+
+    for (i, (transform, point_type)) in point_entities.iter().enumerate() {
+        let position = transform.translation().truncate();
+        
+        // Debug: Print first few point positions being rendered
+        if i < 5 {
+            info!("[render_all_point_entities] Rendering point {} at ({:.1}, {:.1}), is_on_curve={}", 
+                  i, position.x, position.y, point_type.is_on_curve);
+        }
+        
+        // Use different colors and sizes based on point type
+        let (size, color) = if point_type.is_on_curve {
+            (crate::ui::theme::ON_CURVE_POINT_RADIUS, crate::ui::theme::ON_CURVE_POINT_COLOR)
+        } else {
+            (crate::ui::theme::OFF_CURVE_POINT_RADIUS, crate::ui::theme::OFF_CURVE_POINT_COLOR)
+        };
+
+        if point_type.is_on_curve && crate::ui::theme::USE_SQUARE_FOR_ON_CURVE {
+            // Draw a square for on-curve points
+            let half_size = size / crate::ui::theme::ON_CURVE_SQUARE_ADJUSTMENT;
+            let square_size = Vec2::new(size * 2.0, size * 2.0);
+            gizmos.rect_2d(position, square_size, color);
+            
+            // Draw a smaller inner circle
+            let inner_radius = half_size * crate::ui::theme::ON_CURVE_INNER_CIRCLE_RATIO;
+            gizmos.circle_2d(position, inner_radius, color);
+        } else {
+            // Draw a circle for off-curve points
+            gizmos.circle_2d(position, size, color);
+            
+            // Draw a smaller inner circle
+            let inner_radius = size * crate::ui::theme::OFF_CURVE_INNER_CIRCLE_RATIO;
+            gizmos.circle_2d(position, inner_radius, color);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

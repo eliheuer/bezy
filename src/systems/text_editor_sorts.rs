@@ -562,17 +562,37 @@ pub fn respawn_active_sort_points(
     sort_point_entities: Query<(Entity, &SortPointEntity)>,
     app_state: Res<AppState>,
     mut sort_entities: Local<HashMap<(String, (i32, i32)), Entity>>, // (glyph_name, (x, y)) -> ECS entity
+    mut last_active_sort: Local<Option<(usize, String, Vec2)>>, // Track last active sort to avoid respawning
 ) {
     // Find the active sort in TextEditorState
     let active_sort = text_editor_state.get_active_sort();
+    
+    // Check if the active sort has changed
+    let current_active_sort = active_sort.map(|(index, sort_entry)| {
+        (index, sort_entry.kind.glyph_name().to_string(), sort_entry.root_position)
+    });
+    
+    // Only respawn if the active sort has actually changed
+    if current_active_sort == *last_active_sort {
+        return; // No change, skip respawning
+    }
+    
+    info!("[respawn_active_sort_points] Called, active_sort={:?}, changed={:?}", 
+          active_sort.is_some(), current_active_sort != *last_active_sort);
 
     // Despawn all existing point entities (for previous active sort)
+    let existing_count = sort_point_entities.iter().count();
+    if existing_count > 0 {
+        info!("[respawn_active_sort_points] Despawning {} existing point entities", existing_count);
+    }
     for (entity, _) in sort_point_entities.iter() {
         commands.entity(entity).despawn();
     }
 
     if let Some((index, sort_entry)) = active_sort {
         let glyph_name = sort_entry.kind.glyph_name().to_string();
+        let root_position = sort_entry.root_position;
+        info!("[respawn_active_sort_points] Active sort index: {}, glyph: '{}', root_position: {:?}", index, glyph_name, root_position);
         let position = sort_entry.root_position;
         let pos_key = (position.x.round() as i32, position.y.round() as i32);
         let key = (glyph_name.clone(), pos_key);
@@ -598,9 +618,20 @@ pub fn respawn_active_sort_points(
             if let Some(outline) = &glyph_data.outline {
                 // Get the visual position of the sort
                 if let Some(sort_world_pos) = text_editor_state.get_sort_visual_position(index) {
+                    info!("[respawn_active_sort_points] Spawning points for sort '{}' at position {:?}", 
+                          sort_entry.kind.glyph_name(), sort_world_pos);
+                    let mut point_count = 0;
                     for (contour_index, contour) in outline.contours.iter().enumerate() {
                         for (point_index, point) in contour.points.iter().enumerate() {
                             let point_world_pos = sort_world_pos + Vec2::new(point.x as f32, point.y as f32);
+                            point_count += 1;
+                            
+                            // Debug: Print first few point positions
+                            if point_count <= 5 {
+                                info!("[respawn_active_sort_points] Point {}: local=({:.1}, {:.1}), world=({:.1}, {:.1})", 
+                                      point_count, point.x, point.y, point_world_pos.x, point_world_pos.y);
+                            }
+                            
                             commands.spawn((
                                 EditPoint {
                                     position: Point::new(point.x, point.y),
@@ -620,7 +651,8 @@ pub fn respawn_active_sort_points(
                                 PointType {
                                     is_on_curve: matches!(point.point_type, 
                                         crate::core::state::font_data::PointTypeData::Move | 
-                                        crate::core::state::font_data::PointTypeData::Line),
+                                        crate::core::state::font_data::PointTypeData::Line |
+                                        crate::core::state::font_data::PointTypeData::Curve),
                                 },
                                 Transform::from_translation(point_world_pos.extend(0.0)),
                                 GlobalTransform::default(),
@@ -632,10 +664,22 @@ pub fn respawn_active_sort_points(
                             ));
                         }
                     }
+                    info!("[respawn_active_sort_points] Spawned {} point entities", point_count);
+                } else {
+                    warn!("[respawn_active_sort_points] No visual position found for sort at index {}", index);
                 }
+            } else {
+                warn!("[respawn_active_sort_points] No outline found for glyph '{}'", sort_entry.kind.glyph_name());
             }
+        } else {
+            warn!("[respawn_active_sort_points] No glyph data found for '{}'", sort_entry.kind.glyph_name());
         }
+    } else {
+        info!("[respawn_active_sort_points] No active sort found");
     }
+    
+    // Update the last active sort tracking
+    *last_active_sort = current_active_sort;
 }
 
 /// Handle sort placement using the centralized input system
