@@ -31,8 +31,12 @@ impl PointList {
     /// Creates a point list from UFO contour data
     #[allow(dead_code)]
     pub fn from_contour(contour: &Contour) -> Self {
-        let points: Vec<EditPoint> =
-            contour.points.iter().map(EditPoint::from).collect();
+        let points: Vec<EditPoint> = contour.points.iter().map(|norad_point| {
+            EditPoint {
+                position: kurbo::Point::new(norad_point.x, norad_point.y),
+                point_type: crate::core::state::font_data::PointTypeData::from_norad_point_type(&norad_point.typ),
+            }
+        }).collect();
 
         Self {
             points,

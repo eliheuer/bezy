@@ -5,32 +5,22 @@
 
 use bevy::prelude::*;
 use kurbo::Point;
-use norad::{ContourPoint, PointType};
+use crate::core::state::font_data::PointTypeData;
 
 /// A point in a glyph's outline that can be edited
 #[derive(Component, Debug, Clone, PartialEq)]
 pub struct EditPoint {
     pub position: Point, // Position in glyph coordinate space
-    pub point_type: PointType, // Point type (move, line, curve, etc.)
+    pub point_type: PointTypeData, // Point type (move, line, curve, etc.)
 }
 
 impl EditPoint {
     /// Creates a new editable point
     #[allow(dead_code)]
-    pub fn new(position: Point, point_type: PointType) -> Self {
+    pub fn new(position: Point, point_type: PointTypeData) -> Self {
         Self {
             position,
             point_type,
-        }
-    }
-}
-
-impl From<&ContourPoint> for EditPoint {
-    /// Converts a UFO contour point to an editable point
-    fn from(point: &ContourPoint) -> Self {
-        EditPoint {
-            position: Point::new(point.x as f64, point.y as f64),
-            point_type: point.typ.clone(),
         }
     }
 }

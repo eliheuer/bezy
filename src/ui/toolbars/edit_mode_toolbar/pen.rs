@@ -711,7 +711,7 @@ fn create_contour_from_points(points: &[Vec2], active_sort_offset: Vec2) -> Opti
         contour_points.push(ContourPoint::new(
             glyph_local_point.x as f64, 
             glyph_local_point.y as f64, 
-            norad::PointType::Line, 
+            crate::core::state::font_data::PointTypeData::Line.to_norad_point_type(), // Convert our internal type to norad for I/O
             false, // not smooth
             None,  // no name
             None,  // no identifier

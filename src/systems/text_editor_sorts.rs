@@ -635,13 +635,7 @@ pub fn respawn_active_sort_points(
                             commands.spawn((
                                 EditPoint {
                                     position: Point::new(point.x, point.y),
-                                    point_type: match point.point_type {
-                                        crate::core::state::font_data::PointTypeData::Move => norad::PointType::Move,
-                                        crate::core::state::font_data::PointTypeData::Line => norad::PointType::Line,
-                                        crate::core::state::font_data::PointTypeData::OffCurve => norad::PointType::OffCurve,
-                                        crate::core::state::font_data::PointTypeData::Curve => norad::PointType::Curve,
-                                        crate::core::state::font_data::PointTypeData::QCurve => norad::PointType::QCurve,
-                                    },
+                                    point_type: point.point_type, // Use our internal type directly
                                 },
                                 GlyphPointReference {
                                     glyph_name: sort_entry.kind.glyph_name().to_string(),
