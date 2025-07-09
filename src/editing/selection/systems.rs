@@ -1273,6 +1273,90 @@ pub fn render_all_point_entities(
     }
 }
 
+/// Render control handles between on-curve points and their off-curve control points
+pub fn render_control_handles(
+    mut gizmos: Gizmos,
+    point_entities: Query<
+        (
+            &GlobalTransform,
+            &crate::editing::selection::components::PointType,
+            &crate::editing::selection::components::GlyphPointReference,
+        ),
+        With<crate::systems::sort_manager::SortPointEntity>,
+    >,
+    text_editor_state: Res<crate::core::state::TextEditorState>,
+    app_state: Res<crate::core::state::AppState>,
+) {
+    // Get the active sort to find the glyph data
+    let Some((_active_sort_index, active_sort)) = text_editor_state.get_active_sort() else {
+        return; // No active sort, no handles to render
+    };
+
+    let glyph_name = active_sort.kind.glyph_name();
+    let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) else {
+        return; // No glyph data found
+    };
+
+    let Some(outline) = &glyph_data.outline else {
+        return; // No outline data
+    };
+
+    // Group points by contour to process them together
+    let mut contour_points: Vec<Vec<(Vec2, bool, usize)>> = vec![Vec::new(); outline.contours.len()];
+    
+    // Collect all point entities and their positions
+    for (transform, point_type, glyph_ref) in point_entities.iter() {
+        let position = transform.translation().truncate();
+        let is_on_curve = point_type.is_on_curve;
+        let contour_index = glyph_ref.contour_index;
+        let point_index = glyph_ref.point_index;
+        
+        if contour_index < contour_points.len() {
+            contour_points[contour_index].push((position, is_on_curve, point_index));
+        }
+    }
+
+    // Sort points within each contour by their original index
+    for contour_points in &mut contour_points {
+        contour_points.sort_by_key(|(_, _, index)| *index);
+    }
+
+    // Render handles for each contour
+    for contour_points in contour_points {
+        if contour_points.len() < 2 {
+            continue;
+        }
+
+        render_contour_handles(&mut gizmos, &contour_points);
+    }
+}
+
+/// Render handles for a single contour
+fn render_contour_handles(
+    gizmos: &mut Gizmos,
+    contour_points: &[(Vec2, bool, usize)],
+) {
+    let handle_color = crate::ui::theme::HANDLE_LINE_COLOR;
+    let len = contour_points.len();
+    if len < 2 {
+        return;
+    }
+    // Walk through all points in order
+    for i in 0..len {
+        let (curr_pos, curr_on, _) = contour_points[i];
+        let next_idx = (i + 1) % len;
+        let (next_pos, next_on, _) = contour_points[next_idx];
+        // If current is on-curve and next is off-curve, draw handle
+        if curr_on && !next_on {
+            gizmos.line_2d(curr_pos, next_pos, handle_color);
+        }
+        // If current is off-curve and next is on-curve, draw handle
+        if !curr_on && next_on {
+            gizmos.line_2d(curr_pos, next_pos, handle_color);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

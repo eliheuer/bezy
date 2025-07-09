@@ -107,6 +107,7 @@ impl Plugin for SelectionPlugin {
                     systems::render_selection_marquee,
                     systems::render_selected_entities,
                     systems::render_all_point_entities,
+                    systems::render_control_handles,
                     systems::debug_print_selection_rects, // TEMP: debug system
                 )
                     .in_set(SelectionSystemSet::Render),
