@@ -280,7 +280,8 @@ pub fn spawn_point_entities_for_sort(
                     Selectable,
                     PointType { is_on_curve },
                     PointCoordinates {
-                        position: point_pos,
+                        x: point_pos.x,
+                        y: point_pos.y,
                     },
                     GlyphPointReference {
                         glyph_name: sort.glyph_name.clone(),

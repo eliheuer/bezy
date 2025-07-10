@@ -1,11 +1,21 @@
 #![allow(unused_imports)]
 
+use crate::editing::edit_type::EditType;
+use crate::editing::selection::nudge::{EditEvent, NudgeState, PointCoordinates};
+use crate::editing::selection::components::{
+    Selectable, Selected, Hovered, SelectionRect, PointType, GlyphPointReference,
+};
+use crate::editing::selection::systems::*;
+use crate::editing::selection::nudge::NudgePlugin;
+use crate::editing::UndoPlugin;
+use crate::core::state::AppState;
+use bevy::prelude::*;
+
 pub mod components;
 pub mod coordinate_system;
 pub mod nudge;
 pub mod systems;
 
-use bevy::prelude::*;
 pub use components::*;
 pub use nudge::*;
 pub use systems::*;
@@ -54,6 +64,9 @@ impl Plugin for SelectionPlugin {
         app
             // Add events
             .add_event::<systems::AppStateChanged>()
+            .add_event::<EditEvent>()
+            .register_type::<EditType>()
+            .register_type::<NudgeState>()
             // Register components
             .register_type::<Selectable>()
             .register_type::<Selected>()
@@ -61,7 +74,6 @@ impl Plugin for SelectionPlugin {
             .register_type::<SelectionRect>()
             .register_type::<PointType>()
             .register_type::<GlyphPointReference>()
-            .register_type::<LastEditType>()
             // Register resources
             .init_resource::<SelectionState>()
             .init_resource::<DragSelectionState>()

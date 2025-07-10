@@ -31,18 +31,20 @@ pub struct InputPlugin;
 
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
+        info!("[INPUT] Registering InputPlugin");
+        
         app
             .init_resource::<InputState>()
             .init_resource::<InputPriority>()
             .add_event::<InputEvent>()
-            .add_systems(PreUpdate, (
-                update_input_state,
-                process_input_events,
-            ).chain())
+            .add_systems(PreUpdate, update_input_state)
             .add_systems(Update, (
+                process_input_events,
                 generate_mouse_drag_events,
                 clear_input_events,
             ));
+            
+        info!("[INPUT] InputPlugin registration complete");
     }
 }
 
@@ -286,26 +288,19 @@ fn update_input_state(
     _gamepad_button_events: EventReader<GamepadButtonChangedEvent>,
     ui_hover_state: Res<UiHoverState>,
 ) {
-    // Update UI consuming state
-    _input_state.ui_consuming = ui_hover_state.is_hovering_ui;
-
+    debug!("[INPUT] update_input_state called");
+    
     // Update mouse state
-    update_mouse_state(
-        &mut _input_state.mouse,
-        &pointer_info,
-        &_mouse_button_input,
-        &mut mouse_motion,
-        &mut mouse_wheel,
-    );
-
+    update_mouse_state(&mut _input_state.mouse, &pointer_info, &_mouse_button_input, &mut mouse_motion, &mut mouse_wheel);
+    
     // Update keyboard state
-    update_keyboard_state(
-        &mut _input_state.keyboard,
-        &keyboard_input,
-    );
-
-    // Update gamepad state (placeholder for future implementation)
+    update_keyboard_state(&mut _input_state.keyboard, &keyboard_input);
+    
+    // Update gamepad state
     update_gamepad_state(&mut _input_state.gamepad);
+    
+    // Update UI consumption state
+    _input_state.ui_consuming = ui_hover_state.is_hovering_ui;
 }
 
 /// Update mouse state from Bevy input resources
@@ -369,14 +364,15 @@ fn process_input_events(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut input_events: EventWriter<InputEvent>,
 ) {
+    debug!("[INPUT] Processing input events");
     // Process mouse events
     process_mouse_events(&input_state, &mut input_events);
-    
     // Process keyboard events
     process_keyboard_events(&keyboard_input, &input_state, &mut input_events);
-    
     // Process gamepad events
     process_gamepad_events(&input_state, &mut input_events);
+    // Log all events generated this frame
+    // (We can't read EventWriter, so add logs in process_keyboard_events)
 }
 
 /// Process mouse events and create InputEvent instances
@@ -468,24 +464,20 @@ fn process_keyboard_events(
     input_events: &mut EventWriter<InputEvent>,
 ) {
     let modifiers = &input_state.keyboard.modifiers;
-
-    // Generate KeyPress events for just pressed keys
     for key in keyboard_input.get_just_pressed() {
+        debug!("[INPUT] Generating KeyPress event for key: {:?}", key);
         input_events.write(InputEvent::KeyPress {
             key: *key,
             modifiers: modifiers.clone(),
         });
     }
-
-    // Generate KeyRelease events for just released keys
     for key in keyboard_input.get_just_released() {
+        debug!("[INPUT] Generating KeyRelease event for key: {:?}", key);
         input_events.write(InputEvent::KeyRelease {
             key: *key,
             modifiers: modifiers.clone(),
         });
     }
-
-    // Text input events are now handled separately by process_text_input_events
 }
 
 /// Process gamepad events and create InputEvent instances

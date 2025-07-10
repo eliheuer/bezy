@@ -145,13 +145,13 @@ impl crate::systems::input_consumer::InputConsumer for PenInputConsumer {
         match event {
             InputEvent::MouseClick { button, position, modifiers } => {
                 if *button == MouseButton::Left {
-                    info!("Pen: Processing mouse click at {:?} with modifiers {:?}", position, modifiers);
+                    debug!("Pen: Processing mouse click at {:?} with modifiers {:?}", position, modifiers);
                     // TODO: Implement pen click handling
                 }
             }
             InputEvent::MouseDrag { button, start_position, current_position, delta: _, modifiers } => {
                 if *button == MouseButton::Left {
-                    info!("Pen: Processing mouse drag from {:?} to {:?} with modifiers {:?}", 
+                    debug!("Pen: Processing mouse drag from {:?} to {:?} with modifiers {:?}",
                           start_position, current_position, modifiers);
                     // TODO: Implement pen drag handling
                 }
@@ -164,10 +164,6 @@ impl crate::systems::input_consumer::InputConsumer for PenInputConsumer {
             }
             _ => {}
         }
-    }
-    
-    fn priority(&self) -> u32 {
-        50 // Medium priority
     }
 }
 

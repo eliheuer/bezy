@@ -646,16 +646,18 @@ pub fn handle_key_releases(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut nudge_state: ResMut<NudgeState>,
 ) {
-    // Check if any previously pressed arrow key was released
-    if let Some(last_key) = nudge_state.last_key_pressed {
-        if keyboard_input.just_released(last_key) {
-            // Clear the last pressed key but maintain nudging state
-            // This ensures selection isn't lost when arrow keys are released
-            nudge_state.last_key_pressed = None;
-
-            // Note: We deliberately don't reset the nudging state here
-            // to ensure selection is maintained through multiple nudges
-        }
+    // Reset nudging state if no arrow keys are pressed
+    let arrow_keys = [
+        KeyCode::ArrowLeft,
+        KeyCode::ArrowRight,
+        KeyCode::ArrowUp,
+        KeyCode::ArrowDown,
+    ];
+    
+    let any_arrow_pressed = arrow_keys.iter().any(|key| keyboard_input.pressed(*key));
+    
+    if !any_arrow_pressed {
+        nudge_state.is_nudging = false;
     }
 }
 
@@ -729,7 +731,8 @@ pub fn handle_point_drag(
                     transform.translation.x = new_pos.x;
                     transform.translation.y = new_pos.y;
                     transform.translation.z = 25.0; // Keep crosshairs on top
-                    coordinates.position = new_pos;
+                    coordinates.x = new_pos.x;
+                    coordinates.y = new_pos.y;
                 }
                 // Handle glyph point drag (with snapping)
                 else if let Some(point_ref) = point_ref {
@@ -747,7 +750,8 @@ pub fn handle_point_drag(
                     transform.translation.x = snapped_pos.x;
                     transform.translation.y = snapped_pos.y;
                     transform.translation.z = 5.0; // Keep glyph points above background
-                    coordinates.position = snapped_pos;
+                    coordinates.x = snapped_pos.x;
+                    coordinates.y = snapped_pos.y;
 
                     // Update UFO data for glyph points
                     let updated = app_state.set_point_position(
@@ -766,7 +770,8 @@ pub fn handle_point_drag(
                     transform.translation.x = new_pos.x;
                     transform.translation.y = new_pos.y;
                     transform.translation.z = 10.0; // Middle layer
-                    coordinates.position = new_pos;
+                    coordinates.x = new_pos.x;
+                    coordinates.y = new_pos.y;
                 }
             }
         }

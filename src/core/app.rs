@@ -5,11 +5,11 @@ use crate::core::settings::BezySettings;
 use crate::core::state::{AppState, GlyphNavigation};
 use crate::core::pointer::PointerPlugin;
 use crate::core::input::InputPlugin;
+use crate::systems::{BezySystems, CommandsPlugin, UiInteractionPlugin, InputConsumerPlugin};
 use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
 use crate::rendering::{
     cameras::CameraPlugin, checkerboard::CheckerboardPlugin,
 };
-use crate::systems::{BezySystems, CommandsPlugin, UiInteractionPlugin};
 use crate::ui::hud::HudPlugin;
 use crate::ui::panes::coord_pane::CoordinatePanePlugin;
 use crate::ui::panes::design_space::DesignSpacePlugin;
@@ -119,7 +119,7 @@ fn add_core_plugins(app: &mut App) {
         // Core infrastructure first
         PointerPlugin,
         InputPlugin,
-        // InputConsumerPlugin, // Temporarily disabled - broken architecture
+        InputConsumerPlugin, // ENABLED: Centralized input system
         // Then editing systems (TextEditor first so it can set up active sort state)
         TextEditorPlugin,
         SelectionPlugin,

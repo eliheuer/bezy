@@ -67,6 +67,46 @@ mod workspace_tests {
     }
 }
 
+#[cfg(test)]
+mod nudge_tests {
+    use bevy::prelude::*;
+    use crate::editing::selection::nudge::{NudgeState, PointCoordinates, EditEvent};
+    use crate::core::settings::{NUDGE_AMOUNT, SHIFT_NUDGE_AMOUNT, CMD_NUDGE_AMOUNT};
+
+    #[test]
+    fn test_nudge_amounts() {
+        // Test that nudge amounts are reasonable
+        assert!(NUDGE_AMOUNT > 0.0, "Default nudge amount should be positive");
+        assert!(SHIFT_NUDGE_AMOUNT > NUDGE_AMOUNT, "Shift nudge should be larger than default");
+        assert!(CMD_NUDGE_AMOUNT > SHIFT_NUDGE_AMOUNT, "Cmd nudge should be larger than shift");
+    }
+
+    #[test]
+    fn test_nudge_state_default() {
+        let nudge_state = NudgeState::default();
+        assert!(!nudge_state.is_nudging, "Default nudge state should not be nudging");
+        assert_eq!(nudge_state.last_nudge_time, 0.0, "Default last nudge time should be 0");
+        assert_eq!(nudge_state.last_key_pressed, None, "Default last key pressed should be None");
+    }
+
+    #[test]
+    fn test_point_coordinates_default() {
+        let coords = PointCoordinates::default();
+        assert_eq!(coords.position, Vec2::ZERO, "Default position should be zero");
+    }
+
+    #[test]
+    fn test_edit_event_creation() {
+        use crate::editing::edit_type::EditType;
+        
+        let event = EditEvent {
+            edit_type: EditType::NudgeLeft,
+        };
+        
+        assert!(matches!(event.edit_type, EditType::NudgeLeft), "Edit event should have correct type");
+    }
+}
+
 // Add more test modules here as needed, for example:
 // mod grid_tests { ... }
 // mod font_info_tests { ... }

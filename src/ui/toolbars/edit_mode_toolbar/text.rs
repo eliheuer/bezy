@@ -621,11 +621,21 @@ pub fn handle_text_mode_keyboard(
     mut glyph_navigation: ResMut<GlyphNavigation>,
     text_mode_state: Res<TextModeState>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    // Add query to check for selected points
+    selected_points: Query<Entity, With<crate::editing::selection::components::Selected>>,
 ) {
     if !text_mode_active.0 || current_tool.get_current() != Some("text") {
         return;
     }
     if current_placement_mode.0 == TextPlacementMode::Insert {
+        return;
+    }
+
+    // Check if there are any selected points - if so, don't handle arrow keys
+    // This gives priority to the nudge system
+    let has_selected_points = !selected_points.is_empty();
+    if has_selected_points {
+        debug!("[TEXT_TOOLBAR] Skipping arrow key handling - {} selected points found", selected_points.iter().count());
         return;
     }
 

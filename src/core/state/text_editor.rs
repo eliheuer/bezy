@@ -1299,8 +1299,8 @@ mod tests {
         // Print buffer contents
         println!("\nBuffer contents:");
         for (i, sort) in text_editor.buffer.iter().enumerate() {
-            println!("  [{}] '{}' (root: {}, active: {}, selected: {}) at ({:.1}, {:.1})", 
-                     i, sort.kind.glyph_name(), sort.is_buffer_root, sort.is_active, sort.is_selected,
+            println!("  [{}] '{}' (root: {}, active: {}) at ({:.1}, {:.1})", 
+                     i, sort.kind.glyph_name(), sort.is_buffer_root, sort.is_active,
                      sort.root_position.x, sort.root_position.y);
         }
         
