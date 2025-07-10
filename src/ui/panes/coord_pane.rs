@@ -4,8 +4,7 @@
 
 #![allow(unused_mut)]
 
-#[allow(unused_imports)]
-use crate::editing::selection::SelectionState;
+use crate::editing::selection::components::Selected;
 use crate::geometry::quadrant::Quadrant;
 use crate::ui::theme::*;
 use bevy::prelude::*;
@@ -309,11 +308,34 @@ pub fn spawn_coord_pane(
 /// System to update coordinate selection based on current selection state
 fn update_coordinate_selection(
     mut coord_selection: ResMut<CoordinateSelection>,
-    // TODO: Connect with actual selection system when available
+    selected_query: Query<&GlobalTransform, With<Selected>>,
 ) {
-    // Placeholder implementation - will be connected to actual selection system
-    coord_selection.count = 0;
-    coord_selection.frame = Rect::default();
+    let selected_count = selected_query.iter().count();
+    coord_selection.count = selected_count;
+
+    if selected_count == 0 {
+        coord_selection.frame = Rect::default();
+        return;
+    }
+
+    // Calculate bounding rectangle of all selected points
+    let mut min_x = f32::INFINITY;
+    let mut min_y = f32::INFINITY;
+    let mut max_x = f32::NEG_INFINITY;
+    let mut max_y = f32::NEG_INFINITY;
+
+    for transform in selected_query.iter() {
+        let position = transform.translation().truncate();
+        min_x = min_x.min(position.x);
+        min_y = min_y.min(position.y);
+        max_x = max_x.max(position.x);
+        max_y = max_y.max(position.y);
+    }
+
+    coord_selection.frame = Rect::from_corners(
+        Vec2::new(min_x, min_y),
+        Vec2::new(max_x, max_y),
+    );
 }
 
 /// System to update the coordinate display text
