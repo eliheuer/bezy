@@ -75,8 +75,6 @@ pub struct SortEntry {
     pub kind: SortKind,
     /// Whether this sort is currently active (in edit mode with points showing)
     pub is_active: bool,
-    /// Whether this sort is currently selected (handle is highlighted)
-    pub is_selected: bool,
     /// Layout mode for this sort
     pub layout_mode: SortLayoutMode,
     /// Root position (used for text buffer roots); for freeform sorts, use freeform_position
@@ -123,7 +121,6 @@ impl Default for SortEntry {
                 advance_width: 0.0,
             },
             is_active: false,
-            is_selected: false,
             layout_mode: SortLayoutMode::Text,
             root_position: Vec2::ZERO,
             buffer_index: None,
@@ -387,7 +384,6 @@ impl TextEditorState {
                         advance_width: glyph_data.advance_width as f32,
                     },
                     is_active: false,
-                    is_selected: false,
                     layout_mode: SortLayoutMode::Freeform, // Changed to Freeform
                     root_position: freeform_position, // Set actual position instead of Vec2::ZERO
                     buffer_index: None, // No buffer index for freeform sorts
@@ -491,7 +487,6 @@ impl TextEditorState {
                 advance_width,
             },
             is_active: true, // Automatically activate the new sort
-            is_selected: true, // Also select it
             layout_mode: SortLayoutMode::Freeform,
             root_position: position,
             buffer_index: None,
@@ -553,7 +548,7 @@ impl TextEditorState {
                                         SortKind::LineBreak => {
                                             total_advance = 0.0;
                                             // FIXED: Use proper line height calculation instead of descender - upm
-                                            let upm = font_metrics.units_per_em as f32;
+                                            let _upm = font_metrics.units_per_em as f32;
                                             let ascender = font_metrics.ascender.unwrap_or(1024.0) as f32;
                                             let descender = font_metrics.descender.unwrap_or(-256.0) as f32;
                                             let line_height = (ascender - descender) + leading;
@@ -598,7 +593,6 @@ impl TextEditorState {
                 advance_width: 0.0,
             },
             is_active: true, // Automatically activate the new text root
-            is_selected: true, // Select the new text root
             layout_mode: SortLayoutMode::Text,
             root_position: world_position,
             buffer_index: Some(self.buffer.len()),
@@ -730,76 +724,7 @@ impl TextEditorState {
         if let Some(sort) = self.buffer.get_mut(position) {
             sort.is_active = true;
             debug!("[activate_sort] Activated sort '{}' at buffer position {}", sort.kind.glyph_name(), position);
-            debug!("[activate_sort] is_selected: {}, is_active: {}", sort.is_selected, sort.is_active);
             true
-        } else {
-            false
-        }
-    }
-    
-    /// Select a sort at the given buffer position (multiple can be selected)
-    pub fn select_sort(&mut self, position: usize) -> bool {
-        if let Some(sort) = self.buffer.get_mut(position) {
-            sort.is_selected = true;
-            debug!("Selected sort '{}' at buffer position {}", sort.kind.glyph_name(), position);
-            true
-        } else {
-            false
-        }
-    }
-    
-    /// Deselect a sort at the given buffer position
-    #[allow(dead_code)]
-    pub fn deselect_sort(&mut self, position: usize) -> bool {
-        if let Some(sort) = self.buffer.get_mut(position) {
-            sort.is_selected = false;
-            debug!("Deselected sort '{}' at buffer position {}", sort.kind.glyph_name(), position);
-            true
-        } else {
-            false
-        }
-    }
-    
-    /// Toggle selection state of a sort at the given buffer position
-    pub fn toggle_sort_selection(&mut self, position: usize) -> bool {
-        if let Some(sort) = self.buffer.get_mut(position) {
-            sort.is_selected = !sort.is_selected;
-            let action = if sort.is_selected { "Selected" } else { "Deselected" };
-            debug!("{} sort '{}' at buffer position {}", action, sort.kind.glyph_name(), position);
-            true
-        } else {
-            false
-        }
-    }
-    
-    /// Clear all selections
-    pub fn clear_selections(&mut self) {
-        for i in 0..self.buffer.len() {
-            if let Some(sort) = self.buffer.get_mut(i) {
-                sort.is_selected = false;
-            }
-        }
-        debug!("Cleared all sort selections");
-    }
-    
-    /// Get all currently selected sorts
-    pub fn get_selected_sorts(&self) -> Vec<(usize, &SortEntry)> {
-        let mut selected_sorts = Vec::new();
-        for i in 0..self.buffer.len() {
-            if let Some(sort) = self.buffer.get(i) {
-                if sort.is_selected {
-                    selected_sorts.push((i, sort));
-                }
-            }
-        }
-        selected_sorts
-    }
-    
-    /// Check if a sort at the given position is selected
-    #[allow(dead_code)]
-    pub fn is_sort_selected(&self, position: usize) -> bool {
-        if let Some(sort) = self.buffer.get(position) {
-            sort.is_selected
         } else {
             false
         }
@@ -820,7 +745,6 @@ impl TextEditorState {
         for i in 0..self.buffer.len() {
             if let Some(sort) = self.buffer.get_mut(i) {
                 sort.is_active = false;
-                sort.is_selected = false;
             }
         }
         debug!("Cleared all active states and selections from all sorts");
@@ -879,7 +803,6 @@ impl TextEditorState {
                     advance_width,
                 },
                 is_active: false, // Don't make new sorts active by default
-                is_selected: false, // Don't select new sorts by default
                 layout_mode: SortLayoutMode::Text,
                 root_position: Vec2::ZERO, // Will be calculated by flow
                 buffer_index: None,
@@ -897,7 +820,6 @@ impl TextEditorState {
                         *root_sort_mut = new_sort;
                         root_sort_mut.is_buffer_root = true;
                         root_sort_mut.is_active = true;
-                        root_sort_mut.is_selected = true;
                         root_sort_mut.buffer_cursor_position = Some(1);
                         // FIXED: Set the root position to the original position
                         root_sort_mut.root_position = original_root_position;
@@ -1013,12 +935,12 @@ impl TextEditorState {
                     if sort.is_buffer_root {
                         // Deselect current buffer root and select previous one
                         if let Some(current_root) = self.buffer.get_mut(current_root_index) {
-                            current_root.is_selected = false;
+                            current_root.is_active = false;
                         }
                         // Get buffer_length before getting mutable reference to avoid borrow conflicts
                         let buffer_length = self.get_buffer_sequence_length(i);
                         if let Some(prev_root) = self.buffer.get_mut(i) {
-                            prev_root.is_selected = true;
+                            prev_root.is_active = true;
                             // Set cursor to end of previous buffer
                             prev_root.buffer_cursor_position = Some(buffer_length);
                             info!("Moved up to buffer root at index {}, cursor at position {}", 
@@ -1041,10 +963,10 @@ impl TextEditorState {
                     if sort.is_buffer_root {
                         // Deselect current buffer root and select next one
                         if let Some(current_root) = self.buffer.get_mut(current_root_index) {
-                            current_root.is_selected = false;
+                            current_root.is_active = false;
                         }
                         if let Some(next_root) = self.buffer.get_mut(i) {
-                            next_root.is_selected = true;
+                            next_root.is_active = true;
                             // Set cursor to beginning of next buffer
                             next_root.buffer_cursor_position = Some(0);
                             info!("Moved down to buffer root at index {}, cursor at position 0", i);
@@ -1061,7 +983,7 @@ impl TextEditorState {
         // Use same logic as insert_sort_at_cursor
         for i in 0..self.buffer.len() {
             if let Some(sort) = self.buffer.get(i) {
-                if sort.is_buffer_root && sort.is_selected {
+                if sort.is_buffer_root && sort.is_active {
                     return Some(i);
                 }
             }
@@ -1131,7 +1053,6 @@ impl TextEditorState {
             let line_break = SortEntry {
                 kind: SortKind::LineBreak,
                 is_active: false,
-                is_selected: false,
                 layout_mode: SortLayoutMode::Text,
                 root_position: Vec2::ZERO, // Not used for line breaks
                 buffer_index: None,
@@ -1149,7 +1070,6 @@ impl TextEditorState {
                     advance_width: 0.0,
                 },
                 is_active: true,
-                is_selected: true,
                 layout_mode: SortLayoutMode::Text,
                 root_position: Vec2::new(prev_root_x, new_root_y),
                 buffer_index: Some(insert_index + 1),
@@ -1159,7 +1079,6 @@ impl TextEditorState {
             self.buffer.insert(insert_index + 1, new_root);
 
             if let Some(root_sort) = self.buffer.get_mut(root_index) {
-                root_sort.is_selected = false;
                 root_sort.is_active = false;
             }
         }
@@ -1175,7 +1094,6 @@ impl TextEditorState {
                 advance_width,
             },
             is_active: true,
-            is_selected: true,
             layout_mode: SortLayoutMode::Text,
             root_position: world_position,
             buffer_index: None,
@@ -1197,7 +1115,6 @@ impl TextEditorState {
             let new_sort = SortEntry {
                 kind: SortKind::LineBreak,
                 is_active: false,
-                is_selected: false,
                 layout_mode: SortLayoutMode::Text,
                 root_position: Vec2::ZERO,
                 buffer_index: None,
@@ -1365,7 +1282,6 @@ mod tests {
         assert_eq!(text_editor.buffer.len(), 1);
         if let Some(sort) = text_editor.buffer.get(0) {
             assert!(sort.is_active);
-            assert!(sort.is_selected);
             assert_eq!(sort.kind.glyph_name(), "a");
             assert_eq!(sort.root_position, Vec2::new(100.0, 200.0));
         } else {
@@ -1381,13 +1297,11 @@ mod tests {
         // First sort should be deactivated
         if let Some(sort) = text_editor.buffer.get(0) {
             assert!(!sort.is_active);
-            assert!(!sort.is_selected);
         }
         
         // Second sort should be activated
         if let Some(sort) = text_editor.buffer.get(1) {
             assert!(sort.is_active);
-            assert!(sort.is_selected);
             assert_eq!(sort.kind.glyph_name(), "b");
             assert_eq!(sort.root_position, Vec2::new(300.0, 400.0));
         } else {
@@ -1410,7 +1324,6 @@ mod tests {
         // Third sort (text root) should be activated
         if let Some(sort) = text_editor.buffer.get(2) {
             assert!(sort.is_active);
-            assert!(sort.is_selected);
             assert!(sort.is_buffer_root);
             assert_eq!(sort.root_position, Vec2::new(500.0, 600.0));
         } else {

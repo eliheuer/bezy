@@ -33,7 +33,7 @@ pub fn manage_sort_activation(
     mut active_sort_state: ResMut<ActiveSortState>,
     sort_entities: Query<(Entity, &crate::editing::sort::Sort)>,
     active_sorts: Query<Entity, With<ActiveSort>>,
-    inactive_sorts: Query<Entity, With<InactiveSort>>,
+    _inactive_sorts: Query<Entity, With<InactiveSort>>,
 ) {
     // Check if TextEditorState has an active sort that doesn't match ECS
     if let Some((buffer_index, sort_entry)) = text_editor_state.get_active_sort() {
@@ -187,7 +187,6 @@ pub fn render_text_editor_sorts(
                         position,
                         metrics_color,
                         SortRenderStyle::TextBuffer,
-                        entry.is_selected,
                     );
                 }
             }
@@ -611,26 +610,23 @@ pub fn debug_text_editor_state(
     // F2: Debug selection states
     if keyboard_input.just_pressed(KeyCode::F2) {
         info!("=== Selection Debug ===");
-        let selected_sorts = text_editor_state.get_selected_sorts();
-        info!("Total sorts: {}", text_editor_state.buffer.len());
-        info!("Selected sorts: {}", selected_sorts.len());
+        // Remove all references to is_selected and buffer-based selection logic
+        // for (index, sort) in text_editor_state.buffer.iter().enumerate() {
+        //     if sort.is_selected || sort.is_active {
+        //         info!(
+        //             "Sort {}: '{}' - Selected: {}, Active: {}, Layout: {:?}", 
+        //             index, 
+        //             sort.kind.glyph_name(), 
+        //             sort.is_selected, 
+        //             sort.is_active,
+        //             sort.layout_mode
+        //         );
+        //     }
+        // }
         
-        for (index, sort) in text_editor_state.buffer.iter().enumerate() {
-            if sort.is_selected || sort.is_active {
-                info!(
-                    "Sort {}: '{}' - Selected: {}, Active: {}, Layout: {:?}", 
-                    index, 
-                    sort.kind.glyph_name(), 
-                    sort.is_selected, 
-                    sort.is_active,
-                    sort.layout_mode
-                );
-            }
-        }
-        
-        if selected_sorts.is_empty() {
-            info!("No sorts are currently selected");
-        }
+        // if selected_sorts.is_empty() {
+        //     info!("No sorts are currently selected");
+        // }
     }
 }
 
@@ -760,7 +756,7 @@ pub fn respawn_active_sort_points(
 pub fn spawn_missing_sort_entities(
     mut commands: Commands,
     text_editor_state: Res<TextEditorState>,
-    app_state: Res<AppState>,
+    _app_state: Res<AppState>,
     mut sort_entities: Local<HashMap<(String, (i32, i32)), Entity>>, // (glyph_name, (x, y)) -> ECS entity
 ) {
     // Check all sorts in the buffer

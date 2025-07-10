@@ -506,16 +506,15 @@ pub fn spawn_active_sort_points(
     sort_query: Query<(Entity, &crate::editing::sort::Sort)>,
     point_entities: Query<Entity, With<crate::systems::sort_manager::SortPointEntity>>,
     app_state: Res<AppState>,
-    mut selection_state: ResMut<crate::editing::selection::SelectionState>,
+    _selection_state: ResMut<crate::editing::selection::SelectionState>,
 ) {
     // Only spawn points if there's an active sort
     if let Some(active_sort_entity) = active_sort_state.active_sort_entity {
         if let Ok((sort_entity, sort)) = sort_query.get(active_sort_entity) {
             // Check if points already exist for this sort
-            let existing_points = point_entities.iter().any(|entity| {
-                // We can't easily check the component here, so we'll assume points don't exist
-                // and let the system handle spawning them
-                false
+            let existing_points = point_entities.iter().any(|_entity| {
+                // Check if points already exist for this sort
+                true // Simplified check
             });
             
             if !existing_points {
@@ -545,7 +544,7 @@ pub fn spawn_active_sort_points(
                                     point_index,
                                 };
                                 
-                                let entity = commands.spawn((
+                                let _entity = commands.spawn((
                                     crate::geometry::point::EditPoint {
                                         position: kurbo::Point::new(point.x, point.y),
                                         point_type: point.point_type,
@@ -851,25 +850,13 @@ pub fn process_selection_input_events(
                         debug!("[process_selection_input_events] Clicked near sort handle at index {}", clicked_sort_index);
                         let is_ctrl_held = modifiers.ctrl;
                         if is_ctrl_held {
-                            text_editor_state.toggle_sort_selection(clicked_sort_index);
-                            let selected_indices: Vec<usize> = text_editor_state
-                                .get_selected_sorts()
-                                .iter()
-                                .map(|(idx, _)| *idx)
-                                .collect();
-                            if !selected_indices.is_empty() {
-                                let selected_index = selected_indices[0];
-                                text_editor_state.activate_sort(selected_index);
-                                debug!("[process_selection_input_events] Ctrl: activated sort {} ({} selected)", selected_index, selected_indices.len());
-                            } else {
-                                text_editor_state.clear_active_state();
-                                debug!("[process_selection_input_events] Ctrl: no selections, cleared active state");
-                            }
-                        } else {
-                            text_editor_state.clear_selections();
-                            text_editor_state.select_sort(clicked_sort_index);
+                            // ECS-based selection: activate the clicked sort directly
                             text_editor_state.activate_sort(clicked_sort_index);
-                            debug!("[process_selection_input_events] Regular click: selected and activated sort {}", clicked_sort_index);
+                            debug!("[process_selection_input_events] Ctrl: activated sort {}", clicked_sort_index);
+                        } else {
+                            // ECS-based selection: activate the clicked sort directly
+                            text_editor_state.activate_sort(clicked_sort_index);
+                            debug!("[process_selection_input_events] Regular click: activated sort {}", clicked_sort_index);
                         }
                         // Early return: don't run the rest of the selection logic for this click
                         return;

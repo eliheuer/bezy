@@ -499,3 +499,28 @@ This experience serves as a critical lesson: when high-level behavior is erratic
 ---
 
 [//]: # (This is the end of the file, please append above this line) 
+
+## Runtime Editing vs. Buffer: Modern Architecture
+
+Bezy uses a hybrid architecture for text editing and font manipulation:
+
+- **Gap Buffer (`SortBuffer` in `TextEditorState`)**: Used for efficient text editing operations (insert/delete sorts, cursor movement, undo/redo, etc.). It is the persistent data structure for the sequence of sorts (glyphs) in the text editor. It is **not** used for runtime selection, point movement, or UI state.
+- **ECS (Entity Component System)**: All runtime editing, selection, nudging, and point manipulation is done via ECS entities and components. Each sort and point is represented as an ECS entity during editing. Selection, movement, and editing are ECS-first; the buffer is only updated for persistence (save/load/undo/redo).
+
+### How They Work Together
+- **Editing Session**: User edits (selects, moves, nudges, drags) points and sorts via ECS entities. The ECS world is the *source of truth* for all runtime state.
+- **Persistence/Undo/Redo**: When saving, undoing, or redoing, the ECS state is synced back to the gap buffer (`SortBuffer`). The gap buffer is used for efficient text operations and for serializing/deserializing the editor state.
+
+### Summary Table
+
+| Use Case                | Gap Buffer (`SortBuffer`) | ECS Entities/Components |
+|-------------------------|--------------------------|------------------------|
+| Text storage            | ✅                        | ✅ (as entities)       |
+| Selection state         | ❌                        | ✅                    |
+| Point movement/nudging  | ❌                        | ✅                    |
+| Undo/redo               | ✅ (for persistence)      | ✅ (for runtime)       |
+| Save/load               | ✅                        | ✅ (synced)            |
+
+**In short:**
+- The gap buffer is still there for text editing and persistence.
+- All selection, nudging, and point editing is ECS-only. 

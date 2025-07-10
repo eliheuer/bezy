@@ -48,7 +48,6 @@ pub fn render_sorts_system(
                 sort.position,
                 SORT_INACTIVE_METRICS_COLOR,
                 SortRenderStyle::Freeform,
-                false,
             );
         }
     }
@@ -63,7 +62,6 @@ pub fn render_sorts_system(
                 sort.position,
                 SORT_ACTIVE_METRICS_COLOR,
                 SortRenderStyle::Freeform,
-                false,
             );
         }
     }

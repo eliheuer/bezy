@@ -22,7 +22,6 @@ pub fn render_sort_visuals(
     position: Vec2,
     metrics_color: Color,
     style: SortRenderStyle,
-    is_selected: bool,
 ) {
     // Draw outline
     draw_glyph_outline_at_position(gizmos, outline, position);
@@ -33,43 +32,18 @@ pub fn render_sort_visuals(
     let descender = metrics.descender.unwrap_or(-200.0) as f32;
     let handle_position = position + Vec2::new(0.0, descender);
     
-    if is_selected {
-        // Selected handle: bigger and yellow
-        let selected_color = Color::srgb(1.0, 1.0, 0.0); // Bright yellow
-        let selected_size = 32.0; // Bigger than normal
-        
-        match style {
-            SortRenderStyle::TextBuffer => {
-                // Square handle for text sorts
-                let square_size = Vec2::new(selected_size * 2.0, selected_size * 2.0);
-                gizmos.rect_2d(handle_position, square_size, selected_color);
-                
-                // Add a smaller inner square for better visibility
-                let inner_square_size = Vec2::new(selected_size, selected_size);
-                gizmos.rect_2d(handle_position, inner_square_size, selected_color);
-            }
-            SortRenderStyle::Freeform => {
-                // Circle handle for freeform sorts
-                gizmos.circle_2d(handle_position, selected_size, selected_color);
-                
-                // Add a small inner circle for better visibility
-                gizmos.circle_2d(handle_position, selected_size * 0.5, selected_color);
-            }
+    // Normal handle: smaller and uses metrics color
+    let normal_size = 16.0;
+    
+    match style {
+        SortRenderStyle::TextBuffer => {
+            // Square handle for text sorts
+            let square_size = Vec2::new(normal_size * 2.0, normal_size * 2.0);
+            gizmos.rect_2d(handle_position, square_size, metrics_color);
         }
-    } else {
-        // Normal handle: smaller and uses metrics color
-        let normal_size = 16.0;
-        
-        match style {
-            SortRenderStyle::TextBuffer => {
-                // Square handle for text sorts
-                let square_size = Vec2::new(normal_size * 2.0, normal_size * 2.0);
-                gizmos.rect_2d(handle_position, square_size, metrics_color);
-            }
-            SortRenderStyle::Freeform => {
-                // Circle handle for freeform sorts
-                gizmos.circle_2d(handle_position, normal_size, metrics_color);
-            }
+        SortRenderStyle::Freeform => {
+            // Circle handle for freeform sorts
+            gizmos.circle_2d(handle_position, normal_size, metrics_color);
         }
     }
 }
