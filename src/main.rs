@@ -8,6 +8,7 @@
 use bezy::core;
 use clap::Parser;
 use std::process;
+use log::info;
 
 fn main() {
     // Initialize logging first so we can see error messages
@@ -22,14 +23,18 @@ fn main() {
         env_logger::init();
     }
 
+    info!("Bezy starting up...");
+
     // Parse command line arguments - only on desktop
     #[cfg(not(target_arch = "wasm32"))]
     {
         let cli_args = core::cli::CliArgs::parse();
+        info!("CLI args parsed successfully");
 
         // Create and run the application
         match core::app::create_app(cli_args) {
             Ok(mut app) => {
+                info!("App created successfully, starting to run...");
                 app.run();
             }
             Err(error) => {

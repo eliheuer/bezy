@@ -48,14 +48,21 @@ pub fn handle_nudge_shortcuts(
     mut nudge_state: ResMut<NudgeState>,
     time: Res<Time>,
 ) {
+    // Debug: Log when this system runs
+    debug!("[NUDGE] handle_nudge_shortcuts system running");
+    
     // Store the pressed key if any
     let pressed_key = if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
+        debug!("[NUDGE] ArrowLeft pressed");
         Some(KeyCode::ArrowLeft)
     } else if keyboard_input.just_pressed(KeyCode::ArrowRight) {
+        debug!("[NUDGE] ArrowRight pressed");
         Some(KeyCode::ArrowRight)
     } else if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+        debug!("[NUDGE] ArrowUp pressed");
         Some(KeyCode::ArrowUp)
     } else if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+        debug!("[NUDGE] ArrowDown pressed");
         Some(KeyCode::ArrowDown)
     } else {
         None
@@ -68,6 +75,7 @@ pub fn handle_nudge_shortcuts(
             if !keyboard_input.pressed(last_key) {
                 // Reset the last key pressed but keep nudging state active
                 nudge_state.last_key_pressed = None;
+                debug!("[NUDGE] Last key released: {:?}", last_key);
             }
         }
         return;
@@ -75,6 +83,7 @@ pub fn handle_nudge_shortcuts(
 
     // Update the last key pressed
     nudge_state.last_key_pressed = pressed_key;
+    debug!("[NUDGE] Processing nudge with key: {:?}", pressed_key.unwrap());
 
     // Calculate nudge amount based on modifiers
     let mut amount = NUDGE_AMOUNT;
@@ -87,8 +96,12 @@ pub fn handle_nudge_shortcuts(
 
     if cmd_pressed {
         amount = CMD_NUDGE_AMOUNT;
+        debug!("[NUDGE] Using CMD nudge amount: {}", amount);
     } else if shift_pressed {
         amount = SHIFT_NUDGE_AMOUNT;
+        debug!("[NUDGE] Using SHIFT nudge amount: {}", amount);
+    } else {
+        debug!("[NUDGE] Using default nudge amount: {}", amount);
     }
 
     // Determine direction and edit type based on the pressed key
@@ -108,7 +121,10 @@ pub fn handle_nudge_shortcuts(
 
     // Only proceed if we have selected points to nudge
     let count = query.iter().count();
+    debug!("[NUDGE] Found {} selected points to nudge", count);
+    
     if count == 0 {
+        debug!("[NUDGE] No selected points found, returning early");
         return;
     }
 
@@ -117,17 +133,26 @@ pub fn handle_nudge_shortcuts(
     nudge_state.last_nudge_time = time.elapsed_secs();
 
     // Apply nudge to all selected entities
-    for (_entity, mut transform, mut coordinates) in &mut query {
+    let mut nudged_count = 0;
+    for (entity, mut transform, mut coordinates) in &mut query {
         // Update the transform to move the entity
+        let old_pos = transform.translation;
         transform.translation += direction;
+        let new_pos = transform.translation;
 
         // Also update the point coordinates to keep in sync
         coordinates.position.x = transform.translation.x;
         coordinates.position.y = transform.translation.y;
+        
+        nudged_count += 1;
+        debug!("[NUDGE] Nudged entity {:?} from {:?} to {:?}", entity, old_pos, new_pos);
     }
+
+    debug!("[NUDGE] Successfully nudged {} entities", nudged_count);
 
     // Send edit event for undo system
     event_writer.write(EditEvent { edit_type });
+    debug!("[NUDGE] Sent edit event: {:?}", edit_type);
 }
 
 /// System to reset the nudging state after a delay
@@ -187,6 +212,7 @@ pub struct NudgePlugin;
 
 impl Plugin for NudgePlugin {
     fn build(&self, app: &mut App) {
+        info!("[NUDGE] Registering NudgePlugin");
         app.add_event::<EditEvent>()
             .register_type::<EditType>()
             .register_type::<LastEditType>()
@@ -200,7 +226,39 @@ impl Plugin for NudgePlugin {
                     reset_nudge_state,
                     sync_transforms_and_coordinates,
                     handle_edit_events, // TODO: Enable when undo system is ready
+                    debug_nudge_plugin_loaded, // Debug system to confirm plugin is loaded
+                    debug_nudge_input_state, // Debug system to check input mode and selection state
+                    debug_input_mode_periodic, // Debug system to print input mode periodically
                 ),
             );
+        info!("[NUDGE] NudgePlugin registration complete");
+    }
+}
+
+/// Debug system to confirm the nudge plugin is loaded
+fn debug_nudge_plugin_loaded() {
+    debug!("[NUDGE] NudgePlugin is loaded and running");
+}
+
+/// Debug system to check input mode and selection state
+fn debug_nudge_input_state(
+    input_state: Res<crate::core::input::InputState>,
+    selected_query: Query<Entity, With<Selected>>,
+    nudge_state: Res<NudgeState>,
+) {
+    debug!("[NUDGE] Input mode: {:?}", input_state.mode);
+    debug!("[NUDGE] Selected entities count: {}", selected_query.iter().count());
+    debug!("[NUDGE] Nudge state - is_nudging: {}, last_key: {:?}", 
+           nudge_state.is_nudging, nudge_state.last_key_pressed);
+}
+
+/// Simple debug system to print input mode every 60 frames
+fn debug_input_mode_periodic(
+    input_state: Res<crate::core::input::InputState>,
+    mut frame_count: Local<u32>,
+) {
+    *frame_count += 1;
+    if *frame_count % 60 == 0 {
+        info!("[NUDGE DEBUG] Current input mode: {:?}", input_state.mode);
     }
 } 

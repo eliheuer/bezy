@@ -102,6 +102,7 @@ fn add_rendering_plugins(app: &mut App) {
 
 /// Adds plugins for editor UI and interaction
 fn add_editor_plugins(app: &mut App) {
+    info!("Adding editor plugins...");
     app.add_plugins((
         DesignSpacePlugin,
         GlyphPanePlugin,
@@ -109,6 +110,7 @@ fn add_editor_plugins(app: &mut App) {
         EditModeToolbarPlugin,
         HudPlugin,
     ));
+    info!("Editor plugins added successfully");
 }
 
 /// Adds core application logic plugins

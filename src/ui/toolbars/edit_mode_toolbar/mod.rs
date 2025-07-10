@@ -506,6 +506,9 @@ fn initialize_default_tool(
     tool_registry: Res<ToolRegistry>,
 ) {
     info!("Attempting to initialize default tool...");
+    info!("Available tools: {:?}", tool_registry.get_all_tool_ids());
+    info!("Current tool before initialization: {:?}", current_tool.get_current());
+    
     // Set Select as the default tool
     if let Some(_) = tool_registry.get_tool("select") {
         current_tool.switch_to("select");
@@ -519,6 +522,8 @@ fn initialize_default_tool(
             info!("Initialized with fallback tool: {}", first_tool);
         }
     }
+    
+    info!("Current tool after initialization: {:?}", current_tool.get_current());
 }
 
 /// Plugin that adds all the toolbar functionality
