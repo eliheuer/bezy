@@ -547,11 +547,10 @@ impl TextEditorState {
                                         }
                                         SortKind::LineBreak => {
                                             total_advance = 0.0;
-                                            // FIXED: Use proper line height calculation instead of descender - upm
-                                            let _upm = font_metrics.units_per_em as f32;
-                                            let ascender = font_metrics.ascender.unwrap_or(1024.0) as f32;
+                                            // FIXED: Use same line height calculation as cursor positioning
+                                            let upm = font_metrics.units_per_em as f32;
                                             let descender = font_metrics.descender.unwrap_or(-256.0) as f32;
-                                            let line_height = (ascender - descender) + leading;
+                                            let line_height = upm - descender + leading;
                                             y_offset -= line_height; // Move down by line height
                                             debug!("Line break: reset total_advance to 0.0, y_offset: {:.1} (line_height: {:.1})", y_offset, line_height);
                                         }
@@ -1032,57 +1031,7 @@ impl TextEditorState {
         length
     }
 
-    /// Create a new line at the current cursor position
-    /// This implements standard text editor behavior: insert a line break in the buffer
-    pub fn create_new_line(&mut self, font_metrics: &FontMetrics) {
-        if let Some(root_index) = self.find_active_buffer_root_index() {
-            let cursor_pos_in_buffer = self.buffer.get(root_index)
-                .and_then(|rs| rs.buffer_cursor_position)
-                .unwrap_or(0);
 
-            let upm = font_metrics.units_per_em as f32;
-            let descender = font_metrics.descender.unwrap_or(-256.0) as f32;
-
-            let prev_root_y = self.buffer.get(root_index)
-                .map(|root| root.root_position.y)
-                .unwrap_or(0.0);
-            let prev_root_x = self.buffer.get(root_index)
-                .map(|root| root.root_position.x)
-                .unwrap_or(0.0);
-
-            let line_break = SortEntry {
-                kind: SortKind::LineBreak,
-                is_active: false,
-                layout_mode: SortLayoutMode::Text,
-                root_position: Vec2::ZERO, // Not used for line breaks
-                buffer_index: None,
-                is_buffer_root: false,
-                buffer_cursor_position: None,
-            };
-            let insert_index = root_index + cursor_pos_in_buffer;
-            self.buffer.insert(insert_index, line_break);
-
-            // Align new line's UPM with previous line's descender
-            let new_root_y = prev_root_y + descender - upm;
-            let new_root = SortEntry {
-                kind: SortKind::Glyph {
-                    glyph_name: String::new(),
-                    advance_width: 0.0,
-                },
-                is_active: true,
-                layout_mode: SortLayoutMode::Text,
-                root_position: Vec2::new(prev_root_x, new_root_y),
-                buffer_index: Some(insert_index + 1),
-                is_buffer_root: true,
-                buffer_cursor_position: Some(0),
-            };
-            self.buffer.insert(insert_index + 1, new_root);
-
-            if let Some(root_sort) = self.buffer.get_mut(root_index) {
-                root_sort.is_active = false;
-            }
-        }
-    }
 
     pub fn create_text_root_with_glyph(&mut self, glyph_name: String, advance_width: f32, world_position: Vec2) {
         // FIXED: Use the provided position instead of hardcoded position

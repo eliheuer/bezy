@@ -1218,10 +1218,10 @@ pub fn handle_unicode_text_input(
             info!("Unicode input: backspace pressed");
         }
         
-        // Enter key - create new line
+        // Enter key - insert line break
         if keyboard_input.just_pressed(KeyCode::Enter) {
-            text_editor_state.create_new_line(&app_state.workspace.info.metrics);
-            info!("Unicode input: created new line");
+            text_editor_state.insert_line_break_at_cursor();
+            info!("Unicode input: inserted line break (new line)");
         }
     }
     
