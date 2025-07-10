@@ -1297,3 +1297,120 @@ pub fn handle_unicode_text_input(
         }
     }
 } 
+
+/// System to spawn point entities for the active sort using ECS as source of truth
+/// This ensures only the active sort's points are spawned and managed in ECS
+pub fn spawn_active_sort_points_ecs(
+    mut commands: Commands,
+    active_sort_entity: Res<ActiveSortEntity>,
+    app_state: Res<AppState>,
+    sort_query: Query<(Entity, &crate::editing::sort::Sort)>,
+    existing_points: Query<(Entity, &SortPointEntity)>,
+    text_editor_state: Res<TextEditorState>,
+) {
+    // Only spawn points if there's an active sort entity
+    if let Some(active_sort_entity_id) = active_sort_entity.entity {
+        // Check if this sort entity exists and is active
+        if let Ok((sort_entity, sort)) = sort_query.get(active_sort_entity_id) {
+            // Check if points already exist for this sort
+            let has_existing_points = existing_points.iter().any(|(_, sort_point)| {
+                sort_point.sort_entity == sort_entity
+            });
+            
+            if !has_existing_points {
+                info!("[spawn_active_sort_points_ecs] Spawning points for active sort: '{}' at position {:?}", 
+                      sort.glyph_name, sort.position);
+                
+                // Get glyph data for the active sort
+                if let Some(glyph_data) = app_state.workspace.font.get_glyph(&sort.glyph_name) {
+                    if let Some(outline) = &glyph_data.outline {
+                        let mut point_count = 0;
+                        
+                        for (contour_index, contour) in outline.contours.iter().enumerate() {
+                            for (point_index, point) in contour.points.iter().enumerate() {
+                                // Calculate world position: sort position + point offset
+                                let point_world_pos = sort.position + Vec2::new(point.x as f32, point.y as f32);
+                                point_count += 1;
+                                
+                                // Debug: Print first few point positions
+                                if point_count <= 5 {
+                                    info!("[spawn_active_sort_points_ecs] Point {}: local=({:.1}, {:.1}), world=({:.1}, {:.1})", 
+                                          point_count, point.x, point.y, point_world_pos.x, point_world_pos.y);
+                                }
+                                
+                                let glyph_point_ref = GlyphPointReference {
+                                    glyph_name: sort.glyph_name.clone(),
+                                    contour_index,
+                                    point_index,
+                                };
+                                
+                                commands.spawn((
+                                    EditPoint {
+                                        position: Point::new(point.x, point.y),
+                                        point_type: point.point_type,
+                                    },
+                                    glyph_point_ref,
+                                    PointType {
+                                        is_on_curve: matches!(point.point_type, 
+                                            crate::core::state::font_data::PointTypeData::Move | 
+                                            crate::core::state::font_data::PointTypeData::Line |
+                                            crate::core::state::font_data::PointTypeData::Curve),
+                                    },
+                                    Transform::from_translation(point_world_pos.extend(0.0)),
+                                    GlobalTransform::default(),
+                                    Visibility::Visible,
+                                    InheritedVisibility::default(),
+                                    ViewVisibility::default(),
+                                    Selectable,
+                                    SortPointEntity { sort_entity },
+                                ));
+                            }
+                        }
+                        info!("[spawn_active_sort_points_ecs] Successfully spawned {} point entities", point_count);
+                    } else {
+                        warn!("[spawn_active_sort_points_ecs] No outline found for glyph '{}'", sort.glyph_name);
+                    }
+                } else {
+                    warn!("[spawn_active_sort_points_ecs] No glyph data found for '{}'", sort.glyph_name);
+                }
+            } else {
+                debug!("[spawn_active_sort_points_ecs] Points already exist for active sort, skipping spawn");
+            }
+        } else {
+            warn!("[spawn_active_sort_points_ecs] Active sort entity not found in sort query");
+        }
+    } else {
+        debug!("[spawn_active_sort_points_ecs] No active sort, skipping point spawn");
+    }
+}
+
+/// System to despawn point entities when active sort changes
+/// This ensures points are removed when sorts become inactive
+pub fn despawn_inactive_sort_points_ecs(
+    mut commands: Commands,
+    active_sort_entity: Res<ActiveSortEntity>,
+    point_entities: Query<(Entity, &SortPointEntity)>,
+    mut selection_state: ResMut<crate::editing::selection::SelectionState>,
+) {
+    // Get the current active sort entity
+    let current_active_sort = active_sort_entity.entity;
+    
+    // Despawn points for sorts that are no longer active
+    for (point_entity, sort_point) in point_entities.iter() {
+        let is_active = current_active_sort.map_or(false, |active_entity| {
+            active_entity == sort_point.sort_entity
+        });
+        
+        if !is_active {
+            // Remove from selection state if selected
+            if selection_state.selected.contains(&point_entity) {
+                selection_state.selected.remove(&point_entity);
+                info!("[despawn_inactive_sort_points_ecs] Removed despawned entity {:?} from selection", point_entity);
+            }
+            
+            commands.entity(point_entity).despawn();
+            debug!("[despawn_inactive_sort_points_ecs] Despawned point entity {:?} for inactive sort {:?}", 
+                   point_entity, sort_point.sort_entity);
+        }
+    }
+} 

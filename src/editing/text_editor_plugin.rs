@@ -16,6 +16,8 @@ use crate::systems::text_editor_sorts::{
     handle_sort_placement_input, // NEW: Uses centralized input system
     manage_sort_activation, // NEW: ECS-based sort activation management
     spawn_missing_sort_entities, // NEW: Spawn ECS entities for buffer sorts
+    spawn_active_sort_points_ecs, // NEW: ECS-based point spawning for active sort
+    despawn_inactive_sort_points_ecs, // NEW: ECS-based point despawning
 };
 
 use bevy::prelude::*;
@@ -40,6 +42,10 @@ impl Plugin for TextEditorPlugin {
                     handle_unicode_text_input,
                     // NEW: Manage sort activation in ECS
                     manage_sort_activation,
+                    // NEW: Spawn points for active sort (ECS-based)
+                    spawn_active_sort_points_ecs,
+                    // NEW: Despawn points for inactive sorts (ECS-based)
+                    despawn_inactive_sort_points_ecs,
                     // Debug system
                     debug_text_editor_state,
                     // respawn_active_sort_points, // REMOVED: Replaced with ECS-based system
