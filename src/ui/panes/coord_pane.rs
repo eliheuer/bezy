@@ -120,7 +120,7 @@ pub fn spawn_coord_pane(
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
-                        TextColor(TEXT_COLOR),
+                        TextColor(SECONDARY_TEXT_COLOR),
                     ));
                     
                     // Value
@@ -131,7 +131,7 @@ pub fn spawn_coord_pane(
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
-                        TextColor(TEXT_COLOR),
+                        TextColor(ON_CURVE_POINT_COLOR),
                         XValue,
                     ));
                 });
@@ -157,7 +157,7 @@ pub fn spawn_coord_pane(
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
-                        TextColor(TEXT_COLOR),
+                        TextColor(SECONDARY_TEXT_COLOR),
                     ));
                     
                     // Value
@@ -168,7 +168,7 @@ pub fn spawn_coord_pane(
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
-                        TextColor(TEXT_COLOR),
+                        TextColor(ON_CURVE_POINT_COLOR),
                         YValue,
                     ));
                 });
@@ -194,7 +194,7 @@ pub fn spawn_coord_pane(
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
-                        TextColor(TEXT_COLOR),
+                        TextColor(SECONDARY_TEXT_COLOR),
                     ));
                     
                     // Value
@@ -205,7 +205,7 @@ pub fn spawn_coord_pane(
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
-                        TextColor(TEXT_COLOR),
+                        TextColor(ON_CURVE_POINT_COLOR),
                         WidthValue,
                     ));
                 });
@@ -231,7 +231,7 @@ pub fn spawn_coord_pane(
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
-                        TextColor(TEXT_COLOR),
+                        TextColor(SECONDARY_TEXT_COLOR),
                     ));
                     
                     // Value
@@ -242,7 +242,7 @@ pub fn spawn_coord_pane(
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
-                        TextColor(TEXT_COLOR),
+                        TextColor(ON_CURVE_POINT_COLOR),
                         HeightValue,
                     ));
                 });
