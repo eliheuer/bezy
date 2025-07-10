@@ -11,7 +11,8 @@ use crate::rendering::sort_renderer::{
 };
 use crate::systems::sort_manager::{
     handle_sort_events, spawn_initial_sort,
-    sync_sort_transforms, spawn_sort_point_entities,
+    sync_sort_transforms, 
+    // spawn_sort_point_entities, // DISABLED: Causes duplicate point entities
     respawn_sort_points_on_glyph_change,
 };
 // use crate::systems::sort_interaction::handle_sort_clicks; // DISABLED: Old input system conflicts with selection
@@ -60,7 +61,7 @@ impl Plugin for SortPlugin {
             .add_systems(
                 Update,
                 (
-                    spawn_sort_point_entities,
+                    // spawn_sort_point_entities, // DISABLED: Causes duplicate point entities
                     respawn_sort_points_on_glyph_change,
                 )
                     .in_set(SortSystemSet::PointSpawning),

@@ -31,6 +31,8 @@ pub struct AppStateChanged;
 #[derive(Resource)]
 pub struct ClickWorldPosition;
 
+
+
 // Constants for selection
 #[allow(dead_code)]
 const SELECTION_MARGIN: f32 = 16.0; // Distance in pixels for selection hit testing
@@ -417,9 +419,10 @@ pub fn render_hovered_entities(
 /// System to update the actual glyph data when a point is moved
 pub fn update_glyph_data_from_selection(
     query: Query<
-        (&Transform, &GlyphPointReference),
-        (With<Selected>, Changed<Transform>, Without<crate::systems::sort_manager::SortPointEntity>),
+        (&Transform, &GlyphPointReference, Option<&crate::systems::sort_manager::SortPointEntity>),
+        (With<Selected>, Changed<Transform>),
     >,
+    sort_query: Query<&crate::editing::sort::Sort>,
     mut app_state: ResMut<AppState>,
     // Track if we're in a nudging operation
     _nudge_state: Res<crate::editing::selection::nudge::NudgeState>,
@@ -437,21 +440,45 @@ pub fn update_glyph_data_from_selection(
         return;
     }
 
-    // Only modify app_state after detaching its change detection
-    let app_state = app_state.bypass_change_detection();
+    info!("[update_glyph_data_from_selection] Processing {} moved points", query.iter().count());
 
-    // Process each moved point
-    for (transform, point_ref) in query.iter() {
-        // Use the correct method to update point position
+    let app_state = app_state.bypass_change_detection();
+    let mut any_updates = false;
+
+    for (transform, point_ref, sort_point_entity_opt) in query.iter() {
+        // Default to world position if we can't get sort position
+        let (relative_x, relative_y) = if let Some(sort_point_entity) = sort_point_entity_opt {
+            if let Ok(sort) = sort_query.get(sort_point_entity.sort_entity) {
+                let world_pos = transform.translation.truncate();
+                let rel = world_pos - sort.position;
+                (rel.x as f64, rel.y as f64)
+            } else {
+                (transform.translation.x as f64, transform.translation.y as f64)
+            }
+        } else {
+            (transform.translation.x as f64, transform.translation.y as f64)
+        };
+        
         let updated = app_state.set_point_position(
             &point_ref.glyph_name,
             point_ref.contour_index,
             point_ref.point_index,
-            transform.translation.x as f64, // Convert f32 to f64
-            transform.translation.y as f64, // Convert f32 to f64
+            relative_x,
+            relative_y,
         );
-
+        
+        info!(
+            "[update_glyph_data_from_selection] glyph='{}' contour={} point={} rel=({:.1}, {:.1}) updated={}",
+            point_ref.glyph_name,
+            point_ref.contour_index,
+            point_ref.point_index,
+            relative_x,
+            relative_y,
+            updated
+        );
+        
         if updated {
+            any_updates = true;
             debug!(
                 "Updated UFO glyph data for point {} in contour {} of glyph {}",
                 point_ref.point_index, point_ref.contour_index, point_ref.glyph_name
@@ -461,6 +488,156 @@ pub fn update_glyph_data_from_selection(
                 "Failed to update UFO glyph data for point {} in contour {} of glyph {} - invalid indices",
                 point_ref.point_index, point_ref.contour_index, point_ref.glyph_name
             );
+        }
+    }
+
+    // Log the results
+    if any_updates {
+        info!("[update_glyph_data_from_selection] Successfully updated {} outline points", query.iter().count());
+    } else {
+        info!("[update_glyph_data_from_selection] No outline updates needed");
+    }
+}
+
+/// System to spawn point entities for the active sort using ECS as source of truth
+pub fn spawn_active_sort_points(
+    mut commands: Commands,
+    active_sort_state: Res<crate::editing::sort::ActiveSortState>,
+    sort_query: Query<(Entity, &crate::editing::sort::Sort)>,
+    point_entities: Query<Entity, With<crate::systems::sort_manager::SortPointEntity>>,
+    app_state: Res<AppState>,
+    mut selection_state: ResMut<crate::editing::selection::SelectionState>,
+) {
+    // Only spawn points if there's an active sort
+    if let Some(active_sort_entity) = active_sort_state.active_sort_entity {
+        if let Ok((sort_entity, sort)) = sort_query.get(active_sort_entity) {
+            // Check if points already exist for this sort
+            let existing_points = point_entities.iter().any(|entity| {
+                // We can't easily check the component here, so we'll assume points don't exist
+                // and let the system handle spawning them
+                false
+            });
+            
+            if !existing_points {
+                info!("[spawn_active_sort_points] Spawning points for active sort: '{}' at position {:?}", 
+                      sort.glyph_name, sort.position);
+                
+                // Get glyph data for the active sort
+                if let Some(glyph_data) = app_state.workspace.font.get_glyph(&sort.glyph_name) {
+                    if let Some(outline) = &glyph_data.outline {
+                        let mut point_count = 0;
+                        
+                        for (contour_index, contour) in outline.contours.iter().enumerate() {
+                            for (point_index, point) in contour.points.iter().enumerate() {
+                                // Calculate world position: sort position + point offset
+                                let point_world_pos = sort.position + Vec2::new(point.x as f32, point.y as f32);
+                                point_count += 1;
+                                
+                                // Debug: Print first few point positions
+                                if point_count <= 5 {
+                                    info!("[spawn_active_sort_points] Point {}: local=({:.1}, {:.1}), world=({:.1}, {:.1})", 
+                                          point_count, point.x, point.y, point_world_pos.x, point_world_pos.y);
+                                }
+                                
+                                let glyph_point_ref = crate::editing::selection::components::GlyphPointReference {
+                                    glyph_name: sort.glyph_name.clone(),
+                                    contour_index,
+                                    point_index,
+                                };
+                                
+                                let entity = commands.spawn((
+                                    crate::geometry::point::EditPoint {
+                                        position: kurbo::Point::new(point.x, point.y),
+                                        point_type: point.point_type,
+                                    },
+                                    glyph_point_ref,
+                                    crate::editing::selection::components::PointType {
+                                        is_on_curve: matches!(point.point_type, 
+                                            crate::core::state::font_data::PointTypeData::Move | 
+                                            crate::core::state::font_data::PointTypeData::Line |
+                                            crate::core::state::font_data::PointTypeData::Curve),
+                                    },
+                                    Transform::from_translation(point_world_pos.extend(0.0)),
+                                    Visibility::Visible,
+                                    InheritedVisibility::default(),
+                                    ViewVisibility::default(),
+                                    crate::editing::selection::components::Selectable,
+                                    crate::systems::sort_manager::SortPointEntity { sort_entity },
+                                )).id();
+                            }
+                        }
+                        info!("[spawn_active_sort_points] Successfully spawned {} point entities", point_count);
+                    } else {
+                        warn!("[spawn_active_sort_points] No outline found for glyph '{}'", sort.glyph_name);
+                    }
+                } else {
+                    warn!("[spawn_active_sort_points] No glyph data found for '{}'", sort.glyph_name);
+                }
+            } else {
+                debug!("[spawn_active_sort_points] Points already exist for active sort, skipping spawn");
+            }
+        } else {
+            warn!("[spawn_active_sort_points] Active sort entity not found in sort query");
+        }
+    } else {
+        debug!("[spawn_active_sort_points] No active sort, skipping point spawn");
+    }
+}
+
+/// System to despawn point entities when active sort changes
+pub fn despawn_inactive_sort_points(
+    mut commands: Commands,
+    active_sort_state: Res<crate::editing::sort::ActiveSortState>,
+    point_entities: Query<(Entity, &crate::systems::sort_manager::SortPointEntity)>,
+    mut selection_state: ResMut<crate::editing::selection::SelectionState>,
+) {
+    // Despawn points for sorts that are no longer active
+    for (entity, sort_point) in point_entities.iter() {
+        let is_active = active_sort_state.active_sort_entity.map_or(false, |active_entity| {
+            active_entity == sort_point.sort_entity
+        });
+        
+        if !is_active {
+            // Remove from selection state if selected
+            if selection_state.selected.contains(&entity) {
+                selection_state.selected.remove(&entity);
+                info!("[despawn_inactive_sort_points] Removed despawned entity {:?} from selection", entity);
+            }
+            
+            commands.entity(entity).despawn();
+            debug!("[despawn_inactive_sort_points] Despawned point entity {:?} for inactive sort {:?}", entity, sort_point.sort_entity);
+        }
+    }
+}
+
+/// System to update point positions when sort position changes
+pub fn sync_point_positions_to_sort(
+    sort_query: Query<(Entity, &crate::editing::sort::Sort), Changed<crate::editing::sort::Sort>>,
+    mut point_query: Query<(&mut Transform, &crate::systems::sort_manager::SortPointEntity, &crate::editing::selection::components::GlyphPointReference)>,
+    app_state: Res<AppState>,
+) {
+    for (sort_entity, sort) in sort_query.iter() {
+        info!("[sync_point_positions_to_sort] Sort position changed to {:?}, updating point positions", sort.position);
+        
+        // Update all point entities for this sort
+        for (mut transform, sort_point, glyph_ref) in point_query.iter_mut() {
+            if sort_point.sort_entity == sort_entity {
+                // Get the original point data from the glyph
+                if let Some(glyph_data) = app_state.workspace.font.get_glyph(&sort.glyph_name) {
+                    if let Some(outline) = &glyph_data.outline {
+                        if let Some(contour) = outline.contours.get(glyph_ref.contour_index) {
+                            if let Some(point) = contour.points.get(glyph_ref.point_index) {
+                                // Calculate new world position: sort position + original point offset
+                                let point_world_pos = sort.position + Vec2::new(point.x as f32, point.y as f32);
+                                transform.translation = point_world_pos.extend(0.0);
+                                
+                                debug!("[sync_point_positions_to_sort] Updated point {} in contour {} to position {:?}", 
+                                       glyph_ref.point_index, glyph_ref.contour_index, point_world_pos);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -1355,6 +1532,30 @@ fn render_contour_handles(
         // If current is off-curve and next is on-curve, draw handle
         if !curr_on && next_on {
             gizmos.line_2d(curr_pos, next_pos, handle_color);
+        }
+    }
+}
+
+#[cfg(debug_assertions)]
+pub fn debug_validate_point_entity_uniqueness(
+    point_entities: Query<
+        (&crate::editing::selection::components::GlyphPointReference, Entity),
+        With<crate::systems::sort_manager::SortPointEntity>,
+    >,
+) {
+    use std::collections::HashMap;
+    let mut seen: HashMap<(String, usize, usize), Entity> = HashMap::new();
+    for (point_ref, entity) in point_entities.iter() {
+        let key = (
+            point_ref.glyph_name.clone(),
+            point_ref.contour_index,
+            point_ref.point_index,
+        );
+        if let Some(existing) = seen.insert(key.clone(), entity) {
+            warn!(
+                "[debug_validate_point_entity_uniqueness] Duplicate ECS entities for glyph='{}' contour={} point={}: {:?} and {:?}",
+                point_ref.glyph_name, point_ref.contour_index, point_ref.point_index, existing, entity
+            );
         }
     }
 }

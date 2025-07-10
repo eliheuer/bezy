@@ -236,7 +236,7 @@ pub fn respawn_sort_points_on_glyph_change(
 }
 
 /// Spawn point entities for a sort's glyph outline
-fn spawn_point_entities_for_sort(
+pub fn spawn_point_entities_for_sort(
     commands: &mut Commands,
     sort_entity: Entity,
     sort: &Sort,

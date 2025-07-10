@@ -10,12 +10,12 @@ use cosmic_text::{Attrs, AttrsList, Buffer, Edit, Family, FontSystem, Metrics, S
 
 use std::collections::HashMap;
 
-use crate::core::state::{AppState, TextEditorState, SortEntry, SortLayoutMode, SortBuffer, GridConfig, SortKind};
+use crate::core::state::{AppState, TextEditorState, SortEntry, SortLayoutMode, SortBuffer, GridConfig, SortKind, ActiveSortEntity};
 use crate::core::state::GlyphNavigation;
 use crate::core::pointer::PointerInfo;
 use crate::rendering::cameras::DesignCamera;
 use crate::systems::ui_interaction::UiHoverState;
-use crate::editing::sort::ActiveSortState;
+use crate::editing::sort::{ActiveSort, InactiveSort, ActiveSortState};
 use crate::systems::sort_manager::SortPointEntity;
 use crate::editing::selection::components::{GlyphPointReference, PointType, Selectable};
 use crate::geometry::point::EditPoint;
@@ -23,6 +23,85 @@ use kurbo::Point;
 use crate::rendering::checkerboard::calculate_dynamic_grid_size;
 use crate::rendering::sort_visuals::{render_sort_visuals, SortRenderStyle};
 use crate::ui::theme::{SORT_ACTIVE_METRICS_COLOR, SORT_INACTIVE_METRICS_COLOR, SORT_ACTIVE_OUTLINE_COLOR};
+
+/// System to manage sort activation in ECS
+/// This ensures only one sort is active at a time and syncs with TextEditorState
+pub fn manage_sort_activation(
+    mut commands: Commands,
+    text_editor_state: Res<TextEditorState>,
+    mut active_sort_entity: ResMut<ActiveSortEntity>,
+    mut active_sort_state: ResMut<ActiveSortState>,
+    sort_entities: Query<(Entity, &crate::editing::sort::Sort)>,
+    active_sorts: Query<Entity, With<ActiveSort>>,
+    inactive_sorts: Query<Entity, With<InactiveSort>>,
+) {
+    // Check if TextEditorState has an active sort that doesn't match ECS
+    if let Some((buffer_index, sort_entry)) = text_editor_state.get_active_sort() {
+        // Find the corresponding ECS entity for this buffer position
+        let mut found_entity = None;
+        for (entity, sort) in sort_entities.iter() {
+            // Match by glyph name and approximate position
+            if sort.glyph_name == sort_entry.kind.glyph_name().to_string() {
+                // Additional position check to ensure we get the right sort instance
+                let sort_pos = text_editor_state.get_sort_visual_position(buffer_index);
+                if let Some(expected_pos) = sort_pos {
+                    let distance = (sort.position - expected_pos).length();
+                    if distance < 10.0 { // Small tolerance for position matching
+                        found_entity = Some(entity);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // If we found an entity and it's not currently active, activate it
+        if let Some(entity) = found_entity {
+            if active_sort_entity.entity != Some(entity) {
+                // Deactivate all currently active sorts
+                for active_entity in active_sorts.iter() {
+                    commands
+                        .entity(active_entity)
+                        .remove::<ActiveSort>()
+                        .insert(InactiveSort);
+                }
+                
+                // Activate the new sort
+                commands
+                    .entity(entity)
+                    .remove::<InactiveSort>()
+                    .insert(ActiveSort);
+                
+                // Update our tracking resources
+                active_sort_entity.entity = Some(entity);
+                active_sort_entity.buffer_index = Some(buffer_index);
+                active_sort_state.active_sort_entity = Some(entity);
+                
+                info!("[manage_sort_activation] Activated sort entity {:?} for buffer index {} (glyph: '{}')", 
+                      entity, buffer_index, sort_entry.kind.glyph_name());
+            }
+        } else {
+            // No matching ECS entity found - this might be a new sort that hasn't been spawned yet
+            debug!("[manage_sort_activation] No ECS entity found for active sort at buffer index {} (glyph: '{}')", 
+                   buffer_index, sort_entry.kind.glyph_name());
+        }
+    } else {
+        // No active sort in TextEditorState, deactivate all ECS sorts
+        if active_sort_entity.entity.is_some() {
+            for active_entity in active_sorts.iter() {
+                commands
+                    .entity(active_entity)
+                    .remove::<ActiveSort>()
+                    .insert(InactiveSort);
+            }
+            
+            active_sort_entity.entity = None;
+            active_sort_entity.buffer_index = None;
+            active_sort_state.active_sort_entity = None;
+            
+            info!("[manage_sort_activation] Deactivated all sorts (no active sort in TextEditorState)");
+        }
+    }
+}
 
 /// System to initialize text editor sorts when the font is loaded
 /// This creates an empty TextEditorState for the text tool to work with
@@ -674,6 +753,47 @@ pub fn respawn_active_sort_points(
     
     // Update the last active sort tracking
     *last_active_sort = current_active_sort;
+}
+
+/// System to spawn ECS entities for sorts that don't have them yet
+/// This ensures that every sort in the buffer has a corresponding ECS entity
+pub fn spawn_missing_sort_entities(
+    mut commands: Commands,
+    text_editor_state: Res<TextEditorState>,
+    app_state: Res<AppState>,
+    mut sort_entities: Local<HashMap<(String, (i32, i32)), Entity>>, // (glyph_name, (x, y)) -> ECS entity
+) {
+    // Check all sorts in the buffer
+    for (buffer_index, sort_entry) in text_editor_state.get_all_sorts() {
+        if let Some(sort_pos) = text_editor_state.get_sort_visual_position(buffer_index) {
+            let glyph_name = sort_entry.kind.glyph_name().to_string();
+            let pos_key = (sort_pos.x.round() as i32, sort_pos.y.round() as i32);
+            let key = (glyph_name.clone(), pos_key);
+            
+            // If we don't have an ECS entity for this sort, create one
+            if !sort_entities.contains_key(&key) {
+                let entity = commands.spawn((
+                    crate::editing::sort::Sort::new(
+                        glyph_name.clone(),
+                        sort_pos,
+                        sort_entry.kind.glyph_advance_width(),
+                    ),
+                    crate::editing::sort::InactiveSort, // Start as inactive
+                    Transform::from_translation(sort_pos.extend(0.0)),
+                    GlobalTransform::default(),
+                    Visibility::Visible,
+                    InheritedVisibility::default(),
+                    ViewVisibility::default(),
+                    Selectable,
+                )).id();
+                
+                sort_entities.insert(key, entity);
+                
+                debug!("[spawn_missing_sort_entities] Created ECS entity {:?} for sort '{}' at buffer index {}", 
+                       entity, glyph_name, buffer_index);
+            }
+        }
+    }
 }
 
 /// Handle sort placement using the centralized input system

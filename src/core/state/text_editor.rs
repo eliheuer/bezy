@@ -18,6 +18,16 @@ pub struct TextEditorState {
     pub grid_config: GridConfig,
 }
 
+/// Resource to track the active sort entity in ECS
+/// This is the single source of truth for which sort is active
+#[derive(Resource, Default)]
+pub struct ActiveSortEntity {
+    /// The entity ID of the currently active sort, if any
+    pub entity: Option<Entity>,
+    /// The buffer index of the active sort (for sync with buffer)
+    pub buffer_index: Option<usize>,
+}
+
 /// Layout mode for individual sorts
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum SortLayoutMode {

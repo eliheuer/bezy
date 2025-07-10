@@ -66,6 +66,7 @@ impl Plugin for SelectionPlugin {
             .init_resource::<SelectionState>()
             .init_resource::<DragSelectionState>()
             .init_resource::<DragPointState>()
+
             // Configure system sets for proper ordering
             .configure_sets(
                 Update,
@@ -100,6 +101,16 @@ impl Plugin for SelectionPlugin {
                     .in_set(SelectionSystemSet::Processing)
                     .after(SelectionSystemSet::Input),
             )
+            // Add the new ECS-based point management systems
+            .add_systems(
+                Update,
+                (
+                    // systems::spawn_active_sort_points, // DISABLED: Causes duplicate point entities
+                    systems::despawn_inactive_sort_points,
+                    systems::sync_point_positions_to_sort,
+                )
+                    .after(systems::update_glyph_data_from_selection),
+            )
             // Rendering systems - moved to PostUpdate to run after transform propagation
             .add_systems(
                 PostUpdate,
@@ -114,6 +125,13 @@ impl Plugin for SelectionPlugin {
             )
             // Add the nudge plugin
             .add_plugins(NudgePlugin);
+
+        // Register debug validation system only in debug builds
+        #[cfg(debug_assertions)]
+        app.add_systems(
+            PostUpdate,
+            systems::debug_validate_point_entity_uniqueness.after(SelectionSystemSet::Render),
+        );
     }
 }
 
