@@ -1213,12 +1213,10 @@ pub fn debug_print_selection_rects(selection_rects: Query<(Entity, &SelectionRec
 pub fn render_all_point_entities(
     mut gizmos: Gizmos,
     point_entities: Query<
-        (
-            &GlobalTransform,
-            &crate::editing::selection::components::PointType,
-        ),
+        (Entity, &GlobalTransform, &crate::editing::selection::components::PointType),
         With<crate::systems::sort_manager::SortPointEntity>,
     >,
+    selected_query: Query<Entity, With<Selected>>,
     camera_query: Query<(&Camera, &GlobalTransform, &Projection), With<crate::rendering::cameras::DesignCamera>>,
 ) {
     let point_count = point_entities.iter().count();
@@ -1237,7 +1235,11 @@ pub fn render_all_point_entities(
         warn!("[render_all_point_entities] No camera found");
     }
 
-    for (i, (transform, point_type)) in point_entities.iter().enumerate() {
+    for (i, (entity, transform, point_type)) in point_entities.iter().enumerate() {
+        // Skip rendering if this point is selected (it will be drawn by render_selected_entities)
+        if selected_query.get(entity).is_ok() {
+            continue;
+        }
         let position = transform.translation().truncate();
         
         // Debug: Print first few point positions being rendered
