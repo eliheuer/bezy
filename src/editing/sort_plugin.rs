@@ -65,20 +65,18 @@ impl Plugin for SortPlugin {
                     respawn_sort_points_on_glyph_change,
                 )
                     .in_set(SortSystemSet::PointSpawning),
-            );
+            )
             // Rendering systems (must run after all data is updated)
-            // DISABLED: Old sort rendering system conflicts with new text editor system
-            // The new text editor system (render_text_editor_sorts) handles all sort rendering
-            // with proper TextBuffer vs Freeform style distinction
-            // .add_systems(
-            //     Update,
-            //     (
-            //         // render_sorts_system, // DISABLED: Conflicts with text editor rendering
-            //         // manage_sort_unicode_text, // DISABLED: Old system
-            //         // update_sort_unicode_text_positions, // DISABLED: Old system
-            //         // update_sort_unicode_text_colors, // DISABLED: Old system
-            //     )
-            //         .in_set(SortSystemSet::Rendering),
-            // );
+            // Re-enabled: Old sort rendering system for freeform sorts (glyph grid)
+            .add_systems(
+                Update,
+                (
+                    render_sorts_system, // Re-enabled for freeform sorts (glyph grid)
+                    // manage_sort_unicode_text, // DISABLED: Old system
+                    // update_sort_unicode_text_positions, // DISABLED: Old system
+                    // update_sort_unicode_text_colors, // DISABLED: Old system
+                )
+                    .in_set(SortSystemSet::Rendering),
+            );
     }
 } 

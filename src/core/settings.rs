@@ -34,6 +34,29 @@ impl Default for GridSettings {
     }
 }
 
+// GLYPH GRID SETTINGS
+
+/// Configuration for the glyph grid feature
+#[derive(Debug, Clone, Copy)]
+pub struct GlyphGridSettings {
+    /// Whether to create a glyph grid at startup
+    pub enabled: bool,
+    /// Number of glyphs per row in the grid
+    pub glyphs_per_row: usize,
+    /// Grid size for snapping (uses checkerboard default)
+    pub grid_size: f32,
+}
+
+impl Default for GlyphGridSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            glyphs_per_row: 32,
+            grid_size: 32.0, // Uses CHECKERBOARD_DEFAULT_UNIT_SIZE
+        }
+    }
+}
+
 // KEYBOARD CONTROLS
 
 /// Configuration for keyboard-based editing
@@ -99,6 +122,7 @@ impl Default for CameraSettings {
 #[derive(Resource, Debug, Clone)]
 pub struct BezySettings {
     pub grid: GridSettings,
+    pub glyph_grid: GlyphGridSettings,
     #[allow(dead_code)]
     pub keyboard: KeyboardSettings,
     #[allow(dead_code)]
@@ -109,6 +133,7 @@ impl Default for BezySettings {
     fn default() -> Self {
         Self {
             grid: GridSettings::default(),
+            glyph_grid: GlyphGridSettings::default(),
             keyboard: KeyboardSettings::default(),
             camera: CameraSettings::default(),
         }

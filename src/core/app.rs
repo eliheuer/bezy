@@ -16,6 +16,7 @@ use crate::ui::panes::design_space::DesignSpacePlugin;
 use crate::ui::panes::glyph_pane::GlyphPanePlugin;
 use crate::ui::theme::BACKGROUND_COLOR;
 use crate::ui::toolbars::EditModeToolbarPlugin;
+use crate::ui::GlyphGridPlugin;
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 
@@ -93,6 +94,8 @@ fn add_all_plugins(app: &mut App) {
     add_rendering_plugins(app);
     add_editor_plugins(app);
     add_core_plugins(app);
+    // Register GlyphGridPlugin after all core plugins
+    app.add_plugins(GlyphGridPlugin);
     add_startup_systems(app);
 }
 
@@ -116,6 +119,7 @@ fn add_editor_plugins(app: &mut App) {
         CoordinatePanePlugin,
         EditModeToolbarPlugin,
         HudPlugin,
+        // GlyphGridPlugin removed from here
     ));
     info!("Editor plugins added successfully");
 }

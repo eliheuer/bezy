@@ -23,3 +23,4 @@ pub use edit_session::EditSessionPlugin;
 pub use selection::SelectionPlugin;
 pub use text_editor_plugin::TextEditorPlugin;
 pub use undo_plugin::UndoPlugin;
+pub use sort_plugin::SortPlugin;
