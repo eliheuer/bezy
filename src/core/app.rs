@@ -58,7 +58,14 @@ fn add_all_plugins(app: &mut App) {
     // Configure plugins based on target platform
     #[cfg(not(target_arch = "wasm32"))]
     {
-        app.add_plugins(DefaultPlugins);
+        app.add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bezy Font Editor".to_string(),
+                resolution: (1024.0, 768.0).into(),
+                ..default()
+            }),
+            ..default()
+        }));
     }
     
     #[cfg(target_arch = "wasm32")]

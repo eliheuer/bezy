@@ -1,3 +1,10 @@
+//! UI Theme file
+//!
+//! This file contains all the constants for visual styling of the UI.
+//! Non-visual constants are in the `core::settings` file.
+//! You can create a custome theme for bevy by copying this file and
+//! modifying the constants to your liking.
+
 #![allow(unused_variables)]
 
 use bevy::prelude::*;
@@ -87,8 +94,8 @@ pub const HOVERED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
 pub const PRESSED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(1.0, 0.8, 0.3);
 pub const PRESSED_BUTTON_ICON_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
 
-// Button Sizes
-pub const BUTTON_SIZE: f32 = 64.0;
+// Toolbar Button Sizes
+pub const TOOLBAR_BUTTON_SIZE: f32 = 64.0;
 pub const BUTTON_ICON_SIZE: f32 = 48.0;
 
 // Glyph Point Rendering
@@ -142,7 +149,7 @@ pub const METRICS_GUIDE_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 0.5);
 
 // Debug Settings
 #[allow(dead_code)]
-pub const DEBUG_SHOW_ORIGIN_CROSS: bool = true;
+pub const DEBUG_SHOW_ORIGIN_CROSS: bool = false;
 
 // UI Panel Colors
 #[allow(dead_code)]
