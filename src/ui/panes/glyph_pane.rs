@@ -23,6 +23,8 @@ pub struct CurrentGlyphMetrics {
 #[derive(Component, Default)]
 pub struct GlyphPane;
 
+// Remove the GlyphPaneContent component since we'll hide the entire pane
+
 /// Component marker for the glyph name text
 #[derive(Component)]
 pub struct GlyphNameText;
@@ -57,7 +59,11 @@ pub struct GlyphPanePlugin;
 impl Plugin for GlyphPanePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CurrentGlyphMetrics>()
-            .add_systems(Update, (update_glyph_pane, update_glyph_metrics));
+            .add_systems(Update, (
+                update_glyph_pane, 
+                update_glyph_metrics,
+                toggle_glyph_pane_visibility,
+            ));
     }
 }
 
@@ -155,6 +161,24 @@ fn update_glyph_pane(world: &mut World) {
     }
 }
 
+/// System to toggle the visibility of the entire glyph pane based on active sort
+fn toggle_glyph_pane_visibility(
+    text_editor_state: Res<crate::core::state::text_editor::TextEditorState>,
+    mut glyph_pane_query: Query<&mut Visibility, With<GlyphPane>>,
+) {
+    let visibility = if text_editor_state.get_active_sort().is_some() {
+        // If there is an active sort, show the pane
+        Visibility::Visible
+    } else {
+        // If no active sort, hide the entire pane
+        Visibility::Hidden
+    };
+
+    for mut vis in glyph_pane_query.iter_mut() {
+        *vis = visibility;
+    }
+}
+
 /// Spawns the glyph pane in the lower left corner
 pub fn spawn_glyph_pane(
     commands: &mut Commands,
@@ -180,276 +204,276 @@ pub fn spawn_glyph_pane(
         .with_children(|parent| {
             // Glyph name row
             parent
-                .spawn((Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    width: Val::Auto,
-                    height: Val::Auto,
-                    ..default()
-                },))
-                .with_children(|row| {
-                    // Label
-                    row.spawn((
-                        Node {
-                            margin: UiRect::right(Val::Px(4.0)),
+                        .spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
                             width: Val::Auto,
+                            height: Val::Auto,
                             ..default()
-                        },
-                        Text::new("Glyph:"),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                    ));
+                        },))
+                        .with_children(|row| {
+                            // Label
+                            row.spawn((
+                                Node {
+                                    margin: UiRect::right(Val::Px(4.0)),
+                                    width: Val::Auto,
+                                    ..default()
+                                },
+                                Text::new("Glyph:"),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                            ));
 
-                    // Value
-                    row.spawn((
-                        Text::new("Loading..."),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
-                        GlyphNameText,
-                    ));
-                });
+                            // Value
+                            row.spawn((
+                                Text::new("Loading..."),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
+                                GlyphNameText,
+                            ));
+                        });
 
-            // Unicode value row
-            parent
-                .spawn((Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    width: Val::Auto,
-                    height: Val::Auto,
-                    ..default()
-                },))
-                .with_children(|row| {
-                    // Label
-                    row.spawn((
-                        Node {
-                            margin: UiRect::right(Val::Px(4.0)),
+                    // Unicode value row
+                    parent
+                        .spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
                             width: Val::Auto,
+                            height: Val::Auto,
                             ..default()
-                        },
-                        Text::new("Unicode:"),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                    ));
+                        },))
+                        .with_children(|row| {
+                            // Label
+                            row.spawn((
+                                Node {
+                                    margin: UiRect::right(Val::Px(4.0)),
+                                    width: Val::Auto,
+                                    ..default()
+                                },
+                                Text::new("Unicode:"),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                            ));
 
-                    // Value
-                    row.spawn((
-                        Text::new("Loading..."),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
-                        GlyphUnicodeText,
-                    ));
-                });
+                            // Value
+                            row.spawn((
+                                Text::new("Loading..."),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
+                                GlyphUnicodeText,
+                            ));
+                        });
 
-            // Advance width row
-            parent
-                .spawn((Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    width: Val::Auto,
-                    height: Val::Auto,
-                    ..default()
-                },))
-                .with_children(|row| {
-                    // Label
-                    row.spawn((
-                        Node {
-                            margin: UiRect::right(Val::Px(4.0)),
+                    // Advance width row
+                    parent
+                        .spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
                             width: Val::Auto,
+                            height: Val::Auto,
                             ..default()
-                        },
-                        Text::new("Advance:"),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                    ));
+                        },))
+                        .with_children(|row| {
+                            // Label
+                            row.spawn((
+                                Node {
+                                    margin: UiRect::right(Val::Px(4.0)),
+                                    width: Val::Auto,
+                                    ..default()
+                                },
+                                Text::new("Advance:"),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                            ));
 
-                    // Value
-                    row.spawn((
-                        Text::new("Loading..."),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
-                        GlyphAdvanceText,
-                    ));
-                });
+                            // Value
+                            row.spawn((
+                                Text::new("Loading..."),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
+                                GlyphAdvanceText,
+                            ));
+                        });
 
-            // Left side bearing row
-            parent
-                .spawn((Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    width: Val::Auto,
-                    height: Val::Auto,
-                    ..default()
-                },))
-                .with_children(|row| {
-                    // Label
-                    row.spawn((
-                        Node {
-                            margin: UiRect::right(Val::Px(4.0)),
+                    // Left side bearing row
+                    parent
+                        .spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
                             width: Val::Auto,
+                            height: Val::Auto,
                             ..default()
-                        },
-                        Text::new("LSB:"),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                    ));
+                        },))
+                        .with_children(|row| {
+                            // Label
+                            row.spawn((
+                                Node {
+                                    margin: UiRect::right(Val::Px(4.0)),
+                                    width: Val::Auto,
+                                    ..default()
+                                },
+                                Text::new("LSB:"),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                            ));
 
-                    // Value
-                    row.spawn((
-                        Text::new("Loading..."),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
-                        GlyphLeftBearingText,
-                    ));
-                });
+                            // Value
+                            row.spawn((
+                                Text::new("Loading..."),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
+                                GlyphLeftBearingText,
+                            ));
+                        });
 
-            // Right side bearing row
-            parent
-                .spawn((Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    width: Val::Auto,
-                    height: Val::Auto,
-                    ..default()
-                },))
-                .with_children(|row| {
-                    // Label
-                    row.spawn((
-                        Node {
-                            margin: UiRect::right(Val::Px(4.0)),
+                    // Right side bearing row
+                    parent
+                        .spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
                             width: Val::Auto,
+                            height: Val::Auto,
                             ..default()
-                        },
-                        Text::new("RSB:"),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                    ));
+                        },))
+                        .with_children(|row| {
+                            // Label
+                            row.spawn((
+                                Node {
+                                    margin: UiRect::right(Val::Px(4.0)),
+                                    width: Val::Auto,
+                                    ..default()
+                                },
+                                Text::new("RSB:"),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                            ));
 
-                    // Value
-                    row.spawn((
-                        Text::new("Loading..."),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
-                        GlyphRightBearingText,
-                    ));
-                });
+                            // Value
+                            row.spawn((
+                                Text::new("Loading..."),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
+                                GlyphRightBearingText,
+                            ));
+                        });
 
-            // Left kerning group row
-            parent
-                .spawn((Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    width: Val::Auto,
-                    height: Val::Auto,
-                    ..default()
-                },))
-                .with_children(|row| {
-                    // Label
-                    row.spawn((
-                        Node {
-                            margin: UiRect::right(Val::Px(4.0)),
+                    // Left kerning group row
+                    parent
+                        .spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
                             width: Val::Auto,
+                            height: Val::Auto,
                             ..default()
-                        },
-                        Text::new("Left Group:"),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                    ));
+                        },))
+                        .with_children(|row| {
+                            // Label
+                            row.spawn((
+                                Node {
+                                    margin: UiRect::right(Val::Px(4.0)),
+                                    width: Val::Auto,
+                                    ..default()
+                                },
+                                Text::new("Left Group:"),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                            ));
 
-                    // Value
-                    row.spawn((
-                        Text::new("Loading..."),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
-                        GlyphLeftGroupText,
-                    ));
-                });
+                            // Value
+                            row.spawn((
+                                Text::new("Loading..."),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
+                                GlyphLeftGroupText,
+                            ));
+                        });
 
-            // Right kerning group row
-            parent
-                .spawn((Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    width: Val::Auto,
-                    height: Val::Auto,
-                    ..default()
-                },))
-                .with_children(|row| {
-                    // Label
-                    row.spawn((
-                        Node {
-                            margin: UiRect::right(Val::Px(4.0)),
+                    // Right kerning group row
+                    parent
+                        .spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
                             width: Val::Auto,
+                            height: Val::Auto,
                             ..default()
-                        },
-                        Text::new("Right Group:"),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                    ));
+                        },))
+                        .with_children(|row| {
+                            // Label
+                            row.spawn((
+                                Node {
+                                    margin: UiRect::right(Val::Px(4.0)),
+                                    width: Val::Auto,
+                                    ..default()
+                                },
+                                Text::new("Right Group:"),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                            ));
 
-                    // Value
-                    row.spawn((
-                        Text::new("Loading..."),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
-                        GlyphRightGroupText,
-                    ));
-                });
+                            // Value
+                            row.spawn((
+                                Text::new("Loading..."),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.0, 1.0, 0.5, 1.0)),
+                                GlyphRightGroupText,
+                            ));
+                        });
         });
 }
 

@@ -44,9 +44,7 @@ pub struct WidthValue;
 #[derive(Component, Default)]
 pub struct HeightValue;
 
-/// Component marker for the coordinate rows container
-#[derive(Component, Default)]
-pub struct CoordinateRows;
+// Remove the CoordinateRows component since we're hiding the entire pane
 
 /// Component for quadrant buttons
 #[derive(Component)]
@@ -104,19 +102,8 @@ pub fn spawn_coord_pane(
             "CoordPane",
         ))
         .with_children(|parent| {
-            // Container for coordinate rows (will be shown/hidden based on selection)
+            // X coordinate row
             parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        margin: UiRect::bottom(Val::Px(8.0)),
-                        ..default()
-                    },
-                    CoordinateRows,
-                ))
-                .with_children(|coord_container| {
-                    // X coordinate row
-                    coord_container
                         .spawn((Node {
                             flex_direction: FlexDirection::Row,
                             align_items: AlignItems::Center,
@@ -153,7 +140,7 @@ pub fn spawn_coord_pane(
                         });
 
                     // Y coordinate row
-                    coord_container
+                    parent
                         .spawn((Node {
                             flex_direction: FlexDirection::Row,
                             align_items: AlignItems::Center,
@@ -190,7 +177,7 @@ pub fn spawn_coord_pane(
                         });
 
                     // Width row
-                    coord_container
+                    parent
                         .spawn((Node {
                             flex_direction: FlexDirection::Row,
                             align_items: AlignItems::Center,
@@ -227,7 +214,7 @@ pub fn spawn_coord_pane(
                         });
 
                     // Height row
-                    coord_container
+                    parent
                         .spawn((Node {
                             flex_direction: FlexDirection::Row,
                             align_items: AlignItems::Center,
@@ -262,7 +249,6 @@ pub fn spawn_coord_pane(
                                 HeightValue,
                             ));
                         });
-                });
 
             // Quadrant selector (3x3 grid of buttons)
             parent
@@ -439,17 +425,21 @@ fn handle_quadrant_buttons(
     }
 }
 
-/// System to toggle the visibility of the coordinate rows based on selection
+/// System to toggle the visibility of the entire coordinate pane based on selection
 fn toggle_coordinate_rows_visibility(
     coord_selection: Res<CoordinateSelection>,
-    mut coord_rows: Query<&mut Node, With<CoordinateRows>>,
+    mut coord_pane: Query<&mut Visibility, With<CoordPane>>,
 ) {
-    for mut node in coord_rows.iter_mut() {
-        if coord_selection.count > 0 {
-            node.display = Display::Flex;
-        } else {
-            node.display = Display::None;
-        }
+    let visibility = if coord_selection.count > 0 {
+        // If there are selected points, show the pane
+        Visibility::Visible
+    } else {
+        // If no points are selected, hide the entire pane
+        Visibility::Hidden
+    };
+
+    for mut vis in coord_pane.iter_mut() {
+        *vis = visibility;
     }
 }
 
