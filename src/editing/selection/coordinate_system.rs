@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::ui::panes::design_space::DPoint;
+use crate::geometry::design_space::DPoint;
 
 /// Centralized coordinate system for selection operations
 /// This module provides a single source of truth for all coordinate transformations

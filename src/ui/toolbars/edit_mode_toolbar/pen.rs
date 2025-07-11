@@ -19,7 +19,7 @@ use norad::{Contour, ContourPoint};
 use bevy::input::mouse::MouseButton;
 use bevy::input::keyboard::KeyCode;
 use crate::core::input::{InputEvent, InputState, InputMode, ModifierState, helpers};
-use crate::ui::panes::design_space::DPoint;
+use crate::geometry::design_space::DPoint;
 use crate::editing::selection::{DragSelectionState, DragPointState, SelectionState};
 use crate::editing::edit_type::EditType;
 use crate::core::state::AppState;

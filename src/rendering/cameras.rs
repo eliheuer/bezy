@@ -122,7 +122,7 @@ fn toggle_camera_controls(
 mod camera_and_pointer_tests {
     use super::*;
     use bevy::prelude::*;
-    use crate::ui::panes::design_space::DPoint;
+    use crate::geometry::design_space::DPoint;
     use crate::editing::selection::coordinate_system::SelectionCoordinateSystem;
 
     /// Simulate a camera at a given position and scale, and a point at a given design space position.

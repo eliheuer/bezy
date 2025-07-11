@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use crate::rendering::cameras::DesignCamera;
-use crate::ui::panes::design_space::DPoint;
+use crate::geometry::design_space::DPoint;
 
 pub struct CursorPlugin;
 

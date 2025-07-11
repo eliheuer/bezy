@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::ui::panes::design_space::DPoint;
+use crate::geometry::design_space::DPoint;
 use crate::rendering::cameras::DesignCamera;
 
 /// Single source of truth for pointer (mouse/trackpad) position

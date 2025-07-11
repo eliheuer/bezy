@@ -8,7 +8,7 @@
 use bevy::prelude::*;
 use crate::core::input::{InputEvent, InputState, InputMode, helpers};
 use crate::core::pointer::PointerInfo;
-use crate::ui::panes::design_space::DPoint;
+use crate::geometry::design_space::DPoint;
 use crate::editing::selection::{DragSelectionState, DragPointState, SelectionState};
 use crate::editing::selection::components::{Selectable, Selected, SelectionRect, PointType, GlyphPointReference};
 use crate::systems::ui_interaction::UiHoverState;

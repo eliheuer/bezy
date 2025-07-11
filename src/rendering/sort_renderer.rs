@@ -77,7 +77,6 @@ pub fn manage_sort_labels(
     existing_unicode_text_query: Query<(Entity, &SortUnicodeText)>,
     all_sorts_query: Query<Entity, With<Sort>>,
     active_sorts_query: Query<(Entity, &Sort), With<ActiveSort>>,
-    viewports: Query<&crate::ui::panes::design_space::ViewPort>,
 ) {
     // Remove text for sorts that no longer exist
     let existing_sort_entities: HashSet<Entity> = all_sorts_query.iter().collect();
@@ -95,12 +94,6 @@ pub fn manage_sort_labels(
             commands.entity(text_entity).despawn();
         }
     }
-
-    // Get viewport for coordinate transformations
-    let viewport = match viewports.single() {
-        Ok(viewport) => *viewport,
-        Err(_) => crate::ui::panes::design_space::ViewPort::default(),
-    };
 
     // Create or update text labels for changed sorts
     for (sort_entity, sort) in sorts_query.iter() {
@@ -131,7 +124,7 @@ pub fn manage_sort_labels(
             .find(|(_, sort_name_text)| sort_name_text.sort_entity == sort_entity)
             .map(|(entity, _)| entity);
 
-        let name_transform = calculate_glyph_name_transform(sort, &app_state.workspace.info.metrics, &viewport);
+        let name_transform = calculate_glyph_name_transform(sort, &app_state.workspace.info.metrics);
 
         match existing_name_text_entity {
             Some(text_entity) => {
@@ -198,20 +191,13 @@ pub fn update_sort_label_positions(
     app_state: Res<AppState>,
     sorts_query: Query<&Sort, Changed<Sort>>,
     mut text_query: Query<(&mut Transform, &SortGlyphNameText)>,
-    viewports: Query<&crate::ui::panes::design_space::ViewPort>,
 ) {
     let font_metrics = &app_state.workspace.info.metrics;
-    
-    // Get viewport for coordinate transformations
-    let viewport = match viewports.single() {
-        Ok(viewport) => *viewport,
-        Err(_) => crate::ui::panes::design_space::ViewPort::default(),
-    };
     
     // Update text positions (now only glyph name text which contains both unicode and name)
     for (mut text_transform, sort_name_text) in text_query.iter_mut() {
         if let Ok(sort) = sorts_query.get(sort_name_text.sort_entity) {
-            *text_transform = calculate_glyph_name_transform(sort, font_metrics, &viewport);
+            *text_transform = calculate_glyph_name_transform(sort, font_metrics);
         }
     }
 }
@@ -240,7 +226,7 @@ pub fn update_sort_label_colors(
 }
 
 /// Calculate the transform for positioning glyph name text in the upper left corner (first line)
-fn calculate_glyph_name_transform(sort: &Sort, font_metrics: &FontMetrics, viewport: &crate::ui::panes::design_space::ViewPort) -> Transform {
+fn calculate_glyph_name_transform(sort: &Sort, font_metrics: &FontMetrics) -> Transform {
     let upm = font_metrics.units_per_em as f32;
     let text_margin = 16.0; // Consistent margin on all sides
     
@@ -249,11 +235,8 @@ fn calculate_glyph_name_transform(sort: &Sort, font_metrics: &FontMetrics, viewp
     let design_x = sort.position.x + text_margin; // Margin from left edge of sort
     let design_y = sort.position.y + upm - text_margin; // Position below the UPM top with margin
     
-    // Convert from design space to screen space using the viewport
-    let design_point = crate::ui::panes::design_space::DPoint::new(design_x, design_y);
-    let screen_point = viewport.to_screen(design_point);
-    
-    Transform::from_translation(Vec3::new(screen_point.x, screen_point.y, 10.0)) // Higher Z to render above sorts
+    // Use design space coordinates directly since ViewPort is deprecated
+    Transform::from_translation(Vec3::new(design_x, design_y, 10.0)) // Higher Z to render above sorts
 }
 
 /// Get the unicode value for a given glyph name

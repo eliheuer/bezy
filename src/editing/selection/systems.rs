@@ -16,7 +16,7 @@ use bevy::window::PrimaryWindow;
 #[allow(unused_imports)]
 use crate::geometry::point::{EditPoint, EntityId, EntityKind};
 #[allow(unused_imports)]
-use crate::ui::panes::design_space::{DPoint, ViewPort};
+use crate::geometry::design_space::DPoint;
 use crate::core::state::TextEditorState;
 use crate::core::state::FontMetrics;
 use bevy::input::mouse::MouseButton;
@@ -1557,7 +1557,7 @@ mod tests {
     use super::*;
     use bevy::prelude::*;
     use crate::editing::selection::coordinate_system::SelectionCoordinateSystem;
-    use crate::ui::panes::design_space::DPoint;
+    use crate::geometry::design_space::DPoint;
 
     #[test]
     fn test_point_selection_matches_render_position() {

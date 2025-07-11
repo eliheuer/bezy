@@ -16,7 +16,7 @@ use crate::core::state::{
     AppState, GlyphNavigation, TextEditorState, TextModeConfig, SortLayoutMode
 };
 use crate::core::settings::BezySettings;
-use crate::ui::panes::design_space::ViewPort;
+
 use crate::rendering::cameras::DesignCamera;
 use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
 use crate::ui::theme::*;

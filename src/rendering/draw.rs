@@ -3,7 +3,7 @@
 #![allow(deprecated)]
 
 use crate::core::state::{AppState, FontMetrics, GlyphNavigation};
-use crate::ui::panes::design_space::ViewPort;
+
 use crate::ui::theme::DEBUG_SHOW_ORIGIN_CROSS;
 use bevy::prelude::*;
 use crate::rendering::cameras::DesignCamera;
