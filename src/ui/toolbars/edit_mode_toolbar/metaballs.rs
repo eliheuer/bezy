@@ -94,7 +94,7 @@ impl EditTool for MetaballsTool {
     }
 
     fn icon(&self) -> &'static str {
-        "⭕"
+        "\u{E021}"
     }
 
     fn shortcut_key(&self) -> Option<char> {

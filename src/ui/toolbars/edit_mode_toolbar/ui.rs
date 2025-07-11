@@ -8,15 +8,18 @@
 
 use bevy::prelude::*;
 use crate::ui::theme::{
-    GROTESK_FONT_PATH, NORMAL_BUTTON_COLOR, HOVERED_BUTTON_COLOR, PRESSED_BUTTON_COLOR,
-    NORMAL_BUTTON_OUTLINE_COLOR, HOVERED_BUTTON_OUTLINE_COLOR, 
-    PRESSED_BUTTON_OUTLINE_COLOR, TOOLBAR_ICON_COLOR, PRESSED_BUTTON_ICON_COLOR,
-    TOOLBAR_CONTAINER_MARGIN, TOOLBAR_PADDING, TOOLBAR_ITEM_SPACING, TOOLBAR_BORDER_WIDTH,
-    BUTTON_SIZE, BUTTON_ICON_SIZE,
+    GROTESK_FONT_PATH, NORMAL_BUTTON_COLOR, HOVERED_BUTTON_COLOR, 
+    PRESSED_BUTTON_COLOR, NORMAL_BUTTON_OUTLINE_COLOR, 
+    HOVERED_BUTTON_OUTLINE_COLOR, PRESSED_BUTTON_OUTLINE_COLOR, 
+    TOOLBAR_ICON_COLOR, PRESSED_BUTTON_ICON_COLOR,
+    TOOLBAR_CONTAINER_MARGIN, TOOLBAR_PADDING, TOOLBAR_ITEM_SPACING, 
+    TOOLBAR_BORDER_WIDTH, BUTTON_SIZE, BUTTON_ICON_SIZE,
 };
 use crate::ui::toolbars::edit_mode_toolbar::*;
 
-// COMPONENTS -----------------------------------------------------------------
+// ============================================================================
+// COMPONENTS
+// ============================================================================
 
 /// Component marker for toolbar buttons - used for querying toolbar entities
 #[derive(Component)]
@@ -28,7 +31,9 @@ pub struct ToolButton {
     pub tool_id: ToolId,
 }
 
-// TOOLBAR CREATION ------------------------------------------------------------
+// ============================================================================
+// TOOLBAR CREATION
+// ============================================================================
 
 /// Creates the main edit mode toolbar with all registered tools
 pub fn spawn_edit_mode_toolbar(
@@ -42,13 +47,14 @@ pub fn spawn_edit_mode_toolbar(
         ordered_tools.len(), 
         ordered_tools
     );
+    
     let toolbar_entity = create_toolbar_container(&mut commands);
     add_toolbar_buttons(
         &mut commands,
         toolbar_entity,
         &ordered_tools,
         &tool_registry,
-        &asset_server
+        &asset_server,
     );
 }
 
@@ -70,7 +76,7 @@ fn create_toolbar_container(commands: &mut Commands) -> Entity {
             row_gap: Val::ZERO,
             ..default()
         })
-        .id() // Extract entity ID for return
+        .id()
 }
 
 /// Adds buttons for each registered tool to the toolbar
@@ -92,7 +98,9 @@ fn add_toolbar_buttons(
     });
 }
 
-// BUTTON CREATION -------------------------------------------------------------
+// ============================================================================
+// BUTTON CREATION
+// ============================================================================
 
 /// Creates a single tool button with proper styling and components
 fn create_tool_button(
@@ -100,7 +108,6 @@ fn create_tool_button(
     tool: &dyn EditTool,
     asset_server: &AssetServer,
 ) {
-    // Create container with spacing
     parent
         .spawn(Node {
             margin: UiRect::all(Val::Px(TOOLBAR_ITEM_SPACING)),
@@ -152,6 +159,10 @@ fn create_button_text(
     asset_server: &AssetServer,
 ) {
     parent.spawn((
+        Node {
+            margin: UiRect::top(Val::Px(6.0)),
+            ..default()
+        },
         Text::new(tool.icon()),
         TextFont {
             font: asset_server.load(GROTESK_FONT_PATH),
@@ -162,7 +173,9 @@ fn create_button_text(
     ));
 }
 
-// INTERACTION HANDLING --------------------------------------------------------
+// ============================================================================
+// INTERACTION HANDLING
+// ============================================================================
 
 /// Handles toolbar button interactions and tool switching
 pub fn handle_toolbar_mode_selection(
@@ -203,16 +216,19 @@ pub fn update_toolbar_button_appearances(
     current_tool: Res<CurrentTool>,
 ) {
     let current_tool_id = current_tool.get_current();
+    
     for (interaction, mut background_color, mut border_color, tool_button, entity) in 
         interaction_query 
     {
         let is_current_tool = current_tool_id == Some(tool_button.tool_id);
+        
         update_button_colors(
             *interaction,
             is_current_tool,
             &mut background_color,
             &mut border_color,
         );
+        
         update_button_text_color(
             entity,
             is_current_tool,
@@ -256,8 +272,10 @@ fn switch_to_tool(
     if current_tool.get_current() == Some(new_tool_id) {
         return;
     }
+    
     // Exit current tool if any
     exit_current_tool(current_tool, tool_registry);
+    
     // Enter new tool
     enter_new_tool(new_tool_id, current_tool, tool_registry);
 }
@@ -288,50 +306,9 @@ fn enter_new_tool(
     info!("Switched to tool: {}", new_tool_id);
 }
 
-/// Updates button visual states based on interaction and current tool
-#[allow(dead_code)]
-fn update_button_appearances(
-    interaction_query: &mut Query<
-        (
-            &Interaction,
-            &mut BackgroundColor,
-            &mut BorderColor,
-            &ToolButton,
-            Entity,
-        ),
-        With<EditModeToolbarButton>,
-    >,
-    children_query: &Query<&Children>,
-    text_query: &mut Query<&mut TextColor>,
-    current_tool: &ResMut<CurrentTool>,
-) {
-    // Cache current tool ID to avoid repeated lookups
-    let current_tool_id = current_tool.get_current();
-    
-    for (interaction, mut background_color, mut border_color, tool_button, entity) in 
-        interaction_query 
-    {
-        let is_current_tool = current_tool_id == Some(tool_button.tool_id);
-        
-        // Update button colors (background and border)
-        update_button_colors(
-            *interaction,
-            is_current_tool,
-            &mut background_color,
-            &mut border_color,
-        );
-        
-        // Update button text color
-        update_button_text_color(
-            entity,
-            is_current_tool,
-            children_query,
-            text_query,
-        );
-    }
-}
-
-// VISUAL UPDATES --------------------------------------------------------------
+// ============================================================================
+// VISUAL UPDATES
+// ============================================================================
 
 /// Updates button colors based on interaction state and current tool
 fn update_button_colors(
@@ -363,20 +340,18 @@ fn update_button_text_color(
     children_query: &Query<&Children>,
     text_query: &mut Query<&mut TextColor>,
 ) {
-    // Early return if no children found
     let children = match children_query.get(entity) {
         Ok(children) => children,
         Err(_) => return,
     };
     
-    // Calculate color once
     let new_color = if is_current_tool {
         PRESSED_BUTTON_ICON_COLOR
     } else {
         TOOLBAR_ICON_COLOR
     };
     
-    // Batch update all text colors for this button's children
+    // Update all text colors for this button's children
     for &child_entity in children {
         if let Ok(mut text_color) = text_query.get_mut(child_entity) {
             text_color.0 = new_color;
@@ -384,12 +359,15 @@ fn update_button_text_color(
     }
 }
 
-// TOOL UPDATES ---------------------------------------------------------------
+// ============================================================================
+// TOOL UPDATES
+// ============================================================================
 
 /// Updates the current edit mode by calling the active tool's update method
 ///
 /// This system runs every frame and calls the current tool's update method,
-/// allowing tools to perform their active behavior (input handling, rendering, etc.)
+/// allowing tools to perform their active behavior (input handling, rendering, 
+/// etc.)
 pub fn update_current_edit_mode(
     mut commands: Commands,
     current_tool: Res<CurrentTool>,
