@@ -1,12 +1,7 @@
 #![allow(unused_imports)]
 
 use crate::editing::edit_type::EditType;
-use crate::editing::selection::nudge::{EditEvent, NudgeState, PointCoordinates};
-use crate::editing::selection::components::{
-    Selectable, Selected, Hovered, SelectionRect, PointType, GlyphPointReference,
-};
 use crate::editing::selection::systems::*;
-use crate::editing::selection::nudge::NudgePlugin;
 use crate::editing::UndoPlugin;
 use crate::core::state::AppState;
 use bevy::prelude::*;
