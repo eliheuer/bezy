@@ -44,19 +44,19 @@ pub fn create_glyph_grid_once(
     }
 
     let grid_size = crate::ui::theme::CHECKERBOARD_DEFAULT_UNIT_SIZE;
+    let min_gap = 4.0 * grid_size;
     let font_metrics = &app_state.workspace.info.metrics;
     let upm = font_metrics.units_per_em as f32;
     let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
     let max_row_width = 16.0 * upm;
-    let row_gap = grid_size;
 
     // Get all codepoints in Unicode order
     let codepoints = crate::core::state::navigation::get_all_codepoints(&app_state);
     let mut current_x = 0.0;
     let mut current_y = 0.0;
     let mut placed = 0;
-    let mut row_sorts: Vec<(String, f32, f32)> = Vec::new(); // (glyph_name, advance_width, row_height)
     let mut max_row_height = 0.0;
+    let mut max_row_height_for_snap = 0.0;
 
     for codepoint_hex in codepoints {
         let codepoint = u32::from_str_radix(&codepoint_hex, 16).ok().and_then(std::char::from_u32);
@@ -67,23 +67,27 @@ pub fn create_glyph_grid_once(
             if let Some(glyph_name) = glyph_name {
                 let glyph_data = &app_state.workspace.font.glyphs[&glyph_name];
                 let advance_width = glyph_data.advance_width as f32;
-                let snapped_advance = (advance_width / grid_size).ceil() * grid_size;
-                let sort_bounds = SortBounds {
-                    min: Vec2::new(0.0, descender),
-                    max: Vec2::new(advance_width, upm),
-                };
                 let sort_height = upm - descender;
+                // Horizontal: add min_gap, then snap
+                let snapped_advance = ((advance_width + min_gap) / grid_size).ceil() * grid_size;
+                // Vertical: track max row height for this row
+                let snapped_row_height = ((sort_height + min_gap) / grid_size).ceil() * grid_size;
 
                 // If this glyph would overflow the row, wrap to next row
                 if current_x + snapped_advance > max_row_width && current_x > 0.0 {
                     // Place all sorts in the row at the same baseline Y
-                    current_y -= max_row_height + row_gap;
+                    current_y -= max_row_height_for_snap;
                     current_x = 0.0;
                     max_row_height = 0.0;
+                    max_row_height_for_snap = 0.0;
                 }
 
-                // Place sort so the baseline is at current_y, and the top of the UPM is at current_y + (upm - 0)
+                // Place sort so the baseline is at current_y
                 let position = Vec2::new(current_x, current_y);
+                let sort_bounds = SortBounds {
+                    min: Vec2::new(0.0, descender),
+                    max: Vec2::new(advance_width, upm),
+                };
                 debug!("[GlyphGrid] Spawning sort for codepoint U+{} (glyph '{}') at position {:?}, bounds: {:?}", codepoint_hex, glyph_name, position, sort_bounds);
                 sort_events.write(SortEvent::CreateSort {
                     glyph_name: glyph_name.clone(),
@@ -94,6 +98,9 @@ pub fn create_glyph_grid_once(
                 placed += 1;
                 if sort_height > max_row_height {
                     max_row_height = sort_height;
+                }
+                if snapped_row_height > max_row_height_for_snap {
+                    max_row_height_for_snap = snapped_row_height;
                 }
             }
         }
