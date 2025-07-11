@@ -3,7 +3,7 @@
 //! Shows glyph name, Unicode codepoint, advance width, side bearings,
 //! and side bearings in the lower left corner of the window.
 
-use crate::core::state::{AppState, GlyphNavigation};
+use crate::core::state::AppState;
 use crate::ui::theme::*;
 use bevy::prelude::*;
 
@@ -456,25 +456,25 @@ pub fn spawn_glyph_pane(
 /// Updates the glyph metrics for the current glyph
 pub fn update_glyph_metrics(
     app_state: Res<AppState>,
-    glyph_navigation: Res<GlyphNavigation>,
+    text_editor_state: Res<crate::core::state::text_editor::TextEditorState>,
     mut metrics: ResMut<CurrentGlyphMetrics>,
 ) {
-    // Extract information from the current state
-
-    // Get information about the current glyph
-    if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state) {
-        // Found a glyph, get its details
+    // Get information from the active sort instead of glyph navigation
+    if let Some((_buffer_index, sort_entry)) = text_editor_state.get_active_sort() {
+        let glyph_name = sort_entry.kind.glyph_name().to_string();
+        
+        // Found an active sort, get its details
         metrics.glyph_name = glyph_name.clone();
 
-        // Set the Unicode information
-        if let Some(codepoint) = &glyph_navigation.current_codepoint {
-            metrics.unicode = codepoint.clone();
-        } else {
-            metrics.unicode = String::new();
-        }
-
-        // Try to get the glyph data to extract its metrics
+        // Set the Unicode information by finding the codepoint for this glyph
         if let Some(glyph_data) = app_state.workspace.font.get_glyph(&glyph_name) {
+            // Find the first Unicode codepoint for this glyph
+            if let Some(first_codepoint) = glyph_data.unicode_values.first() {
+                metrics.unicode = format!("{:04X}", *first_codepoint as u32);
+            } else {
+                metrics.unicode = String::new();
+            }
+
             // Get advance width
             metrics.advance = format!("{}", glyph_data.advance_width as i32);
 
@@ -540,7 +540,7 @@ pub fn update_glyph_metrics(
             metrics.right_group = String::new();
         }
     } else {
-        // No glyph found, clear the metrics
+        // No active sort found, clear the metrics
         metrics.glyph_name = String::new();
         metrics.unicode = String::new();
         metrics.advance = "-".to_string();

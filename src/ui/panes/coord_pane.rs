@@ -44,6 +44,10 @@ pub struct WidthValue;
 #[derive(Component, Default)]
 pub struct HeightValue;
 
+/// Component marker for the coordinate rows container
+#[derive(Component, Default)]
+pub struct CoordinateRows;
+
 /// Component for quadrant buttons
 #[derive(Component)]
 pub struct QuadrantButton(pub Quadrant);
@@ -72,6 +76,7 @@ impl Plugin for CoordinatePanePlugin {
                 update_coordinate_selection,
                 update_coordinate_display,
                 handle_quadrant_buttons,
+                toggle_coordinate_rows_visibility,
             ));
     }
 }
@@ -99,152 +104,164 @@ pub fn spawn_coord_pane(
             "CoordPane",
         ))
         .with_children(|parent| {
-            // X coordinate row
+            // Container for coordinate rows (will be shown/hidden based on selection)
             parent
-                .spawn((Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(4.0)),
-                    ..default()
-                },))
-                .with_children(|row| {
-                    // Label
-                    row.spawn((
-                        Node {
-                            margin: UiRect::right(Val::Px(8.0)),
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        margin: UiRect::bottom(Val::Px(8.0)),
+                        ..default()
+                    },
+                    CoordinateRows,
+                ))
+                .with_children(|coord_container| {
+                    // X coordinate row
+                    coord_container
+                        .spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            margin: UiRect::bottom(Val::Px(4.0)),
                             ..default()
-                        },
-                        Text::new("X:"),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(SECONDARY_TEXT_COLOR),
-                    ));
-                    
-                    // Value
-                    row.spawn((
-                        Text::new("0"),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(ON_CURVE_POINT_COLOR),
-                        XValue,
-                    ));
-                });
+                        },))
+                        .with_children(|row| {
+                            // Label
+                            row.spawn((
+                                Node {
+                                    margin: UiRect::right(Val::Px(8.0)),
+                                    ..default()
+                                },
+                                Text::new("X:"),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(SECONDARY_TEXT_COLOR),
+                            ));
+                            
+                            // Value
+                            row.spawn((
+                                Text::new("0"),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(ON_CURVE_POINT_COLOR),
+                                XValue,
+                            ));
+                        });
 
-            // Y coordinate row
-            parent
-                .spawn((Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(4.0)),
-                    ..default()
-                },))
-                .with_children(|row| {
-                    // Label
-                    row.spawn((
-                        Node {
-                            margin: UiRect::right(Val::Px(8.0)),
+                    // Y coordinate row
+                    coord_container
+                        .spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            margin: UiRect::bottom(Val::Px(4.0)),
                             ..default()
-                        },
-                        Text::new("Y:"),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(SECONDARY_TEXT_COLOR),
-                    ));
-                    
-                    // Value
-                    row.spawn((
-                        Text::new("0"),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(ON_CURVE_POINT_COLOR),
-                        YValue,
-                    ));
-                });
+                        },))
+                        .with_children(|row| {
+                            // Label
+                            row.spawn((
+                                Node {
+                                    margin: UiRect::right(Val::Px(8.0)),
+                                    ..default()
+                                },
+                                Text::new("Y:"),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(SECONDARY_TEXT_COLOR),
+                            ));
+                            
+                            // Value
+                            row.spawn((
+                                Text::new("0"),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(ON_CURVE_POINT_COLOR),
+                                YValue,
+                            ));
+                        });
 
-            // Width row
-            parent
-                .spawn((Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(4.0)),
-                    ..default()
-                },))
-                .with_children(|row| {
-                    // Label
-                    row.spawn((
-                        Node {
-                            margin: UiRect::right(Val::Px(8.0)),
+                    // Width row
+                    coord_container
+                        .spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            margin: UiRect::bottom(Val::Px(4.0)),
                             ..default()
-                        },
-                        Text::new("W:"),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(SECONDARY_TEXT_COLOR),
-                    ));
-                    
-                    // Value
-                    row.spawn((
-                        Text::new("0"),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(ON_CURVE_POINT_COLOR),
-                        WidthValue,
-                    ));
-                });
+                        },))
+                        .with_children(|row| {
+                            // Label
+                            row.spawn((
+                                Node {
+                                    margin: UiRect::right(Val::Px(8.0)),
+                                    ..default()
+                                },
+                                Text::new("W:"),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(SECONDARY_TEXT_COLOR),
+                            ));
+                            
+                            // Value
+                            row.spawn((
+                                Text::new("0"),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(ON_CURVE_POINT_COLOR),
+                                WidthValue,
+                            ));
+                        });
 
-            // Height row
-            parent
-                .spawn((Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(16.0)),
-                    ..default()
-                },))
-                .with_children(|row| {
-                    // Label
-                    row.spawn((
-                        Node {
-                            margin: UiRect::right(Val::Px(8.0)),
+                    // Height row
+                    coord_container
+                        .spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            margin: UiRect::bottom(Val::Px(16.0)),
                             ..default()
-                        },
-                        Text::new("H:"),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(SECONDARY_TEXT_COLOR),
-                    ));
-                    
-                    // Value
-                    row.spawn((
-                        Text::new("0"),
-                        TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
-                            font_size: WIDGET_TEXT_FONT_SIZE,
-                            ..default()
-                        },
-                        TextColor(ON_CURVE_POINT_COLOR),
-                        HeightValue,
-                    ));
+                        },))
+                        .with_children(|row| {
+                            // Label
+                            row.spawn((
+                                Node {
+                                    margin: UiRect::right(Val::Px(8.0)),
+                                    ..default()
+                                },
+                                Text::new("H:"),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(SECONDARY_TEXT_COLOR),
+                            ));
+                            
+                            // Value
+                            row.spawn((
+                                Text::new("0"),
+                                TextFont {
+                                    font: asset_server.load(MONO_FONT_PATH),
+                                    font_size: WIDGET_TEXT_FONT_SIZE,
+                                    ..default()
+                                },
+                                TextColor(ON_CURVE_POINT_COLOR),
+                                HeightValue,
+                            ));
+                        });
                 });
 
             // Quadrant selector (3x3 grid of buttons)
@@ -362,21 +379,8 @@ fn update_coordinate_display(
         if let Ok(mut text) = h_query.single_mut() {
             *text = Text::new(format!("{}", coord_selection.frame.height() as i32));
         }
-    } else {
-        // Show dashes when nothing is selected
-        if let Ok(mut text) = x_query.single_mut() {
-            *text = Text::new("--");
-        }
-        if let Ok(mut text) = y_query.single_mut() {
-            *text = Text::new("--");
-        }
-        if let Ok(mut text) = w_query.single_mut() {
-            *text = Text::new("--");
-        }
-        if let Ok(mut text) = h_query.single_mut() {
-            *text = Text::new("--");
-        }
     }
+    // When no points are selected, the coordinate rows are hidden, so no need to update text
 }
 
 /// System to handle quadrant button clicks
@@ -431,6 +435,20 @@ fn handle_quadrant_buttons(
                     }
                 }
             }
+        }
+    }
+}
+
+/// System to toggle the visibility of the coordinate rows based on selection
+fn toggle_coordinate_rows_visibility(
+    coord_selection: Res<CoordinateSelection>,
+    mut coord_rows: Query<&mut Node, With<CoordinateRows>>,
+) {
+    for mut node in coord_rows.iter_mut() {
+        if coord_selection.count > 0 {
+            node.display = Display::Flex;
+        } else {
+            node.display = Display::None;
         }
     }
 }
