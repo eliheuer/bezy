@@ -1,11 +1,4 @@
 //! User interface modules for the Bezy font editor
-//!
-//! This module contains all UI-related components, systems, and plugins:
-//! - Theme and styling definitions
-//! - UI panes (design space, glyph navigation, etc.)
-//! - Toolbars and controls
-//! - Text editing components
-//! - Head-up display (HUD) management
 
 pub mod glyph_grid;
 pub mod hud;

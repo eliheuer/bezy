@@ -3,9 +3,6 @@
 //! Bevy plugin that registers all sort-related systems, resources, and events.
 
 use crate::core::state::{AppState, GlyphNavigation};
-#[allow(unused_imports)]
-use crate::core::settings::apply_sort_grid_snap;
-#[allow(unused_imports)]
 use crate::rendering::cameras::DesignCamera;
 use crate::editing::selection::components::{
     GlyphPointReference, PointType, Selectable, Selected, SelectionState,

@@ -7,7 +7,7 @@
 
 use crate::core::state::{AppState, GlyphNavigation};
 #[allow(unused_imports)]
-use crate::core::settings::apply_sort_grid_snap;
+
 #[allow(unused_imports)]
 use crate::rendering::cameras::DesignCamera;
 use crate::editing::selection::components::{
@@ -146,14 +146,7 @@ fn create_sort(
     )).id()
 }
 
-/// Move a sort to a new position
-fn move_sort(commands: &mut Commands, sort_entity: Entity, new_position: Vec2) {
-    commands
-        .entity(sort_entity)
-        .insert(Transform::from_translation(new_position.extend(0.0)));
 
-    // Note: This will be handled by a separate system that syncs Transform with Sort.position
-}
 
 /// Delete a sort
 fn delete_sort(

@@ -306,3 +306,9 @@ pub fn create_text_style(text: &str, font_size: f32) -> Text {
 }
 
 pub const LINE_LEADING: f32 = 0.0; 
+
+// Glyph Grid Layout Constants
+/// Minimum gap between glyphs in the grid, as a multiple of grid size
+pub const MIN_GLYPH_GRID_GAP_MULTIPLIER: f32 = 4.0;
+/// Maximum row width for the glyph grid, as a multiple of units per em (UPM)
+pub const MAX_GLYPH_GRID_ROW_WIDTH_UPM: f32 = 16.0; 
