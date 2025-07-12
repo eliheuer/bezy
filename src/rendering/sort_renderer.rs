@@ -5,7 +5,7 @@
 //! Active sorts show the actual glyph outlines for editing.
 
 use crate::editing::sort::{Sort, ActiveSort, InactiveSort};
-use crate::core::state::{AppState, FontMetrics};
+use crate::core::state::{AppState, FontMetrics, SortLayoutMode};
 use crate::rendering::cameras::DesignCamera;
 use crate::rendering::sort_visuals::{render_sort_visuals, SortRenderStyle};
 use kurbo::BezPath;
@@ -33,35 +33,55 @@ pub fn render_sorts_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
     _sorts_query: Query<&Sort>,
-    active_sorts_query: Query<(Entity, &Sort), With<ActiveSort>>,
-    inactive_sorts_query: Query<&Sort, With<InactiveSort>>,
+    active_sorts_query: Query<(Entity, &Sort, &Transform), With<ActiveSort>>,
+    inactive_sorts_query: Query<(&Sort, &Transform), With<InactiveSort>>,
 ) {
     let font_metrics = &app_state.workspace.info.metrics;
 
-    for sort in inactive_sorts_query.iter() {
+    // Render inactive sorts (both buffer and freeform)
+    for (sort, transform) in inactive_sorts_query.iter() {
         if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
+            let position = transform.translation.truncate();
+            let advance_width = glyph_data.advance_width as f32;
+            
+            // Choose render style based on layout mode
+            let render_style = match sort.layout_mode {
+                SortLayoutMode::Text => SortRenderStyle::TextBuffer,
+                SortLayoutMode::Freeform => SortRenderStyle::Freeform,
+            };
+            
             render_sort_visuals(
                 &mut gizmos,
                 &glyph_data.outline,
-                glyph_data.advance_width as f32,
+                advance_width,
                 font_metrics,
-                sort.position,
+                position,
                 SORT_INACTIVE_METRICS_COLOR,
-                SortRenderStyle::Freeform,
+                render_style,
             );
         }
     }
 
-    for (_entity, sort) in active_sorts_query.iter() {
+    // Render active sorts (both buffer and freeform)
+    for (_entity, sort, transform) in active_sorts_query.iter() {
         if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
+            let position = transform.translation.truncate();
+            let advance_width = glyph_data.advance_width as f32;
+            
+            // Choose render style based on layout mode
+            let render_style = match sort.layout_mode {
+                SortLayoutMode::Text => SortRenderStyle::TextBuffer,
+                SortLayoutMode::Freeform => SortRenderStyle::Freeform,
+            };
+            
             render_sort_visuals(
                 &mut gizmos,
                 &glyph_data.outline,
-                glyph_data.advance_width as f32,
+                advance_width,
                 font_metrics,
-                sort.position,
+                position,
                 SORT_ACTIVE_METRICS_COLOR,
-                SortRenderStyle::Freeform,
+                render_style,
             );
         }
     }
@@ -72,7 +92,7 @@ pub fn manage_sort_labels(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     app_state: Res<AppState>,
-    sorts_query: Query<(Entity, &Sort), (Changed<Sort>, Or<(With<ActiveSort>, With<InactiveSort>)>)>,
+    sorts_query: Query<(Entity, &Sort, &Transform), (Changed<Sort>, Or<(With<ActiveSort>, With<InactiveSort>)>)>,
     existing_name_text_query: Query<(Entity, &SortGlyphNameText)>,
     existing_unicode_text_query: Query<(Entity, &SortUnicodeText)>,
     all_sorts_query: Query<Entity, With<Sort>>,
@@ -96,7 +116,7 @@ pub fn manage_sort_labels(
     }
 
     // Create or update text labels for changed sorts
-    for (sort_entity, sort) in sorts_query.iter() {
+    for (sort_entity, sort, transform) in sorts_query.iter() {
         // Determine text color based on sort state
         let text_color = if active_sorts_query.iter().any(|(entity, _)| entity == sort_entity) {
             SORT_ACTIVE_METRICS_COLOR // Green for active sorts
@@ -112,7 +132,11 @@ pub fn manage_sort_labels(
         };
 
         // Calculate available width for text wrapping (sort width minus margins)
-        let sort_width = sort.advance_width;
+        let sort_width = if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
+            glyph_data.advance_width as f32
+        } else {
+            600.0 // Default fallback
+        };
         let text_margin = 16.0; // Margin on all sides
         let available_width = (sort_width - (text_margin * 2.0)).max(120.0).min(sort_width - text_margin); // Conservative bounds
         
@@ -124,7 +148,7 @@ pub fn manage_sort_labels(
             .find(|(_, sort_name_text)| sort_name_text.sort_entity == sort_entity)
             .map(|(entity, _)| entity);
 
-        let name_transform = calculate_glyph_name_transform(sort, &app_state.workspace.info.metrics);
+        let name_transform = calculate_glyph_name_transform(sort, transform, &app_state.workspace.info.metrics);
 
         match existing_name_text_entity {
             Some(text_entity) => {
@@ -189,15 +213,15 @@ pub fn manage_sort_labels(
 /// System to update positions of text labels when sorts move
 pub fn update_sort_label_positions(
     app_state: Res<AppState>,
-    sorts_query: Query<&Sort, Changed<Sort>>,
+    sorts_query: Query<(&Sort, &Transform), Changed<Sort>>,
     mut text_query: Query<(&mut Transform, &SortGlyphNameText)>,
 ) {
     let font_metrics = &app_state.workspace.info.metrics;
     
     // Update text positions (now only glyph name text which contains both unicode and name)
     for (mut text_transform, sort_name_text) in text_query.iter_mut() {
-        if let Ok(sort) = sorts_query.get(sort_name_text.sort_entity) {
-            *text_transform = calculate_glyph_name_transform(sort, font_metrics);
+        if let Ok((sort, transform)) = sorts_query.get(sort_name_text.sort_entity) {
+            *text_transform = calculate_glyph_name_transform(sort, transform, font_metrics);
         }
     }
 }
@@ -226,14 +250,15 @@ pub fn update_sort_label_colors(
 }
 
 /// Calculate the transform for positioning glyph name text in the upper left corner (first line)
-fn calculate_glyph_name_transform(sort: &Sort, font_metrics: &FontMetrics) -> Transform {
+fn calculate_glyph_name_transform(_sort: &Sort, transform: &Transform, font_metrics: &FontMetrics) -> Transform {
     let upm = font_metrics.units_per_em as f32;
     let text_margin = 16.0; // Consistent margin on all sides
+    let position = transform.translation.truncate();
     
     // Position text in upper left corner with proper margins
-    // sort.position.y is the baseline, so UPM top is at sort.position.y + upm
-    let design_x = sort.position.x + text_margin; // Margin from left edge of sort
-    let design_y = sort.position.y + upm - text_margin; // Position below the UPM top with margin
+    // position.y is the baseline, so UPM top is at position.y + upm
+    let design_x = position.x + text_margin; // Margin from left edge of sort
+    let design_y = position.y + upm - text_margin; // Position below the UPM top with margin
     
     // Use design space coordinates directly since ViewPort is deprecated
     Transform::from_translation(Vec3::new(design_x, design_y, 10.0)) // Higher Z to render above sorts

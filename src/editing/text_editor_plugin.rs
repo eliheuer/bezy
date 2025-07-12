@@ -38,6 +38,7 @@ impl Plugin for TextEditorPlugin {
             .add_systems(Update, (
                 manage_sort_activation,
                 spawn_missing_sort_entities,
+                crate::systems::text_editor_sorts::despawn_missing_buffer_sort_entities, // NEW: Despawn deleted buffer sorts
             ).chain())
             
             // Instant point spawning/despawning (runs immediately after activation)

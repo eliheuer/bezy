@@ -2,18 +2,24 @@
 //!
 //! Bevy plugin that registers all sort-related systems, resources, and events.
 
-// use crate::editing::selection::SelectionPlugin;
-use crate::editing::sort::ActiveSortState;
-use crate::editing::sort::SortEvent;
+use crate::core::state::{AppState, GlyphNavigation};
+#[allow(unused_imports)]
+use crate::core::settings::apply_sort_grid_snap;
+#[allow(unused_imports)]
+use crate::rendering::cameras::DesignCamera;
+use crate::editing::selection::components::{
+    GlyphPointReference, PointType, Selectable, Selected, SelectionState,
+};
+use crate::editing::selection::nudge::PointCoordinates;
+use crate::editing::sort::{ActiveSort, ActiveSortState, InactiveSort, Sort, SortEvent};
+use crate::systems::sort_manager::{
+    handle_sort_events, 
+    respawn_sort_points_on_glyph_change,
+    spawn_initial_sort,
+};
 use crate::rendering::sort_renderer::{
     render_sorts_system, manage_sort_labels, update_sort_label_positions,
     update_sort_label_colors,
-};
-use crate::systems::sort_manager::{
-    handle_sort_events, spawn_initial_sort,
-    sync_sort_transforms, 
-    // spawn_sort_point_entities, // DISABLED: Causes duplicate point entities
-    respawn_sort_points_on_glyph_change,
 };
 // use crate::systems::sort_interaction::handle_sort_clicks; // DISABLED: Old input system conflicts with selection
 use bevy::prelude::*;
@@ -51,7 +57,6 @@ impl Plugin for SortPlugin {
                 (
                     spawn_initial_sort,
                     handle_sort_events,
-                    sync_sort_transforms,
                     // REMOVED: enforce_single_active_sort, auto_activate_first_sort, handle_glyph_navigation_changes,
                     // These are now handled by TextEditorState + sync system
                 )

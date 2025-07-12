@@ -26,7 +26,7 @@ use crate::ui::theme::{SORT_VERTICAL_PADDING, SORT_HORIZONTAL_PADDING};
 /// Helper to calculate the desired position of the crosshair.
 /// Places it at the lower-left of the sort's metrics box, offset inward by 64 units.
 #[allow(dead_code)]
-fn get_crosshair_position(sort: &Sort, app_state: &AppState) -> Vec2 {
+fn get_crosshair_position(_sort: &Sort, transform: &Transform, app_state: &AppState) -> Vec2 {
     let metrics = &app_state.workspace.info.metrics;
     
     // Get the descender (bottom of the metrics box)
@@ -38,7 +38,7 @@ fn get_crosshair_position(sort: &Sort, app_state: &AppState) -> Vec2 {
     // Position at lower-left corner, offset inward by 64 units
     let offset = Vec2::new(left_edge + 64.0, descender + 64.0);
     
-    sort.position + offset
+    transform.translation.truncate() + offset
 }
 
 /// Component to mark point entities that belong to a sort
@@ -75,8 +75,9 @@ pub fn handle_sort_events(
 ) {
     for event in sort_events.read() {
         match event {
-            SortEvent::CreateSort { glyph_name, position } => {
-                info!("Handling CreateSort event for '{}' at {:?}", glyph_name, position);
+            SortEvent::CreateSort { glyph_name, position, layout_mode } => {
+                info!("Handling CreateSort event for '{}' at {:?} with layout mode {:?}", glyph_name, position, layout_mode);
+                
                 // Get advance width from the virtual font
                 let advance_width = if let Some(glyph_data) = app_state.workspace.font.get_glyph(glyph_name) {
                     glyph_data.advance_width as f32
@@ -84,20 +85,31 @@ pub fn handle_sort_events(
                     600.0 // Default fallback
                 };
 
-                let entity = create_sort(&mut commands, glyph_name.clone(), *position, advance_width);
-                info!("Created sort entity {:?} for '{}'", entity, glyph_name);
+                let entity = create_sort(&mut commands, glyph_name.clone(), *position, advance_width, layout_mode.clone());
+                info!("Created sort entity {:?} for '{}' with layout mode {:?}", entity, glyph_name, layout_mode);
             }
-            SortEvent::ActivateSort { .. } | SortEvent::DeactivateSort => {
-                debug!("Ignoring ActivateSort/DeactivateSort event - now handled by TextEditorState");
+            SortEvent::ActivateSort { entity } => {
+                // Only activate if it's not already active
+                if active_sort_state.active_sort_entity != Some(*entity) {
+                    // Deactivate current active sort
+                    if let Some(current_active) = active_sort_state.active_sort_entity {
+                        commands.entity(current_active).remove::<ActiveSort>().insert(InactiveSort);
+                    }
+                    // Activate the new sort
+                    commands.entity(*entity).remove::<InactiveSort>().insert(ActiveSort);
+                    active_sort_state.active_sort_entity = Some(*entity);
+                    info!("Activated sort entity {:?}", entity);
+                }
             }
-            SortEvent::_MoveSort {
-                sort_entity,
-                new_position,
-            } => {
-                move_sort(&mut commands, *sort_entity, *new_position);
+            SortEvent::DeactivateSort { entity } => {
+                commands.entity(*entity).remove::<ActiveSort>().insert(InactiveSort);
+                if active_sort_state.active_sort_entity == Some(*entity) {
+                    active_sort_state.active_sort_entity = None;
+                }
+                info!("Deactivated sort entity {:?}", entity);
             }
-            SortEvent::_DeleteSort { sort_entity } => {
-                delete_sort(&mut commands, &mut active_sort_state, *sort_entity);
+            SortEvent::DeleteSort { entity } => {
+                delete_sort(&mut commands, &mut active_sort_state, *entity);
             }
         }
     }
@@ -108,13 +120,17 @@ fn create_sort(
     commands: &mut Commands,
     glyph_name: String,
     position: Vec2,
-    advance_width: f32,
+    _advance_width: f32, // Not used in new structure
+    layout_mode: crate::core::state::SortLayoutMode,
 ) -> Entity {
-    let sort = Sort::new(glyph_name.clone(), position, advance_width);
+    let sort = Sort {
+        glyph_name: glyph_name.clone(),
+        layout_mode: layout_mode.clone(),
+    };
 
     info!(
-        "Creating sort '{}' at position ({:.1}, {:.1})",
-        glyph_name, position.x, position.y
+        "Creating sort '{}' at position ({:.1}, {:.1}) with layout mode {:?}",
+        glyph_name, position.x, position.y, layout_mode
     );
 
     // Spawn the sort entity as inactive by default
@@ -152,21 +168,6 @@ fn delete_sort(
 
     commands.entity(sort_entity).despawn();
     info!("Deleted sort entity {:?}", sort_entity);
-}
-
-/// System to sync Transform changes back to Sort position
-pub fn sync_sort_transforms(mut sorts_query: Query<(&mut Sort, &Transform), Changed<Transform>>) {
-    for (mut sort, transform) in sorts_query.iter_mut() {
-        let new_position = transform.translation.truncate();
-        // Only update if the position actually changed to avoid triggering Changed<Sort>
-        if (sort.position - new_position).length() > f32::EPSILON {
-            debug!(
-                "sync_sort_transforms: Updating sort position from ({:.1}, {:.1}) to ({:.1}, {:.1})",
-                sort.position.x, sort.position.y, new_position.x, new_position.y
-            );
-            sort.position = new_position;
-        }
-    }
 }
 
 /// System to handle glyph navigation changes
@@ -240,6 +241,7 @@ pub fn spawn_point_entities_for_sort(
     commands: &mut Commands,
     sort_entity: Entity,
     sort: &Sort,
+    transform: &Transform,
     app_state: &AppState,
     selection_state: &mut ResMut<SelectionState>,
 ) {
@@ -256,7 +258,7 @@ pub fn spawn_point_entities_for_sort(
                     );
                 
                 // Calculate world position: sort position + point offset
-                let point_pos = sort.position + Vec2::new(point_data.x as f32, point_data.y as f32);
+                let point_pos = transform.translation.truncate() + Vec2::new(point_data.x as f32, point_data.y as f32);
                 
                 let entity_name = format!(
                     "SortPoint_{}_{}_{}",
@@ -333,7 +335,7 @@ fn despawn_point_entities_for_sort(
 pub fn spawn_sort_point_entities(
     mut commands: Commands,
     // Detect when sorts change from inactive to active
-    added_active_sorts: Query<(Entity, &Sort), Added<ActiveSort>>,
+    added_active_sorts: Query<(Entity, &Sort, &Transform), Added<ActiveSort>>,
     // Detect when sorts change from active to inactive
     mut removed_active_sorts: RemovedComponents<ActiveSort>,
     // Find existing point entities for sorts
@@ -342,12 +344,13 @@ pub fn spawn_sort_point_entities(
     app_state: Res<AppState>,
 ) {
     // Spawn point entities for newly active sorts
-    for (sort_entity, sort) in added_active_sorts.iter() {
+    for (sort_entity, sort, transform) in added_active_sorts.iter() {
         info!("Spawning point entities for newly active sort {:?}", sort_entity);
         spawn_point_entities_for_sort(
             &mut commands,
             sort_entity,
             sort,
+            transform,
             &app_state,
             &mut selection_state,
         );

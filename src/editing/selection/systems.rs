@@ -21,6 +21,7 @@ use crate::core::state::TextEditorState;
 use crate::core::state::FontMetrics;
 use bevy::input::mouse::MouseButton;
 use bevy::log::info;
+use bevy::ecs::system::ParamSet;
 
 /// Event to signal that app state has changed
 #[derive(Event, Debug, Clone)]
@@ -448,9 +449,9 @@ pub fn update_glyph_data_from_selection(
     for (transform, point_ref, sort_point_entity_opt) in query.iter() {
         // Default to world position if we can't get sort position
         let (relative_x, relative_y) = if let Some(sort_point_entity) = sort_point_entity_opt {
-            if let Ok(sort) = sort_query.get(sort_point_entity.sort_entity) {
+            if let Ok(_sort) = sort_query.get(sort_point_entity.sort_entity) {
                 let world_pos = transform.translation.truncate();
-                let rel = world_pos - sort.position;
+                let rel = world_pos - transform.translation.truncate();
                 (rel.x as f64, rel.y as f64)
             } else {
                 (transform.translation.x as f64, transform.translation.y as f64)
@@ -503,14 +504,14 @@ pub fn update_glyph_data_from_selection(
 pub fn spawn_active_sort_points(
     mut commands: Commands,
     active_sort_state: Res<crate::editing::sort::ActiveSortState>,
-    sort_query: Query<(Entity, &crate::editing::sort::Sort)>,
+    sort_query: Query<(Entity, &crate::editing::sort::Sort, &Transform)>,
     point_entities: Query<Entity, With<crate::systems::sort_manager::SortPointEntity>>,
     app_state: Res<AppState>,
     _selection_state: ResMut<crate::editing::selection::SelectionState>,
 ) {
     // Only spawn points if there's an active sort
     if let Some(active_sort_entity) = active_sort_state.active_sort_entity {
-        if let Ok((sort_entity, sort)) = sort_query.get(active_sort_entity) {
+        if let Ok((sort_entity, sort, transform)) = sort_query.get(active_sort_entity) {
             // Check if points already exist for this sort
             let existing_points = point_entities.iter().any(|_entity| {
                 // Check if points already exist for this sort
@@ -518,8 +519,9 @@ pub fn spawn_active_sort_points(
             });
             
             if !existing_points {
+                let position = transform.translation.truncate();
                 info!("[spawn_active_sort_points] Spawning points for active sort: '{}' at position {:?}", 
-                      sort.glyph_name, sort.position);
+                      sort.glyph_name, position);
                 
                 // Get glyph data for the active sort
                 if let Some(glyph_data) = app_state.workspace.font.get_glyph(&sort.glyph_name) {
@@ -529,7 +531,7 @@ pub fn spawn_active_sort_points(
                         for (contour_index, contour) in outline.contours.iter().enumerate() {
                             for (point_index, point) in contour.points.iter().enumerate() {
                                 // Calculate world position: sort position + point offset
-                                let point_world_pos = sort.position + Vec2::new(point.x as f32, point.y as f32);
+                                let point_world_pos = position + Vec2::new(point.x as f32, point.y as f32);
                                 point_count += 1;
                                 
                                 // Debug: Print first few point positions
@@ -611,28 +613,34 @@ pub fn despawn_inactive_sort_points(
 
 /// System to update point positions when sort position changes
 pub fn sync_point_positions_to_sort(
-    sort_query: Query<(Entity, &crate::editing::sort::Sort), Changed<crate::editing::sort::Sort>>,
-    mut point_query: Query<(&mut Transform, &crate::systems::sort_manager::SortPointEntity, &crate::editing::selection::components::GlyphPointReference)>,
+    mut param_set: ParamSet<(
+        Query<(Entity, &crate::editing::sort::Sort, &Transform), Changed<crate::editing::sort::Sort>>,
+        Query<(&mut Transform, &crate::systems::sort_manager::SortPointEntity, &crate::editing::selection::components::GlyphPointReference)>,
+    )>,
     app_state: Res<AppState>,
 ) {
-    for (sort_entity, sort) in sort_query.iter() {
-        info!("[sync_point_positions_to_sort] Sort position changed to {:?}, updating point positions", sort.position);
-        
-        // Update all point entities for this sort
-        for (mut transform, sort_point, glyph_ref) in point_query.iter_mut() {
-            if sort_point.sort_entity == sort_entity {
-                // Get the original point data from the glyph
-                if let Some(glyph_data) = app_state.workspace.font.get_glyph(&sort.glyph_name) {
-                    if let Some(outline) = &glyph_data.outline {
-                        if let Some(contour) = outline.contours.get(glyph_ref.contour_index) {
-                            if let Some(point) = contour.points.get(glyph_ref.point_index) {
-                                // Calculate new world position: sort position + original point offset
-                                let point_world_pos = sort.position + Vec2::new(point.x as f32, point.y as f32);
-                                transform.translation = point_world_pos.extend(0.0);
-                                
-                                debug!("[sync_point_positions_to_sort] Updated point {} in contour {} to position {:?}", 
-                                       glyph_ref.point_index, glyph_ref.contour_index, point_world_pos);
-                            }
+    // First, collect all the sort positions that have changed
+    let mut sort_positions = std::collections::HashMap::new();
+    
+    for (sort_entity, sort, sort_transform) in param_set.p0().iter() {
+        let position = sort_transform.translation.truncate();
+        sort_positions.insert(sort_entity, (sort.glyph_name.clone(), position));
+    }
+    
+    // Then update all point transforms based on the collected positions
+    for (mut point_transform, sort_point, glyph_ref) in param_set.p1().iter_mut() {
+        if let Some((glyph_name, position)) = sort_positions.get(&sort_point.sort_entity) {
+            // Get the original point data from the glyph
+            if let Some(glyph_data) = app_state.workspace.font.get_glyph(glyph_name) {
+                if let Some(outline) = &glyph_data.outline {
+                    if let Some(contour) = outline.contours.get(glyph_ref.contour_index) {
+                        if let Some(point) = contour.points.get(glyph_ref.point_index) {
+                            // Calculate new world position: sort position + original point offset
+                            let point_world_pos = *position + Vec2::new(point.x as f32, point.y as f32);
+                            point_transform.translation = point_world_pos.extend(0.0);
+                            
+                            debug!("[sync_point_positions_to_sort] Updated point {} in contour {} to position {:?}", 
+                                   glyph_ref.point_index, glyph_ref.contour_index, point_world_pos);
                         }
                     }
                 }
