@@ -2,8 +2,13 @@
 //!
 //! Renders glyph outlines with proper cubic Bézier curves, control points, and handles.
 //! This uses our thread-safe FontData structures for performance.
+//! 
+//! IMPORTANT: Includes live rendering mode that reads from Transform components
+//! during nudging to ensure perfect synchronization between points and outline.
 
 use crate::core::state::{ContourData, OutlineData, PointData, PointTypeData};
+use crate::editing::selection::components::GlyphPointReference;
+use crate::systems::sort_manager::SortPointEntity;
 use crate::ui::theme::{
     HANDLE_LINE_COLOR, OFF_CURVE_INNER_CIRCLE_RATIO, OFF_CURVE_POINT_COLOR,
     OFF_CURVE_POINT_RADIUS, ON_CURVE_INNER_CIRCLE_RATIO, ON_CURVE_POINT_COLOR,
@@ -11,6 +16,7 @@ use crate::ui::theme::{
     USE_SQUARE_FOR_ON_CURVE,
 };
 use bevy::prelude::*;
+use std::collections::HashMap;
 
 /// Draw a complete glyph outline at a specific design-space position
 pub fn draw_glyph_outline_at_position(
@@ -409,4 +415,204 @@ fn is_on_curve(point: &PointData) -> bool {
         point.point_type,
         PointTypeData::Move | PointTypeData::Line | PointTypeData::Curve
     )
+}
+
+/// LIVE RENDERING: Draw glyph outline using current Transform positions
+/// This ensures perfect sync between points and outline during nudging
+pub fn draw_glyph_outline_from_live_transforms(
+    gizmos: &mut Gizmos,
+    _sort_entity: Entity,
+    sort_transform: &Transform,
+    glyph_name: &str,
+    point_query: &Query<(
+        Entity,
+        &Transform,
+        &GlyphPointReference,
+        &crate::editing::selection::components::PointType,
+    ), With<SortPointEntity>>,
+    app_state: &crate::core::state::AppState,
+    selected_query: &Query<Entity, With<crate::editing::selection::components::Selected>>,
+) {
+    // Get the original glyph structure to understand point organization
+    let Some(glyph_data) = app_state.workspace.font.get_glyph(glyph_name) else {
+        return;
+    };
+    let Some(outline) = &glyph_data.outline else {
+        return;
+    };
+
+    // Build a map of live positions from Transform components
+    let mut live_positions = HashMap::new();
+    for (_entity, transform, point_ref, point_type) in point_query.iter() {
+        if point_ref.glyph_name == glyph_name {
+            let world_pos = transform.translation.truncate();
+            let sort_pos = sort_transform.translation.truncate();
+            let relative_pos = world_pos - sort_pos;
+            
+            live_positions.insert(
+                (point_ref.contour_index, point_ref.point_index),
+                (relative_pos, point_type.is_on_curve),
+            );
+        }
+    }
+
+    // Render each contour using live positions
+    for (contour_idx, contour) in outline.contours.iter().enumerate() {
+        if contour.points.is_empty() {
+            continue;
+        }
+
+        // Build live contour data
+        let mut live_points = Vec::new();
+        for (point_idx, original_point) in contour.points.iter().enumerate() {
+            if let Some((live_pos, is_on_curve)) = live_positions.get(&(contour_idx, point_idx)) {
+                // Use live position
+                live_points.push(PointData {
+                    x: live_pos.x as f64,
+                    y: live_pos.y as f64,
+                    point_type: if *is_on_curve {
+                        PointTypeData::Curve // Use curve for on-curve points
+                    } else {
+                        PointTypeData::OffCurve // Use off-curve for control points
+                    },
+                });
+            } else {
+                // Fallback to original position
+                live_points.push(original_point.clone());
+            }
+        }
+
+        // Create live contour and render it
+        let live_contour = ContourData {
+            points: live_points,
+        };
+        
+        draw_contour_path_at_position(gizmos, &live_contour, sort_transform.translation.truncate());
+    }
+
+    // CRITICAL: Also draw the individual points when in live mode
+    // This replaces the separate point rendering systems during nudging
+    for (entity, transform, point_ref, point_type) in point_query.iter() {
+        if point_ref.glyph_name == glyph_name {
+            let position = transform.translation.truncate();
+            
+            // Check if this point is selected
+            let is_selected = selected_query.get(entity).is_ok();
+            
+            // Use selected colors if selected, normal colors if not
+            let (size, color) = if is_selected {
+                // Selected points use yellow color but normal size
+                if point_type.is_on_curve {
+                    (crate::ui::theme::ON_CURVE_POINT_RADIUS, crate::ui::theme::SELECTED_POINT_COLOR)
+                } else {
+                    (crate::ui::theme::OFF_CURVE_POINT_RADIUS, crate::ui::theme::SELECTED_POINT_COLOR)
+                }
+            } else {
+                // Normal point colors
+                if point_type.is_on_curve {
+                    (crate::ui::theme::ON_CURVE_POINT_RADIUS, crate::ui::theme::ON_CURVE_POINT_COLOR)
+                } else {
+                    (crate::ui::theme::OFF_CURVE_POINT_RADIUS, crate::ui::theme::OFF_CURVE_POINT_COLOR)
+                }
+            };
+
+            // Draw point as circle or square based on type, preserving crosshairs
+            if point_type.is_on_curve && crate::ui::theme::USE_SQUARE_FOR_ON_CURVE {
+                let half_size = size / crate::ui::theme::ON_CURVE_SQUARE_ADJUSTMENT;
+                let square_size = Vec2::new(size * 2.0, size * 2.0);
+                gizmos.rect_2d(position, square_size, color);
+                let inner_radius = half_size * crate::ui::theme::ON_CURVE_INNER_CIRCLE_RATIO;
+                gizmos.circle_2d(position, inner_radius, color);
+            } else {
+                gizmos.circle_2d(position, size, color);
+                let inner_radius = size * crate::ui::theme::OFF_CURVE_INNER_CIRCLE_RATIO;
+                gizmos.circle_2d(position, inner_radius, color);
+            }
+        }
+    }
+
+    // CRITICAL: Also render control handles when in live mode
+    // This replaces the separate control handle rendering system during nudging
+    render_live_control_handles(gizmos, glyph_name, point_query, app_state);
+}
+
+/// Render control handles using live Transform positions during nudging
+fn render_live_control_handles(
+    gizmos: &mut Gizmos,
+    glyph_name: &str,
+    point_query: &Query<(
+        Entity,
+        &Transform,
+        &GlyphPointReference,
+        &crate::editing::selection::components::PointType,
+    ), With<SortPointEntity>>,
+    app_state: &crate::core::state::AppState,
+) {
+    let Some(glyph_data) = app_state.workspace.font.get_glyph(glyph_name) else {
+        return;
+    };
+    let Some(outline) = &glyph_data.outline else {
+        return;
+    };
+
+    // Group points by contour to process them together
+    let mut contour_points: Vec<Vec<(Vec2, bool, usize)>> =
+        vec![Vec::new(); outline.contours.len()];
+
+    // Collect all point entities and their positions using live Transform data
+    for (_entity, transform, glyph_ref, point_type) in point_query.iter() {
+        if glyph_ref.glyph_name == glyph_name {
+            let position = transform.translation.truncate();
+            let is_on_curve = point_type.is_on_curve;
+            let contour_index = glyph_ref.contour_index;
+            let point_index = glyph_ref.point_index;
+
+            if contour_index < contour_points.len() {
+                contour_points[contour_index].push((
+                    position,
+                    is_on_curve,
+                    point_index,
+                ));
+            }
+        }
+    }
+
+    // Sort points within each contour by their original index
+    for contour_points in &mut contour_points {
+        contour_points.sort_by_key(|(_, _, index)| *index);
+    }
+
+    // Render handles for each contour using the same logic as the original system
+    for contour_points in contour_points {
+        if contour_points.len() < 2 {
+            continue;
+        }
+
+        render_live_contour_handles(gizmos, &contour_points);
+    }
+}
+
+/// Render handles for a single contour using live data
+fn render_live_contour_handles(
+    gizmos: &mut Gizmos,
+    contour_points: &[(Vec2, bool, usize)],
+) {
+    let len = contour_points.len();
+    
+    for i in 0..len {
+        let (current_pos, current_on_curve, _) = contour_points[i];
+        
+        // Check next point (wrapping around)
+        let next_i = (i + 1) % len;
+        let (next_pos, next_on_curve, _) = contour_points[next_i];
+        
+        // Draw handle line if one point is on-curve and the other is off-curve
+        if current_on_curve != next_on_curve {
+            gizmos.line_2d(
+                current_pos,
+                next_pos,
+                crate::ui::theme::HANDLE_LINE_COLOR,
+            );
+        }
+    }
 }

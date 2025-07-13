@@ -47,9 +47,10 @@ impl Plugin for TextEditorPlugin {
                 despawn_inactive_sort_points_optimized,
             ).chain().after(manage_sort_activation))
             
-            // Rendering and input handling
+            // Rendering and input handling (rendering must run after nudging)
             .add_systems(Update, (
-                render_text_editor_sorts,
+                render_text_editor_sorts
+                    .after(crate::editing::selection::nudge::handle_nudge_input),
                 // handle_text_editor_keyboard_input, // DISABLED: Causes double input
                 // handle_arabic_text_input, // DISABLED: Causes double input
                 handle_unicode_text_input, // KEEP: Most comprehensive text input system

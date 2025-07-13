@@ -73,9 +73,7 @@ mod nudge_tests {
     use crate::core::settings::{
         CMD_NUDGE_AMOUNT, NUDGE_AMOUNT, SHIFT_NUDGE_AMOUNT,
     };
-    use crate::editing::selection::nudge::{
-        EditEvent, NudgeState, PointCoordinates,
-    };
+    use crate::editing::selection::nudge::{EditEvent, NudgeState};
     use bevy::prelude::*;
 
     #[test]
@@ -105,20 +103,6 @@ mod nudge_tests {
         assert_eq!(
             nudge_state.last_nudge_time, 0.0,
             "Default last nudge time should be 0"
-        );
-        assert_eq!(
-            nudge_state.last_key_pressed, None,
-            "Default last key pressed should be None"
-        );
-    }
-
-    #[test]
-    fn test_point_coordinates_default() {
-        let coords = PointCoordinates::default();
-        assert_eq!(
-            coords.position,
-            Vec2::ZERO,
-            "Default position should be zero"
         );
     }
 

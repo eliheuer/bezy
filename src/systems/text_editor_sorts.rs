@@ -27,7 +27,7 @@ use crate::editing::sort::{ActiveSort, ActiveSortState, InactiveSort};
 use crate::geometry::point::EditPoint;
 use crate::rendering::cameras::DesignCamera;
 use crate::rendering::checkerboard::calculate_dynamic_grid_size;
-use crate::rendering::sort_visuals::{render_sort_visuals, SortRenderStyle};
+use crate::rendering::sort_visuals::{render_sort_visuals, render_sort_visuals_with_live_sync, SortRenderStyle};
 use crate::systems::sort_manager::SortPointEntity;
 use crate::systems::ui_interaction::UiHoverState;
 use crate::ui::theme::{
@@ -171,6 +171,16 @@ pub fn render_text_editor_sorts(
     current_placement_mode: Res<
         crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode,
     >,
+    // Additional parameters for live rendering
+    nudge_state: Res<crate::editing::selection::nudge::NudgeState>,
+    sort_entities: Query<(Entity, &crate::editing::sort::Sort, &Transform)>,
+    point_query: Query<(
+        Entity,
+        &Transform,
+        &GlyphPointReference,
+        &crate::editing::selection::components::PointType,
+    ), With<SortPointEntity>>,
+    selected_query: Query<Entity, With<crate::editing::selection::components::Selected>>,
 ) {
     let font_metrics = &app_state.workspace.info.metrics;
     let _line_height = (font_metrics.ascender.unwrap_or(1024.0)
@@ -211,7 +221,15 @@ pub fn render_text_editor_sorts(
                     } else {
                         SORT_INACTIVE_METRICS_COLOR
                     };
-                    render_sort_visuals(
+                    // Find matching sort entity for live rendering
+                    let (sort_entity, sort_transform) = sort_entities
+                        .iter()
+                        .find(|(_, sort, _)| sort.glyph_name == *glyph_name)
+                        .map(|(entity, _, transform)| (Some(entity), Some(transform)))
+                        .unwrap_or((None, None));
+
+                    // Use new live-aware rendering
+                    crate::rendering::sort_visuals::render_sort_visuals_with_live_sync(
                         &mut gizmos,
                         &glyph_data.outline,
                         *advance_width,
@@ -219,6 +237,14 @@ pub fn render_text_editor_sorts(
                         position,
                         metrics_color,
                         SortRenderStyle::TextBuffer,
+                        // Live rendering parameters
+                        sort_entity,
+                        sort_transform,
+                        Some(glyph_name),
+                        Some(&point_query),
+                        Some(&selected_query),
+                        Some(&*app_state),
+                        Some(&*nudge_state),
                     );
                 }
             }
@@ -670,23 +696,6 @@ pub fn debug_text_editor_state(
     // F2: Debug selection states
     if keyboard_input.just_pressed(KeyCode::F2) {
         info!("=== Selection Debug ===");
-        // Remove all references to is_selected and buffer-based selection logic
-        // for (index, sort) in text_editor_state.buffer.iter().enumerate() {
-        //     if sort.is_selected || sort.is_active {
-        //         info!(
-        //             "Sort {}: '{}' - Selected: {}, Active: {}, Layout: {:?}",
-        //             index,
-        //             sort.kind.glyph_name(),
-        //             sort.is_selected,
-        //             sort.is_active,
-        //             sort.layout_mode
-        //         );
-        //     }
-        // }
-
-        // if selected_sorts.is_empty() {
-        //     info!("No sorts are currently selected");
-        // }
     }
 }
 

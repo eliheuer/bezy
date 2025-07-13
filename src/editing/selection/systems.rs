@@ -289,7 +289,15 @@ pub fn render_selected_entities(
     knife_mode: Option<
         Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>,
     >,
+    // Check nudge state to avoid double rendering during nudging
+    nudge_state: Res<crate::editing::selection::nudge::NudgeState>,
 ) {
+    // CRITICAL: ALWAYS skip this system during nudging - no exceptions
+    // Force all rendering through the unified live system to prevent flashing
+    if nudge_state.is_nudging {
+        return; // No debug spam, just skip
+    }
+
     let selected_count = selected_query.iter().count();
     if selected_count > 0 {
         info!("Selection: Rendering {} selected entities", selected_count);
@@ -454,10 +462,10 @@ pub fn update_glyph_data_from_selection(
         ),
         (With<Selected>, Changed<Transform>),
     >,
-    sort_query: Query<&crate::editing::sort::Sort>,
+    sort_query: Query<(&crate::editing::sort::Sort, &Transform)>,
     mut app_state: ResMut<AppState>,
     // Track if we're in a nudging operation
-    _nudge_state: Res<crate::editing::selection::nudge::NudgeState>,
+    nudge_state: Res<crate::editing::selection::nudge::NudgeState>,
     knife_mode: Option<
         Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>,
     >,
@@ -468,6 +476,8 @@ pub fn update_glyph_data_from_selection(
             return;
         }
     }
+
+    // REMOVED: Skip during nudging - we want sync to work normally during nudging
 
     // Early return if no points were moved
     if query.is_empty() {
@@ -484,25 +494,27 @@ pub fn update_glyph_data_from_selection(
 
     for (transform, point_ref, sort_point_entity_opt) in query.iter() {
         // Default to world position if we can't get sort position
-        let (relative_x, relative_y) = if let Some(sort_point_entity) =
-            sort_point_entity_opt
-        {
-            if let Ok(_sort) = sort_query.get(sort_point_entity.sort_entity) {
-                let world_pos = transform.translation.truncate();
-                let rel = world_pos - transform.translation.truncate();
-                (rel.x as f64, rel.y as f64)
+        let (relative_x, relative_y) =
+            if let Some(sort_point_entity) = sort_point_entity_opt {
+                if let Ok((_sort, sort_transform)) =
+                    sort_query.get(sort_point_entity.sort_entity)
+                {
+                    let world_pos = transform.translation.truncate();
+                    let sort_pos = sort_transform.translation.truncate();
+                    let rel = world_pos - sort_pos;
+                    (rel.x as f64, rel.y as f64)
+                } else {
+                    (
+                        transform.translation.x as f64,
+                        transform.translation.y as f64,
+                    )
+                }
             } else {
                 (
                     transform.translation.x as f64,
                     transform.translation.y as f64,
                 )
-            }
-        } else {
-            (
-                transform.translation.x as f64,
-                transform.translation.y as f64,
-            )
-        };
+            };
 
         let updated = app_state.set_point_position(
             &point_ref.glyph_name,
@@ -1687,7 +1699,15 @@ pub fn render_all_point_entities(
         (&Camera, &GlobalTransform, &Projection),
         With<crate::rendering::cameras::DesignCamera>,
     >,
+    // Check nudge state to avoid double rendering during nudging
+    nudge_state: Res<crate::editing::selection::nudge::NudgeState>,
 ) {
+    // CRITICAL: ALWAYS skip this system during nudging - no exceptions
+    // Force all rendering through the unified live system to prevent flashing
+    if nudge_state.is_nudging {
+        return; // No debug spam, just skip
+    }
+
     let point_count = point_entities.iter().count();
     info!(
         "[render_all_point_entities] Called, found {} point entities",
@@ -1770,7 +1790,16 @@ pub fn render_control_handles(
     >,
     text_editor_state: Res<crate::core::state::TextEditorState>,
     app_state: Res<crate::core::state::AppState>,
+    // Check nudge state to avoid double rendering during nudging
+    nudge_state: Res<crate::editing::selection::nudge::NudgeState>,
 ) {
+    // CRITICAL: Skip handle rendering during nudging to prevent visual disconnection
+    // The live rendering system will handle control handles during nudging
+    if nudge_state.is_nudging {
+        debug!("[render_control_handles] SKIPPING - nudging in progress, live renderer handles control handles");
+        return;
+    }
+
     // Get the active sort to find the glyph data
     let Some((_active_sort_index, active_sort)) =
         text_editor_state.get_active_sort()

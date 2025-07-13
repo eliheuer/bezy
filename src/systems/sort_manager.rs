@@ -47,7 +47,7 @@ fn get_crosshair_position(
 }
 
 /// Component to mark point entities that belong to a sort
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Copy, Clone)]
 pub struct SortPointEntity {
     /// The sort entity this point belongs to
     pub sort_entity: Entity,

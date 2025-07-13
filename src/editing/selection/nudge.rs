@@ -21,10 +21,19 @@ pub struct NudgeState {
 /// This is the idiomatic Bevy ECS approach: direct system that queries and mutates
 pub fn handle_nudge_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<
-        (Entity, &mut Transform),
-        (With<Selected>, With<SortPointEntity>),
-    >,
+    mut queries: ParamSet<(
+        Query<
+            (
+                Entity,
+                &mut Transform,
+                &crate::editing::selection::components::GlyphPointReference,
+                Option<&crate::systems::sort_manager::SortPointEntity>,
+            ),
+            (With<Selected>, With<SortPointEntity>),
+        >,
+        Query<(&crate::editing::sort::Sort, &Transform)>,
+    )>,
+    mut app_state: ResMut<crate::core::state::AppState>,
     mut event_writer: EventWriter<EditEvent>,
     mut nudge_state: ResMut<NudgeState>,
     time: Res<Time>,
@@ -33,7 +42,7 @@ pub fn handle_nudge_input(
     // Debug: Log that the system is being called
     debug!(
         "[NUDGE] handle_nudge_input called - selected points: {}",
-        query.iter().count()
+        queries.p0().iter().count()
     );
 
     // Debug: Check if any arrow keys are pressed
@@ -52,7 +61,10 @@ pub fn handle_nudge_input(
 
     if !pressed_arrows.is_empty() {
         debug!("[NUDGE] Arrow keys pressed: {:?}", pressed_arrows);
-        debug!("[NUDGE] Selected points count: {}", query.iter().count());
+        debug!(
+            "[NUDGE] Selected points count: {}",
+            queries.p0().iter().count()
+        );
     }
 
     // Check for arrow key presses
@@ -85,24 +97,32 @@ pub fn handle_nudge_input(
 
     // If we have a nudge direction, apply it to all selected points
     if nudge_direction != Vec2::ZERO {
-        let selected_count = query.iter().count();
+        let selected_count = queries.p0().iter().count();
         if selected_count > 0 {
             debug!(
                 "[NUDGE] Nudging {} selected points by {:?}",
                 selected_count, nudge_direction
             );
 
+            debug!("[NUDGE] Setting is_nudging = true");
             nudge_state.is_nudging = true;
             nudge_state.last_nudge_time = time.elapsed_secs();
 
-            for (entity, mut transform) in query.iter_mut() {
-                debug!("[NUDGE] Moving point {:?} from ({:.1}, {:.1}) to ({:.1}, {:.1})", 
-                       entity, transform.translation.x, transform.translation.y, 
-                       transform.translation.x + nudge_direction.x, transform.translation.y + nudge_direction.y);
+            // SIMPLIFIED APPROACH: Just update transforms immediately
+            // The system ordering should ensure rendering happens after this
 
-                // Update the transform position
-                transform.translation.x += nudge_direction.x;
-                transform.translation.y += nudge_direction.y;
+            for (entity, mut transform, _point_ref, _sort_point_entity_opt) in
+                queries.p0().iter_mut()
+            {
+                let old_pos = transform.translation.truncate();
+                let new_pos = old_pos + nudge_direction;
+
+                debug!("[NUDGE] Moving point {:?} from ({:.1}, {:.1}) to ({:.1}, {:.1})", 
+                       entity, old_pos.x, old_pos.y, new_pos.x, new_pos.y);
+
+                // Update transform immediately - the regular sync system will update glyph data
+                transform.translation.x = new_pos.x;
+                transform.translation.y = new_pos.y;
             }
 
             // Create an edit event for undo/redo
@@ -113,16 +133,17 @@ pub fn handle_nudge_input(
             debug!("[NUDGE] Arrow key pressed but no selected points found");
         }
     } else {
-        // Reset nudge state if no keys are pressed
-        nudge_state.is_nudging = false;
+        // DON'T reset nudge state immediately - let the timer handle it
+        // This ensures rendering systems see the nudging state
     }
 }
 
 /// System to reset nudge state after a short delay
 pub fn reset_nudge_state(mut nudge_state: ResMut<NudgeState>, time: Res<Time>) {
     if nudge_state.is_nudging
-        && time.elapsed_secs() - nudge_state.last_nudge_time > 0.1
+        && time.elapsed_secs() - nudge_state.last_nudge_time > 0.5
     {
+        debug!("[NUDGE] Resetting nudge state after timeout");
         nudge_state.is_nudging = false;
     }
 }
@@ -132,8 +153,11 @@ pub struct NudgePlugin;
 
 impl Plugin for NudgePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<NudgeState>()
-            .add_systems(Update, (handle_nudge_input, reset_nudge_state));
+        app.init_resource::<NudgeState>().add_systems(
+            Update,
+            (handle_nudge_input, reset_nudge_state)
+                .before(super::systems::update_glyph_data_from_selection),
+        );
     }
 }
 

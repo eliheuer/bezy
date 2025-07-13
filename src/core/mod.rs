@@ -4,7 +4,7 @@
 //! - Application initialization and configuration
 //! - State management
 //! - Settings and CLI handling
-//! - Cursor and coordinate management
+//! - Pointer and coordinate management
 //! - Input system
 
 pub mod app;

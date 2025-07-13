@@ -3,7 +3,6 @@
 #[allow(unused_imports)]
 use crate::core::cli::CliArgs;
 use crate::core::state::AppState;
-use crate::data::unicode::sort_and_deduplicate_codepoints;
 use anyhow::Result;
 use bevy::prelude::Res;
 use bevy::prelude::*;
@@ -82,7 +81,8 @@ pub fn find_glyph_by_unicode(
 pub fn get_all_codepoints(font: &Font) -> Vec<String> {
     let map = build_codepoint_glyph_map(font);
     let mut codepoints: Vec<String> = map.keys().cloned().collect();
-    sort_and_deduplicate_codepoints(&mut codepoints);
+    codepoints.sort_unstable();
+    codepoints.dedup();
 
     debug!("Found {} codepoints in font", codepoints.len());
     codepoints

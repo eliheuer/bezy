@@ -73,7 +73,8 @@ impl Plugin for SortPlugin {
             .add_systems(
                 Update,
                 (
-                    render_sorts_system, // Re-enabled for freeform sorts (glyph grid)
+                    render_sorts_system // Re-enabled for freeform sorts (glyph grid)
+                        .after(crate::editing::selection::nudge::handle_nudge_input),
                                          // manage_sort_unicode_text, // DISABLED: Old system
                                          // update_sort_unicode_text_positions, // DISABLED: Old system
                                          // update_sort_unicode_text_colors, // DISABLED: Old system

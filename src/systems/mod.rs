@@ -9,12 +9,9 @@
 #![allow(unused_imports)]
 
 pub mod commands;
-pub mod debug;
 pub mod input_consumer;
 pub mod lifecycle;
-pub mod metrics;
 pub mod plugins;
-pub mod sort_interaction;
 pub mod sort_manager;
 pub mod text_editor_sorts;
 pub mod ui_interaction;

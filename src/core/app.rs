@@ -10,7 +10,8 @@ use crate::rendering::{
     cameras::CameraPlugin, checkerboard::CheckerboardPlugin,
 };
 use crate::systems::{
-    exit_on_esc, load_ufo_font, BezySystems, CommandsPlugin, InputConsumerPlugin, UiInteractionPlugin,
+    exit_on_esc, load_ufo_font, BezySystems, CommandsPlugin,
+    InputConsumerPlugin, UiInteractionPlugin,
 };
 use crate::ui::hud::HudPlugin;
 use crate::ui::panes::coord_pane::CoordinatePanePlugin;
@@ -20,8 +21,8 @@ use crate::ui::theme::CurrentTheme;
 use crate::ui::toolbars::EditModeToolbarPlugin;
 use crate::ui::GlyphGridPlugin;
 use anyhow::Result;
-use bevy::prelude::*;
 use bevy::app::{PluginGroup, PluginGroupBuilder};
+use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 
 /// Plugin group for core application functionality
@@ -74,7 +75,9 @@ impl PluginGroup for EditorPluginGroup {
 /// Creates a fully configured Bevy GUI application ready to run
 pub fn create_app(cli_args: CliArgs) -> Result<App> {
     #[cfg(not(target_arch = "wasm32"))]
-    cli_args.validate().map_err(|e| anyhow::anyhow!("CLI validation failed: {}", e))?;
+    cli_args
+        .validate()
+        .map_err(|e| anyhow::anyhow!("CLI validation failed: {}", e))?;
 
     let mut app = App::new();
     configure_resources(&mut app, cli_args);
@@ -153,11 +156,7 @@ fn configure_window_plugins(app: &mut App) {
 /// Add all plugin groups to the application
 fn add_plugin_groups(app: &mut App) {
     info!("Adding plugin groups...");
-    app.add_plugins((
-        RenderingPluginGroup,
-        EditorPluginGroup,
-        CorePluginGroup,
-    ));
+    app.add_plugins((RenderingPluginGroup, EditorPluginGroup, CorePluginGroup));
     info!("All plugin groups added successfully");
 }
 

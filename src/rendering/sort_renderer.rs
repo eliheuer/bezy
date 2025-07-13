@@ -36,12 +36,21 @@ pub fn render_sorts_system(
     app_state: Res<AppState>,
     _sorts_query: Query<&Sort>,
     active_sorts_query: Query<(Entity, &Sort, &Transform), With<ActiveSort>>,
-    inactive_sorts_query: Query<(&Sort, &Transform), With<InactiveSort>>,
+    inactive_sorts_query: Query<(Entity, &Sort, &Transform), With<InactiveSort>>,
+    // Additional parameters for live rendering
+    nudge_state: Res<crate::editing::selection::nudge::NudgeState>,
+    point_query: Query<(
+        Entity,
+        &Transform,
+        &crate::editing::selection::components::GlyphPointReference,
+        &crate::editing::selection::components::PointType,
+    ), With<crate::systems::sort_manager::SortPointEntity>>,
+    selected_query: Query<Entity, With<crate::editing::selection::components::Selected>>,
 ) {
     let font_metrics = &app_state.workspace.info.metrics;
 
     // Render inactive sorts (both buffer and freeform)
-    for (sort, transform) in inactive_sorts_query.iter() {
+    for (entity, sort, transform) in inactive_sorts_query.iter() {
         if let Some(glyph_data) =
             app_state.workspace.font.glyphs.get(&sort.glyph_name)
         {
@@ -54,7 +63,7 @@ pub fn render_sorts_system(
                 SortLayoutMode::Freeform => SortRenderStyle::Freeform,
             };
 
-            render_sort_visuals(
+            crate::rendering::sort_visuals::render_sort_visuals_with_live_sync(
                 &mut gizmos,
                 &glyph_data.outline,
                 advance_width,
@@ -62,12 +71,20 @@ pub fn render_sorts_system(
                 position,
                 SORT_INACTIVE_METRICS_COLOR,
                 render_style,
+                // Live rendering parameters
+                Some(entity),
+                Some(transform),
+                Some(&sort.glyph_name),
+                Some(&point_query),
+                Some(&selected_query),
+                Some(&*app_state),
+                Some(&*nudge_state),
             );
         }
     }
 
     // Render active sorts (both buffer and freeform)
-    for (_entity, sort, transform) in active_sorts_query.iter() {
+    for (entity, sort, transform) in active_sorts_query.iter() {
         if let Some(glyph_data) =
             app_state.workspace.font.glyphs.get(&sort.glyph_name)
         {
@@ -80,7 +97,7 @@ pub fn render_sorts_system(
                 SortLayoutMode::Freeform => SortRenderStyle::Freeform,
             };
 
-            render_sort_visuals(
+            crate::rendering::sort_visuals::render_sort_visuals_with_live_sync(
                 &mut gizmos,
                 &glyph_data.outline,
                 advance_width,
@@ -88,6 +105,14 @@ pub fn render_sorts_system(
                 position,
                 SORT_ACTIVE_METRICS_COLOR,
                 render_style,
+                // Live rendering parameters
+                Some(entity),
+                Some(transform),
+                Some(&sort.glyph_name),
+                Some(&point_query),
+                Some(&selected_query),
+                Some(&*app_state),
+                Some(&*nudge_state),
             );
         }
     }
