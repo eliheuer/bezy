@@ -61,7 +61,8 @@ pub fn initialize_undo_stack(
         return;
     }
 
-    let initial_state: Vec<(Entity, Sort)> = sorts.iter().map(|(e, s)| (e, s.clone())).collect();
+    let initial_state: Vec<(Entity, Sort)> =
+        sorts.iter().map(|(e, s)| (e, s.clone())).collect();
     if !initial_state.is_empty() {
         debug!("Initializing undo stack with initial sort state");
         undo_resource.undos = UndoState::new(Arc::new(initial_state));
@@ -104,15 +105,16 @@ pub fn handle_undo_redo_shortcuts(
     let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft)
         || keyboard.pressed(KeyCode::ShiftRight);
 
-    let state_to_restore = if keyboard.just_pressed(KeyCode::KeyZ) && !shift_pressed {
-        debug!("Undo shortcut detected (Cmd+Z)");
-        undo_state.undos.undo()
-    } else if keyboard.just_pressed(KeyCode::KeyZ) && shift_pressed {
-        debug!("Redo shortcut detected (Cmd+Shift+Z)");
-        undo_state.undos.redo()
-    } else {
-        None
-    };
+    let state_to_restore =
+        if keyboard.just_pressed(KeyCode::KeyZ) && !shift_pressed {
+            debug!("Undo shortcut detected (Cmd+Z)");
+            undo_state.undos.undo()
+        } else if keyboard.just_pressed(KeyCode::KeyZ) && shift_pressed {
+            debug!("Redo shortcut detected (Cmd+Shift+Z)");
+            undo_state.undos.redo()
+        } else {
+            None
+        };
 
     if let Some(state) = state_to_restore {
         debug!("Restoring sort state from undo/redo stack");

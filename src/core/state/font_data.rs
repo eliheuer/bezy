@@ -59,7 +59,7 @@ pub struct PointData {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PointTypeData {
     Move,
-    Line, 
+    Line,
     OffCurve,
     Curve,
     QCurve,
@@ -70,4 +70,4 @@ impl FontData {
     pub fn get_glyph(&self, name: &str) -> Option<&GlyphData> {
         self.glyphs.get(name)
     }
-} 
+}

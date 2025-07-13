@@ -18,4 +18,4 @@ pub mod sort_renderer;
 pub mod sort_visuals;
 
 // Re-export commonly used items
-pub use checkerboard::{CheckerboardPlugin, CheckerboardEnabled};
+pub use checkerboard::{CheckerboardEnabled, CheckerboardPlugin};

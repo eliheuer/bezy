@@ -1,9 +1,9 @@
 //! UI Theme file
 //!
-//! This file contains all the constants for visual styling of the UI.
-//! Non-visual constants are in the `core::settings` file.
-//! You can create a custome theme for bevy by copying this file and
-//! modifying the constants to your liking.
+//! This file provides the theme system interface for the Bezy font editor.
+//! All visual styling constants are now provided through the theme system.
+//!
+//! For creating custom themes, see the themes/ directory and docs/THEME_CREATION_GUIDE.md
 
 #![allow(unused_variables)]
 
@@ -11,222 +11,271 @@ use bevy::prelude::*;
 #[allow(unused_imports)]
 use bevy::ui::prelude::*;
 
-// Font Paths
-#[allow(dead_code)]
-pub const GROTESK_FONT_PATH: &str = "fonts/bezy-grotesk-regular.ttf";
-#[allow(dead_code)]
-pub const MONO_FONT_PATH: &str = "fonts/HasubiMono-Regular.ttf";
+// Re-export the theme system
+pub use crate::ui::themes::*;
 
-// Font Sizes
-#[allow(dead_code)]
-pub const WIDGET_TITLE_FONT_SIZE: f32 = 24.0;
-#[allow(dead_code)]
-pub const WIDGET_TEXT_FONT_SIZE: f32 = 24.0;
-#[allow(dead_code)]
-pub const DEFAULT_FONT_SIZE: f32 = 16.0;
-#[allow(dead_code)]
-pub const SMALL_FONT_SIZE: f32 = 12.0;
-#[allow(dead_code)]
-pub const LARGE_FONT_SIZE: f32 = 20.0;
+// Helper function to get current theme
+pub fn get_current_theme<'a>(
+    theme_res: &'a Res<CurrentTheme>,
+) -> &'a dyn BezyTheme {
+    theme_res.theme()
+}
 
-// Widget Visual Style Constants
-#[allow(dead_code)]
-pub const WIDGET_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
-#[allow(dead_code)]
-pub const WIDGET_BG_COLOR: Color = WIDGET_BACKGROUND_COLOR; // Alias for compatibility
-#[allow(dead_code)]
-pub const WIDGET_BORDER_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
-#[allow(dead_code)]
-pub const WIDGET_BORDER_RADIUS: f32 = 0.0;
-#[allow(dead_code)]
-pub const WIDGET_BORDER_WIDTH: f32 = 2.0;
-#[allow(dead_code)]
-pub const WIDGET_PADDING: f32 = 16.0;
-#[allow(dead_code)]
-pub const WIDGET_MARGIN: f32 = 24.0;
-#[allow(dead_code)]
-pub const WIDGET_ROW_GAP: f32 = 0.0;
+// =================================================================
+// THEME-BASED FUNCTIONS
+// These functions get values from the current theme.
+// Use these instead of hardcoded constants!
+// =================================================================
 
-// Text color constants
-#[allow(dead_code)]
-pub const NORMAL_TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
-#[allow(dead_code)]
-pub const SECONDARY_TEXT_COLOR_THEME: Color = Color::srgb(0.6, 0.6, 0.6);
-#[allow(dead_code)]
-pub const HIGHLIGHT_TEXT_COLOR: Color = Color::srgb(1.0, 0.8, 0.0);
+/// Get widget background color from current theme
+pub fn get_widget_background_color(theme: &Res<CurrentTheme>) -> Color {
+    theme.theme().widget_background_color()
+}
 
-// Gizmo Configuration
-#[allow(dead_code)]
+/// Get widget border color from current theme  
+pub fn get_widget_border_color(theme: &Res<CurrentTheme>) -> Color {
+    theme.theme().widget_border_color()
+}
+
+/// Get normal text color from current theme
+pub fn get_normal_text_color(theme: &Res<CurrentTheme>) -> Color {
+    theme.theme().normal_text_color()
+}
+
+/// Get secondary text color from current theme
+pub fn get_secondary_text_color(theme: &Res<CurrentTheme>) -> Color {
+    theme.theme().secondary_text_color()
+}
+
+/// Get highlight text color from current theme
+pub fn get_highlight_text_color(theme: &Res<CurrentTheme>) -> Color {
+    theme.theme().highlight_text_color()
+}
+
+/// Get background color from current theme
+pub fn get_background_color(theme: &Res<CurrentTheme>) -> Color {
+    theme.theme().background_color()
+}
+
+// =================================================================
+// COMPATIBILITY CONSTANTS FOR MIGRATION
+// These provide the same names as before but get values from theme
+// =================================================================
+
+/// Checkerboard constants using theme values
+pub fn get_checkerboard_constants(
+    theme: &Res<CurrentTheme>,
+) -> CheckerboardConstants {
+    let t = theme.theme();
+    CheckerboardConstants {
+        color: t.checkerboard_color(),
+        default_unit_size: t.checkerboard_default_unit_size(),
+        scale_factor: t.checkerboard_scale_factor(),
+        max_zoom_visible: t.checkerboard_max_zoom_visible(),
+        enabled_by_default: t.checkerboard_enabled_by_default(),
+    }
+}
+
+pub struct CheckerboardConstants {
+    pub color: Color,
+    pub default_unit_size: f32,
+    pub scale_factor: f32,
+    pub max_zoom_visible: f32,
+    pub enabled_by_default: bool,
+}
+
+// Constants that can be accessed directly (don't change with theme)
+pub const CHECKERBOARD_Z_LEVEL: f32 = 0.1;
+pub const MIN_VISIBILITY_ZOOM: f32 = 0.01;
+pub const GRID_SIZE_CHANGE_THRESHOLD: f32 = 1.25;
+pub const VISIBLE_AREA_COVERAGE_MULTIPLIER: f32 = 1.2;
+pub const MAX_SQUARES_PER_FRAME: usize = 2000;
+
+// Window constants (these could be theme-aware in future)
+pub const WINDOW_WIDTH: f32 = 1024.0;
+pub const WINDOW_HEIGHT: f32 = 768.0;
+pub const WINDOW_TITLE: &str = "Bezy";
+
+// Rendering constants
 pub const GIZMO_LINE_WIDTH: f32 = 3.0;
+pub const DEBUG_SHOW_ORIGIN_CROSS: bool = false;
 
-// Toolbar Visual Style Constants
-#[allow(dead_code)]
-pub const TOOLBAR_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
-#[allow(dead_code)]
-pub const TOOLBAR_ICON_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
-#[allow(dead_code)]
-pub const TOOLBAR_BORDER_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
-#[allow(dead_code)]
-pub const TOOLBAR_BORDER_RADIUS: f32 = 0.0;
-#[allow(dead_code)]
-pub const TOOLBAR_BORDER_WIDTH: f32 = 2.0;
+// Point rendering constants - these should use theme
+pub const ON_CURVE_POINT_RADIUS: f32 = 4.0;
+pub const OFF_CURVE_POINT_RADIUS: f32 = 4.0;
+pub const ON_CURVE_SQUARE_ADJUSTMENT: f32 = 1.0;
+pub const ON_CURVE_INNER_CIRCLE_RATIO: f32 = 0.5;
+pub const OFF_CURVE_INNER_CIRCLE_RATIO: f32 = 0.5;
+pub const USE_SQUARE_FOR_ON_CURVE: bool = true;
 
+// Layout constants
 pub const TOOLBAR_PADDING: f32 = 0.0;
 pub const TOOLBAR_CONTAINER_MARGIN: f32 = 16.0;
 pub const TOOLBAR_ITEM_SPACING: f32 = 4.0;
-
-// Window Configuration
-#[allow(dead_code)]
-pub const WINDOW_TITLE: &str = "Bezy";
-#[allow(dead_code)]
-pub const WINDOW_WIDTH: f32 = 1024.0;
-#[allow(dead_code)]
-pub const WINDOW_HEIGHT: f32 = 768.0;
-
-// Button Colors
-pub const NORMAL_BUTTON_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
-pub const HOVERED_BUTTON_COLOR: Color = Color::srgb(0.25, 0.25, 0.25);
-pub const PRESSED_BUTTON_COLOR: Color = Color::srgb(1.0, 0.4, 0.0);
-
-// Button Outline Colors
-pub const NORMAL_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
-pub const HOVERED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
-pub const PRESSED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(1.0, 0.8, 0.3);
-pub const PRESSED_BUTTON_ICON_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
-
-// Toolbar Button Sizes
 pub const TOOLBAR_BUTTON_SIZE: f32 = 64.0;
 pub const BUTTON_ICON_SIZE: f32 = 48.0;
 
-// Glyph Point Rendering
-pub const ON_CURVE_POINT_RADIUS: f32 = 4.0;
-pub const OFF_CURVE_POINT_RADIUS: f32 = 4.0;
-pub const ON_CURVE_POINT_COLOR: Color = Color::srgb(0.3, 1.0, 0.5);
-pub const OFF_CURVE_POINT_COLOR: Color = Color::srgb(0.6, 0.4, 1.0);
+// Sort constants
+pub const SORT_VERTICAL_PADDING: f32 = 256.0;
+pub const SORT_HORIZONTAL_PADDING: f32 = 256.0;
 
-// Point Layout Details
-#[allow(dead_code)]
-pub const ON_CURVE_SQUARE_ADJUSTMENT: f32 = 1.0;
-#[allow(dead_code)]
-pub const ON_CURVE_INNER_CIRCLE_RATIO: f32 = 0.5;
-#[allow(dead_code)]
-pub const OFF_CURVE_INNER_CIRCLE_RATIO: f32 = 0.5;
+// Selection constants
+pub const SELECTION_MARGIN: f32 = 16.0;
 
-// Selection and Hover Styling
-#[allow(dead_code)]
-pub const SELECTION_POINT_RADIUS: f32 = 4.0;
-#[allow(dead_code)]
-pub const SELECTED_CIRCLE_RADIUS_MULTIPLIER: f32 = 1.0;
-#[allow(dead_code)]
-pub const SELECTED_CROSS_SIZE_MULTIPLIER: f32 = 1.0;
-#[allow(dead_code)]
-pub const SELECTED_POINT_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0);
+// Grid layout constants
+pub const MIN_GLYPH_GRID_GAP_MULTIPLIER: f32 = 4.0;
+pub const MAX_GLYPH_GRID_ROW_WIDTH_UPM: f32 = 16.0;
 
-// Hover-related constants
-#[allow(dead_code)]
-pub const HOVER_CIRCLE_RADIUS_MULTIPLIER: f32 = 1.0;
-#[allow(dead_code)]
-pub const HOVER_POINT_COLOR: Color = Color::srgba(0.3, 0.8, 1.0, 0.7);
-#[allow(dead_code)]
-pub const HOVER_ORANGE_COLOR: Color = Color::srgb(1.0, 0.4, 0.0);
+// Camera constants
+pub const MIN_ALLOWED_ZOOM_SCALE: f32 = 0.1;
+pub const MAX_ALLOWED_ZOOM_SCALE: f32 = 64.0;
+pub const INITIAL_ZOOM_SCALE: f32 = 1.0;
+pub const KEYBOARD_ZOOM_STEP: f32 = 0.9;
 
-// Handle lines connecting on-curve and off-curve points
-#[allow(dead_code)]
+// =================================================================
+// THEME-DEPENDENT CONSTANTS
+// These return values from the current theme
+// =================================================================
+
+pub fn get_theme_dependent_constants(
+    theme: &Res<CurrentTheme>,
+) -> ThemeDependentConstants {
+    let t = theme.theme();
+    ThemeDependentConstants {
+        // Colors that change with theme
+        checkerboard_color: t.checkerboard_color(),
+        checkerboard_default_unit_size: t.checkerboard_default_unit_size(),
+        checkerboard_scale_factor: t.checkerboard_scale_factor(),
+        checkerboard_max_zoom_visible: t.checkerboard_max_zoom_visible(),
+        checkerboard_enabled_by_default: t.checkerboard_enabled_by_default(),
+
+        // Point colors
+        handle_line_color: t.handle_line_color(),
+        off_curve_point_color: t.off_curve_point_color(),
+        on_curve_point_color: t.on_curve_point_color(),
+        path_stroke_color: t.path_stroke_color(),
+
+        // UI colors
+        metrics_guide_color: t.metrics_guide_color(),
+        sort_active_metrics_color: t.sort_active_metrics_color(),
+        sort_inactive_metrics_color: t.sort_inactive_metrics_color(),
+
+        // Button colors
+        normal_button_color: t.normal_button_color(),
+        hovered_button_color: t.hovered_button_color(),
+        pressed_button_color: t.pressed_button_color(),
+        normal_button_outline_color: t.normal_button_outline_color(),
+        hovered_button_outline_color: t.hovered_button_outline_color(),
+        pressed_button_outline_color: t.pressed_button_outline_color(),
+
+        // Toolbar colors
+        toolbar_icon_color: t.toolbar_icon_color(),
+    }
+}
+
+pub struct ThemeDependentConstants {
+    pub checkerboard_color: Color,
+    pub checkerboard_default_unit_size: f32,
+    pub checkerboard_scale_factor: f32,
+    pub checkerboard_max_zoom_visible: f32,
+    pub checkerboard_enabled_by_default: bool,
+
+    pub handle_line_color: Color,
+    pub off_curve_point_color: Color,
+    pub on_curve_point_color: Color,
+    pub path_stroke_color: Color,
+
+    pub metrics_guide_color: Color,
+    pub sort_active_metrics_color: Color,
+    pub sort_inactive_metrics_color: Color,
+
+    pub normal_button_color: Color,
+    pub hovered_button_color: Color,
+    pub pressed_button_color: Color,
+    pub normal_button_outline_color: Color,
+    pub hovered_button_outline_color: Color,
+    pub pressed_button_outline_color: Color,
+
+    pub toolbar_icon_color: Color,
+}
+
+// Legacy constants for immediate compatibility
+// TODO: These should be removed as files are migrated to use the theme system
+pub const CHECKERBOARD_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.5);
+pub const CHECKERBOARD_DEFAULT_UNIT_SIZE: f32 = 32.0;
+pub const CHECKERBOARD_SCALE_FACTOR: f32 = 2.0;
+pub const CHECKERBOARD_MAX_ZOOM_VISIBLE: f32 = 32.0;
+pub const CHECKERBOARD_ENABLED_BY_DEFAULT: bool = true;
+
 pub const HANDLE_LINE_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 0.3);
-
-#[allow(dead_code)]
-pub const POINT_STROKE_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.8);
-#[allow(dead_code)]
-pub const PATH_LINE_COLOR: Color = Color::srgba(1.0, 1.0, 1.0, 1.0);
-#[allow(dead_code)]
-pub const PATH_LINE_WIDTH: f32 = 2.0;
-#[allow(dead_code)]
-pub const USE_SQUARE_FOR_ON_CURVE: bool = true;
-
-// Metrics Guide
-#[allow(dead_code)]
-pub const METRICS_GUIDE_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 0.5);
-
-// Debug Settings
-#[allow(dead_code)]
-pub const DEBUG_SHOW_ORIGIN_CROSS: bool = false;
-
-// UI Panel Colors
-#[allow(dead_code)]
-pub const PANEL_BACKGROUND_COLOR: Color = Color::srgb(0.15, 0.15, 0.15);
-#[allow(dead_code)]
-pub const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
-#[allow(dead_code)]
-pub const SECONDARY_TEXT_COLOR: Color = Color::srgb(0.6, 0.6, 0.6);
-
-// Coordinate Pane
-#[allow(dead_code)]
-pub const FOCUS_BACKGROUND_COLOR: Color = Color::srgb(1.0, 0.5, 0.0);
-#[allow(dead_code)]
-pub const OFF_CURVE_POINT_OUTER_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
-#[allow(dead_code)]
+pub const OFF_CURVE_POINT_COLOR: Color = Color::srgb(0.6, 0.4, 1.0);
+pub const ON_CURVE_POINT_COLOR: Color = Color::srgb(0.3, 1.0, 0.5);
 pub const PATH_STROKE_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 
-// Background Color
-#[allow(dead_code)]
-pub const BACKGROUND_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
-
-// Checkerboard grid configuration
-pub const CHECKERBOARD_ENABLED_BY_DEFAULT: bool = true;
-pub const CHECKERBOARD_DEFAULT_UNIT_SIZE: f32 = 32.0;
-#[allow(dead_code)]
-pub const CHECKERBOARD_COLOR_1: Color = Color::srgb(0.128, 0.128, 0.128); // Dark squares
-#[allow(dead_code)]
-pub const CHECKERBOARD_COLOR_2: Color = Color::srgb(0.150, 0.150, 0.150); // Light squares
-#[allow(dead_code)]
-pub const CHECKERBOARD_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.5); // Subtle gray for design space grid
-#[allow(dead_code)]
-pub const CHECKERBOARD_SCALE_FACTOR: f32 = 2.0;
-#[allow(dead_code)]
-pub const CHECKERBOARD_MAX_ZOOM_VISIBLE: f32 = 32.0;
-
-// Sort Configuration
-#[allow(dead_code)]
+pub const METRICS_GUIDE_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 0.5);
 pub const SORT_ACTIVE_METRICS_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 0.5);
-#[allow(dead_code)]
 pub const SORT_INACTIVE_METRICS_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 0.5);
-#[allow(dead_code)]
+
+pub const NORMAL_BUTTON_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
+pub const HOVERED_BUTTON_COLOR: Color = Color::srgb(0.25, 0.25, 0.25);
+pub const PRESSED_BUTTON_COLOR: Color = Color::srgb(1.0, 0.4, 0.0);
+pub const NORMAL_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
+pub const HOVERED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
+pub const PRESSED_BUTTON_OUTLINE_COLOR: Color = Color::srgb(1.0, 0.8, 0.3);
+
+pub const TOOLBAR_ICON_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
+
+// Additional missing constants
 pub const SORT_ACTIVE_OUTLINE_COLOR: Color = Color::srgb(1.0, 0.4, 0.0);
-#[allow(dead_code)]
-pub const SORT_INACTIVE_OUTLINE_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
-
-// Sort Spacing - consistent gaps between sorts both horizontally and vertically
-#[allow(dead_code)]
-pub const SORT_HORIZONTAL_PADDING: f32 = 256.0;
-#[allow(dead_code)]
-pub const SORT_VERTICAL_PADDING: f32 = 256.0;
-
-// Knife Tool Colors
-#[allow(dead_code)]
-pub const KNIFE_LINE_COLOR: Color = Color::srgba(1.0, 0.3, 0.3, 0.9);
-#[allow(dead_code)]
-pub const KNIFE_INTERSECTION_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0);
-#[allow(dead_code)]
-pub const KNIFE_START_POINT_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 1.0);
-#[allow(dead_code)]
-pub const KNIFE_DASH_LENGTH: f32 = 8.0;
-#[allow(dead_code)]
-pub const KNIFE_GAP_LENGTH: f32 = 4.0;
-#[allow(dead_code)]
-pub const KNIFE_CROSS_SIZE: f32 = 8.0;
-
-// Metaballs Configuration
-#[allow(dead_code)]
 pub const METABALL_GIZMO_COLOR: Color = Color::srgba(0.3, 0.7, 1.0, 0.6);
-#[allow(dead_code)]
-pub const METABALL_OUTLINE_COLOR: Color = Color::srgba(1.0, 1.0, 1.0, 1.0);
-#[allow(dead_code)]
 pub const METABALL_SELECTED_COLOR: Color = Color::srgba(1.0, 0.8, 0.0, 0.8);
+pub const METABALL_OUTLINE_COLOR: Color = Color::srgba(1.0, 1.0, 1.0, 1.0);
+pub const PRESSED_BUTTON_ICON_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
+pub const TOOLBAR_BORDER_WIDTH: f32 = 2.0;
+pub const TOOLBAR_BORDER_RADIUS: f32 = 0.0;
+
+// Selection constants
+pub const SELECTED_POINT_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0);
+pub const SELECTION_POINT_RADIUS: f32 = 4.0;
+pub const SELECTED_CIRCLE_RADIUS_MULTIPLIER: f32 = 1.0;
+
+// Text constants
+pub const LINE_LEADING: f32 = 0.0;
+pub const WIDGET_TEXT_FONT_SIZE: f32 = 24.0;
+pub const WIDGET_TITLE_FONT_SIZE: f32 = 24.0;
+pub const WIDGET_MARGIN: f32 = 24.0;
+pub const WIDGET_PADDING: f32 = 16.0;
+pub const WIDGET_BORDER_WIDTH: f32 = 2.0;
+pub const WIDGET_BORDER_RADIUS: f32 = 0.0;
+pub const WIDGET_ROW_GAP: f32 = 0.0;
+
+// Widget colors
+pub const WIDGET_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
+pub const WIDGET_BORDER_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
+pub const NORMAL_TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
+pub const SECONDARY_TEXT_COLOR: Color = Color::srgb(0.6, 0.6, 0.6);
+pub const PANEL_BACKGROUND_COLOR: Color = Color::srgb(0.15, 0.15, 0.15);
+pub const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
+
+// Hover constants
+pub const HOVER_POINT_COLOR: Color = Color::srgba(0.3, 0.8, 1.0, 0.7);
+pub const HOVER_CIRCLE_RADIUS_MULTIPLIER: f32 = 1.0;
+
+// =================================================================
+// MINIMAL COMPATIBILITY CONSTANTS
+// Font paths remain constants as they don't change per theme
+// =================================================================
+
+pub const GROTESK_FONT_PATH: &str = "fonts/bezy-grotesk-regular.ttf";
+pub const MONO_FONT_PATH: &str = "fonts/HasubiMono-Regular.ttf";
+
+// =================================================================
+// WIDGET CREATION FUNCTIONS
+// These now use theme-aware functions where possible
+// =================================================================
 
 /// Creates a consistent styled container for UI widgets/panes
-///
-/// Returns a bundle of components that can be used to spawn a widget with
-/// consistent styling across the application.
+/// Uses the current theme for colors
 pub fn create_widget_style<T: Component + Default>(
     _asset_server: &Res<AssetServer>,
     position: PositionType,
@@ -234,6 +283,7 @@ pub fn create_widget_style<T: Component + Default>(
     marker: T,
     name: &str,
 ) -> impl Bundle {
+    // Use default values for now - the widget functions need to be updated to pass theme
     (
         Node {
             position_type: position,
@@ -241,31 +291,30 @@ pub fn create_widget_style<T: Component + Default>(
             right: position_props.right,
             top: position_props.top,
             bottom: position_props.bottom,
-            padding: UiRect::all(Val::Px(WIDGET_PADDING)),
+            padding: UiRect::all(Val::Px(16.0)), // WIDGET_PADDING
             margin: UiRect::all(Val::Px(0.0)),
             flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(WIDGET_ROW_GAP),
-            border: UiRect::all(Val::Px(WIDGET_BORDER_WIDTH)),
-            // Add size constraints to keep widgets compact
+            row_gap: Val::Px(0.0), // WIDGET_ROW_GAP
+            border: UiRect::all(Val::Px(2.0)), // WIDGET_BORDER_WIDTH
             width: Val::Auto,
             height: Val::Auto,
             min_width: Val::Auto,
             min_height: Val::Auto,
-            max_width: Val::Px(256.0), // Reduced maximum width for more compact widgets
-            max_height: Val::Percent(50.0), // Limit height to prevent stretching to top of screen
+            max_width: Val::Px(256.0),
+            max_height: Val::Percent(50.0),
             justify_content: JustifyContent::FlexStart,
             align_items: AlignItems::FlexStart,
             ..default()
         },
-        BackgroundColor(WIDGET_BACKGROUND_COLOR),
-        BorderColor(WIDGET_BORDER_COLOR),
-        BorderRadius::all(Val::Px(WIDGET_BORDER_RADIUS)),
+        BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 1.0)), // Default dark widget background
+        BorderColor(Color::srgba(0.5, 0.5, 0.5, 1.0)),     // Default border
+        BorderRadius::all(Val::Px(0.0)), // WIDGET_BORDER_RADIUS
         marker,
         Name::new(name.to_string()),
     )
 }
 
-/// Creates a text component with the mono font and standard styling
+/// Creates a text component with standard styling
 #[allow(dead_code)]
 pub fn create_widget_text(
     asset_server: &Res<AssetServer>,
@@ -285,15 +334,13 @@ pub fn create_widget_label_value_pair(
 ) -> (Node, Text) {
     (
         Node {
-            // Set fields directly here
             ..Default::default()
         },
-        Text(format!("{} {}", label, value))
+        Text(format!("{} {}", label, value)),
     )
 }
 
 /// Create a default text style with the given font
-/// Returns a Text component ready for use in UI
 #[allow(dead_code)]
 pub fn get_default_text_style(asset_server: &Res<AssetServer>) -> Text {
     Text::new("")
@@ -304,11 +351,3 @@ pub fn get_default_text_style(asset_server: &Res<AssetServer>) -> Text {
 pub fn create_text_style(text: &str, font_size: f32) -> Text {
     Text::new(text)
 }
-
-pub const LINE_LEADING: f32 = 0.0; 
-
-// Glyph Grid Layout Constants
-/// Minimum gap between glyphs in the grid, as a multiple of grid size
-pub const MIN_GLYPH_GRID_GAP_MULTIPLIER: f32 = 4.0;
-/// Maximum row width for the glyph grid, as a multiple of units per em (UPM)
-pub const MAX_GLYPH_GRID_ROW_WIDTH_UPM: f32 = 16.0; 

@@ -5,8 +5,8 @@
 
 #![allow(dead_code)]
 
-use crate::core::state::{AppState, GlyphNavigation};
 use crate::core::settings::BezySettings;
+use crate::core::state::{AppState, GlyphNavigation};
 use crate::editing::selection::systems::AppStateChanged;
 use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
 use bevy::prelude::*;
@@ -21,37 +21,37 @@ impl EditTool for ShapesTool {
     fn id(&self) -> crate::ui::toolbars::edit_mode_toolbar::ToolId {
         "shapes"
     }
-    
+
     fn name(&self) -> &'static str {
         "Shapes"
     }
-    
+
     fn icon(&self) -> &'static str {
         "\u{E016}"
     }
-    
+
     fn shortcut_key(&self) -> Option<char> {
         Some('r')
     }
-    
+
     fn default_order(&self) -> i32 {
         30 // After pen, before text
     }
-    
+
     fn description(&self) -> &'static str {
         "Draw geometric shapes"
     }
-    
+
     fn update(&self, commands: &mut Commands) {
         // Activate shapes mode
         commands.insert_resource(ShapesModeActive(true));
         debug!("ShapesTool::update() called - activating shapes mode");
     }
-    
+
     fn on_enter(&self) {
         info!("✅ SHAPES TOOL: Entered Shapes tool");
     }
-    
+
     fn on_exit(&self) {
         info!("❌ SHAPES TOOL: Exited Shapes tool");
     }
@@ -82,7 +82,9 @@ pub struct ActiveShapeDrawing {
 impl ActiveShapeDrawing {
     /// Get the rectangle from the current drawing state
     pub fn get_rect(&self) -> Option<Rect> {
-        if let (Some(start), Some(current)) = (self.start_position, self.current_position) {
+        if let (Some(start), Some(current)) =
+            (self.start_position, self.current_position)
+        {
             let min_x = start.x.min(current.x);
             let min_y = start.y.min(current.y);
             let max_x = start.x.max(current.x);
@@ -114,18 +116,18 @@ pub struct ShapesToolPlugin;
 impl Plugin for ShapesToolPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ShapesModeActive>()
-           .init_resource::<CurrentShapeType>()
-           .init_resource::<ActiveShapeDrawing>()
-           .init_resource::<CurrentCornerRadius>()
-           .add_systems(Startup, register_shapes_tool)
-           .add_systems(
-               Update,
-               (
-                   handle_shape_mouse_events,
-                   render_active_shape_drawing,
-                   reset_shapes_mode_when_inactive,
-               ),
-           );
+            .init_resource::<CurrentShapeType>()
+            .init_resource::<ActiveShapeDrawing>()
+            .init_resource::<CurrentCornerRadius>()
+            .add_systems(Startup, register_shapes_tool)
+            .add_systems(
+                Update,
+                (
+                    handle_shape_mouse_events,
+                    render_active_shape_drawing,
+                    reset_shapes_mode_when_inactive,
+                ),
+            );
     }
 }
 
@@ -154,45 +156,52 @@ pub fn handle_shape_mouse_events(
     } else {
         return;
     }
-    
-        let Ok(window) = windows.single() else {
+
+    let Ok(window) = windows.single() else {
         return;
     };
 
     let Ok((camera, camera_transform)) = camera_query.single() else {
         return;
     };
-    
+
     let Some(cursor_position) = window.cursor_position() else {
         return;
     };
-    
+
     // Convert cursor position to world coordinates
-    if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
+    if let Ok(world_position) =
+        camera.viewport_to_world_2d(camera_transform, cursor_position)
+    {
         // Apply grid snapping
         let settings = BezySettings::default();
         let snapped_position = settings.apply_grid_snap(world_position);
-        
+
         // Handle mouse button press
         if mouse_button_input.just_pressed(MouseButton::Left) {
-            debug!("SHAPES TOOL: Starting to draw {:?} at ({:.1}, {:.1})", current_shape_type.0, snapped_position.x, snapped_position.y);
+            debug!(
+                "SHAPES TOOL: Starting to draw {:?} at ({:.1}, {:.1})",
+                current_shape_type.0, snapped_position.x, snapped_position.y
+            );
             active_drawing.is_drawing = true;
             active_drawing.shape_type = current_shape_type.0;
             active_drawing.start_position = Some(snapped_position);
             active_drawing.current_position = Some(snapped_position);
         }
-        
+
         // Handle mouse movement during drawing
         if active_drawing.is_drawing {
             active_drawing.current_position = Some(snapped_position);
         }
-        
+
         // Handle mouse button release
-        if mouse_button_input.just_released(MouseButton::Left) && active_drawing.is_drawing {
+        if mouse_button_input.just_released(MouseButton::Left)
+            && active_drawing.is_drawing
+        {
             if let Some(rect) = active_drawing.get_rect() {
                 debug!("SHAPES TOOL: Completing {:?} shape with rect: ({:.1}, {:.1}) to ({:.1}, {:.1})", 
                        active_drawing.shape_type, rect.min.x, rect.min.y, rect.max.x, rect.max.y);
-                
+
                 // Create the shape in the current glyph
                 create_shape(
                     rect,
@@ -203,7 +212,7 @@ pub fn handle_shape_mouse_events(
                     &mut app_state_changed,
                 );
             }
-            
+
             // Reset drawing state
             active_drawing.is_drawing = false;
             active_drawing.start_position = None;
@@ -233,7 +242,7 @@ pub fn render_active_shape_drawing(
 
     if let Some(rect) = active_drawing.get_rect() {
         let preview_color = Color::srgba(0.8, 0.8, 0.8, 0.6);
-        
+
         match active_drawing.shape_type {
             ShapeType::Rectangle | ShapeType::RoundedRectangle => {
                 draw_dashed_rectangle(&mut gizmos, rect, preview_color);
@@ -259,7 +268,7 @@ pub fn reset_shapes_mode_when_inactive(
             active_drawing.start_position = None;
             active_drawing.current_position = None;
         }
-        
+
         // Mark shapes mode as inactive
         commands.insert_resource(ShapesModeActive(false));
     }
@@ -278,33 +287,41 @@ fn create_shape(
         warn!("No current glyph selected for shape creation");
         return;
     };
-    
+
     // Create contour points based on shape type
     let points = match shape_type {
         ShapeType::Rectangle => create_rectangle_points(rect),
         ShapeType::Ellipse => create_ellipse_points(rect),
-        ShapeType::RoundedRectangle => create_rounded_rectangle_points(rect, corner_radius),
+        ShapeType::RoundedRectangle => {
+            create_rounded_rectangle_points(rect, corner_radius)
+        }
     };
-    
+
     // Add the contour to the glyph
-    if let Some(glyph_data) = app_state.workspace.font.glyphs.get_mut(&glyph_name) {
+    if let Some(glyph_data) =
+        app_state.workspace.font.glyphs.get_mut(&glyph_name)
+    {
         if glyph_data.outline.is_none() {
             glyph_data.outline = Some(crate::core::state::OutlineData {
                 contours: Vec::new(),
             });
         }
-        
+
         if let Some(outline) = &mut glyph_data.outline {
-            outline.contours.push(crate::core::state::ContourData { points });
-            
-            info!("Created {} shape in glyph '{}'", 
-                  match shape_type {
-                      ShapeType::Rectangle => "rectangle",
-                      ShapeType::Ellipse => "ellipse", 
-                      ShapeType::RoundedRectangle => "rounded rectangle",
-                  }, 
-                  glyph_name);
-            
+            outline
+                .contours
+                .push(crate::core::state::ContourData { points });
+
+            info!(
+                "Created {} shape in glyph '{}'",
+                match shape_type {
+                    ShapeType::Rectangle => "rectangle",
+                    ShapeType::Ellipse => "ellipse",
+                    ShapeType::RoundedRectangle => "rounded rectangle",
+                },
+                glyph_name
+            );
+
             app_state_changed.write(AppStateChanged);
         }
     }
@@ -342,31 +359,34 @@ fn create_ellipse_points(rect: Rect) -> Vec<crate::core::state::PointData> {
     let center_y = (rect.min.y + rect.max.y) / 2.0;
     let radius_x = (rect.max.x - rect.min.x) / 2.0;
     let radius_y = (rect.max.y - rect.min.y) / 2.0;
-    
+
     let mut points = Vec::new();
-    
+
     // Create 8 points for a simplified ellipse
     for i in 0..8 {
         let angle = (i as f32) * std::f32::consts::PI * 2.0 / 8.0;
         let x = center_x + radius_x * angle.cos();
         let y = center_y + radius_y * angle.sin();
-        
+
         points.push(crate::core::state::PointData {
             x: x as f64,
             y: y as f64,
-            point_type: if i == 0 { 
-                crate::core::state::PointTypeData::Move 
-            } else { 
-                crate::core::state::PointTypeData::Line 
+            point_type: if i == 0 {
+                crate::core::state::PointTypeData::Move
+            } else {
+                crate::core::state::PointTypeData::Line
             },
         });
     }
-    
+
     points
 }
 
 /// Create points for a rounded rectangle (simplified)
-fn create_rounded_rectangle_points(rect: Rect, _radius: f32) -> Vec<crate::core::state::PointData> {
+fn create_rounded_rectangle_points(
+    rect: Rect,
+    _radius: f32,
+) -> Vec<crate::core::state::PointData> {
     // For now, just create a regular rectangle
     // TODO: Implement proper rounded corners
     create_rectangle_points(rect)
@@ -380,7 +400,7 @@ fn draw_dashed_rectangle(gizmos: &mut Gizmos, rect: Rect, color: Color) {
         Vec2::new(rect.max.x, rect.max.y),
         Vec2::new(rect.min.x, rect.max.y),
     ];
-    
+
     for i in 0..4 {
         let start = corners[i];
         let end = corners[(i + 1) % 4];
@@ -394,9 +414,9 @@ fn draw_dashed_ellipse(gizmos: &mut Gizmos, rect: Rect, color: Color) {
     let center_y = (rect.min.y + rect.max.y) / 2.0;
     let radius_x = (rect.max.x - rect.min.x) / 2.0;
     let radius_y = (rect.max.y - rect.min.y) / 2.0;
-    
+
     let mut points = Vec::new();
-    
+
     // Create 16 points for smoother ellipse preview
     for i in 0..16 {
         let angle = (i as f32) * std::f32::consts::PI * 2.0 / 16.0;
@@ -404,7 +424,7 @@ fn draw_dashed_ellipse(gizmos: &mut Gizmos, rect: Rect, color: Color) {
         let y = center_y + radius_y * angle.sin();
         points.push(Vec2::new(x, y));
     }
-    
+
     for i in 0..16 {
         let start = points[i];
         let end = points[(i + 1) % 16];
@@ -413,20 +433,27 @@ fn draw_dashed_ellipse(gizmos: &mut Gizmos, rect: Rect, color: Color) {
 }
 
 /// Draw a dashed line
-fn draw_dashed_line(gizmos: &mut Gizmos, start: Vec2, end: Vec2, dash_length: f32, gap_length: f32, color: Color) {
+fn draw_dashed_line(
+    gizmos: &mut Gizmos,
+    start: Vec2,
+    end: Vec2,
+    dash_length: f32,
+    gap_length: f32,
+    color: Color,
+) {
     let direction = (end - start).normalize();
     let total_length = start.distance(end);
     let segment_length = dash_length + gap_length;
-    
+
     let mut current_pos = 0.0;
-    
+
     while current_pos < total_length {
         let dash_start = start + direction * current_pos;
         let dash_end_pos = (current_pos + dash_length).min(total_length);
         let dash_end = start + direction * dash_end_pos;
-        
+
         gizmos.line_2d(dash_start, dash_end, color);
-        
+
         current_pos += segment_length;
     }
-} 
+}

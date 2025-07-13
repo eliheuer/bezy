@@ -8,4 +8,4 @@
 pub mod edit_mode_toolbar;
 
 // Re-export commonly used items
-pub use edit_mode_toolbar::EditModeToolbarPlugin; 
+pub use edit_mode_toolbar::EditModeToolbarPlugin;

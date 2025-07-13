@@ -59,9 +59,7 @@ pub fn create_blank_font() -> norad::Font {
     ('a'..='z')
         .into_iter()
         .chain('A'..='Z')
-        .map(|chr| {
-            norad::Glyph::new(&chr.to_string())
-        })
+        .map(|chr| norad::Glyph::new(&chr.to_string()))
         .for_each(|glyph| layer.insert_glyph(glyph));
     font
-} 
+}

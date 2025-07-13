@@ -48,4 +48,4 @@ impl EditType {
             _ => true,
         }
     }
-} 
+}

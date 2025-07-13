@@ -130,4 +130,4 @@ impl Plugin for TextEditorPlugin {
         app.add_systems(Startup, spawn_text_editor)
             .add_systems(Update, (handle_text_input, update_text_display));
     }
-} 
+}

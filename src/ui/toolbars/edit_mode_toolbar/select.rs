@@ -3,8 +3,10 @@
 //! This tool provides selection and manipulation functionality for objects in the design space.
 //! It's typically the default tool and allows users to select, move, and modify existing elements.
 
+use crate::ui::toolbars::edit_mode_toolbar::{
+    EditModeSystem, EditTool, ToolRegistry,
+};
 use bevy::prelude::*;
-use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry, EditModeSystem};
 
 /// Plugin to register selection mode systems
 pub struct SelectModePlugin;
@@ -25,27 +27,27 @@ impl EditTool for SelectTool {
     fn id(&self) -> crate::ui::toolbars::edit_mode_toolbar::ToolId {
         "select"
     }
-    
+
     fn name(&self) -> &'static str {
         "Select"
     }
-    
+
     fn icon(&self) -> &'static str {
         "\u{E010}"
     }
-    
+
     fn shortcut_key(&self) -> Option<char> {
         Some('v')
     }
-    
+
     fn default_order(&self) -> i32 {
         10 // First tool in the toolbar
     }
-    
+
     fn description(&self) -> &'static str {
         "Select and manipulate objects"
     }
-    
+
     fn update(&self, commands: &mut Commands) {
         // Mark select mode as active while this tool is current
         commands.insert_resource(SelectModeActive(true));
@@ -53,11 +55,11 @@ impl EditTool for SelectTool {
         commands.insert_resource(crate::core::input::InputMode::Select);
         debug!("[SELECT TOOL] Update called - setting input mode to Select");
     }
-    
+
     fn on_enter(&self) {
         info!("Entered Select tool");
     }
-    
+
     fn on_exit(&self) {
         info!("Exited Select tool");
     }
@@ -77,8 +79,7 @@ pub struct SelectToolPlugin;
 
 impl Plugin for SelectToolPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<SelectModeActive>()
+        app.init_resource::<SelectModeActive>()
             .add_systems(Startup, register_select_tool)
             .add_systems(Update, reset_select_mode_when_inactive)
             .add_systems(Update, ensure_select_mode_active);
@@ -113,6 +114,9 @@ pub fn ensure_select_mode_active(
         commands.insert_resource(crate::core::input::InputMode::Select);
         info!("No tool selected, defaulting to select mode");
     } else {
-        debug!("[SELECT MODE] Current tool: {:?}", current_tool.get_current());
+        debug!(
+            "[SELECT MODE] Current tool: {:?}",
+            current_tool.get_current()
+        );
     }
-} 
+}

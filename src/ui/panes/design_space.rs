@@ -6,7 +6,7 @@
 use bevy::prelude::*;
 
 /// Plugin for design space UI functionality
-/// 
+///
 /// This plugin is kept for compatibility with existing UI code.
 /// The coordinate types (DPoint, DVec2) are now available in geometry::design_space.
 pub struct DesignSpacePlugin;
@@ -16,4 +16,4 @@ impl Plugin for DesignSpacePlugin {
         // The ViewPort resource is deprecated and no longer initialized here
         // Coordinate types are now available via geometry::design_space
     }
-} 
+}

@@ -28,14 +28,17 @@ pub fn debug_font_metrics(app_state: &AppState) {
 pub fn debug_layer_info(app_state: &AppState) {
     let glyph_count = app_state.workspace.font.glyphs.len();
     debug!("Font found with {} glyphs", glyph_count);
-    
+
     // Log first few glyph names for reference
-    let glyph_names: Vec<String> = app_state.workspace.font.glyphs
+    let glyph_names: Vec<String> = app_state
+        .workspace
+        .font
+        .glyphs
         .keys()
         .take(5)
         .cloned()
         .collect();
-    
+
     if !glyph_names.is_empty() {
         debug!("Sample glyphs: {}", glyph_names.join(", "));
     }
@@ -72,4 +75,4 @@ pub fn debug_codepoint_lookup(codepoint: &str, found: bool) {
     } else {
         warn!("No glyph found for codepoint U+{}", codepoint);
     }
-} 
+}

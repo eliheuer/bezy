@@ -130,4 +130,4 @@ fn debug_print_edit_sessions(edit_sessions: Query<Entity, With<EditSession>>) {
             edit_sessions.iter().collect::<Vec<_>>()
         );
     }
-} 
+}

@@ -1,21 +1,21 @@
 //! Edit Mode Toolbar UI
 //!
-//! This sub-module implements the user interface for the edit mode toolbar, 
+//! This sub-module implements the user interface for the edit mode toolbar,
 //! which dynamically generates toolbar buttons based on registered tools.
 //! The system automatically discovers and displays all registered tools with
 //! proper ordering and visual feedback. To add a new tool, implement the
 //! `EditTool` trait and register it with `ToolRegistry::register_tool()`.
 
-use bevy::prelude::*;
 use crate::ui::theme::{
-    GROTESK_FONT_PATH, NORMAL_BUTTON_COLOR, HOVERED_BUTTON_COLOR, 
-    PRESSED_BUTTON_COLOR, NORMAL_BUTTON_OUTLINE_COLOR, 
-    HOVERED_BUTTON_OUTLINE_COLOR, PRESSED_BUTTON_OUTLINE_COLOR, 
-    TOOLBAR_ICON_COLOR, PRESSED_BUTTON_ICON_COLOR,
-    TOOLBAR_CONTAINER_MARGIN, TOOLBAR_PADDING, TOOLBAR_ITEM_SPACING, 
-    TOOLBAR_BORDER_WIDTH, TOOLBAR_BUTTON_SIZE, BUTTON_ICON_SIZE,
+    BUTTON_ICON_SIZE, GROTESK_FONT_PATH, HOVERED_BUTTON_COLOR,
+    HOVERED_BUTTON_OUTLINE_COLOR, NORMAL_BUTTON_COLOR,
+    NORMAL_BUTTON_OUTLINE_COLOR, PRESSED_BUTTON_COLOR,
+    PRESSED_BUTTON_ICON_COLOR, PRESSED_BUTTON_OUTLINE_COLOR,
+    TOOLBAR_BORDER_WIDTH, TOOLBAR_BUTTON_SIZE, TOOLBAR_CONTAINER_MARGIN,
+    TOOLBAR_ICON_COLOR, TOOLBAR_ITEM_SPACING, TOOLBAR_PADDING,
 };
 use crate::ui::toolbars::edit_mode_toolbar::*;
+use bevy::prelude::*;
 
 // COMPONENTS ------------------------------------------------------------------
 
@@ -39,7 +39,8 @@ pub fn spawn_edit_mode_toolbar(
 ) {
     let ordered_tool_ids = tool_registry.get_ordered_tools().to_vec();
     info!(
-        "Spawning edit-mode toolbar with {} tools", ordered_tool_ids.len()
+        "Spawning edit-mode toolbar with {} tools",
+        ordered_tool_ids.len()
     );
     commands
         .spawn(create_toolbar_container())
@@ -264,7 +265,7 @@ fn update_button_colors(
             (NORMAL_BUTTON_COLOR, NORMAL_BUTTON_OUTLINE_COLOR)
         }
     };
-    
+
     *background_color = BackgroundColor(bg_color);
     *border_color = BorderColor(border_color_value);
 }
@@ -280,13 +281,13 @@ fn update_button_text_color(
         Ok(children) => children,
         Err(_) => return,
     };
-    
+
     let new_color = if is_current_tool {
         PRESSED_BUTTON_ICON_COLOR
     } else {
         TOOLBAR_ICON_COLOR
     };
-    
+
     // Update text colors for all children of this button
     for &child_entity in children {
         if let Ok(mut text_color) = text_query.get_mut(child_entity) {
@@ -302,7 +303,7 @@ fn update_button_text_color(
 /// Updates the current edit mode by calling the active tool's update method
 ///
 /// This system runs every frame and calls the current tool's update method,
-/// allowing tools to perform their active behavior (input handling, rendering, 
+/// allowing tools to perform their active behavior (input handling, rendering,
 /// etc.)
 pub fn update_current_edit_mode(
     mut commands: Commands,
@@ -314,4 +315,4 @@ pub fn update_current_edit_mode(
             tool.update(&mut commands);
         }
     }
-} 
+}

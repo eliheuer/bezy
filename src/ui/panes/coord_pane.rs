@@ -65,17 +65,19 @@ pub struct CoordinatePanePlugin;
 
 impl Plugin for CoordinatePanePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .register_type::<CoordinateSelection>()
+        app.register_type::<CoordinateSelection>()
             .register_type::<Quadrant>()
             .init_resource::<CoordinateSelection>()
             .add_systems(Startup, spawn_coord_pane)
-            .add_systems(Update, (
-                update_coordinate_selection,
-                update_coordinate_display,
-                handle_quadrant_buttons,
-                toggle_coordinate_rows_visibility,
-            ));
+            .add_systems(
+                Update,
+                (
+                    update_coordinate_selection,
+                    update_coordinate_display,
+                    handle_quadrant_buttons,
+                    toggle_coordinate_rows_visibility,
+                ),
+            );
     }
 }
 
@@ -104,151 +106,151 @@ pub fn spawn_coord_pane(
         .with_children(|parent| {
             // X coordinate row
             parent
-                        .spawn((Node {
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Center,
-                            margin: UiRect::bottom(Val::Px(4.0)),
+                .spawn((Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    margin: UiRect::bottom(Val::Px(4.0)),
+                    ..default()
+                },))
+                .with_children(|row| {
+                    // Label
+                    row.spawn((
+                        Node {
+                            margin: UiRect::right(Val::Px(8.0)),
                             ..default()
-                        },))
-                        .with_children(|row| {
-                            // Label
-                            row.spawn((
-                                Node {
-                                    margin: UiRect::right(Val::Px(8.0)),
-                                    ..default()
-                                },
-                                Text::new("X:"),
-                                TextFont {
-                                    font: asset_server.load(MONO_FONT_PATH),
-                                    font_size: WIDGET_TEXT_FONT_SIZE,
-                                    ..default()
-                                },
-                                TextColor(SECONDARY_TEXT_COLOR),
-                            ));
-                            
-                            // Value
-                            row.spawn((
-                                Text::new("0"),
-                                TextFont {
-                                    font: asset_server.load(MONO_FONT_PATH),
-                                    font_size: WIDGET_TEXT_FONT_SIZE,
-                                    ..default()
-                                },
-                                TextColor(ON_CURVE_POINT_COLOR),
-                                XValue,
-                            ));
-                        });
+                        },
+                        Text::new("X:"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(SECONDARY_TEXT_COLOR),
+                    ));
 
-                    // Y coordinate row
-                    parent
-                        .spawn((Node {
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Center,
-                            margin: UiRect::bottom(Val::Px(4.0)),
+                    // Value
+                    row.spawn((
+                        Text::new("0"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
-                        },))
-                        .with_children(|row| {
-                            // Label
-                            row.spawn((
-                                Node {
-                                    margin: UiRect::right(Val::Px(8.0)),
-                                    ..default()
-                                },
-                                Text::new("Y:"),
-                                TextFont {
-                                    font: asset_server.load(MONO_FONT_PATH),
-                                    font_size: WIDGET_TEXT_FONT_SIZE,
-                                    ..default()
-                                },
-                                TextColor(SECONDARY_TEXT_COLOR),
-                            ));
-                            
-                            // Value
-                            row.spawn((
-                                Text::new("0"),
-                                TextFont {
-                                    font: asset_server.load(MONO_FONT_PATH),
-                                    font_size: WIDGET_TEXT_FONT_SIZE,
-                                    ..default()
-                                },
-                                TextColor(ON_CURVE_POINT_COLOR),
-                                YValue,
-                            ));
-                        });
+                        },
+                        TextColor(ON_CURVE_POINT_COLOR),
+                        XValue,
+                    ));
+                });
 
-                    // Width row
-                    parent
-                        .spawn((Node {
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Center,
-                            margin: UiRect::bottom(Val::Px(4.0)),
+            // Y coordinate row
+            parent
+                .spawn((Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    margin: UiRect::bottom(Val::Px(4.0)),
+                    ..default()
+                },))
+                .with_children(|row| {
+                    // Label
+                    row.spawn((
+                        Node {
+                            margin: UiRect::right(Val::Px(8.0)),
                             ..default()
-                        },))
-                        .with_children(|row| {
-                            // Label
-                            row.spawn((
-                                Node {
-                                    margin: UiRect::right(Val::Px(8.0)),
-                                    ..default()
-                                },
-                                Text::new("W:"),
-                                TextFont {
-                                    font: asset_server.load(MONO_FONT_PATH),
-                                    font_size: WIDGET_TEXT_FONT_SIZE,
-                                    ..default()
-                                },
-                                TextColor(SECONDARY_TEXT_COLOR),
-                            ));
-                            
-                            // Value
-                            row.spawn((
-                                Text::new("0"),
-                                TextFont {
-                                    font: asset_server.load(MONO_FONT_PATH),
-                                    font_size: WIDGET_TEXT_FONT_SIZE,
-                                    ..default()
-                                },
-                                TextColor(ON_CURVE_POINT_COLOR),
-                                WidthValue,
-                            ));
-                        });
+                        },
+                        Text::new("Y:"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(SECONDARY_TEXT_COLOR),
+                    ));
 
-                    // Height row
-                    parent
-                        .spawn((Node {
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Center,
-                            margin: UiRect::bottom(Val::Px(16.0)),
+                    // Value
+                    row.spawn((
+                        Text::new("0"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
-                        },))
-                        .with_children(|row| {
-                            // Label
-                            row.spawn((
-                                Node {
-                                    margin: UiRect::right(Val::Px(8.0)),
-                                    ..default()
-                                },
-                                Text::new("H:"),
-                                TextFont {
-                                    font: asset_server.load(MONO_FONT_PATH),
-                                    font_size: WIDGET_TEXT_FONT_SIZE,
-                                    ..default()
-                                },
-                                TextColor(SECONDARY_TEXT_COLOR),
-                            ));
-                            
-                            // Value
-                            row.spawn((
-                                Text::new("0"),
-                                TextFont {
-                                    font: asset_server.load(MONO_FONT_PATH),
-                                    font_size: WIDGET_TEXT_FONT_SIZE,
-                                    ..default()
-                                },
-                                TextColor(ON_CURVE_POINT_COLOR),
-                                HeightValue,
-                            ));
-                        });
+                        },
+                        TextColor(ON_CURVE_POINT_COLOR),
+                        YValue,
+                    ));
+                });
+
+            // Width row
+            parent
+                .spawn((Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    margin: UiRect::bottom(Val::Px(4.0)),
+                    ..default()
+                },))
+                .with_children(|row| {
+                    // Label
+                    row.spawn((
+                        Node {
+                            margin: UiRect::right(Val::Px(8.0)),
+                            ..default()
+                        },
+                        Text::new("W:"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(SECONDARY_TEXT_COLOR),
+                    ));
+
+                    // Value
+                    row.spawn((
+                        Text::new("0"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(ON_CURVE_POINT_COLOR),
+                        WidthValue,
+                    ));
+                });
+
+            // Height row
+            parent
+                .spawn((Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    margin: UiRect::bottom(Val::Px(16.0)),
+                    ..default()
+                },))
+                .with_children(|row| {
+                    // Label
+                    row.spawn((
+                        Node {
+                            margin: UiRect::right(Val::Px(8.0)),
+                            ..default()
+                        },
+                        Text::new("H:"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(SECONDARY_TEXT_COLOR),
+                    ));
+
+                    // Value
+                    row.spawn((
+                        Text::new("0"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(ON_CURVE_POINT_COLOR),
+                        HeightValue,
+                    ));
+                });
 
             // Quadrant selector (3x3 grid of buttons)
             parent
@@ -275,7 +277,11 @@ pub fn spawn_coord_pane(
                     let quadrants = [
                         [Quadrant::TopLeft, Quadrant::Top, Quadrant::TopRight],
                         [Quadrant::Left, Quadrant::Center, Quadrant::Right],
-                        [Quadrant::BottomLeft, Quadrant::Bottom, Quadrant::BottomRight],
+                        [
+                            Quadrant::BottomLeft,
+                            Quadrant::Bottom,
+                            Quadrant::BottomRight,
+                        ],
                     ];
 
                     for row in quadrants.iter() {
@@ -335,23 +341,56 @@ fn update_coordinate_selection(
         max_y = max_y.max(position.y);
     }
 
-    coord_selection.frame = Rect::from_corners(
-        Vec2::new(min_x, min_y),
-        Vec2::new(max_x, max_y),
-    );
+    coord_selection.frame =
+        Rect::from_corners(Vec2::new(min_x, min_y), Vec2::new(max_x, max_y));
 }
 
 /// System to update the coordinate display text
 fn update_coordinate_display(
     coord_selection: Res<CoordinateSelection>,
-    mut x_query: Query<&mut Text, (With<XValue>, Without<YValue>, Without<WidthValue>, Without<HeightValue>)>,
-    mut y_query: Query<&mut Text, (With<YValue>, Without<XValue>, Without<WidthValue>, Without<HeightValue>)>,
-    mut w_query: Query<&mut Text, (With<WidthValue>, Without<XValue>, Without<YValue>, Without<HeightValue>)>,
-    mut h_query: Query<&mut Text, (With<HeightValue>, Without<XValue>, Without<YValue>, Without<WidthValue>)>,
+    mut x_query: Query<
+        &mut Text,
+        (
+            With<XValue>,
+            Without<YValue>,
+            Without<WidthValue>,
+            Without<HeightValue>,
+        ),
+    >,
+    mut y_query: Query<
+        &mut Text,
+        (
+            With<YValue>,
+            Without<XValue>,
+            Without<WidthValue>,
+            Without<HeightValue>,
+        ),
+    >,
+    mut w_query: Query<
+        &mut Text,
+        (
+            With<WidthValue>,
+            Without<XValue>,
+            Without<YValue>,
+            Without<HeightValue>,
+        ),
+    >,
+    mut h_query: Query<
+        &mut Text,
+        (
+            With<HeightValue>,
+            Without<XValue>,
+            Without<YValue>,
+            Without<WidthValue>,
+        ),
+    >,
 ) {
     if coord_selection.count > 0 {
-        let reference_point = get_quadrant_point(&coord_selection.frame, coord_selection.quadrant);
-        
+        let reference_point = get_quadrant_point(
+            &coord_selection.frame,
+            coord_selection.quadrant,
+        );
+
         // Update coordinate values
         if let Ok(mut text) = x_query.single_mut() {
             *text = Text::new(format!("{}", reference_point.x as i32));
@@ -360,10 +399,12 @@ fn update_coordinate_display(
             *text = Text::new(format!("{}", reference_point.y as i32));
         }
         if let Ok(mut text) = w_query.single_mut() {
-            *text = Text::new(format!("{}", coord_selection.frame.width() as i32));
+            *text =
+                Text::new(format!("{}", coord_selection.frame.width() as i32));
         }
         if let Ok(mut text) = h_query.single_mut() {
-            *text = Text::new(format!("{}", coord_selection.frame.height() as i32));
+            *text =
+                Text::new(format!("{}", coord_selection.frame.height() as i32));
         }
     }
     // When no points are selected, the coordinate rows are hidden, so no need to update text
@@ -376,34 +417,45 @@ fn handle_quadrant_buttons(
         Changed<Interaction>,
     >,
     mut coord_selection: ResMut<CoordinateSelection>,
-    mut all_buttons: Query<(&QuadrantButton, &mut BackgroundColor, &mut BorderColor)>,
+    mut all_buttons: Query<(
+        &QuadrantButton,
+        &mut BackgroundColor,
+        &mut BorderColor,
+    )>,
 ) {
     for (interaction, button) in interaction_query.iter() {
         match *interaction {
             Interaction::Pressed => {
                 // Update the selected quadrant
                 coord_selection.quadrant = button.0;
-                
+
                 // Update all button appearances
-                for (other_button, mut other_bg, mut other_border) in all_buttons.iter_mut() {
+                for (other_button, mut other_bg, mut other_border) in
+                    all_buttons.iter_mut()
+                {
                     if other_button.0 == button.0 {
                         // This is the selected button
                         *other_bg = BackgroundColor(PRESSED_BUTTON_COLOR);
-                        *other_border = BorderColor(PRESSED_BUTTON_OUTLINE_COLOR);
+                        *other_border =
+                            BorderColor(PRESSED_BUTTON_OUTLINE_COLOR);
                     } else {
                         // This is an unselected button
                         *other_bg = BackgroundColor(NORMAL_BUTTON_COLOR);
-                        *other_border = BorderColor(NORMAL_BUTTON_OUTLINE_COLOR);
+                        *other_border =
+                            BorderColor(NORMAL_BUTTON_OUTLINE_COLOR);
                     }
                 }
             }
             Interaction::Hovered => {
                 if coord_selection.quadrant != button.0 {
                     // Update this specific button's appearance
-                    for (other_button, mut other_bg, mut other_border) in all_buttons.iter_mut() {
+                    for (other_button, mut other_bg, mut other_border) in
+                        all_buttons.iter_mut()
+                    {
                         if other_button.0 == button.0 {
                             *other_bg = BackgroundColor(HOVERED_BUTTON_COLOR);
-                            *other_border = BorderColor(HOVERED_BUTTON_OUTLINE_COLOR);
+                            *other_border =
+                                BorderColor(HOVERED_BUTTON_OUTLINE_COLOR);
                             break;
                         }
                     }
@@ -412,10 +464,13 @@ fn handle_quadrant_buttons(
             Interaction::None => {
                 if coord_selection.quadrant != button.0 {
                     // Update this specific button's appearance
-                    for (other_button, mut other_bg, mut other_border) in all_buttons.iter_mut() {
+                    for (other_button, mut other_bg, mut other_border) in
+                        all_buttons.iter_mut()
+                    {
                         if other_button.0 == button.0 {
                             *other_bg = BackgroundColor(NORMAL_BUTTON_COLOR);
-                            *other_border = BorderColor(NORMAL_BUTTON_OUTLINE_COLOR);
+                            *other_border =
+                                BorderColor(NORMAL_BUTTON_OUTLINE_COLOR);
                             break;
                         }
                     }

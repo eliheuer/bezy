@@ -8,7 +8,7 @@ use bevy::prelude::*;
 /// Nine positions in a 2D grid, used for selection handles and positioning
 ///
 /// Think of this as a 3x3 grid:
-/// 
+///
 /// ```text
 /// TopLeft     Top     TopRight
 /// Left        Center  Right  
@@ -249,4 +249,4 @@ mod tests {
             Vec2::new(55.0, 100.0)
         );
     }
-} 
+}

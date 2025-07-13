@@ -18,7 +18,7 @@ pub mod state;
 // Re-export commonly used items
 pub use app::create_app;
 pub use cli::CliArgs;
-pub use input::{InputEvent, InputState, helpers};
+pub use input::{helpers, InputEvent, InputState};
 pub use pointer::{PointerInfo, PointerPlugin};
 pub use settings::BezySettings;
 pub use state::{AppState, GlyphNavigation};

@@ -7,25 +7,31 @@
 //! The tool converts placed points into UFO contours that are saved to the font file.
 
 use super::EditModeSystem;
+use crate::core::input::{
+    helpers, InputEvent, InputMode, InputState, ModifierState,
+};
 use crate::core::pointer::PointerInfo;
 use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
-use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
-use crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive;
+use crate::core::state::AppState;
+use crate::editing::edit_type::EditType;
+use crate::editing::selection::components::{
+    GlyphPointReference, PointType, Selectable, Selected,
+};
 use crate::editing::selection::systems::AppStateChanged;
+use crate::editing::selection::{
+    DragPointState, DragSelectionState, SelectionState,
+};
+use crate::editing::sort::ActiveSortState;
+use crate::geometry::design_space::DPoint;
+use crate::systems::sort_manager::SortPointEntity;
 use crate::systems::ui_interaction::UiHoverState;
+use crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive;
+use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
+use bevy::input::keyboard::KeyCode;
+use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
 use kurbo::BezPath;
 use norad::{Contour, ContourPoint};
-use bevy::input::mouse::MouseButton;
-use bevy::input::keyboard::KeyCode;
-use crate::core::input::{InputEvent, InputState, InputMode, ModifierState, helpers};
-use crate::geometry::design_space::DPoint;
-use crate::editing::selection::{DragSelectionState, DragPointState, SelectionState};
-use crate::editing::edit_type::EditType;
-use crate::core::state::AppState;
-use crate::editing::sort::ActiveSortState;
-use crate::systems::sort_manager::SortPointEntity;
-use crate::editing::selection::components::{Selectable, Selected, PointType, GlyphPointReference};
 
 pub struct PenTool;
 
@@ -33,37 +39,37 @@ impl EditTool for PenTool {
     fn id(&self) -> crate::ui::toolbars::edit_mode_toolbar::ToolId {
         "pen"
     }
-    
+
     fn name(&self) -> &'static str {
         "Pen"
     }
-    
+
     fn icon(&self) -> &'static str {
         "\u{E011}"
     }
-    
+
     fn shortcut_key(&self) -> Option<char> {
         Some('p')
     }
-    
+
     fn default_order(&self) -> i32 {
         20 // After select, primary drawing tool
     }
-    
+
     fn description(&self) -> &'static str {
         "Draw paths and contours"
     }
-    
+
     fn update(&self, commands: &mut Commands) {
         // Ensure pen mode is active
         commands.insert_resource(PenModeActive(true));
         commands.insert_resource(SelectModeActive(false));
     }
-    
+
     fn on_enter(&self) {
         info!("Entered Pen tool");
     }
-    
+
     fn on_exit(&self) {
         info!("Exited Pen tool");
     }
@@ -127,36 +133,55 @@ pub struct PenModeActive(pub bool);
 pub struct PenInputConsumer;
 
 impl crate::systems::input_consumer::InputConsumer for PenInputConsumer {
-    fn should_handle_input(&self, event: &InputEvent, input_state: &InputState) -> bool {
+    fn should_handle_input(
+        &self,
+        event: &InputEvent,
+        input_state: &InputState,
+    ) -> bool {
         // Only handle input if pen mode is active
         if !helpers::is_input_mode(input_state, InputMode::Pen) {
             return false;
         }
-        
+
         // Handle mouse events
-        matches!(event, 
-            InputEvent::MouseClick { .. } | 
-            InputEvent::MouseDrag { .. } | 
-            InputEvent::MouseRelease { .. }
+        matches!(
+            event,
+            InputEvent::MouseClick { .. }
+                | InputEvent::MouseDrag { .. }
+                | InputEvent::MouseRelease { .. }
         )
     }
-    
+
     fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
         match event {
-            InputEvent::MouseClick { button, position, modifiers } => {
+            InputEvent::MouseClick {
+                button,
+                position,
+                modifiers,
+            } => {
                 if *button == MouseButton::Left {
                     debug!("Pen: Processing mouse click at {:?} with modifiers {:?}", position, modifiers);
                     // TODO: Implement pen click handling
                 }
             }
-            InputEvent::MouseDrag { button, start_position, current_position, delta: _, modifiers } => {
+            InputEvent::MouseDrag {
+                button,
+                start_position,
+                current_position,
+                delta: _,
+                modifiers,
+            } => {
                 if *button == MouseButton::Left {
                     debug!("Pen: Processing mouse drag from {:?} to {:?} with modifiers {:?}",
                           start_position, current_position, modifiers);
                     // TODO: Implement pen drag handling
                 }
             }
-            InputEvent::MouseRelease { button, position, modifiers } => {
+            InputEvent::MouseRelease {
+                button,
+                position,
+                modifiers,
+            } => {
                 if *button == MouseButton::Left {
                     info!("Pen: Processing mouse release at {:?} with modifiers {:?}", position, modifiers);
                     // TODO: Implement pen release handling
@@ -266,7 +291,9 @@ fn try_commit_current_path(
         return;
     }
 
-    if let Some(_contour) = create_contour_from_points(&pen_state.points, Vec2::ZERO) {
+    if let Some(_contour) =
+        create_contour_from_points(&pen_state.points, Vec2::ZERO)
+    {
         app_state_changed.write(AppStateChanged);
         info!("Auto-committing path when switching modes");
     }
@@ -359,7 +386,8 @@ fn handle_left_click(
     text_editor_state: Option<&crate::core::state::TextEditorState>,
     cursor_pos: Vec2,
 ) {
-    let final_position = calculate_final_position(cursor_pos, keyboard, pen_state);
+    let final_position =
+        calculate_final_position(cursor_pos, keyboard, pen_state);
 
     if pen_state.state == PenState::Ready {
         start_new_path(pen_state, final_position);
@@ -391,8 +419,8 @@ fn calculate_final_position(
     };
 
     // Apply axis locking if shift is held and we have points
-    let shift_pressed =
-        keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
+    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft)
+        || keyboard.pressed(KeyCode::ShiftRight);
 
     if shift_pressed && !pen_state.points.is_empty() {
         let last_point = pen_state.points.last().unwrap();
@@ -435,13 +463,19 @@ fn close_current_path(
     text_editor_state: Option<&crate::core::state::TextEditorState>,
 ) {
     if !pen_state.points.is_empty() {
-        let active_sort_offset = if let (Some((sort_index, _)), Some(state)) = (active_sort_info, text_editor_state) {
-            state.get_sort_visual_position(sort_index).unwrap_or(Vec2::ZERO)
+        let active_sort_offset = if let (Some((sort_index, _)), Some(state)) =
+            (active_sort_info, text_editor_state)
+        {
+            state
+                .get_sort_visual_position(sort_index)
+                .unwrap_or(Vec2::ZERO)
         } else {
             Vec2::ZERO
         };
 
-        if let Some(contour) = create_contour_from_points(&pen_state.points, active_sort_offset) {
+        if let Some(contour) =
+            create_contour_from_points(&pen_state.points, active_sort_offset)
+        {
             add_contour_to_glyph(
                 contour,
                 glyph_navigation,
@@ -479,13 +513,19 @@ fn handle_right_click(
     if pen_state.state == PenState::Drawing && pen_state.points.len() >= 2 {
         info!("Finishing open path with right click");
 
-        let active_sort_offset = if let (Some((sort_index, _)), Some(state)) = (active_sort_info, text_editor_state) {
-            state.get_sort_visual_position(sort_index).unwrap_or(Vec2::ZERO)
+        let active_sort_offset = if let (Some((sort_index, _)), Some(state)) =
+            (active_sort_info, text_editor_state)
+        {
+            state
+                .get_sort_visual_position(sort_index)
+                .unwrap_or(Vec2::ZERO)
         } else {
             Vec2::ZERO
         };
 
-        if let Some(contour) = create_contour_from_points(&pen_state.points, active_sort_offset) {
+        if let Some(contour) =
+            create_contour_from_points(&pen_state.points, active_sort_offset)
+        {
             add_contour_to_glyph(
                 contour,
                 glyph_navigation,
@@ -510,7 +550,10 @@ fn add_contour_to_glyph(
     active_sort_info: Option<(usize, &crate::core::state::SortEntry)>,
 ) {
     let glyph_name = if let Some((_sort_index, sort_entry)) = active_sort_info {
-        info!("PEN TOOL: Using active sort glyph: {}", sort_entry.kind.glyph_name());
+        info!(
+            "PEN TOOL: Using active sort glyph: {}",
+            sort_entry.kind.glyph_name()
+        );
         sort_entry.kind.glyph_name().to_string()
     } else {
         let Some(glyph_name) = glyph_navigation.current_glyph.clone() else {
@@ -521,34 +564,52 @@ fn add_contour_to_glyph(
         glyph_name
     };
 
-    info!("PEN TOOL: Adding contour with {} points to glyph {}", contour.points.len(), glyph_name);
+    info!(
+        "PEN TOOL: Adding contour with {} points to glyph {}",
+        contour.points.len(),
+        glyph_name
+    );
 
     // For now, we'll create a simplified implementation that works with the current architecture
     // TODO: This needs to be properly implemented when the full glyph editing system is ready
     // The current architecture uses thread-safe data structures and doesn't have direct norad access
-    
+
     // Convert the norad contour to our thread-safe ContourData
-    let contour_data = crate::core::state::font_data::ContourData::from_norad_contour(&contour);
-    
+    let contour_data =
+        crate::core::state::font_data::ContourData::from_norad_contour(
+            &contour,
+        );
+
     // Check if the glyph exists in our thread-safe data
-    if let Some(glyph_data) = app_state.workspace.font.glyphs.get_mut(&glyph_name) {
+    if let Some(glyph_data) =
+        app_state.workspace.font.glyphs.get_mut(&glyph_name)
+    {
         // Get or create the outline data
-        let outline_data = glyph_data.outline.get_or_insert_with(|| crate::core::state::font_data::OutlineData {
-            contours: Vec::new(),
+        let outline_data = glyph_data.outline.get_or_insert_with(|| {
+            crate::core::state::font_data::OutlineData {
+                contours: Vec::new(),
+            }
         });
-        
+
         // Add the new contour
         outline_data.contours.push(contour_data);
-        
+
         let path_type = if is_closed { "closed" } else { "open" };
-        let source = if active_sort_info.is_some() { "active sort" } else { "glyph navigation" };
+        let source = if active_sort_info.is_some() {
+            "active sort"
+        } else {
+            "glyph navigation"
+        };
         info!("PEN TOOL: Successfully added {} contour to glyph {} (from {}). Total contours now: {}", 
                path_type, glyph_name, source, outline_data.contours.len());
-        
+
         // Notify that the app state has changed
         app_state_changed.write(AppStateChanged);
     } else {
-        warn!("PEN TOOL: Could not find glyph '{}' in app state to add contour", glyph_name);
+        warn!(
+            "PEN TOOL: Could not find glyph '{}' in app state to add contour",
+            glyph_name
+        );
     }
 }
 
@@ -638,20 +699,31 @@ fn draw_preview_elements(
     keyboard: &Res<ButtonInput<KeyCode>>,
 ) {
     // Draw cursor indicator
-    gizmos.circle_2d(cursor_pos, CURSOR_INDICATOR_SIZE, Color::srgb(0.0, 1.0, 0.0));
+    gizmos.circle_2d(
+        cursor_pos,
+        CURSOR_INDICATOR_SIZE,
+        Color::srgb(0.0, 1.0, 0.0),
+    );
 
     if let Some(&last_point) = pen_state.points.last() {
         // Calculate the final position for the preview, same logic as for placing points
-        let final_pos = calculate_final_position(cursor_pos, keyboard, pen_state);
+        let final_pos =
+            calculate_final_position(cursor_pos, keyboard, pen_state);
 
         // Draw line from last point to cursor's final position
         gizmos.line_2d(last_point, final_pos, Color::srgb(0.0, 1.0, 0.0));
 
         // Draw a circle at the final position
-        gizmos.circle_2d(final_pos, POINT_PREVIEW_SIZE, Color::srgb(0.0, 1.0, 0.0));
+        gizmos.circle_2d(
+            final_pos,
+            POINT_PREVIEW_SIZE,
+            Color::srgb(0.0, 1.0, 0.0),
+        );
 
         // If close to the start point, draw a circle to indicate path closing
-        draw_close_indicator_if_needed(gizmos, pen_state, cursor_pos, last_point);
+        draw_close_indicator_if_needed(
+            gizmos, pen_state, cursor_pos, last_point,
+        );
     }
 }
 
@@ -689,25 +761,35 @@ fn axis_lock_position(pos: Vec2, relative_to: Vec2) -> Vec2 {
 }
 
 /// Create a UFO contour from a list of points
-fn create_contour_from_points(points: &[Vec2], active_sort_offset: Vec2) -> Option<Contour> {
+fn create_contour_from_points(
+    points: &[Vec2],
+    active_sort_offset: Vec2,
+) -> Option<Contour> {
     if points.len() < 2 {
         return None;
     }
 
-    info!("PEN TOOL: Creating contour with active_sort_offset: ({:.1}, {:.1})", active_sort_offset.x, active_sort_offset.y);
+    info!(
+        "PEN TOOL: Creating contour with active_sort_offset: ({:.1}, {:.1})",
+        active_sort_offset.x, active_sort_offset.y
+    );
 
     let mut contour_points = Vec::new();
 
     for point in points {
         // Convert from world coordinates to glyph-local coordinates
         let glyph_local_point = *point - active_sort_offset;
-        
-        info!("  - Converting point: world({:.1}, {:.1}) -> local({:.1}, {:.1})", point.x, point.y, glyph_local_point.x, glyph_local_point.y);
+
+        info!(
+            "  - Converting point: world({:.1}, {:.1}) -> local({:.1}, {:.1})",
+            point.x, point.y, glyph_local_point.x, glyph_local_point.y
+        );
 
         contour_points.push(ContourPoint::new(
-            glyph_local_point.x as f64, 
-            glyph_local_point.y as f64, 
-            crate::core::state::font_data::PointTypeData::Line.to_norad_point_type(), // Convert our internal type to norad for I/O
+            glyph_local_point.x as f64,
+            glyph_local_point.y as f64,
+            crate::core::state::font_data::PointTypeData::Line
+                .to_norad_point_type(), // Convert our internal type to norad for I/O
             false, // not smooth
             None,  // no name
             None,  // no identifier
@@ -722,4 +804,4 @@ fn apply_snap_to_grid(pos: Vec2) -> Vec2 {
     // For now, a simple 10-unit grid. This should be driven by settings.
     let grid_size = 10.0;
     (pos / grid_size).round() * grid_size
-} 
+}

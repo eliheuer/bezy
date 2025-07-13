@@ -2,7 +2,7 @@
 //!
 //! This module defines thread-safe data structures optimized for our font editor.
 //! We use norad only for loading/saving UFO files, not as runtime storage.
-//! 
+//!
 //! The main AppState resource contains all font data in a format optimized for
 //! real-time editing operations. Changes are batched and synchronized with the
 //! UFO format only when saving.
@@ -19,4 +19,4 @@ pub use app_state::*;
 pub use font_data::*;
 pub use font_metrics::*;
 pub use navigation::*;
-pub use text_editor::*; 
+pub use text_editor::*;

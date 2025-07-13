@@ -59,7 +59,11 @@ pub struct PointId {
 
 impl PointId {
     #[allow(dead_code)]
-    pub fn new(glyph_name: String, contour_index: ContourIndex, point_index: PointIndex) -> Self {
+    pub fn new(
+        glyph_name: String,
+        contour_index: ContourIndex,
+        point_index: PointIndex,
+    ) -> Self {
         Self {
             glyph_name,
             contour_index,
@@ -84,4 +88,4 @@ impl GeometryConstants {
 
     #[allow(dead_code)]
     pub const LARGE_NUDGE_INCREMENT: f32 = 10.0;
-} 
+}

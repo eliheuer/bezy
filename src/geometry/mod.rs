@@ -9,4 +9,4 @@ pub mod point_list;
 pub mod quadrant;
 
 // Re-export commonly used items
-pub use design_space::{DPoint, DVec2}; 
+pub use design_space::{DPoint, DVec2};

@@ -1,5 +1,5 @@
 //! Performance monitoring and profiling tools
-//! 
+//!
 //! This module provides tools to measure and track performance improvements
 //! during the refactoring process.
 
@@ -42,65 +42,78 @@ impl PerformanceMetrics {
             ..Default::default()
         }
     }
-    
+
     /// Record a system execution time
     #[allow(dead_code)]
-    pub fn record_system_time(&mut self, system_name: String, duration: Duration) {
-        let times = self.system_times.entry(system_name).or_insert_with(Vec::new);
+    pub fn record_system_time(
+        &mut self,
+        system_name: String,
+        duration: Duration,
+    ) {
+        let times = self
+            .system_times
+            .entry(system_name)
+            .or_insert_with(Vec::new);
         times.push(duration);
-        
+
         // Keep only the last N samples
         if times.len() > self.max_samples {
             times.remove(0);
         }
     }
-    
+
     /// Record a frame time
     pub fn record_frame_time(&mut self, duration: Duration) {
         self.frame_times.push(duration);
-        
+
         // Keep only the last N samples
         if self.frame_times.len() > self.max_samples {
             self.frame_times.remove(0);
         }
     }
-    
+
     /// Get average system execution time
     #[allow(dead_code)]
-    pub fn get_average_system_time(&self, system_name: &str) -> Option<Duration> {
+    pub fn get_average_system_time(
+        &self,
+        system_name: &str,
+    ) -> Option<Duration> {
         let times = self.system_times.get(system_name)?;
         if times.is_empty() {
             return None;
         }
-        
+
         let total: Duration = times.iter().sum();
         Some(total / times.len() as u32)
     }
-    
+
     /// Get average frame time
     pub fn get_average_frame_time(&self) -> Option<Duration> {
         if self.frame_times.is_empty() {
             return None;
         }
-        
+
         let total: Duration = self.frame_times.iter().sum();
         Some(total / self.frame_times.len() as u32)
     }
-    
+
     /// Get performance summary
     pub fn get_summary(&self) -> PerformanceSummary {
         let avg_frame_time = self.get_average_frame_time();
         let fps = avg_frame_time.map(|t| 1.0 / t.as_secs_f64());
-        
-        let slowest_systems: Vec<_> = self.system_times
+
+        let slowest_systems: Vec<_> = self
+            .system_times
             .iter()
             .filter_map(|(name, times)| {
-                if times.is_empty() { return None; }
+                if times.is_empty() {
+                    return None;
+                }
                 let avg = times.iter().sum::<Duration>() / times.len() as u32;
                 Some((name.clone(), avg))
             })
             .collect();
-        
+
         PerformanceSummary {
             average_fps: fps,
             average_frame_time: avg_frame_time,
@@ -137,12 +150,12 @@ pub fn track_frame_times(
     _time: Res<Time>,
 ) {
     let now = Instant::now();
-    
+
     if let Some(last_start) = metrics.last_frame_start {
         let frame_time = now.duration_since(last_start);
         metrics.record_frame_time(frame_time);
     }
-    
+
     metrics.last_frame_start = Some(now);
 }
 
@@ -153,27 +166,35 @@ pub fn log_performance_metrics(
     time: Res<Time>,
 ) {
     // Initialize timer on first run
-    let timer = timer.get_or_insert_with(|| Timer::from_seconds(5.0, TimerMode::Repeating));
-    
+    let timer = timer
+        .get_or_insert_with(|| Timer::from_seconds(5.0, TimerMode::Repeating));
+
     timer.tick(time.delta());
-    
+
     if timer.just_finished() {
         let summary = metrics.get_summary();
-        
+
         if let Some(fps) = summary.average_fps {
             info!("Performance: {:.1} FPS", fps);
         }
-        
+
         if let Some(frame_time) = summary.average_frame_time {
-            info!("Average frame time: {:.2}ms", frame_time.as_secs_f64() * 1000.0);
+            info!(
+                "Average frame time: {:.2}ms",
+                frame_time.as_secs_f64() * 1000.0
+            );
         }
-        
+
         // Log slowest systems
         let mut systems = summary.slowest_systems;
         systems.sort_by(|a, b| b.1.cmp(&a.1));
-        
+
         for (system_name, duration) in systems.iter().take(5) {
-            info!("System '{}': {:.2}ms", system_name, duration.as_secs_f64() * 1000.0);
+            info!(
+                "System '{}': {:.2}ms",
+                system_name,
+                duration.as_secs_f64() * 1000.0
+            );
         }
     }
 }
@@ -187,9 +208,6 @@ pub struct PerformancePlugin;
 impl Plugin for PerformancePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PerformanceMetrics>()
-            .add_systems(Update, (
-                track_frame_times,
-                log_performance_metrics,
-            ));
+            .add_systems(Update, (track_frame_times, log_performance_metrics));
     }
-} 
+}

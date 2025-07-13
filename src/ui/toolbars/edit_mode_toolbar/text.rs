@@ -7,21 +7,21 @@
 //! - Freeform mode: Sorts are positioned freely in the design space
 //! - Vim mode: Sorts are edited with vim-like keybindings
 
-use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
+use crate::core::settings::BezySettings;
+use crate::core::state::{
+    AppState, GlyphNavigation, SortLayoutMode, TextEditorState, TextModeConfig,
+};
 use bevy::input::ButtonState;
 use bevy::log::info;
+use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use std::sync::atomic::{AtomicU64, Ordering};
-use crate::core::state::{
-    AppState, GlyphNavigation, TextEditorState, TextModeConfig, SortLayoutMode
-};
-use crate::core::settings::BezySettings;
 
 use crate::rendering::cameras::DesignCamera;
-use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
-use crate::ui::theme::*;
 use crate::rendering::checkerboard::calculate_dynamic_grid_size;
 use crate::ui::theme::SORT_ACTIVE_METRICS_COLOR;
+use crate::ui::theme::*;
+use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
 
 // --------- Resources, Structs, Enums -----------
 
@@ -65,7 +65,7 @@ impl TextPlacementMode {
     pub fn display_name(&self) -> &'static str {
         match self {
             TextPlacementMode::Text => "Text",
-            TextPlacementMode::Insert => "Insert", 
+            TextPlacementMode::Insert => "Insert",
             TextPlacementMode::Freeform => "Freeform",
         }
     }
@@ -99,31 +99,31 @@ impl EditTool for TextTool {
     fn id(&self) -> crate::ui::toolbars::edit_mode_toolbar::ToolId {
         "text"
     }
-    
+
     fn name(&self) -> &'static str {
         "Text"
     }
-    
+
     fn icon(&self) -> &'static str {
         "\u{E017}"
     }
-    
+
     fn shortcut_key(&self) -> Option<char> {
         Some('t')
     }
-    
+
     fn default_order(&self) -> i32 {
         40 // After drawing tools, around position 5
     }
-    
+
     fn description(&self) -> &'static str {
         "Place text and create sorts in text mode or freeform mode"
     }
-    
+
     fn update(&self, _commands: &mut Commands) {
         // Text tool behavior is handled by dedicated systems
     }
-    
+
     fn on_enter(&self) {
         info!("Entered Text tool - Enhanced features:");
         info!("• Click to place sorts, type letters to add glyphs");
@@ -131,7 +131,7 @@ impl EditTool for TextTool {
         info!("• 1-9 keys to switch glyphs, F1 for help");
         info!("• Arrow keys for navigation, Ctrl+S to show text mode");
     }
-    
+
     fn on_exit(&self) {
         info!("Exited Text tool");
     }
@@ -159,7 +159,8 @@ impl Plugin for TextModePlugin {
                     reset_text_mode_when_inactive,
                     handle_text_mode_selection,
                     toggle_text_submenu_visibility,
-                ).chain(),
+                )
+                    .chain(),
             );
     }
 }
@@ -169,14 +170,12 @@ pub struct TextToolPlugin;
 impl Plugin for TextToolPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, register_text_tool)
-           .add_systems(PostStartup, spawn_text_submenu)
-           .add_plugins(TextModePlugin);
+            .add_systems(PostStartup, spawn_text_submenu)
+            .add_plugins(TextModePlugin);
     }
 }
 
-fn register_text_tool(
-    mut tool_registry: ResMut<ToolRegistry>
-) {
+fn register_text_tool(mut tool_registry: ResMut<ToolRegistry>) {
     tool_registry.register_tool(Box::new(TextTool));
 }
 
@@ -194,34 +193,35 @@ fn spawn_text_mode_button(
             ..default()
         })
         .with_children(|button_container| {
-            button_container.spawn((
-                Button,
-                Node {
-                    width: Val::Px(64.0),
-                    height: Val::Px(64.0),
-                    padding: UiRect::all(Val::ZERO),
-                    border: UiRect::all(Val::Px(TOOLBAR_BORDER_WIDTH)),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                BorderRadius::all(Val::Px(TOOLBAR_BORDER_RADIUS)),
-                            BorderColor(NORMAL_BUTTON_OUTLINE_COLOR),
-            BackgroundColor(NORMAL_BUTTON_COLOR),
-                TextSubMenuButton,
-                TextModeButton { mode },
-            ))
-            .with_children(|button| {
-                button.spawn((
-                    Text::new(mode.get_icon().to_string()),
-                    TextFont {
-                        font: asset_server.load(GROTESK_FONT_PATH),
-                        font_size: 48.0,
+            button_container
+                .spawn((
+                    Button,
+                    Node {
+                        width: Val::Px(64.0),
+                        height: Val::Px(64.0),
+                        padding: UiRect::all(Val::ZERO),
+                        border: UiRect::all(Val::Px(TOOLBAR_BORDER_WIDTH)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
                         ..default()
                     },
-                    TextColor(TOOLBAR_ICON_COLOR),
-                ));
-            });
+                    BorderRadius::all(Val::Px(TOOLBAR_BORDER_RADIUS)),
+                    BorderColor(NORMAL_BUTTON_OUTLINE_COLOR),
+                    BackgroundColor(NORMAL_BUTTON_COLOR),
+                    TextSubMenuButton,
+                    TextModeButton { mode },
+                ))
+                .with_children(|button| {
+                    button.spawn((
+                        Text::new(mode.get_icon().to_string()),
+                        TextFont {
+                            font: asset_server.load(GROTESK_FONT_PATH),
+                            font_size: 48.0,
+                            ..default()
+                        },
+                        TextColor(TOOLBAR_ICON_COLOR),
+                    ));
+                });
         });
 }
 
@@ -273,13 +273,14 @@ pub fn handle_text_mode_selection(
     mut current_mode: ResMut<CurrentTextPlacementMode>,
     mut text_mode_config: ResMut<TextModeConfig>,
 ) {
-    for (interaction, mut color, mut border_color, mode_button) in 
-        &mut interaction_query {
+    for (interaction, mut color, mut border_color, mode_button) in
+        &mut interaction_query
+    {
         let is_current_mode = current_mode.0 == mode_button.mode;
 
         if *interaction == Interaction::Pressed && !is_current_mode {
             current_mode.0 = mode_button.mode;
-            text_mode_config.default_placement_mode = 
+            text_mode_config.default_placement_mode =
                 mode_button.mode.to_sort_layout_mode();
             info!("Switched to text placement mode: {:?}", mode_button.mode);
         }
@@ -346,7 +347,8 @@ pub fn handle_text_mode_cursor(
     let cursor_moved = !cursor_moved_events.is_empty();
     cursor_moved_events.clear();
     let raw_cursor_world_pos = pointer_info.design.to_raw();
-    let position_changed = text_mode_state.cursor_position != Some(raw_cursor_world_pos);
+    let position_changed =
+        text_mode_state.cursor_position != Some(raw_cursor_world_pos);
     text_mode_state.cursor_position = Some(raw_cursor_world_pos);
     text_mode_state.showing_preview = true;
     if cursor_moved || position_changed {
@@ -374,18 +376,22 @@ pub fn handle_text_mode_sort_placement(
     if ui_hover_state.is_hovering_ui {
         return;
     }
-    
+
     // Get camera zoom for grid snapping
-    let zoom_scale = camera_query.single_mut().map(|mut p| {
-        if let Projection::Orthographic(ortho) = p.as_mut() {
-            ortho.scale
-        } else {
-            1.0
-        }
-    }).unwrap_or(1.0);
+    let zoom_scale = camera_query
+        .single_mut()
+        .map(|mut p| {
+            if let Projection::Orthographic(ortho) = p.as_mut() {
+                ortho.scale
+            } else {
+                1.0
+            }
+        })
+        .unwrap_or(1.0);
     let grid_size = calculate_dynamic_grid_size(zoom_scale);
     let raw_cursor_world_pos = pointer_info.design.to_raw();
-    let snapped_position = (raw_cursor_world_pos / grid_size).round() * grid_size;
+    let snapped_position =
+        (raw_cursor_world_pos / grid_size).round() * grid_size;
 
     // Determine which glyph to place
     let glyph_name = match &glyph_navigation.current_glyph {
@@ -393,8 +399,8 @@ pub fn handle_text_mode_sort_placement(
         None => {
             if app_state.workspace.font.glyphs.contains_key("a") {
                 "a".to_string()
-            } else if let Some(first_glyph) = 
-                app_state.workspace.font.glyphs.keys().next() 
+            } else if let Some(first_glyph) =
+                app_state.workspace.font.glyphs.keys().next()
             {
                 first_glyph.clone()
             } else {
@@ -405,8 +411,8 @@ pub fn handle_text_mode_sort_placement(
     };
 
     // Get glyph advance width
-    let advance_width = if let Some(glyph_data) = 
-        app_state.workspace.font.glyphs.get(&glyph_name) 
+    let advance_width = if let Some(glyph_data) =
+        app_state.workspace.font.glyphs.get(&glyph_name)
     {
         glyph_data.advance_width as f32
     } else {
@@ -449,9 +455,7 @@ pub fn handle_text_mode_sort_placement(
             );
             info!(
                 "Placed sort '{}' in freeform mode at position ({:.1}, {:.1})",
-                glyph_name, 
-                sort_position.x, 
-                sort_position.y
+                glyph_name, sort_position.x, sort_position.y
             );
         }
     }
@@ -480,33 +484,54 @@ pub fn render_sort_preview(
         return;
     }
 
-    let zoom_scale = camera_query.single().map(|p| {
-        if let Projection::Orthographic(ortho) = p {
-            ortho.scale
-        } else {
-            1.0
-        }
-    }).unwrap_or(1.0);
+    let zoom_scale = camera_query
+        .single()
+        .map(|p| {
+            if let Projection::Orthographic(ortho) = p {
+                ortho.scale
+            } else {
+                1.0
+            }
+        })
+        .unwrap_or(1.0);
     let grid_size = calculate_dynamic_grid_size(zoom_scale);
-    let snapped_position = (pointer_info.design.to_raw() / grid_size).round() * grid_size;
-    debug!("[PREVIEW] Placement mode: {:?}, snapped_position: ({:.1}, {:.1})", current_placement_mode.0, snapped_position.x, snapped_position.y);
-    
+    let snapped_position =
+        (pointer_info.design.to_raw() / grid_size).round() * grid_size;
+    debug!(
+        "[PREVIEW] Placement mode: {:?}, snapped_position: ({:.1}, {:.1})",
+        current_placement_mode.0, snapped_position.x, snapped_position.y
+    );
+
     let preview_color = Color::srgb(1.0, 0.5, 0.0).with_alpha(0.8);
 
     if let Some(glyph_name) = &glyph_navigation.current_glyph {
         debug!("[PREVIEW] current_glyph: {}", glyph_name);
-        if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
-            debug!("[PREVIEW] Drawing preview for glyph '{}' at ({:.1}, {:.1})", glyph_name, snapped_position.x, snapped_position.y);
+        if let Some(glyph_data) =
+            app_state.workspace.font.glyphs.get(glyph_name)
+        {
+            debug!(
+                "[PREVIEW] Drawing preview for glyph '{}' at ({:.1}, {:.1})",
+                glyph_name, snapped_position.x, snapped_position.y
+            );
             // Draw glyph outline
             crate::rendering::glyph_outline::draw_glyph_outline_at_position(
-                &mut gizmos, &glyph_data.outline, snapped_position
+                &mut gizmos,
+                &glyph_data.outline,
+                snapped_position,
             );
             // Draw metrics if available
             crate::rendering::metrics::draw_metrics_at_position(
-                &mut gizmos, glyph_data.advance_width as f32, &app_state.workspace.info.metrics, snapped_position, preview_color
+                &mut gizmos,
+                glyph_data.advance_width as f32,
+                &app_state.workspace.info.metrics,
+                snapped_position,
+                preview_color,
             );
         } else {
-            debug!("[PREVIEW] No glyph_data found for '{}', cannot draw preview", glyph_name);
+            debug!(
+                "[PREVIEW] No glyph_data found for '{}', cannot draw preview",
+                glyph_name
+            );
         }
     } else {
         debug!("[PREVIEW] No current_glyph set, cannot draw preview");
@@ -517,7 +542,9 @@ pub fn render_sort_preview(
 
 pub fn handle_text_tool_shortcuts(
     mut keyboard_input: ResMut<ButtonInput<KeyCode>>,
-    mut current_tool: ResMut<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    mut current_tool: ResMut<
+        crate::ui::toolbars::edit_mode_toolbar::CurrentTool,
+    >,
     mut current_placement_mode: ResMut<CurrentTextPlacementMode>,
     mut text_mode_config: ResMut<TextModeConfig>,
     text_editor_state: Option<Res<TextEditorState>>,
@@ -622,7 +649,10 @@ pub fn handle_text_mode_keyboard(
     text_mode_state: Res<TextModeState>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
     // Add query to check for selected points
-    selected_points: Query<Entity, With<crate::editing::selection::components::Selected>>,
+    selected_points: Query<
+        Entity,
+        With<crate::editing::selection::components::Selected>,
+    >,
 ) {
     if !text_mode_active.0 || current_tool.get_current() != Some("text") {
         return;
@@ -643,7 +673,7 @@ pub fn handle_text_mode_keyboard(
         Some(state) => state,
         None => return,
     };
-    
+
     if current_placement_mode.0 == TextPlacementMode::Text {
         if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
             text_editor_state.move_cursor_left();
@@ -704,10 +734,19 @@ pub fn handle_text_mode_keyboard(
     }
     let mut glyph_switched = false;
     for (i, key) in [
-        KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4,
-        KeyCode::Digit5, KeyCode::Digit6, KeyCode::Digit7, KeyCode::Digit8,
-        KeyCode::Digit9
-    ].iter().enumerate() {
+        KeyCode::Digit1,
+        KeyCode::Digit2,
+        KeyCode::Digit3,
+        KeyCode::Digit4,
+        KeyCode::Digit5,
+        KeyCode::Digit6,
+        KeyCode::Digit7,
+        KeyCode::Digit8,
+        KeyCode::Digit9,
+    ]
+    .iter()
+    .enumerate()
+    {
         if keyboard_input.just_pressed(*key) {
             let glyph_names: Vec<String> =
                 app_state.workspace.font.glyphs.keys().cloned().collect();
@@ -715,7 +754,8 @@ pub fn handle_text_mode_keyboard(
                 glyph_navigation.current_glyph = Some(glyph_name.clone());
                 info!(
                     "Switched to glyph '{}' via number key {}",
-                    glyph_name, i + 1
+                    glyph_name,
+                    i + 1
                 );
                 glyph_switched = true;
                 keyboard_input.clear_just_pressed(*key);
@@ -750,7 +790,7 @@ pub fn handle_text_mode_keyboard(
     } else {
         600.0
     };
-    
+
     let pressed_keys: Vec<KeyCode> =
         keyboard_input.get_just_pressed().cloned().collect();
 
@@ -806,8 +846,9 @@ pub fn handle_text_mode_keyboard(
                 };
                 match current_placement_mode.0 {
                     TextPlacementMode::Text => {
-                        let position =
-                            text_mode_state.cursor_position.unwrap_or(Vec2::ZERO);
+                        let position = text_mode_state
+                            .cursor_position
+                            .unwrap_or(Vec2::ZERO);
                         text_editor_state.create_text_sort_at_position(
                             char_glyph.to_string(),
                             position,
@@ -824,8 +865,9 @@ pub fn handle_text_mode_keyboard(
                         );
                     }
                     TextPlacementMode::Freeform => {
-                        let position =
-                            text_mode_state.cursor_position.unwrap_or(Vec2::ZERO);
+                        let position = text_mode_state
+                            .cursor_position
+                            .unwrap_or(Vec2::ZERO);
                         text_editor_state.add_freeform_sort(
                             char_glyph.to_string(),
                             position,
@@ -843,4 +885,4 @@ pub fn handle_text_mode_keyboard(
             }
         }
     }
-} 
+}

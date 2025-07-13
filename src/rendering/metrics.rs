@@ -3,9 +3,9 @@
 //! This module contains shared functions for rendering font metrics that can be used
 //! by both the main metrics system and individual sorts.
 
-use bevy::prelude::*;
 use crate::core::state::font_metrics::FontMetrics;
 use crate::ui::theme::METRICS_GUIDE_COLOR;
+use bevy::prelude::*;
 
 /// Draw complete font metrics for a glyph at a specific design-space position
 pub fn draw_metrics_at_position(
@@ -66,10 +66,13 @@ pub fn draw_metrics_at_position(
     draw_rect(gizmos, top_left, bottom_right, color.with_alpha(0.7));
 }
 
-
-
 /// Draw a rectangle outline in design space, This is the sort bounding box
-fn draw_rect(gizmos: &mut Gizmos, top_left: Vec2, bottom_right: (f32, f32), color: Color) {
+fn draw_rect(
+    gizmos: &mut Gizmos,
+    top_left: Vec2,
+    bottom_right: (f32, f32),
+    color: Color,
+) {
     let br: Vec2 = bottom_right.into();
     gizmos.line_2d(top_left, Vec2::new(br.x, top_left.y), color);
     gizmos.line_2d(Vec2::new(br.x, top_left.y), br, color);

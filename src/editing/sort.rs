@@ -10,8 +10,8 @@
 //!
 //! Only one sort can be active at a time.
 
-use bevy::prelude::*;
 use crate::core::state::SortLayoutMode;
+use bevy::prelude::*;
 
 /// Represents a sort (glyph instance) in the design space
 #[derive(Component, Debug, Clone)]
@@ -46,18 +46,20 @@ impl SortBounds {
     pub fn new(min: Vec2, max: Vec2) -> Self {
         Self { min, max }
     }
-    
+
     pub fn width(&self) -> f32 {
         self.max.x - self.min.x
     }
-    
+
     pub fn height(&self) -> f32 {
         self.max.y - self.min.y
     }
-    
+
     pub fn contains_point(&self, point: Vec2) -> bool {
-        point.x >= self.min.x && point.x <= self.max.x &&
-        point.y >= self.min.y && point.y <= self.max.y
+        point.x >= self.min.x
+            && point.x <= self.max.x
+            && point.y >= self.min.y
+            && point.y <= self.max.y
     }
 }
 
@@ -78,4 +80,4 @@ pub enum SortEvent {
     DeactivateSort {
         entity: Entity,
     },
-} 
+}

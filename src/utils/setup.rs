@@ -10,4 +10,4 @@ pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
 
     // Camera setup is now handled by CameraPlugin - no need to spawn cameras here
     info!("Basic setup complete - cameras handled by CameraPlugin");
-} 
+}

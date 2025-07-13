@@ -4,6 +4,7 @@
 //! Settings are organized by category and use const values for performance.
 //! For visual/UI settings, see ui/theme.rs
 
+use crate::ui::themes::ThemeVariant;
 use bevy::prelude::*;
 
 // FILE PATHS
@@ -116,7 +117,7 @@ impl Default for CameraSettings {
 // GLOBAL SETTINGS RESOURCE
 
 /// Main settings resource containing all configuration
-/// 
+///
 /// This is a Bevy resource that can be accessed from any system.
 /// Settings are loaded at startup and can be modified at runtime.
 #[derive(Resource, Debug, Clone)]
@@ -127,6 +128,8 @@ pub struct BezySettings {
     pub keyboard: KeyboardSettings,
     #[allow(dead_code)]
     pub camera: CameraSettings,
+    /// Current theme variant
+    pub theme: ThemeVariant,
 }
 
 impl Default for BezySettings {
@@ -136,6 +139,7 @@ impl Default for BezySettings {
             glyph_grid: GlyphGridSettings::default(),
             keyboard: KeyboardSettings::default(),
             camera: CameraSettings::default(),
+            theme: ThemeVariant::default(),
         }
     }
 }
@@ -144,27 +148,32 @@ impl Default for BezySettings {
 
 impl BezySettings {
     /// Apply grid snapping to a position based on current settings
-    /// 
+    ///
     /// This is the standard grid snapping for point editing.
     pub fn apply_grid_snap(&self, position: Vec2) -> Vec2 {
         if self.grid.enabled {
             Vec2::new(
-                (position.x / self.grid.unit_size).round() * self.grid.unit_size,
-                (position.y / self.grid.unit_size).round() * self.grid.unit_size,
+                (position.x / self.grid.unit_size).round()
+                    * self.grid.unit_size,
+                (position.y / self.grid.unit_size).round()
+                    * self.grid.unit_size,
             )
         } else {
             position
         }
     }
-    
+
     /// Apply sort-specific grid snapping to a position
-    /// 
+    ///
     /// Sorts use a coarser grid than regular points for better placement.
     /// This makes it easier to align entire glyphs.
-    #[deprecated(note = "Use checkerboard dynamic grid size for sort snapping instead")] 
+    #[deprecated(
+        note = "Use checkerboard dynamic grid size for sort snapping instead"
+    )]
     pub fn apply_sort_grid_snap(&self, position: Vec2) -> Vec2 {
         if self.grid.enabled {
-            let sort_grid_size = self.grid.unit_size * self.grid.sort_multiplier;
+            let sort_grid_size =
+                self.grid.unit_size * self.grid.sort_multiplier;
             Vec2::new(
                 (position.x / sort_grid_size).round() * sort_grid_size,
                 (position.y / sort_grid_size).round() * sort_grid_size,
@@ -173,13 +182,17 @@ impl BezySettings {
             position
         }
     }
-    
+
     /// Get the nudge amount based on modifier keys
-    /// 
+    ///
     /// Returns the appropriate nudge distance based on which modifier
     /// keys are currently pressed.
     #[allow(dead_code)]
-    pub fn get_nudge_amount(&self, shift_pressed: bool, cmd_pressed: bool) -> f32 {
+    pub fn get_nudge_amount(
+        &self,
+        shift_pressed: bool,
+        cmd_pressed: bool,
+    ) -> f32 {
         if cmd_pressed {
             self.keyboard.nudge_large
         } else if shift_pressed {
@@ -188,11 +201,21 @@ impl BezySettings {
             self.keyboard.nudge_small
         }
     }
-    
+
     /// Clamp zoom scale to allowed range
     #[allow(dead_code)]
     pub fn clamp_zoom_scale(&self, scale: f32) -> f32 {
         scale.clamp(self.camera.min_zoom_scale, self.camera.max_zoom_scale)
+    }
+
+    /// Set the theme variant
+    pub fn set_theme(&mut self, theme: ThemeVariant) {
+        self.theme = theme;
+    }
+
+    /// Get the current theme variant
+    pub fn get_theme(&self) -> ThemeVariant {
+        self.theme.clone()
     }
 }
 
@@ -216,7 +239,7 @@ pub const MIN_ALLOWED_ZOOM_SCALE: f32 = 0.01;
 pub const MAX_ALLOWED_ZOOM_SCALE: f32 = 10.0;
 
 /// Legacy function for backward compatibility
-/// 
+///
 /// New code should use BezySettings::apply_sort_grid_snap instead
 #[deprecated(note = "Use BezySettings::apply_sort_grid_snap instead")]
 #[allow(dead_code)]

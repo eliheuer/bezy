@@ -5,9 +5,9 @@
 //! it switches back to the previous mode. This provides a better UX than
 //! the hybrid approach.
 
-use super::{CurrentTool, ToolRegistry, ToolId};
+use super::{CurrentTool, ToolId, ToolRegistry};
 use crate::ui::toolbars::edit_mode_toolbar::text::{
-    TextPlacementMode, CurrentTextPlacementMode
+    CurrentTextPlacementMode, TextPlacementMode,
 };
 use bevy::prelude::*;
 
@@ -20,8 +20,6 @@ pub struct SpacebarToggleState {
     pub in_temporary_mode: bool,
 }
 
-
-
 /// System to handle spacebar for temporary Pan mode switching
 ///
 /// This provides a clean UX where:
@@ -31,8 +29,8 @@ pub struct SpacebarToggleState {
 /// This works with the new dynamic tool system by switching between
 /// registered tools in the ToolRegistry.
 ///
-/// **Special handling for text tool**: When the text tool is active and 
-/// in insert mode, spacebar is used for typing spaces and temporary 
+/// **Special handling for text tool**: When the text tool is active and
+/// in insert mode, spacebar is used for typing spaces and temporary
 /// mode switching is disabled.
 pub fn handle_spacebar_toggle(
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -42,7 +40,7 @@ pub fn handle_spacebar_toggle(
     current_text_placement_mode: Option<Res<CurrentTextPlacementMode>>,
 ) {
     // Check if text tool is active and in insert mode
-    let is_text_insert_mode = current_tool.get_current() == Some("text") 
+    let is_text_insert_mode = current_tool.get_current() == Some("text")
         && current_text_placement_mode
             .as_ref()
             .map(|mode| mode.0 == TextPlacementMode::Insert)
@@ -76,7 +74,8 @@ fn handle_spacebar_press(
     toggle_state: &mut ResMut<SpacebarToggleState>,
     tool_registry: &Res<ToolRegistry>,
 ) {
-    if !keyboard.just_pressed(KeyCode::Space) || toggle_state.in_temporary_mode {
+    if !keyboard.just_pressed(KeyCode::Space) || toggle_state.in_temporary_mode
+    {
         return;
     }
 
@@ -107,7 +106,9 @@ fn handle_spacebar_release(
     toggle_state: &mut ResMut<SpacebarToggleState>,
     tool_registry: &Res<ToolRegistry>,
 ) {
-    if !keyboard.just_released(KeyCode::Space) || !toggle_state.in_temporary_mode {
+    if !keyboard.just_released(KeyCode::Space)
+        || !toggle_state.in_temporary_mode
+    {
         return;
     }
 
@@ -130,7 +131,8 @@ fn exit_current_tool(
     tool_registry: &Res<ToolRegistry>,
 ) {
     if let Some(current_tool_id) = current_tool.get_current() {
-        if let Some(current_tool_impl) = tool_registry.get_tool(current_tool_id) {
+        if let Some(current_tool_impl) = tool_registry.get_tool(current_tool_id)
+        {
             current_tool_impl.on_exit();
         }
     }
@@ -161,4 +163,4 @@ fn switch_to_previous_tool(
         select_tool.on_enter();
         info!("Switched back to Select tool (no previous tool)");
     }
-} 
+}

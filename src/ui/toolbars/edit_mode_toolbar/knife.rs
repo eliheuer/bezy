@@ -22,35 +22,35 @@ impl EditTool for KnifeTool {
     fn id(&self) -> crate::ui::toolbars::edit_mode_toolbar::ToolId {
         "knife"
     }
-    
+
     fn name(&self) -> &'static str {
         "Knife"
     }
-    
+
     fn icon(&self) -> &'static str {
         "\u{E013}"
     }
-    
+
     fn shortcut_key(&self) -> Option<char> {
         Some('k')
     }
-    
+
     fn default_order(&self) -> i32 {
         110 // Advanced tool, later in toolbar
     }
-    
+
     fn description(&self) -> &'static str {
         "Cut and slice paths"
     }
-    
+
     fn update(&self, commands: &mut Commands) {
         commands.insert_resource(KnifeModeActive(true));
     }
-    
+
     fn on_enter(&self) {
         info!("Entered Knife tool");
     }
-    
+
     fn on_exit(&self) {
         info!("Exited Knife tool");
     }
@@ -85,7 +85,7 @@ impl KnifeToolState {
             intersections: Vec::new(),
         }
     }
-    
+
     /// Get the cutting line with axis locking if shift is pressed
     pub fn get_cutting_line(&self) -> Option<(Vec2, Vec2)> {
         match self.gesture {
@@ -116,17 +116,17 @@ pub struct KnifeToolPlugin;
 impl Plugin for KnifeToolPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<KnifeModeActive>()
-           .init_resource::<KnifeToolState>()
-           .add_systems(Startup, register_knife_tool)
-           .add_systems(
-               Update,
-               (
-                   handle_knife_mouse_events,
-                   render_knife_preview,
-                   handle_knife_keyboard_events,
-                   reset_knife_mode_when_inactive,
-               ),
-           );
+            .init_resource::<KnifeToolState>()
+            .add_systems(Startup, register_knife_tool)
+            .add_systems(
+                Update,
+                (
+                    handle_knife_mouse_events,
+                    render_knife_preview,
+                    handle_knife_keyboard_events,
+                    reset_knife_mode_when_inactive,
+                ),
+            );
     }
 }
 
@@ -153,24 +153,27 @@ pub fn handle_knife_mouse_events(
     } else {
         return;
     }
-    
+
     let Ok(window) = windows.single() else {
         return;
     };
-    
+
     let Ok((camera, camera_transform)) = camera_query.single() else {
         return;
     };
-    
+
     let Some(cursor_position) = window.cursor_position() else {
         return;
     };
-    
+
     // Convert cursor position to world coordinates
-    if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
+    if let Ok(world_position) =
+        camera.viewport_to_world_2d(camera_transform, cursor_position)
+    {
         // Update shift lock state
-        knife_state.shift_locked = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
-        
+        knife_state.shift_locked = keyboard.pressed(KeyCode::ShiftLeft)
+            || keyboard.pressed(KeyCode::ShiftRight);
+
         // Handle mouse button press
         if mouse_button_input.just_pressed(MouseButton::Left) {
             knife_state.gesture = KnifeGestureState::Cutting {
@@ -179,25 +182,25 @@ pub fn handle_knife_mouse_events(
             };
             knife_state.intersections.clear();
         }
-        
+
         // Handle mouse movement during cutting
         if let KnifeGestureState::Cutting { start, .. } = knife_state.gesture {
             knife_state.gesture = KnifeGestureState::Cutting {
                 start,
                 current: world_position,
             };
-            
+
             // Update intersections for preview
             update_intersections(&mut knife_state, &app_state);
         }
-        
+
         // Handle mouse button release
         if mouse_button_input.just_released(MouseButton::Left) {
             if let Some((start, end)) = knife_state.get_cutting_line() {
                 // Perform the cut
                 perform_cut(start, end, &mut app_state, &mut app_state_changed);
             }
-            
+
             // Reset state
             knife_state.gesture = KnifeGestureState::Ready;
             knife_state.intersections.clear();
@@ -219,7 +222,7 @@ pub fn handle_knife_keyboard_events(
     } else {
         return;
     }
-    
+
     // Handle Escape key to cancel current cut
     if keyboard.just_pressed(KeyCode::Escape) {
         knife_state.gesture = KnifeGestureState::Ready;
@@ -255,17 +258,17 @@ pub fn render_knife_preview(
     } else {
         return;
     }
-    
+
     // Draw the cutting line
     if let Some((start, end)) = knife_state.get_cutting_line() {
         let line_color = Color::srgba(1.0, 0.3, 0.3, 0.9);
         draw_dashed_line(&mut gizmos, start, end, 8.0, 4.0, line_color);
-        
+
         // Draw start point
         let start_color = Color::srgba(0.3, 1.0, 0.5, 1.0);
         gizmos.circle_2d(start, 4.0, start_color);
     }
-    
+
     // Draw intersection points
     let intersection_color = Color::srgba(1.0, 1.0, 0.0, 1.0);
     for &intersection in &knife_state.intersections {
@@ -279,7 +282,7 @@ fn update_intersections(
     app_state: &AppState,
 ) {
     knife_state.intersections.clear();
-    
+
     // For now, just return empty intersections
     // TODO: Implement proper path intersection calculation
     // This would require complex geometric calculations to find where
@@ -295,7 +298,7 @@ fn perform_cut(
 ) {
     // For now, just log the cut operation
     info!("Knife cut performed (not yet implemented)");
-    
+
     // TODO: Implement actual path cutting
     // This would involve:
     // 1. Finding all intersection points with glyph contours
@@ -316,16 +319,16 @@ fn draw_dashed_line(
     let direction = (end - start).normalize();
     let total_length = start.distance(end);
     let segment_length = dash_length + gap_length;
-    
+
     let mut current_pos = 0.0;
-    
+
     while current_pos < total_length {
         let dash_start = start + direction * current_pos;
         let dash_end_pos = (current_pos + dash_length).min(total_length);
         let dash_end = start + direction * dash_end_pos;
-        
+
         gizmos.line_2d(dash_start, dash_end, color);
-        
+
         current_pos += segment_length;
     }
-} 
+}

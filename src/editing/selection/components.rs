@@ -151,4 +151,4 @@ impl FromIterator<Entity> for Selection {
     fn from_iter<I: IntoIterator<Item = Entity>>(iter: I) -> Self {
         Self(iter.into_iter().collect())
     }
-} 
+}

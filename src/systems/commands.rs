@@ -205,7 +205,8 @@ fn handle_cycle_codepoint(
         debug!("Received codepoint cycling event: {:?}", event.direction);
 
         // Check if we have any codepoints available
-        let available_codepoints = crate::core::state::get_all_codepoints(&app_state);
+        let available_codepoints =
+            crate::core::state::get_all_codepoints(&app_state);
         if available_codepoints.is_empty() {
             debug!("No codepoints found in font");
             return;
@@ -259,17 +260,17 @@ pub fn handle_codepoint_cycling(
             debug!(
                 "Detected Shift+= key combination, cycling to next codepoint"
             );
-                    cycle_event.write(CycleCodepointEvent {
-            direction: CodepointDirection::Next,
-        });
+            cycle_event.write(CycleCodepointEvent {
+                direction: CodepointDirection::Next,
+            });
         }
 
         // Check for Shift+- (Minus) to move to previous codepoint
         if keyboard.just_pressed(KeyCode::Minus) {
             debug!("Detected Shift+- key combination, cycling to previous codepoint");
-                    cycle_event.write(CycleCodepointEvent {
-            direction: CodepointDirection::Previous,
-        });
+            cycle_event.write(CycleCodepointEvent {
+                direction: CodepointDirection::Previous,
+            });
         }
     }
 }
@@ -341,4 +342,4 @@ pub fn handle_checkerboard_toggle(
         info!("Checkerboard grid {}", status);
         debug!("Detected Command+G / Ctrl+G key combination, toggling checkerboard to: {}", status);
     }
-} 
+}

@@ -21,5 +21,5 @@ pub mod ui_interaction;
 // Re-export commonly used items
 pub use commands::CommandsPlugin;
 pub use input_consumer::InputConsumerPlugin;
-pub use plugins::{BezySystems, configure_default_plugins};
-pub use ui_interaction::UiInteractionPlugin; 
+pub use plugins::{configure_default_plugins, BezySystems};
+pub use ui_interaction::UiInteractionPlugin;

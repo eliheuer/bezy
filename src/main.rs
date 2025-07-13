@@ -2,66 +2,72 @@
 //!
 //! The enjoyment of one's tools is an essential ingredient of successful work.
 //! — Donald Knuth
+//!
+//! # Platform Support
+//!
+//! This application supports both native desktop and WebAssembly targets:
+//! - **Desktop**: Full CLI argument parsing and file system access
+//! - **WASM**: Web-optimized build with default settings
 
-// #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
+use anyhow::Result;
 use bezy::core;
 use clap::Parser;
 use std::process;
-use log::info;
+
+/// Create and run the application with the given CLI arguments.
+fn run_app(cli_args: core::cli::CliArgs) -> Result<()> {
+    let mut app = core::app::create_app(cli_args)
+        .map_err(|e| anyhow::anyhow!("Failed to create application: {}", e))?;
+    app.run();
+    Ok(())
+}
+
+/// Better error reporting for WebAssembly builds.
+fn init_panic_handling() {
+    // Only compile this code when building for WebAssembly.
+    #[cfg(target_arch = "wasm32")]
+    {
+        // Make Rust panics show up in the browser's developer console.
+        console_error_panic_hook::set_once();
+    }
+}
+
+/// Handle application errors with platform-appropriate logging.
+fn handle_error(error: anyhow::Error) {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        eprintln!();
+        eprintln!("Error starting Bezy:");
+        eprintln!("{}", error);
+        eprintln!();
+        eprintln!("Try running with --help for usage information.");
+        eprintln!("Or visit: https://bezy.org");
+        process::exit(1);
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        web_sys::console::error_1(
+            &format!("Error starting Bezy: {}", error).into(),
+        );
+    }
+}
 
 fn main() {
-    // Initialize logging first so we can see error messages
-    #[cfg(target_arch = "wasm32")]
-    {
-        console_error_panic_hook::set_once();
-        tracing_wasm::set_as_global_default();
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        env_logger::init();
-    }
-
-    info!("Bezy starting up...");
-
-    // Parse command line arguments - only on desktop
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let cli_args = core::cli::CliArgs::parse();
-        info!("CLI args parsed successfully");
-
-        // Create and run the application
-        match core::app::create_app(cli_args) {
-            Ok(mut app) => {
-                info!("App created successfully, starting to run...");
-                app.run();
-            }
-            Err(error) => {
-                eprintln!();
-                eprintln!("Error starting Bezy:");
-                eprintln!("{}", error);
-                eprintln!();
-                eprintln!("Try running with --help for usage information.");
-                eprintln!("Or visit: https://bezy.org");
-                process::exit(1);
-            }
+    init_panic_handling();
+    let cli_args = {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            core::cli::CliArgs::parse()
         }
-    }
-
-    // For WASM, use default arguments
-    #[cfg(target_arch = "wasm32")]
-    {
-        let cli_args = core::cli::CliArgs::default_for_web();
-
-        // Create and run the application
-        match core::app::create_app(cli_args) {
-            Ok(mut app) => {
-                app.run();
-            }
-            Err(error) => {
-                web_sys::console::error_1(&format!("Error starting Bezy: {}", error).into());
-            }
+        #[cfg(target_arch = "wasm32")]
+        {
+            core::cli::CliArgs::default_for_web()
         }
+    };
+
+    // Create and run the application
+    match run_app(cli_args) {
+        Ok(()) => {}
+        Err(error) => handle_error(error),
     }
-} 
+}

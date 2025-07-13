@@ -1,15 +1,15 @@
 //! UFO file I/O operations
 
-use anyhow::Result;
-use bevy::prelude::*;
-use norad::Font;
-use std::path::{Path, PathBuf};
-use std::collections::HashMap;
-use crate::data::unicode::sort_and_deduplicate_codepoints;
-use crate::core::state::AppState;
 #[allow(unused_imports)]
 use crate::core::cli::CliArgs;
+use crate::core::state::AppState;
+use crate::data::unicode::sort_and_deduplicate_codepoints;
+use anyhow::Result;
 use bevy::prelude::Res;
+use bevy::prelude::*;
+use norad::Font;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 /// Load a UFO font file from disk
 #[allow(dead_code)]
@@ -22,10 +22,10 @@ pub fn load_ufo_from_path(path: impl AsRef<Path>) -> Result<Font> {
 /// This version matches the old API signature for compatibility
 #[allow(dead_code)]
 pub fn load_ufo_from_path_compat(
-    path: &str
+    path: &str,
 ) -> Result<Font, Box<dyn std::error::Error>> {
     let font_path = PathBuf::from(path);
-    
+
     if !font_path.exists() {
         let error_msg = format!("File not found: {}", font_path.display());
         error!("{}", error_msg);
@@ -72,7 +72,7 @@ fn build_codepoint_glyph_map(font: &Font) -> HashMap<String, String> {
 #[allow(dead_code)]
 pub fn find_glyph_by_unicode(
     font: &Font,
-    codepoint_hex: &str
+    codepoint_hex: &str,
 ) -> Option<String> {
     build_codepoint_glyph_map(font).get(codepoint_hex).cloned()
 }
@@ -102,7 +102,7 @@ pub enum CycleDirection {
 #[allow(dead_code)]
 fn get_direction_default(
     codepoints: &[String],
-    direction: CycleDirection
+    direction: CycleDirection,
 ) -> Option<String> {
     match direction {
         CycleDirection::Next => codepoints.first().cloned(),
@@ -114,7 +114,7 @@ fn get_direction_default(
 #[allow(dead_code)]
 fn find_codepoint_position(
     codepoints: &[String],
-    target: &str
+    target: &str,
 ) -> Option<usize> {
     codepoints.iter().position(|codepoint| codepoint == target)
 }
@@ -136,10 +136,8 @@ pub fn cycle_codepoint_in_list(
     }
 
     // Find where we are in the list
-    let current_position = find_codepoint_position(
-        available_codepoints,
-        current_codepoint
-    );
+    let current_position =
+        find_codepoint_position(available_codepoints, current_codepoint);
 
     let Some(current_position) = current_position else {
         // Current codepoint not found, start from the end based on direction
@@ -171,12 +169,12 @@ pub fn cycle_codepoint_in_list(
 #[allow(dead_code)]
 pub fn find_next_codepoint_in_list(
     available_codepoints: &[String],
-    current_codepoint: &str
+    current_codepoint: &str,
 ) -> Option<String> {
     cycle_codepoint_in_list(
         available_codepoints,
         current_codepoint,
-        CycleDirection::Next
+        CycleDirection::Next,
     )
 }
 
@@ -184,12 +182,12 @@ pub fn find_next_codepoint_in_list(
 #[allow(dead_code)]
 pub fn find_previous_codepoint_in_list(
     available_codepoints: &[String],
-    current_codepoint: &str
+    current_codepoint: &str,
 ) -> Option<String> {
     cycle_codepoint_in_list(
         available_codepoints,
         current_codepoint,
-        CycleDirection::Previous
+        CycleDirection::Previous,
     )
 }
 
@@ -215,7 +213,7 @@ pub fn initialize_font_state(
 #[allow(dead_code)]
 fn load_font_at_startup(commands: &mut Commands, font_path: &PathBuf) {
     let path_string = font_path.to_str().unwrap_or_default();
-    
+
     match load_ufo_from_path_compat(path_string) {
         Ok(_font) => {
             // Successfully loaded font - initialize AppState and let the main app system handle loading
@@ -238,4 +236,4 @@ fn load_font_at_startup(commands: &mut Commands, font_path: &PathBuf) {
             commands.init_resource::<AppState>();
         }
     }
-} 
+}

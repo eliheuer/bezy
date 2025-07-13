@@ -6,9 +6,11 @@
 use bevy::gizmos::{config::DefaultGizmoConfigGroup, config::GizmoConfigStore};
 use bevy::prelude::*;
 
-use crate::ui::theme::{GIZMO_LINE_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
-use crate::utils::setup::setup;
 use crate::editing::sort_plugin::SortPlugin;
+use crate::ui::theme::{
+    GIZMO_LINE_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH,
+};
+use crate::utils::setup::setup;
 
 /// Configure default Bevy plugins for the application
 #[allow(dead_code)]
@@ -43,10 +45,7 @@ pub struct DrawPlugin;
 
 impl Plugin for DrawPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            crate::rendering::draw::draw_origin_cross,
-        );
+        app.add_systems(Update, crate::rendering::draw::draw_origin_cross);
         debug!("DrawPlugin loaded - added draw_origin_cross system");
     }
 }
@@ -66,14 +65,7 @@ pub struct SetupPlugin;
 
 impl Plugin for SetupPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Startup,
-            (
-                setup,
-                configure_gizmos,
-            )
-                .chain(),
-        );
+        app.add_systems(Startup, (setup, configure_gizmos).chain());
     }
 }
 
@@ -91,4 +83,4 @@ impl Plugin for BezySystems {
             // Note: CameraPlugin is now handled by src/rendering/cameras.rs
         ));
     }
-} 
+}

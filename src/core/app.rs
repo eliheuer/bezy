@@ -1,20 +1,22 @@
 //! Application initialization and configuration
 
 use crate::core::cli::CliArgs;
+use crate::core::input::InputPlugin;
+use crate::core::pointer::PointerPlugin;
 use crate::core::settings::BezySettings;
 use crate::core::state::{AppState, GlyphNavigation};
-use crate::core::pointer::PointerPlugin;
-use crate::core::input::InputPlugin;
-use crate::systems::{BezySystems, CommandsPlugin, UiInteractionPlugin, InputConsumerPlugin};
 use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
 use crate::rendering::{
     cameras::CameraPlugin, checkerboard::CheckerboardPlugin,
+};
+use crate::systems::{
+    BezySystems, CommandsPlugin, InputConsumerPlugin, UiInteractionPlugin,
 };
 use crate::ui::hud::HudPlugin;
 use crate::ui::panes::coord_pane::CoordinatePanePlugin;
 use crate::ui::panes::design_space::DesignSpacePlugin;
 use crate::ui::panes::glyph_pane::GlyphPanePlugin;
-use crate::ui::theme::BACKGROUND_COLOR;
+use crate::ui::theme::CurrentTheme;
 use crate::ui::toolbars::EditModeToolbarPlugin;
 use crate::ui::GlyphGridPlugin;
 use bevy::prelude::*;
@@ -24,7 +26,7 @@ use bevy::winit::WinitSettings;
 pub fn create_app(cli_args: CliArgs) -> Result<App, String> {
     #[cfg(not(target_arch = "wasm32"))]
     cli_args.validate()?;
-    
+
     let mut app = App::new();
     configure_app_settings(&mut app, cli_args);
     add_all_plugins(&mut app);
@@ -34,20 +36,29 @@ pub fn create_app(cli_args: CliArgs) -> Result<App, String> {
 /// Sets up application resources and configuration
 fn configure_app_settings(app: &mut App, cli_args: CliArgs) {
     let glyph_navigation = GlyphNavigation::default();
-    let settings = BezySettings::default();
-    
+    let mut settings = BezySettings::default();
+
+    // Set theme from CLI args (CLI overrides settings)
+    let theme_variant = cli_args.get_theme_variant();
+    settings.set_theme(theme_variant.clone());
+
+    // Initialize current theme
+    let current_theme = CurrentTheme::new(theme_variant);
+    let background_color = current_theme.theme().background_color();
+
     app.init_resource::<AppState>()
         .insert_resource(cli_args)
         .insert_resource(glyph_navigation)
         .insert_resource(settings)
-        .insert_resource(ClearColor(BACKGROUND_COLOR));
-    
+        .insert_resource(current_theme)
+        .insert_resource(ClearColor(background_color));
+
     // Configure window settings based on target platform
     #[cfg(not(target_arch = "wasm32"))]
     {
         app.insert_resource(WinitSettings::desktop_app());
     }
-    
+
     #[cfg(target_arch = "wasm32")]
     {
         app.insert_resource(WinitSettings::game());
@@ -68,7 +79,7 @@ fn add_all_plugins(app: &mut App) {
             ..default()
         }));
     }
-    
+
     #[cfg(target_arch = "wasm32")]
     {
         app.add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -90,7 +101,7 @@ fn add_all_plugins(app: &mut App) {
             ..default()
         }));
     }
-    
+
     add_rendering_plugins(app);
     add_editor_plugins(app);
     add_core_plugins(app);

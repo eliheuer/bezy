@@ -1,11 +1,11 @@
 //! Shared sort rendering for both text buffer and freeform/entity sorts
 
-use bevy::prelude::*;
+use crate::core::state::font_data::OutlineData;
 use crate::core::state::font_metrics::FontMetrics;
 use crate::rendering::glyph_outline::draw_glyph_outline_at_position;
 use crate::rendering::metrics::draw_metrics_at_position;
+use bevy::prelude::*;
 use kurbo::BezPath;
-use crate::core::state::font_data::OutlineData;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SortRenderStyle {
@@ -26,15 +26,21 @@ pub fn render_sort_visuals(
     // Draw outline
     draw_glyph_outline_at_position(gizmos, outline, position);
     // Draw metrics
-    draw_metrics_at_position(gizmos, advance_width, metrics, position, metrics_color);
-    
+    draw_metrics_at_position(
+        gizmos,
+        advance_width,
+        metrics,
+        position,
+        metrics_color,
+    );
+
     // Draw handle at descender position (matching click detection logic)
     let descender = metrics.descender.unwrap_or(-200.0) as f32;
     let handle_position = position + Vec2::new(0.0, descender);
-    
+
     // Normal handle: smaller and uses metrics color
     let normal_size = 16.0;
-    
+
     match style {
         SortRenderStyle::TextBuffer => {
             // Square handle for text sorts
@@ -56,7 +62,7 @@ mod tests {
     fn test_sort_render_style_distinction() {
         // Test that TextBuffer and Freeform styles are distinct
         assert_ne!(SortRenderStyle::TextBuffer, SortRenderStyle::Freeform);
-        
+
         // Test that each style is equal to itself
         assert_eq!(SortRenderStyle::TextBuffer, SortRenderStyle::TextBuffer);
         assert_eq!(SortRenderStyle::Freeform, SortRenderStyle::Freeform);
@@ -68,4 +74,4 @@ mod tests {
         assert_eq!(format!("{:?}", SortRenderStyle::TextBuffer), "TextBuffer");
         assert_eq!(format!("{:?}", SortRenderStyle::Freeform), "Freeform");
     }
-} 
+}

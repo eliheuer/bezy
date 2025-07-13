@@ -3,20 +3,20 @@
 //! Bevy plugin that registers all sort-related systems, resources, and events.
 
 use crate::core::state::{AppState, GlyphNavigation};
-use crate::rendering::cameras::DesignCamera;
 use crate::editing::selection::components::{
     GlyphPointReference, PointType, Selectable, Selected, SelectionState,
 };
 use crate::editing::selection::nudge::PointCoordinates;
-use crate::editing::sort::{ActiveSort, ActiveSortState, InactiveSort, Sort, SortEvent};
-use crate::systems::sort_manager::{
-    handle_sort_events, 
-    respawn_sort_points_on_glyph_change,
-    spawn_initial_sort,
+use crate::editing::sort::{
+    ActiveSort, ActiveSortState, InactiveSort, Sort, SortEvent,
 };
+use crate::rendering::cameras::DesignCamera;
 use crate::rendering::sort_renderer::{
-    render_sorts_system, manage_sort_labels, update_sort_label_positions,
-    update_sort_label_colors,
+    manage_sort_labels, render_sorts_system, update_sort_label_colors,
+    update_sort_label_positions,
+};
+use crate::systems::sort_manager::{
+    handle_sort_events, respawn_sort_points_on_glyph_change, spawn_initial_sort,
 };
 // use crate::systems::sort_interaction::handle_sort_clicks; // DISABLED: Old input system conflicts with selection
 use bevy::prelude::*;
@@ -74,11 +74,11 @@ impl Plugin for SortPlugin {
                 Update,
                 (
                     render_sorts_system, // Re-enabled for freeform sorts (glyph grid)
-                    // manage_sort_unicode_text, // DISABLED: Old system
-                    // update_sort_unicode_text_positions, // DISABLED: Old system
-                    // update_sort_unicode_text_colors, // DISABLED: Old system
+                                         // manage_sort_unicode_text, // DISABLED: Old system
+                                         // update_sort_unicode_text_positions, // DISABLED: Old system
+                                         // update_sort_unicode_text_colors, // DISABLED: Old system
                 )
                     .in_set(SortSystemSet::Rendering),
             );
     }
-} 
+}

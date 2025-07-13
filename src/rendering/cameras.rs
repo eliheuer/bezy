@@ -1,14 +1,14 @@
 //! Camera system for the Bezy font editor
 
+use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::prelude::*;
-use bevy::input::mouse::{MouseWheel, MouseScrollUnit};
 use bevy_pancam::{PanCam, PanCamPlugin};
 
 // Constants
-const MIN_ALLOWED_ZOOM_SCALE: f32 = 0.1;   // Don't zoom in beyond 8-unit grid usefulness
-const MAX_ALLOWED_ZOOM_SCALE: f32 = 64.0;  // Stop before 256-unit grid becomes too large  
-const INITIAL_ZOOM_SCALE: f32 = 1.0;       // Start at 32-unit grid level
-const KEYBOARD_ZOOM_STEP: f32 = 0.9;       // Smaller number = faster zoom (0.9 = 10% change per step)
+const MIN_ALLOWED_ZOOM_SCALE: f32 = 0.1; // Don't zoom in beyond 8-unit grid usefulness
+const MAX_ALLOWED_ZOOM_SCALE: f32 = 64.0; // Stop before 256-unit grid becomes too large
+const INITIAL_ZOOM_SCALE: f32 = 1.0; // Start at 32-unit grid level
+const KEYBOARD_ZOOM_STEP: f32 = 0.9; // Smaller number = faster zoom (0.9 = 10% change per step)
 
 // Component to mark the main design camera
 #[derive(Component)]
@@ -29,9 +29,12 @@ pub fn setup_camera(mut commands: Commands) {
     // Center the camera at (0,0) in design space for simplicity
     // This makes the design space origin appear at the center of the screen
     let camera_center_y = 0.0; // Center on design space origin
-    
-    info!("Setting up camera at y={} to center on design space origin", camera_center_y);
-    
+
+    info!(
+        "Setting up camera at y={} to center on design space origin",
+        camera_center_y
+    );
+
     commands.spawn((
         Camera2d,
         Camera {
@@ -39,7 +42,8 @@ pub fn setup_camera(mut commands: Commands) {
             ..default()
         },
         // Position camera to center on glyph area instead of design space origin
-        Transform::from_xyz(0.0, camera_center_y, 1000.0).with_scale(Vec3::splat(INITIAL_ZOOM_SCALE)),
+        Transform::from_xyz(0.0, camera_center_y, 1000.0)
+            .with_scale(Vec3::splat(INITIAL_ZOOM_SCALE)),
         PanCam {
             grab_buttons: vec![MouseButton::Left, MouseButton::Middle],
             enabled: true,
@@ -57,15 +61,13 @@ fn zoom_camera(
     mut scroll_events: EventReader<MouseWheel>,
     _cameras: Query<&mut Transform, With<DesignCamera>>,
 ) {
-    let scroll = scroll_events
-        .read()
-        .fold(0.0, |scroll, event| {
-            scroll
-                + match event.unit {
-                    MouseScrollUnit::Line => event.y,
-                    MouseScrollUnit::Pixel => event.y / 20.0,
-                }
-        });
+    let scroll = scroll_events.read().fold(0.0, |scroll, event| {
+        scroll
+            + match event.unit {
+                MouseScrollUnit::Line => event.y,
+                MouseScrollUnit::Pixel => event.y / 20.0,
+            }
+    });
 
     if scroll == 0.0 {
         return;
@@ -108,11 +110,13 @@ fn toggle_camera_controls(
         let current_scale = transform.scale.x;
         if keys.just_pressed(KeyCode::Equal) {
             // Zoom in
-            let new_scale = (current_scale * KEYBOARD_ZOOM_STEP).max(MIN_ALLOWED_ZOOM_SCALE);
+            let new_scale = (current_scale * KEYBOARD_ZOOM_STEP)
+                .max(MIN_ALLOWED_ZOOM_SCALE);
             transform.scale = Vec3::splat(new_scale);
         } else if keys.just_pressed(KeyCode::Minus) {
             // Zoom out
-            let new_scale = (current_scale / KEYBOARD_ZOOM_STEP).min(MAX_ALLOWED_ZOOM_SCALE);
+            let new_scale = (current_scale / KEYBOARD_ZOOM_STEP)
+                .min(MAX_ALLOWED_ZOOM_SCALE);
             transform.scale = Vec3::splat(new_scale);
         }
     }
@@ -121,9 +125,9 @@ fn toggle_camera_controls(
 #[cfg(test)]
 mod camera_and_pointer_tests {
     use super::*;
-    use bevy::prelude::*;
-    use crate::geometry::design_space::DPoint;
     use crate::editing::selection::coordinate_system::SelectionCoordinateSystem;
+    use crate::geometry::design_space::DPoint;
+    use bevy::prelude::*;
 
     /// Simulate a camera at a given position and scale, and a point at a given design space position.
     /// Returns true if a marquee at the visible area would select the point.
@@ -141,11 +145,16 @@ mod camera_and_pointer_tests {
 
         // Place marquee at the center of the visible area
         let marquee_center = camera_center;
-        let marquee_start = DPoint::from_raw(marquee_center - marquee_size / 2.0);
+        let marquee_start =
+            DPoint::from_raw(marquee_center - marquee_size / 2.0);
         let marquee_end = DPoint::from_raw(marquee_center + marquee_size / 2.0);
 
         // Is the point inside the marquee?
-        SelectionCoordinateSystem::is_point_in_rectangle(&point_pos, &marquee_start, &marquee_end)
+        SelectionCoordinateSystem::is_point_in_rectangle(
+            &point_pos,
+            &marquee_start,
+            &marquee_end,
+        )
     }
 
     #[test]
@@ -157,10 +166,20 @@ mod camera_and_pointer_tests {
         let point_pos = Vec2::new(0.0, -900.0);
         let marquee_size = Vec2::new(100.0, 100.0);
         let selectable = is_point_selectable_by_marquee(
-            camera_center, camera_scale, window_size, point_pos, marquee_size
+            camera_center,
+            camera_scale,
+            window_size,
+            point_pos,
+            marquee_size,
         );
-        println!("[test_camera_at_origin_point_at_negative_y] selectable={}", selectable);
-        assert!(!selectable, "Point at -900 should NOT be selectable when camera is at 0");
+        println!(
+            "[test_camera_at_origin_point_at_negative_y] selectable={}",
+            selectable
+        );
+        assert!(
+            !selectable,
+            "Point at -900 should NOT be selectable when camera is at 0"
+        );
     }
 
     #[test]
@@ -172,10 +191,17 @@ mod camera_and_pointer_tests {
         let point_pos = Vec2::new(0.0, -900.0);
         let marquee_size = Vec2::new(100.0, 100.0);
         let selectable = is_point_selectable_by_marquee(
-            camera_center, camera_scale, window_size, point_pos, marquee_size
+            camera_center,
+            camera_scale,
+            window_size,
+            point_pos,
+            marquee_size,
         );
         println!("[test_camera_centered_on_glyph] selectable={}", selectable);
-        assert!(selectable, "Point at -900 should be selectable when camera is centered on it");
+        assert!(
+            selectable,
+            "Point at -900 should be selectable when camera is centered on it"
+        );
     }
 
     #[test]
@@ -187,9 +213,16 @@ mod camera_and_pointer_tests {
         let point_pos = Vec2::new(0.0, -900.0);
         let marquee_size = Vec2::new(100.0, 100.0);
         let selectable = is_point_selectable_by_marquee(
-            camera_center, camera_scale, window_size, point_pos, marquee_size
+            camera_center,
+            camera_scale,
+            window_size,
+            point_pos,
+            marquee_size,
         );
-        println!("[test_camera_centered_on_glyph_with_zoom] selectable={}", selectable);
+        println!(
+            "[test_camera_centered_on_glyph_with_zoom] selectable={}",
+            selectable
+        );
         assert!(selectable, "Point at -900 should be selectable when camera is centered and zoomed");
     }
 
@@ -200,9 +233,13 @@ mod camera_and_pointer_tests {
         let camera_scale = 1.0;
         let window_size = Vec2::new(1000.0, 1000.0);
         let screen_pos = Vec2::new(500.0, 500.0); // Center of window
-        // Convert screen to design space
-        let design_space_pos = camera_center + (screen_pos - window_size / 2.0) * camera_scale;
+                                                  // Convert screen to design space
+        let design_space_pos =
+            camera_center + (screen_pos - window_size / 2.0) * camera_scale;
         println!("[test_screen_to_design_space_conversion] screen_pos={:?}, design_space_pos={:?}", screen_pos, design_space_pos);
-        assert_eq!(design_space_pos, camera_center, "Screen center should map to camera center in design space");
+        assert_eq!(
+            design_space_pos, camera_center,
+            "Screen center should map to camera center in design space"
+        );
     }
 }

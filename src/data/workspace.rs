@@ -1,9 +1,9 @@
 //! Virtual workspace management
-//! 
+//!
 //! This module provides workspace management functionality that was part of the
 //! original application design. It's adapted to work with our current AppState structure.
 
-// NOTE: is this used? 
+// NOTE: is this used?
 
 use bevy::prelude::*;
 use norad::{Font, Glyph};
@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use crate::core::state::{FontInfo, FontMetrics};
 
 /// Legacy workspace resource for compatibility with older UI code
-/// 
+///
 /// This provides a simplified interface that some UI components expect,
 /// while delegating to the main AppState for actual data storage.
 /// Note: This struct contains norad::Font which is not Send/Sync,
@@ -83,4 +83,4 @@ impl Workspace {
 
 /// Simplified font info type for compatibility
 #[allow(dead_code)]
-pub type SimpleFontInfo = FontInfo; 
+pub type SimpleFontInfo = FontInfo;

@@ -4,20 +4,20 @@
 //! approach that treats sorts as a linear buffer with cursor navigation.
 
 use crate::systems::text_editor_sorts::{
-    initialize_text_editor_sorts,
-    // handle_text_editor_sort_clicks, // REMOVED: legacy system
-    render_text_editor_sorts,
-    handle_text_editor_keyboard_input,
+    debug_text_editor_state,
+    despawn_inactive_sort_points_optimized, // NEW: Optimized instant point despawning
     // handle_text_input_with_cosmic, // DISABLED: Legacy system causing double input
     handle_arabic_text_input, // NEW: Arabic and Unicode text input
-    handle_unicode_text_input, // NEW: Unicode character input using Bevy events
-    debug_text_editor_state,
     // respawn_active_sort_points, // REMOVED: Replaced with ECS-based system
     handle_sort_placement_input, // NEW: Uses centralized input system
+    handle_text_editor_keyboard_input,
+    handle_unicode_text_input, // NEW: Unicode character input using Bevy events
+    initialize_text_editor_sorts,
     manage_sort_activation, // NEW: ECS-based sort activation management
-    spawn_missing_sort_entities, // NEW: Spawn ECS entities for buffer sorts
+    // handle_text_editor_sort_clicks, // REMOVED: legacy system
+    render_text_editor_sorts,
     spawn_active_sort_points_optimized, // NEW: Optimized instant point spawning
-    despawn_inactive_sort_points_optimized, // NEW: Optimized instant point despawning
+    spawn_missing_sort_entities, // NEW: Spawn ECS entities for buffer sorts
 };
 
 use bevy::prelude::*;
@@ -59,4 +59,4 @@ impl Plugin for TextEditorPlugin {
             // Debug systems (optional)
             .add_systems(Update, debug_text_editor_state);
     }
-} 
+}

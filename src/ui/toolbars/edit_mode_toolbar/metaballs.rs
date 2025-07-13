@@ -29,12 +29,14 @@ Status:
 -------
 - MVP implementation is present and correct in code, but may require further parameter tuning or rendering fixes for the desired effect.
 */
-use bevy::prelude::*;
-use crate::core::state::{AppState, GlyphNavigation};
 use crate::core::settings::BezySettings;
+use crate::core::state::{AppState, GlyphNavigation};
 use crate::editing::selection::systems::AppStateChanged;
-use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry, ToolId};
-use crate::ui::theme::{METABALL_GIZMO_COLOR, METABALL_SELECTED_COLOR, METABALL_OUTLINE_COLOR};
+use crate::ui::theme::{
+    METABALL_GIZMO_COLOR, METABALL_OUTLINE_COLOR, METABALL_SELECTED_COLOR,
+};
+use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolId, ToolRegistry};
+use bevy::prelude::*;
 use contour_isobands::ContourBuilder;
 
 // ============================================================================
@@ -133,19 +135,19 @@ pub struct MetaballsToolPlugin;
 impl Plugin for MetaballsToolPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MetaballsModeActive>()
-           .init_resource::<MetaballGizmos>()
-           .init_resource::<MetaballSettings>()
-           .add_systems(Startup, register_metaballs_tool)
-           .add_systems(
-               Update,
-               (
-                   handle_metaballs_mouse_events,
-                   render_metaball_gizmos,
-                   render_metaball_outline_preview,
-                   reset_metaballs_mode_when_inactive,
-                   handle_metaballs_keyboard_shortcuts,
-               ),
-           );
+            .init_resource::<MetaballGizmos>()
+            .init_resource::<MetaballSettings>()
+            .add_systems(Startup, register_metaballs_tool)
+            .add_systems(
+                Update,
+                (
+                    handle_metaballs_mouse_events,
+                    render_metaball_gizmos,
+                    render_metaball_outline_preview,
+                    reset_metaballs_mode_when_inactive,
+                    handle_metaballs_keyboard_shortcuts,
+                ),
+            );
     }
 }
 
@@ -187,22 +189,27 @@ pub fn handle_metaballs_mouse_events(
     };
 
     // Convert cursor position to world coordinates
-    if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
+    if let Ok(world_position) =
+        camera.viewport_to_world_2d(camera_transform, cursor_position)
+    {
         // Apply grid snapping
         let settings = BezySettings::default();
         let snapped_position = settings.apply_grid_snap(world_position);
 
         // Handle left click to place new metaball gizmo
         if mouse_button_input.just_pressed(MouseButton::Left) {
-            debug!("METABALLS TOOL: Placing new gizmo at ({:.1}, {:.1})", snapped_position.x, snapped_position.y);
-            
+            debug!(
+                "METABALLS TOOL: Placing new gizmo at ({:.1}, {:.1})",
+                snapped_position.x, snapped_position.y
+            );
+
             let new_gizmo = MetaballGizmo {
                 position: snapped_position,
                 radius: 20.0,
                 strength: 1.0,
                 is_selected: false,
             };
-            
+
             metaball_gizmos.gizmos.push(new_gizmo);
         }
 
@@ -223,7 +230,8 @@ pub fn handle_metaballs_mouse_events(
 
             // Toggle selection
             if let Some(index) = closest_index {
-                metaball_gizmos.gizmos[index].is_selected = !metaball_gizmos.gizmos[index].is_selected;
+                metaball_gizmos.gizmos[index].is_selected =
+                    !metaball_gizmos.gizmos[index].is_selected;
                 debug!("METABALLS TOOL: Toggled selection of gizmo {}", index);
             }
         }
@@ -249,9 +257,16 @@ pub fn handle_metaballs_keyboard_shortcuts(
     }
 
     // Ctrl+C: Convert metaballs to curves
-    if keyboard_input.pressed(KeyCode::ControlLeft) && keyboard_input.just_pressed(KeyCode::KeyC) {
+    if keyboard_input.pressed(KeyCode::ControlLeft)
+        && keyboard_input.just_pressed(KeyCode::KeyC)
+    {
         debug!("METABALLS TOOL: Converting metaballs to curves");
-        convert_metaballs_to_curves(&mut metaball_gizmos, &mut app_state, &mut app_state_changed, &glyph_navigation);
+        convert_metaballs_to_curves(
+            &mut metaball_gizmos,
+            &mut app_state,
+            &mut app_state_changed,
+            &glyph_navigation,
+        );
     }
 
     // Delete: Remove selected gizmos
@@ -289,10 +304,14 @@ pub fn render_metaball_gizmos(
 
         // Draw the metaball gizmo circle
         gizmos.circle_2d(gizmo.position, gizmo.radius, color);
-        
+
         // Draw selection indicator
         if gizmo.is_selected {
-            gizmos.circle_2d(gizmo.position, gizmo.radius + 2.0, METABALL_OUTLINE_COLOR);
+            gizmos.circle_2d(
+                gizmo.position,
+                gizmo.radius + 2.0,
+                METABALL_OUTLINE_COLOR,
+            );
         }
     }
 }
@@ -336,7 +355,10 @@ pub fn render_metaball_outline_preview(
 /// Evaluate a cubic Bézier at t
 fn cubic_bezier(p0: Vec2, c1: Vec2, c2: Vec2, p1: Vec2, t: f32) -> Vec2 {
     let mt = 1.0 - t;
-    mt*mt*mt*p0 + 3.0*mt*mt*t*c1 + 3.0*mt*t*t*c2 + t*t*t*p1
+    mt * mt * mt * p0
+        + 3.0 * mt * mt * t * c1
+        + 3.0 * mt * t * t * c2
+        + t * t * t * p1
 }
 
 // ============================================================================
@@ -372,7 +394,10 @@ fn calculate_metaball_influence(point: Vec2, gizmos: &[MetaballGizmo]) -> f32 {
 }
 
 /// Generate metaball outline using contour-isobands crate (marching squares)
-fn generate_metaball_outline(gizmos: &[MetaballGizmo], settings: &MetaballSettings) -> Vec<Vec2> {
+fn generate_metaball_outline(
+    gizmos: &[MetaballGizmo],
+    settings: &MetaballSettings,
+) -> Vec<Vec2> {
     if gizmos.is_empty() {
         return Vec::new();
     }
@@ -401,7 +426,8 @@ fn generate_metaball_outline(gizmos: &[MetaballGizmo], settings: &MetaballSettin
         for ix in 0..nx {
             let x = min_x + ix as f32 * grid_size;
             let y = min_y + iy as f32 * grid_size;
-            let v = calculate_metaball_influence(Vec2::new(x, y), gizmos) as f64;
+            let v =
+                calculate_metaball_influence(Vec2::new(x, y), gizmos) as f64;
             values.push(v);
         }
     }
@@ -418,7 +444,11 @@ fn generate_metaball_outline(gizmos: &[MetaballGizmo], settings: &MetaballSettin
     }
     // Use the first polygon (exterior ring)
     let poly = &bands[0].geometry().0[0];
-    poly.exterior().0.iter().map(|c| Vec2::new(c.x as f32, c.y as f32)).collect()
+    poly.exterior()
+        .0
+        .iter()
+        .map(|c| Vec2::new(c.x as f32, c.y as f32))
+        .collect()
 }
 
 // ============================================================================
@@ -444,7 +474,8 @@ fn convert_metaballs_to_curves(
 
     // Generate outline from metaballs
     let settings = MetaballSettings::default();
-    let outline_points = generate_metaball_outline(&metaball_gizmos.gizmos, &settings);
+    let outline_points =
+        generate_metaball_outline(&metaball_gizmos.gizmos, &settings);
 
     if outline_points.is_empty() {
         warn!("No outline generated from metaballs");
@@ -456,7 +487,9 @@ fn convert_metaballs_to_curves(
     let curves_count = curves.len();
 
     // Add curves to the glyph
-    if let Some(glyph_data) = app_state.workspace.font.glyphs.get_mut(&glyph_name) {
+    if let Some(glyph_data) =
+        app_state.workspace.font.glyphs.get_mut(&glyph_name)
+    {
         if glyph_data.outline.is_none() {
             glyph_data.outline = Some(crate::core::state::OutlineData {
                 contours: Vec::new(),
@@ -465,11 +498,17 @@ fn convert_metaballs_to_curves(
 
         if let Some(outline) = &mut glyph_data.outline {
             for curve in curves {
-                outline.contours.push(crate::core::state::ContourData { points: curve });
+                outline
+                    .contours
+                    .push(crate::core::state::ContourData { points: curve });
             }
 
-            info!("Converted {} metaball gizmos to {} curves in glyph '{}'", 
-                  metaball_gizmos.gizmos.len(), curves_count, glyph_name);
+            info!(
+                "Converted {} metaball gizmos to {} curves in glyph '{}'",
+                metaball_gizmos.gizmos.len(),
+                curves_count,
+                glyph_name
+            );
 
             // Clear the gizmos after conversion
             metaball_gizmos.gizmos.clear();
@@ -480,7 +519,9 @@ fn convert_metaballs_to_curves(
 }
 
 /// Convert outline points to cubic curves
-fn outline_points_to_cubic_curves(points: &[Vec2]) -> Vec<Vec<crate::core::state::PointData>> {
+fn outline_points_to_cubic_curves(
+    points: &[Vec2],
+) -> Vec<Vec<crate::core::state::PointData>> {
     if points.len() < 3 {
         return Vec::new();
     }
@@ -498,7 +539,7 @@ fn outline_points_to_cubic_curves(points: &[Vec2]) -> Vec<Vec<crate::core::state
     // Convert points to cubic curves
     for i in 1..points.len() {
         let point = points[i];
-        
+
         // For simplicity, use line segments (can be improved with proper cubic curve fitting)
         current_curve.push(crate::core::state::PointData {
             x: point.x as f64,
@@ -516,7 +557,9 @@ fn outline_points_to_cubic_curves(points: &[Vec2]) -> Vec<Vec<crate::core::state
 // ============================================================================
 
 /// Generate a smooth cubic Bézier outline for metaballs, using circle intersections as on-curve points and tangents for control points.
-pub fn generate_metaball_cubic_outline(gizmos: &[MetaballGizmo]) -> Vec<[Vec2; 4]> {
+pub fn generate_metaball_cubic_outline(
+    gizmos: &[MetaballGizmo],
+) -> Vec<[Vec2; 4]> {
     let n = gizmos.len();
     if n < 2 {
         return Vec::new();
@@ -539,8 +582,8 @@ pub fn generate_metaball_cubic_outline(gizmos: &[MetaballGizmo]) -> Vec<[Vec2; 4
         // If circles intersect, use intersection points
         if d < r0 + r1 && d > (r0 - r1).abs() && d > 1e-3 {
             // Law of cosines
-            let a2 = (r0*r0 - r1*r1 + d*d) / (2.0*d);
-            let h = (r0*r0 - a2*a2).max(0.0).sqrt();
+            let a2 = (r0 * r0 - r1 * r1 + d * d) / (2.0 * d);
+            let h = (r0 * r0 - a2 * a2).max(0.0).sqrt();
             let dir = (p1 - p0).normalize_or_zero();
             let mid = p0 + dir * a2;
             let perp = Vec2::new(-dir.y, dir.x);
@@ -560,4 +603,4 @@ pub fn generate_metaball_cubic_outline(gizmos: &[MetaballGizmo]) -> Vec<[Vec2; 4
         segments.push([oncurve_a, ctrl1, ctrl2, oncurve_b]);
     }
     segments
-} 
+}

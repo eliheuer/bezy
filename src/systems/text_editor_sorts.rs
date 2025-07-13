@@ -6,24 +6,35 @@
 
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use cosmic_text::{Attrs, AttrsList, Buffer, Edit, Family, FontSystem, Metrics, Shaping, SwashCache};
+use cosmic_text::{
+    Attrs, AttrsList, Buffer, Edit, Family, FontSystem, Metrics, Shaping,
+    SwashCache,
+};
 
 use std::collections::HashMap;
 
-use crate::core::state::{AppState, TextEditorState, SortEntry, SortLayoutMode, SortBuffer, GridConfig, SortKind, ActiveSortEntity};
-use crate::core::state::GlyphNavigation;
 use crate::core::pointer::PointerInfo;
-use crate::rendering::cameras::DesignCamera;
-use crate::systems::ui_interaction::UiHoverState;
-use crate::editing::sort::{ActiveSort, InactiveSort, ActiveSortState};
-use crate::systems::sort_manager::SortPointEntity;
-use crate::editing::selection::components::{GlyphPointReference, PointType, Selectable};
+use crate::core::state::GlyphNavigation;
+use crate::core::state::{
+    ActiveSortEntity, AppState, GridConfig, SortBuffer, SortEntry, SortKind,
+    SortLayoutMode, TextEditorState,
+};
+use crate::editing::selection::components::{
+    GlyphPointReference, PointType, Selectable,
+};
+use crate::editing::sort::Sort;
+use crate::editing::sort::{ActiveSort, ActiveSortState, InactiveSort};
 use crate::geometry::point::EditPoint;
-use kurbo::Point;
+use crate::rendering::cameras::DesignCamera;
 use crate::rendering::checkerboard::calculate_dynamic_grid_size;
 use crate::rendering::sort_visuals::{render_sort_visuals, SortRenderStyle};
-use crate::ui::theme::{SORT_ACTIVE_METRICS_COLOR, SORT_INACTIVE_METRICS_COLOR, SORT_ACTIVE_OUTLINE_COLOR};
-use crate::editing::sort::Sort;
+use crate::systems::sort_manager::SortPointEntity;
+use crate::systems::ui_interaction::UiHoverState;
+use crate::ui::theme::{
+    SORT_ACTIVE_METRICS_COLOR, SORT_ACTIVE_OUTLINE_COLOR,
+    SORT_INACTIVE_METRICS_COLOR,
+};
+use kurbo::Point;
 
 /// System to manage sort activation in ECS
 /// This ensures only one sort is active at a time and syncs with TextEditorState
@@ -37,25 +48,29 @@ pub fn manage_sort_activation(
     _inactive_sorts: Query<Entity, With<InactiveSort>>,
 ) {
     // Check if TextEditorState has an active sort that doesn't match ECS
-    if let Some((buffer_index, sort_entry)) = text_editor_state.get_active_sort() {
+    if let Some((buffer_index, sort_entry)) =
+        text_editor_state.get_active_sort()
+    {
         // Find the corresponding ECS entity for this buffer position
         let mut found_entity = None;
         for (entity, sort) in sort_entities.iter() {
             // Match by glyph name and approximate position
             if sort.glyph_name == sort_entry.kind.glyph_name().to_string() {
                 // Additional position check to ensure we get the right sort instance
-                let sort_pos = text_editor_state.get_sort_visual_position(buffer_index);
+                let sort_pos =
+                    text_editor_state.get_sort_visual_position(buffer_index);
                 if let Some(_expected_pos) = sort_pos {
                     // We need to get the transform from the entity, but for now we'll use a simple approach
                     let distance = 0.0; // Simplified for now
-                    if distance < 10.0 { // Small tolerance for position matching
+                    if distance < 10.0 {
+                        // Small tolerance for position matching
                         found_entity = Some(entity);
                         break;
                     }
                 }
             }
         }
-        
+
         // If we found an entity and it's not currently active, activate it
         if let Some(entity) = found_entity {
             if active_sort_entity.entity != Some(entity) {
@@ -66,18 +81,18 @@ pub fn manage_sort_activation(
                         .remove::<ActiveSort>()
                         .insert(InactiveSort);
                 }
-                
+
                 // Activate the new sort
                 commands
                     .entity(entity)
                     .remove::<InactiveSort>()
                     .insert(ActiveSort);
-                
+
                 // Update our tracking resources
                 active_sort_entity.entity = Some(entity);
                 active_sort_entity.buffer_index = Some(buffer_index);
                 active_sort_state.active_sort_entity = Some(entity);
-                
+
                 info!("[manage_sort_activation] Activated sort entity {:?} for buffer index {} (glyph: '{}')", 
                       entity, buffer_index, sort_entry.kind.glyph_name());
             }
@@ -95,11 +110,11 @@ pub fn manage_sort_activation(
                     .remove::<ActiveSort>()
                     .insert(InactiveSort);
             }
-            
+
             active_sort_entity.entity = None;
             active_sort_entity.buffer_index = None;
             active_sort_state.active_sort_entity = None;
-            
+
             info!("[manage_sort_activation] Deactivated all sorts (no active sort in TextEditorState)");
         }
     }
@@ -117,7 +132,7 @@ pub fn initialize_text_editor_sorts(
     if *has_initialized {
         return;
     }
-    
+
     if let Some(mut existing_state) = text_editor_state {
         // FORCE CLEAR all existing sorts completely - this prevents old glyph grid
         existing_state.buffer.clear();
@@ -130,7 +145,7 @@ pub fn initialize_text_editor_sorts(
         // Create a completely empty text editor state with no sorts
         // Always create this, even if no font is loaded yet
         let empty_buffer = SortBuffer::new();
-        
+
         let text_editor_state = TextEditorState {
             buffer: empty_buffer,
             cursor_position: 0,
@@ -138,12 +153,12 @@ pub fn initialize_text_editor_sorts(
             viewport_offset: Vec2::ZERO,
             grid_config: GridConfig::default(),
         };
-        
+
         commands.insert_resource(text_editor_state);
         info!("Created completely empty TextEditorState for clean workspace (font loaded: {})", 
               !app_state.workspace.font.glyphs.is_empty());
     }
-    
+
     *has_initialized = true;
 }
 
@@ -153,23 +168,38 @@ pub fn render_text_editor_sorts(
     text_editor_state: Res<TextEditorState>,
     app_state: Res<AppState>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
-    current_placement_mode: Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
+    current_placement_mode: Res<
+        crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode,
+    >,
 ) {
     let font_metrics = &app_state.workspace.info.metrics;
-    let _line_height = (font_metrics.ascender.unwrap_or(1024.0) - font_metrics.descender.unwrap_or(-256.0)) as f32;
+    let _line_height = (font_metrics.ascender.unwrap_or(1024.0)
+        - font_metrics.descender.unwrap_or(-256.0))
+        as f32;
 
     // Always render all sorts
     for (index, entry) in text_editor_state.buffer.iter().enumerate() {
         match &entry.kind {
-            SortKind::Glyph { glyph_name, advance_width } => {
-                if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
+            SortKind::Glyph {
+                glyph_name,
+                advance_width,
+            } => {
+                if let Some(glyph_data) =
+                    app_state.workspace.font.glyphs.get(glyph_name)
+                {
                     // Get the visual position for this sort
                     let position = if entry.is_buffer_root {
                         // Buffer roots use their exact stored position
                         entry.root_position
                     } else {
                         // Non-root text sorts flow from their text root
-                        if let Some(flow_pos) = text_editor_state.get_text_sort_flow_position(index, &app_state.workspace.info.metrics, crate::ui::theme::LINE_LEADING) {
+                        if let Some(flow_pos) = text_editor_state
+                            .get_text_sort_flow_position(
+                                index,
+                                &app_state.workspace.info.metrics,
+                                crate::ui::theme::LINE_LEADING,
+                            )
+                        {
                             flow_pos
                         } else {
                             // Fallback to stored position
@@ -208,7 +238,8 @@ pub fn render_text_editor_sorts(
     if let Some((root_index, root_sort)) = text_editor_state.get_active_sort() {
         if root_sort.is_buffer_root {
             let root_pos = root_sort.root_position;
-            let cursor_pos_in_text = root_sort.buffer_cursor_position.unwrap_or(0);
+            let cursor_pos_in_text =
+                root_sort.buffer_cursor_position.unwrap_or(0);
             let upm = font_metrics.units_per_em as f32;
             let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
             let line_height = upm - descender;
@@ -268,7 +299,8 @@ pub fn render_text_editor_sorts(
         for (index, entry) in text_editor_state.buffer.iter().enumerate() {
             if entry.is_buffer_root && entry.buffer_cursor_position.is_some() {
                 let root_pos = entry.root_position;
-                let cursor_pos_in_text = entry.buffer_cursor_position.unwrap_or(0);
+                let cursor_pos_in_text =
+                    entry.buffer_cursor_position.unwrap_or(0);
                 let upm = font_metrics.units_per_em as f32;
                 let descender = font_metrics.descender.unwrap_or(-200.0) as f32;
                 let line_height = upm - descender;
@@ -299,7 +331,8 @@ pub fn render_text_editor_sorts(
                     cursor_x = x;
                     cursor_line = line_number;
                 }
-                let baseline_y = root_pos.y + (cursor_line as f32) * -line_height;
+                let baseline_y =
+                    root_pos.y + (cursor_line as f32) * -line_height;
                 let cursor_x = root_pos.x + cursor_x;
                 debug!(
                     "[CURSOR DEBUG] line_number: {}, baseline_y: {:.1}, cursor_x: {:.1}, upm: {:.1}, descender: {:.1}, cursor_top_y: {:.1}, cursor_bottom_y: {:.1}",
@@ -331,22 +364,26 @@ pub fn render_text_editor_sorts(
 /// Check if a key is used as a tool shortcut
 #[allow(dead_code)]
 fn is_tool_shortcut_key(key: KeyCode) -> bool {
-    matches!(key, 
+    matches!(
+        key,
         KeyCode::KeyT |  // Text tool
         KeyCode::KeyP |  // Pen tool  
         KeyCode::KeyV |  // Select tool
         KeyCode::KeyK |  // Knife tool
         KeyCode::KeyH |  // Hyper tool
         KeyCode::KeyR |  // Shapes tool
-        KeyCode::KeyM    // Measure/Metaballs tool
+        KeyCode::KeyM // Measure/Metaballs tool
     )
 }
 
 /// Convert key code to character, considering shift state
-fn key_code_to_char(key: KeyCode, keyboard_input: &ButtonInput<KeyCode>) -> Option<char> {
-    let shift_pressed = keyboard_input.pressed(KeyCode::ShiftLeft) || 
-                       keyboard_input.pressed(KeyCode::ShiftRight);
-    
+fn key_code_to_char(
+    key: KeyCode,
+    keyboard_input: &ButtonInput<KeyCode>,
+) -> Option<char> {
+    let shift_pressed = keyboard_input.pressed(KeyCode::ShiftLeft)
+        || keyboard_input.pressed(KeyCode::ShiftRight);
+
     match key {
         KeyCode::KeyA => Some(if shift_pressed { 'A' } else { 'a' }),
         KeyCode::KeyB => Some(if shift_pressed { 'B' } else { 'b' }),
@@ -401,28 +438,31 @@ fn key_code_to_char(key: KeyCode, keyboard_input: &ButtonInput<KeyCode>) -> Opti
 }
 
 /// Convert Unicode character to glyph name using font data
-fn unicode_to_glyph_name(unicode_char: char, app_state: &AppState) -> Option<String> {
+fn unicode_to_glyph_name(
+    unicode_char: char,
+    app_state: &AppState,
+) -> Option<String> {
     // First try to find the glyph by Unicode codepoint
     let _codepoint_hex = format!("{:04X}", unicode_char as u32);
-    
+
     // Look for glyph with this Unicode codepoint
     for (glyph_name, glyph_data) in &app_state.workspace.font.glyphs {
         if glyph_data.unicode_values.contains(&unicode_char) {
             return Some(glyph_name.clone());
         }
     }
-    
+
     // If no exact match, try to find a glyph with the same name as the character
     let char_name = unicode_char.to_string();
     if app_state.workspace.font.glyphs.contains_key(&char_name) {
         return Some(char_name);
     }
-    
+
     // For common characters, try some fallback mappings
     let fallback_mapping = match unicode_char {
         ' ' => "space",
         '0' => "zero",
-        '1' => "one", 
+        '1' => "one",
         '2' => "two",
         '3' => "three",
         '4' => "four",
@@ -433,8 +473,13 @@ fn unicode_to_glyph_name(unicode_char: char, app_state: &AppState) -> Option<Str
         '9' => "nine",
         _ => return None,
     };
-    
-    if app_state.workspace.font.glyphs.contains_key(fallback_mapping) {
+
+    if app_state
+        .workspace
+        .font
+        .glyphs
+        .contains_key(fallback_mapping)
+    {
         Some(fallback_mapping.to_string())
     } else {
         None
@@ -447,107 +492,119 @@ pub fn handle_text_editor_keyboard_input(
     mut text_editor_state: ResMut<TextEditorState>,
     app_state: Res<AppState>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
-    current_placement_mode: Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
+    current_placement_mode: Res<
+        crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode,
+    >,
 ) {
     // Only handle keyboard input when text tool is active AND in Insert mode
     if current_tool.get_current() != Some("text") || 
        current_placement_mode.0 != crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Insert {
         return;
     }
-    
+
     // Check if we have buffer sorts for various operations
     let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
-    
+
     // Move cursor with arrow keys - only work if we have text sorts
     if has_text_sorts {
         if keyboard_input.just_pressed(KeyCode::ArrowRight) {
             text_editor_state.move_cursor_right();
-            debug!("Insert mode: moved cursor right to position {}", text_editor_state.cursor_position);
+            debug!(
+                "Insert mode: moved cursor right to position {}",
+                text_editor_state.cursor_position
+            );
         }
-        
+
         if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
             text_editor_state.move_cursor_left();
-            debug!("Insert mode: moved cursor left to position {}", text_editor_state.cursor_position);
+            debug!(
+                "Insert mode: moved cursor left to position {}",
+                text_editor_state.cursor_position
+            );
         }
-        
+
         if keyboard_input.just_pressed(KeyCode::ArrowUp) {
             text_editor_state.move_cursor_up_multiline();
             debug!("Insert mode: moved cursor up (multi-line)");
         }
-        
+
         if keyboard_input.just_pressed(KeyCode::ArrowDown) {
             text_editor_state.move_cursor_down_multiline();
             debug!("Insert mode: moved cursor down (multi-line)");
         }
-        
+
         // Home/End keys
         if keyboard_input.just_pressed(KeyCode::Home) {
             text_editor_state.move_cursor_to(0);
             debug!("Insert mode: moved cursor to beginning");
         }
-        
+
         if keyboard_input.just_pressed(KeyCode::End) {
             let buffer_len = text_editor_state.buffer.len();
             text_editor_state.move_cursor_to(buffer_len);
             debug!("Insert mode: moved cursor to end");
         }
     }
-    
+
     // Ctrl+T to create a new text buffer - avoid conflict with 'T' tool shortcut
-    if keyboard_input.just_pressed(KeyCode::KeyT) && 
-       (keyboard_input.pressed(KeyCode::ControlLeft) || 
-        keyboard_input.pressed(KeyCode::ControlRight)) {
+    if keyboard_input.just_pressed(KeyCode::KeyT)
+        && (keyboard_input.pressed(KeyCode::ControlLeft)
+            || keyboard_input.pressed(KeyCode::ControlRight))
+    {
         // For now, create buffer root at center of screen
         // TODO: Use actual mouse/click position from text tool
         text_editor_state.create_text_root(Vec2::new(500.0, 0.0));
         info!("Insert mode: created new text buffer");
     }
-    
+
     // Delete/Backspace - only work if we have text sorts
     if has_text_sorts {
         if keyboard_input.just_pressed(KeyCode::Delete) {
             text_editor_state.delete_sort_at_cursor();
             info!("Insert mode: deleted sort at cursor position");
         }
-        
+
         if keyboard_input.just_pressed(KeyCode::Backspace) {
             // The delete_sort_at_cursor function handles all logic,
             // including checking if deletion is possible and moving the cursor.
             text_editor_state.delete_sort_at_cursor();
             info!("Insert mode: backspace pressed");
         }
-        
+
         // Enter key - insert line break
         if keyboard_input.just_pressed(KeyCode::Enter) {
             text_editor_state.insert_line_break_at_cursor();
             info!("Insert mode: inserted line break (new line)");
         }
     }
-    
+
     // Handle text input by mapping key codes to characters
     // This is a simplified approach for now - in a real implementation,
     // you'd want to use Bevy's text input system or a third-party crate
     for key in keyboard_input.get_just_pressed() {
         if let Some(unicode_char) = key_code_to_char(*key, &keyboard_input) {
-            if let Some(glyph_name) = unicode_to_glyph_name(unicode_char, &app_state) {
+            if let Some(glyph_name) =
+                unicode_to_glyph_name(unicode_char, &app_state)
+            {
                 // Check if the glyph exists in the font
-                if let Some(glyph_data) = 
-                    app_state.workspace.font.glyphs.get(&glyph_name) {
+                if let Some(glyph_data) =
+                    app_state.workspace.font.glyphs.get(&glyph_name)
+                {
                     let advance_width = glyph_data.advance_width as f32;
-                    
+
                     // Check if any text sorts exist
                     if !has_text_sorts {
                         // No buffer sorts exist, create a buffer root at center of screen
                         // TODO: Use actual mouse/click position if available
                         let center_position = Vec2::new(500.0, 0.0);
                         text_editor_state.create_text_root(center_position);
-                        
+
                         // Now insert the character at the new buffer root
                         text_editor_state.insert_sort_at_cursor(
-                            glyph_name.clone(), 
-                            advance_width
+                            glyph_name.clone(),
+                            advance_width,
                         );
-                        
+
                         info!(
                             "Insert mode: created new buffer root and inserted character '{}' (glyph: '{}') at center", 
                             unicode_char, glyph_name
@@ -555,8 +612,8 @@ pub fn handle_text_editor_keyboard_input(
                     } else {
                         // Buffer sorts exist, use normal insertion logic
                         text_editor_state.insert_sort_at_cursor(
-                            glyph_name.clone(), 
-                            advance_width
+                            glyph_name.clone(),
+                            advance_width,
                         );
                         info!(
                             "Insert mode: inserted character '{}' (glyph: '{}') at cursor position {}", 
@@ -584,31 +641,32 @@ pub fn debug_text_editor_state(
         info!("=== Text Editor Debug ===");
         info!("Buffer length: {}", text_editor_state.buffer.len());
         info!("Cursor position: {}", text_editor_state.cursor_position);
-        
-        if let Some((active_pos, active_sort)) = 
-            text_editor_state.get_active_sort() {
+
+        if let Some((active_pos, active_sort)) =
+            text_editor_state.get_active_sort()
+        {
             info!(
-                "Active sort: '{}' at position {}", 
-                active_sort.kind.glyph_name(), 
+                "Active sort: '{}' at position {}",
+                active_sort.kind.glyph_name(),
                 active_pos
             );
         } else {
             info!("No active sort");
         }
-        
+
         // Log first few sorts
         for (i, sort) in text_editor_state.buffer.iter().take(5).enumerate() {
             info!(
-                "Sort {}: '{}' (active: {}, buffer_root: {}, cursor: {:?})", 
-                i, 
-                sort.kind.glyph_name(), 
+                "Sort {}: '{}' (active: {}, buffer_root: {}, cursor: {:?})",
+                i,
+                sort.kind.glyph_name(),
                 sort.is_active,
                 sort.is_buffer_root,
                 sort.buffer_cursor_position
             );
         }
     }
-    
+
     // F2: Debug selection states
     if keyboard_input.just_pressed(KeyCode::F2) {
         info!("=== Selection Debug ===");
@@ -616,16 +674,16 @@ pub fn debug_text_editor_state(
         // for (index, sort) in text_editor_state.buffer.iter().enumerate() {
         //     if sort.is_selected || sort.is_active {
         //         info!(
-        //             "Sort {}: '{}' - Selected: {}, Active: {}, Layout: {:?}", 
-        //             index, 
-        //             sort.kind.glyph_name(), 
-        //             sort.is_selected, 
+        //             "Sort {}: '{}' - Selected: {}, Active: {}, Layout: {:?}",
+        //             index,
+        //             sort.kind.glyph_name(),
+        //             sort.is_selected,
         //             sort.is_active,
         //             sort.layout_mode
         //         );
         //     }
         // }
-        
+
         // if selected_sorts.is_empty() {
         //     info!("No sorts are currently selected");
         // }
@@ -643,19 +701,26 @@ pub fn respawn_active_sort_points(
 ) {
     // Find the active sort in TextEditorState
     let active_sort = text_editor_state.get_active_sort();
-    
+
     // Check if the active sort has changed
     let current_active_sort = active_sort.map(|(index, sort_entry)| {
-        (index, sort_entry.kind.glyph_name().to_string(), sort_entry.root_position)
+        (
+            index,
+            sort_entry.kind.glyph_name().to_string(),
+            sort_entry.root_position,
+        )
     });
-    
+
     // Only respawn if the active sort has actually changed
     if current_active_sort == *last_active_sort {
         return; // No change, skip respawning
     }
-    
-    info!("[respawn_active_sort_points] Called, active_sort={:?}, changed={:?}", 
-          active_sort.is_some(), current_active_sort != *last_active_sort);
+
+    info!(
+        "[respawn_active_sort_points] Called, active_sort={:?}, changed={:?}",
+        active_sort.is_some(),
+        current_active_sort != *last_active_sort
+    );
 
     // Despawn all existing point entities (for previous active sort)
     let existing_count = sort_point_entities.iter().count();
@@ -674,40 +739,54 @@ pub fn respawn_active_sort_points(
         let pos_key = (position.x.round() as i32, position.y.round() as i32);
         let key = (glyph_name.clone(), pos_key);
         // Get or create ECS entity for this sort
-        let sort_entity = *sort_entities.entry(key.clone()).or_insert_with(|| {
-            commands.spawn((
-                Sort {
-                    glyph_name: glyph_name.clone(),
-                    layout_mode: SortLayoutMode::Text,
-                },
-                crate::editing::sort::ActiveSort,
-                Transform::from_translation(position.extend(0.0)),
-                GlobalTransform::default(),
-                Visibility::Visible,
-                InheritedVisibility::default(),
-                ViewVisibility::default(),
-                Selectable,
-            )).id()
-        });
+        let sort_entity =
+            *sort_entities.entry(key.clone()).or_insert_with(|| {
+                commands
+                    .spawn((
+                        Sort {
+                            glyph_name: glyph_name.clone(),
+                            layout_mode: SortLayoutMode::Text,
+                        },
+                        crate::editing::sort::ActiveSort,
+                        Transform::from_translation(position.extend(0.0)),
+                        GlobalTransform::default(),
+                        Visibility::Visible,
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
+                        Selectable,
+                    ))
+                    .id()
+            });
         // Get glyph data for the active sort
-        if let Some(glyph_data) = app_state.workspace.font.get_glyph(sort_entry.kind.glyph_name()) {
+        if let Some(glyph_data) = app_state
+            .workspace
+            .font
+            .get_glyph(sort_entry.kind.glyph_name())
+        {
             if let Some(outline) = &glyph_data.outline {
                 // Get the visual position of the sort
-                if let Some(sort_world_pos) = text_editor_state.get_sort_visual_position(index) {
+                if let Some(sort_world_pos) =
+                    text_editor_state.get_sort_visual_position(index)
+                {
                     info!("[respawn_active_sort_points] Spawning points for sort '{}' at position {:?}", 
                           sort_entry.kind.glyph_name(), sort_world_pos);
                     let mut point_count = 0;
-                    for (contour_index, contour) in outline.contours.iter().enumerate() {
-                        for (point_index, point) in contour.points.iter().enumerate() {
-                            let point_world_pos = sort_world_pos + Vec2::new(point.x as f32, point.y as f32);
+                    for (contour_index, contour) in
+                        outline.contours.iter().enumerate()
+                    {
+                        for (point_index, point) in
+                            contour.points.iter().enumerate()
+                        {
+                            let point_world_pos = sort_world_pos
+                                + Vec2::new(point.x as f32, point.y as f32);
                             point_count += 1;
-                            
+
                             // Debug: Print first few point positions
                             if point_count <= 5 {
                                 info!("[respawn_active_sort_points] Point {}: local=({:.1}, {:.1}), world=({:.1}, {:.1})", 
                                       point_count, point.x, point.y, point_world_pos.x, point_world_pos.y);
                             }
-                            
+
                             commands.spawn((
                                 EditPoint {
                                     position: Point::new(point.x, point.y),
@@ -742,12 +821,15 @@ pub fn respawn_active_sort_points(
                 warn!("[respawn_active_sort_points] No outline found for glyph '{}'", sort_entry.kind.glyph_name());
             }
         } else {
-            warn!("[respawn_active_sort_points] No glyph data found for '{}'", sort_entry.kind.glyph_name());
+            warn!(
+                "[respawn_active_sort_points] No glyph data found for '{}'",
+                sort_entry.kind.glyph_name()
+            );
         }
     } else {
         info!("[respawn_active_sort_points] No active sort found");
     }
-    
+
     // Update the last active sort tracking
     *last_active_sort = current_active_sort;
 }
@@ -763,16 +845,21 @@ pub fn spawn_missing_sort_entities(
         // Only spawn for buffer sorts in Text layout mode
         if sort_entry.layout_mode == SortLayoutMode::Text {
             if let Some(pos) = text_editor_state.get_text_sort_flow_position(
-                buffer_index, 
-                &app_state.workspace.info.metrics, 
-                crate::ui::theme::LINE_LEADING
+                buffer_index,
+                &app_state.workspace.info.metrics,
+                crate::ui::theme::LINE_LEADING,
             ) {
                 let glyph_name = sort_entry.kind.glyph_name().to_string();
-                let key = (glyph_name.clone(), (pos.x.round() as i32, pos.y.round() as i32));
-                
+                let key = (
+                    glyph_name.clone(),
+                    (pos.x.round() as i32, pos.y.round() as i32),
+                );
+
                 if !sort_entities.contains_key(&key) {
                     // Get advance width from the virtual font
-                    let _advance_width = if let Some(glyph_data) = app_state.workspace.font.get_glyph(&glyph_name) {
+                    let _advance_width = if let Some(glyph_data) =
+                        app_state.workspace.font.get_glyph(&glyph_name)
+                    {
                         glyph_data.advance_width as f32
                     } else {
                         600.0 // Default fallback
@@ -783,19 +870,26 @@ pub fn spawn_missing_sort_entities(
                         layout_mode: SortLayoutMode::Text, // NEW: Mark as text sort
                     };
 
-                    let entity = commands.spawn((
-                        sort,
-                        InactiveSort,
-                        Transform::from_translation(Vec3::new(pos.x, pos.y, 0.0)),
-                        GlobalTransform::default(),
-                        Visibility::Visible,
-                        InheritedVisibility::default(),
-                        ViewVisibility::default(),
-                        Selectable,
-                    )).id();
+                    let entity = commands
+                        .spawn((
+                            sort,
+                            InactiveSort,
+                            Transform::from_translation(Vec3::new(
+                                pos.x, pos.y, 0.0,
+                            )),
+                            GlobalTransform::default(),
+                            Visibility::Visible,
+                            InheritedVisibility::default(),
+                            ViewVisibility::default(),
+                            Selectable,
+                        ))
+                        .id();
 
                     sort_entities.insert(key, entity);
-                    debug!("Spawned text sort '{}' at ({:.1}, {:.1})", glyph_name, pos.x, pos.y);
+                    debug!(
+                        "Spawned text sort '{}' at ({:.1}, {:.1})",
+                        glyph_name, pos.x, pos.y
+                    );
                 }
             }
         }
@@ -810,29 +904,31 @@ pub fn handle_sort_placement_input(
     app_state: Res<AppState>,
     glyph_navigation: Res<GlyphNavigation>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
-    mut current_placement_mode: ResMut<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
+    mut current_placement_mode: ResMut<
+        crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode,
+    >,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
     pointer_info: Res<crate::core::pointer::PointerInfo>,
     camera_query: Query<&Projection, With<DesignCamera>>,
 ) {
     // Debug: Log that this system is running
     debug!("Sort placement system: checking for input events");
-    
+
     // Only handle input if text tool is active
     if current_tool.get_current() != Some("text") {
         return;
     }
-    
+
     // Don't handle clicks when hovering over UI
     if ui_hover_state.is_hovering_ui {
         return;
     }
-    
+
     // Early exit if text editor state isn't ready yet
     let Some(mut text_editor_state) = text_editor_state else {
         return;
     };
-    
+
     // Get the camera zoom scale
     let projection = match camera_query.single() {
         Ok(proj) => proj,
@@ -847,42 +943,58 @@ pub fn handle_sort_placement_input(
     // Use the centralized pointer info for coordinate conversion
     let raw_cursor_world_pos = pointer_info.design.to_raw();
     // Snap to checkerboard grid
-    let snapped_position = (raw_cursor_world_pos / grid_size).round() * grid_size;
-    
+    let snapped_position =
+        (raw_cursor_world_pos / grid_size).round() * grid_size;
+
     // Process input events
     for event in input_events.read() {
         match event {
-            crate::core::input::InputEvent::MouseClick { button, position, modifiers: _ } => {
+            crate::core::input::InputEvent::MouseClick {
+                button,
+                position,
+                modifiers: _,
+            } => {
                 if *button == bevy::input::mouse::MouseButton::Left {
-                    debug!("Sort placement: MouseClick at position {:?}", position);
-                    
+                    debug!(
+                        "Sort placement: MouseClick at position {:?}",
+                        position
+                    );
+
                     // Check if there's already a sort at this position (handle or body)
                     let handle_tolerance = 50.0;
                     let body_tolerance = 250.0;
-                    
-                    let has_existing_sort = text_editor_state.find_sort_handle_at_position(
-                        snapped_position, 
-                        handle_tolerance, 
-                        Some(&app_state.workspace.info.metrics)
-                    ).is_some() || text_editor_state.find_sort_body_at_position(
-                        snapped_position, 
-                        body_tolerance
-                    ).is_some();
-                    
+
+                    let has_existing_sort = text_editor_state
+                        .find_sort_handle_at_position(
+                            snapped_position,
+                            handle_tolerance,
+                            Some(&app_state.workspace.info.metrics),
+                        )
+                        .is_some()
+                        || text_editor_state
+                            .find_sort_body_at_position(
+                                snapped_position,
+                                body_tolerance,
+                            )
+                            .is_some();
+
                     if has_existing_sort {
                         debug!("Sort placement: Clicked on existing sort, skipping placement");
                         // Don't return here - let the click detection system handle it
                         continue;
                     }
-                    
+
                     // Get the current glyph name, with fallback to 'a' or first available glyph
                     let glyph_name = match &glyph_navigation.current_glyph {
                         Some(name) => name.clone(),
                         None => {
                             // Try to use 'a' as default, or first available glyph
-                            if app_state.workspace.font.glyphs.contains_key("a") {
+                            if app_state.workspace.font.glyphs.contains_key("a")
+                            {
                                 "a".to_string()
-                            } else if let Some(first_glyph) = app_state.workspace.font.glyphs.keys().next() {
+                            } else if let Some(first_glyph) =
+                                app_state.workspace.font.glyphs.keys().next()
+                            {
                                 first_glyph.clone()
                             } else {
                                 warn!("No glyphs available in font");
@@ -890,19 +1002,23 @@ pub fn handle_sort_placement_input(
                             }
                         }
                     };
-                    
+
                     // Get advance width for the glyph
-                    let advance_width = if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
+                    let advance_width = if let Some(glyph_data) =
+                        app_state.workspace.font.glyphs.get(&glyph_name)
+                    {
                         glyph_data.advance_width as f32
                     } else {
                         600.0 // Default width
                     };
-                    
+
                     // Position calculation: sort should be at baseline, handle at descender
-                    let descender = app_state.workspace.info.metrics.descender.unwrap() as f32;
+                    let descender =
+                        app_state.workspace.info.metrics.descender.unwrap()
+                            as f32;
                     // Sort position should be at baseline (cursor position), not offset by descender
                     let raw_sort_position = snapped_position;
-                    
+
                     match current_placement_mode.0 {
                         crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Text => {
                             text_editor_state.create_text_sort_at_position(glyph_name.clone(), raw_sort_position, advance_width);
@@ -934,7 +1050,9 @@ pub fn handle_text_input_with_cosmic(
     mut text_editor_state: ResMut<TextEditorState>,
     app_state: Res<AppState>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
-    current_placement_mode: Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
+    current_placement_mode: Res<
+        crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode,
+    >,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut text_buffer: Local<Option<Buffer>>,
     mut font_system: Local<Option<FontSystem>>,
@@ -956,9 +1074,14 @@ pub fn handle_text_input_with_cosmic(
     if text_buffer.is_none() {
         let mut buffer = Buffer::new(
             font_system.as_mut().unwrap(),
-            Metrics::new(16.0, 20.0)
+            Metrics::new(16.0, 20.0),
         );
-        buffer.set_text(font_system.as_mut().unwrap(), "", &Attrs::new(), Shaping::Advanced);
+        buffer.set_text(
+            font_system.as_mut().unwrap(),
+            "",
+            &Attrs::new(),
+            Shaping::Advanced,
+        );
         *text_buffer = Some(buffer);
     }
 
@@ -980,20 +1103,27 @@ pub fn handle_text_input_with_cosmic(
             }
             KeyCode::Space => {
                 // Add space character immediately
-                if let Some(glyph_name) = unicode_to_glyph_name(' ', &app_state) {
-                    if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
+                if let Some(glyph_name) = unicode_to_glyph_name(' ', &app_state)
+                {
+                    if let Some(glyph_data) =
+                        app_state.workspace.font.glyphs.get(&glyph_name)
+                    {
                         let advance_width = glyph_data.advance_width as f32;
-                        
+
                         // Check if any text sorts exist
-                        let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
-                        
+                        let has_text_sorts =
+                            !text_editor_state.get_text_sorts().is_empty();
+
                         if !has_text_sorts {
                             // Create a buffer root at center of screen
                             let center_position = Vec2::new(500.0, 0.0);
                             text_editor_state.create_text_root(center_position);
                         }
-                        
-                        text_editor_state.insert_sort_at_cursor(glyph_name.clone(), advance_width);
+
+                        text_editor_state.insert_sort_at_cursor(
+                            glyph_name.clone(),
+                            advance_width,
+                        );
                         info!("Text input: Added space");
                     }
                 }
@@ -1002,21 +1132,30 @@ pub fn handle_text_input_with_cosmic(
                 // Process each character immediately for instant feedback
                 if let Some(ch) = key_code_to_char(*key, &keyboard_input) {
                     // Convert character to glyph and insert immediately
-                    if let Some(glyph_name) = unicode_to_glyph_name(ch, &app_state) {
-                        if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
+                    if let Some(glyph_name) =
+                        unicode_to_glyph_name(ch, &app_state)
+                    {
+                        if let Some(glyph_data) =
+                            app_state.workspace.font.glyphs.get(&glyph_name)
+                        {
                             let advance_width = glyph_data.advance_width as f32;
-                            
+
                             // Check if any text sorts exist
-                            let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
-                            
+                            let has_text_sorts =
+                                !text_editor_state.get_text_sorts().is_empty();
+
                             if !has_text_sorts {
                                 // Create a buffer root at center of screen
                                 let center_position = Vec2::new(500.0, 0.0);
-                                text_editor_state.create_text_root(center_position);
+                                text_editor_state
+                                    .create_text_root(center_position);
                             }
-                            
+
                             // Insert the character immediately
-                            text_editor_state.insert_sort_at_cursor(glyph_name.clone(), advance_width);
+                            text_editor_state.insert_sort_at_cursor(
+                                glyph_name.clone(),
+                                advance_width,
+                            );
                             info!("Text input: Inserted character '{}' (glyph: '{}') immediately", ch, glyph_name);
                         } else {
                             info!("Text input: Glyph '{}' not found in font for character '{}'", glyph_name, ch);
@@ -1036,7 +1175,9 @@ pub fn handle_arabic_text_input(
     mut text_editor_state: ResMut<TextEditorState>,
     app_state: Res<AppState>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
-    current_placement_mode: Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
+    current_placement_mode: Res<
+        crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode,
+    >,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut text_buffer: Local<Option<Buffer>>,
     mut font_system: Local<Option<FontSystem>>,
@@ -1061,9 +1202,14 @@ pub fn handle_arabic_text_input(
     if text_buffer.is_none() {
         let mut buffer = Buffer::new(
             font_system.as_mut().unwrap(),
-            Metrics::new(16.0, 20.0)
+            Metrics::new(16.0, 20.0),
         );
-        buffer.set_text(font_system.as_mut().unwrap(), "", &Attrs::new(), Shaping::Advanced);
+        buffer.set_text(
+            font_system.as_mut().unwrap(),
+            "",
+            &Attrs::new(),
+            Shaping::Advanced,
+        );
         *text_buffer = Some(buffer);
     }
 
@@ -1082,7 +1228,11 @@ pub fn handle_arabic_text_input(
             KeyCode::Enter => {
                 // Process the accumulated text and convert to sorts
                 if !input_text.is_empty() {
-                    process_unicode_text_to_sorts(&mut text_editor_state, &app_state, &input_text);
+                    process_unicode_text_to_sorts(
+                        &mut text_editor_state,
+                        &app_state,
+                        &input_text,
+                    );
                     input_text.clear();
                 }
                 info!("Arabic text input: Enter pressed");
@@ -1090,14 +1240,24 @@ pub fn handle_arabic_text_input(
             KeyCode::Space => {
                 // Process current buffer and add space
                 if !input_text.is_empty() {
-                    process_unicode_text_to_sorts(&mut text_editor_state, &app_state, &input_text);
+                    process_unicode_text_to_sorts(
+                        &mut text_editor_state,
+                        &app_state,
+                        &input_text,
+                    );
                     input_text.clear();
                 }
                 // Add space character
-                if let Some(glyph_name) = unicode_to_glyph_name(' ', &app_state) {
-                    if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
+                if let Some(glyph_name) = unicode_to_glyph_name(' ', &app_state)
+                {
+                    if let Some(glyph_data) =
+                        app_state.workspace.font.glyphs.get(&glyph_name)
+                    {
                         let advance_width = glyph_data.advance_width as f32;
-                        text_editor_state.insert_sort_at_cursor(glyph_name.clone(), advance_width);
+                        text_editor_state.insert_sort_at_cursor(
+                            glyph_name.clone(),
+                            advance_width,
+                        );
                         info!("Arabic text input: Added space");
                     }
                 }
@@ -1109,7 +1269,10 @@ pub fn handle_arabic_text_input(
                     // Add character to input buffer
                     input_text.push(ch);
                     *last_input_time = time.elapsed_secs_f64();
-                    info!("Arabic text input: Added character '{}' to buffer", ch);
+                    info!(
+                        "Arabic text input: Added character '{}' to buffer",
+                        ch
+                    );
                 }
             }
         }
@@ -1117,9 +1280,15 @@ pub fn handle_arabic_text_input(
 
     // Process text buffer when it gets long enough or after a delay
     let current_time = time.elapsed_secs_f64();
-    if input_text.len() >= 3 || (current_time - *last_input_time > 0.5 && !input_text.is_empty()) {
+    if input_text.len() >= 3
+        || (current_time - *last_input_time > 0.5 && !input_text.is_empty())
+    {
         if !input_text.is_empty() {
-            process_unicode_text_to_sorts(&mut text_editor_state, &app_state, &input_text);
+            process_unicode_text_to_sorts(
+                &mut text_editor_state,
+                &app_state,
+                &input_text,
+            );
             input_text.clear();
         }
     }
@@ -1133,24 +1302,27 @@ fn process_unicode_text_to_sorts(
     text: &str,
 ) {
     info!("Processing Unicode text: '{}'", text);
-    
+
     // Check if any text sorts exist
     let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
-    
+
     if !has_text_sorts {
         // Create a buffer root at center of screen
         let center_position = Vec2::new(500.0, 0.0);
         text_editor_state.create_text_root(center_position);
     }
-    
+
     // Process each character in the text
     for ch in text.chars() {
         if let Some(glyph_name) = unicode_to_glyph_name(ch, app_state) {
-            if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&glyph_name) {
+            if let Some(glyph_data) =
+                app_state.workspace.font.glyphs.get(&glyph_name)
+            {
                 let advance_width = glyph_data.advance_width as f32;
-                
+
                 // Insert the character
-                text_editor_state.insert_sort_at_cursor(glyph_name.clone(), advance_width);
+                text_editor_state
+                    .insert_sort_at_cursor(glyph_name.clone(), advance_width);
                 info!("Arabic text input: Inserted Unicode character '{}' (U+{:04X}) as glyph '{}'", 
                       ch, ch as u32, glyph_name);
             } else {
@@ -1167,114 +1339,133 @@ fn process_unicode_text_to_sorts(
 /// Handle Unicode character input using Bevy's KeyboardInput events
 /// This system processes the text field from KeyboardInput events for Unicode characters
 pub fn handle_unicode_text_input(
-    mut keyboard_input_events: EventReader<bevy::input::keyboard::KeyboardInput>,
+    mut keyboard_input_events: EventReader<
+        bevy::input::keyboard::KeyboardInput,
+    >,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut text_editor_state: ResMut<TextEditorState>,
     app_state: Res<AppState>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
-    current_placement_mode: Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
+    current_placement_mode: Res<
+        crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode,
+    >,
 ) {
     // Only handle keyboard input when text tool is active AND in Insert mode
     if current_tool.get_current() != Some("text") || 
        current_placement_mode.0 != crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Insert {
         return;
     }
-    
+
     // Check if we have buffer sorts for various operations
     let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
-    
+
     // Handle navigation keys (arrow keys, home, end, etc.)
     if has_text_sorts {
         if keyboard_input.just_pressed(KeyCode::ArrowRight) {
             text_editor_state.move_cursor_right();
-            debug!("Unicode input: moved cursor right to position {}", text_editor_state.cursor_position);
+            debug!(
+                "Unicode input: moved cursor right to position {}",
+                text_editor_state.cursor_position
+            );
         }
-        
+
         if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
             text_editor_state.move_cursor_left();
-            debug!("Unicode input: moved cursor left to position {}", text_editor_state.cursor_position);
+            debug!(
+                "Unicode input: moved cursor left to position {}",
+                text_editor_state.cursor_position
+            );
         }
-        
+
         if keyboard_input.just_pressed(KeyCode::ArrowUp) {
             text_editor_state.move_cursor_up_multiline();
             debug!("Unicode input: moved cursor up (multi-line)");
         }
-        
+
         if keyboard_input.just_pressed(KeyCode::ArrowDown) {
             text_editor_state.move_cursor_down_multiline();
             debug!("Unicode input: moved cursor down (multi-line)");
         }
-        
+
         // Home/End keys
         if keyboard_input.just_pressed(KeyCode::Home) {
             text_editor_state.move_cursor_to(0);
             debug!("Unicode input: moved cursor to beginning");
         }
-        
+
         if keyboard_input.just_pressed(KeyCode::End) {
             let buffer_len = text_editor_state.buffer.len();
             text_editor_state.move_cursor_to(buffer_len);
             debug!("Unicode input: moved cursor to end");
         }
-        
+
         // Delete/Backspace
         if keyboard_input.just_pressed(KeyCode::Delete) {
             text_editor_state.delete_sort_at_cursor();
             info!("Unicode input: deleted sort at cursor position");
         }
-        
+
         if keyboard_input.just_pressed(KeyCode::Backspace) {
             text_editor_state.delete_sort_at_cursor();
             info!("Unicode input: backspace pressed");
         }
-        
+
         // Enter key - insert line break
         if keyboard_input.just_pressed(KeyCode::Enter) {
             text_editor_state.insert_line_break_at_cursor();
             info!("Unicode input: inserted line break (new line)");
         }
     }
-    
+
     // Ctrl+T to create a new text buffer
-    if keyboard_input.just_pressed(KeyCode::KeyT) && 
-       (keyboard_input.pressed(KeyCode::ControlLeft) || 
-        keyboard_input.pressed(KeyCode::ControlRight)) {
+    if keyboard_input.just_pressed(KeyCode::KeyT)
+        && (keyboard_input.pressed(KeyCode::ControlLeft)
+            || keyboard_input.pressed(KeyCode::ControlRight))
+    {
         text_editor_state.create_text_root(Vec2::new(500.0, 0.0));
         info!("Unicode input: created new text buffer");
     }
-    
+
     for event in keyboard_input_events.read() {
         // Only process key press events (not releases)
         if event.state != bevy::input::ButtonState::Pressed {
             continue;
         }
-        
+
         // Check if this event has text content (Unicode characters)
         if let Some(text) = &event.text {
             if !text.is_empty() {
-                debug!("Unicode input received: '{}' (U+{:04X})", text, text.chars().next().unwrap() as u32);
-                
+                debug!(
+                    "Unicode input received: '{}' (U+{:04X})",
+                    text,
+                    text.chars().next().unwrap() as u32
+                );
+
                 // Process each character in the text
                 for unicode_char in text.chars() {
-                    if let Some(glyph_name) = unicode_to_glyph_name(unicode_char, &app_state) {
+                    if let Some(glyph_name) =
+                        unicode_to_glyph_name(unicode_char, &app_state)
+                    {
                         // Check if the glyph exists in the font
-                        if let Some(glyph_data) = 
-                            app_state.workspace.font.glyphs.get(&glyph_name) {
+                        if let Some(glyph_data) =
+                            app_state.workspace.font.glyphs.get(&glyph_name)
+                        {
                             let advance_width = glyph_data.advance_width as f32;
-                            
+
                             // Check if any text sorts exist
                             if !has_text_sorts {
                                 // No buffer sorts exist, create a buffer root at center of screen
                                 // TODO: Use actual mouse/click position if available
                                 let center_position = Vec2::new(500.0, 0.0);
-                                text_editor_state.create_text_root(center_position);
-                                
+                                text_editor_state
+                                    .create_text_root(center_position);
+
                                 // Now insert the character at the new buffer root
                                 text_editor_state.insert_sort_at_cursor(
-                                    glyph_name.clone(), 
-                                    advance_width
+                                    glyph_name.clone(),
+                                    advance_width,
                                 );
-                                
+
                                 info!(
                                     "Unicode input: created new buffer root and inserted character '{}' (glyph: '{}') at center", 
                                     unicode_char, glyph_name
@@ -1282,8 +1473,8 @@ pub fn handle_unicode_text_input(
                             } else {
                                 // Buffer sorts exist, use normal insertion logic
                                 text_editor_state.insert_sort_at_cursor(
-                                    glyph_name.clone(), 
-                                    advance_width
+                                    glyph_name.clone(),
+                                    advance_width,
                                 );
                                 info!(
                                     "Unicode input: inserted character '{}' (glyph: '{}') at cursor position {}", 
@@ -1302,14 +1493,17 @@ pub fn handle_unicode_text_input(
             }
         }
     }
-} 
+}
 
 /// Optimized system to spawn point entities instantly when a sort becomes active
 /// Uses Bevy's change detection for immediate response
 pub fn spawn_active_sort_points_optimized(
     mut commands: Commands,
     // Detect when sorts become active (instant response)
-    added_active_sorts: Query<(Entity, &crate::editing::sort::Sort, &Transform), Added<crate::editing::sort::ActiveSort>>,
+    added_active_sorts: Query<
+        (Entity, &crate::editing::sort::Sort, &Transform),
+        Added<crate::editing::sort::ActiveSort>,
+    >,
     app_state: Res<AppState>,
 ) {
     // Spawn points immediately for newly active sorts
@@ -1317,30 +1511,37 @@ pub fn spawn_active_sort_points_optimized(
         let position = transform.translation.truncate();
         info!("[spawn_active_sort_points_optimized] INSTANT: Spawning points for newly active sort: '{}' at position {:?}", 
               sort.glyph_name, position);
-        
+
         // Get glyph data for the active sort
-        if let Some(glyph_data) = app_state.workspace.font.get_glyph(&sort.glyph_name) {
+        if let Some(glyph_data) =
+            app_state.workspace.font.get_glyph(&sort.glyph_name)
+        {
             if let Some(outline) = &glyph_data.outline {
                 let mut point_count = 0;
-                
-                for (contour_index, contour) in outline.contours.iter().enumerate() {
-                    for (point_index, point) in contour.points.iter().enumerate() {
+
+                for (contour_index, contour) in
+                    outline.contours.iter().enumerate()
+                {
+                    for (point_index, point) in
+                        contour.points.iter().enumerate()
+                    {
                         // Calculate world position: sort position + point offset
-                        let point_world_pos = position + Vec2::new(point.x as f32, point.y as f32);
+                        let point_world_pos = position
+                            + Vec2::new(point.x as f32, point.y as f32);
                         point_count += 1;
-                        
+
                         // Debug: Print first few point positions
                         if point_count <= 5 {
                             info!("[spawn_active_sort_points_optimized] Point {}: local=({:.1}, {:.1}), world=({:.1}, {:.1})", 
                                   point_count, point.x, point.y, point_world_pos.x, point_world_pos.y);
                         }
-                        
+
                         let glyph_point_ref = GlyphPointReference {
                             glyph_name: sort.glyph_name.clone(),
                             contour_index,
                             point_index,
                         };
-                        
+
                         commands.spawn((
                             EditPoint {
                                 position: Point::new(point.x, point.y),
@@ -1378,17 +1579,20 @@ pub fn spawn_active_sort_points_optimized(
 pub fn despawn_inactive_sort_points_optimized(
     mut commands: Commands,
     // Detect when sorts become inactive (instant response)
-    mut removed_active_sorts: RemovedComponents<crate::editing::sort::ActiveSort>,
+    mut removed_active_sorts: RemovedComponents<
+        crate::editing::sort::ActiveSort,
+    >,
     point_entities: Query<(Entity, &SortPointEntity)>,
     mut selection_state: ResMut<crate::editing::selection::SelectionState>,
 ) {
     // Get all sort entities that just became inactive
-    let inactive_sort_entities: Vec<Entity> = removed_active_sorts.read().collect();
-    
+    let inactive_sort_entities: Vec<Entity> =
+        removed_active_sorts.read().collect();
+
     if !inactive_sort_entities.is_empty() {
         info!("[despawn_inactive_sort_points_optimized] INSTANT: Despawning points for {} inactive sorts", inactive_sort_entities.len());
     }
-    
+
     // Despawn points for sorts that just became inactive
     for (point_entity, sort_point) in point_entities.iter() {
         if inactive_sort_entities.contains(&sort_point.sort_entity) {
@@ -1397,13 +1601,13 @@ pub fn despawn_inactive_sort_points_optimized(
                 selection_state.selected.remove(&point_entity);
                 info!("[despawn_inactive_sort_points_optimized] Removed despawned entity {:?} from selection", point_entity);
             }
-            
+
             commands.entity(point_entity).despawn();
             debug!("[despawn_inactive_sort_points_optimized] INSTANT: Despawned point entity {:?} for inactive sort {:?}", 
                    point_entity, sort_point.sort_entity);
         }
     }
-} 
+}
 
 /// Despawn ECS sort entities for buffer sorts that no longer exist in the buffer
 pub fn despawn_missing_buffer_sort_entities(
@@ -1419,10 +1623,13 @@ pub fn despawn_missing_buffer_sort_entities(
             if let Some(pos) = text_editor_state.get_text_sort_flow_position(
                 buffer_index,
                 &app_state.workspace.info.metrics,
-                crate::ui::theme::LINE_LEADING
+                crate::ui::theme::LINE_LEADING,
             ) {
                 let glyph_name = sort_entry.kind.glyph_name().to_string();
-                buffer_positions.insert((glyph_name, (pos.x.round() as i32, pos.y.round() as i32)));
+                buffer_positions.insert((
+                    glyph_name,
+                    (pos.x.round() as i32, pos.y.round() as i32),
+                ));
             }
         }
     }
@@ -1436,8 +1643,11 @@ pub fn despawn_missing_buffer_sort_entities(
             let key = (sort.glyph_name.clone(), (0, 0)); // Simplified for now
             if !buffer_positions.contains(&key) {
                 commands.entity(entity).despawn();
-                debug!("Despawned text sort '{}' that no longer exists in buffer", sort.glyph_name);
+                debug!(
+                    "Despawned text sort '{}' that no longer exists in buffer",
+                    sort.glyph_name
+                );
             }
         }
     }
-} 
+}

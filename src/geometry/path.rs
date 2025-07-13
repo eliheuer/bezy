@@ -127,11 +127,7 @@ fn make_point(
     smooth: bool,
 ) -> ContourPoint {
     ContourPoint::new(
-        point.x,
-        point.y,
-        point_type,
-        smooth,
-        None, // name (optional)
+        point.x, point.y, point_type, smooth, None, // name (optional)
         None, // identifier (optional)
     )
-} 
+}

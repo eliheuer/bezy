@@ -1,9 +1,9 @@
 #![allow(unused_imports)]
 
+use crate::core::state::AppState;
 use crate::editing::edit_type::EditType;
 use crate::editing::selection::systems::*;
 use crate::editing::UndoPlugin;
-use crate::core::state::AppState;
 use bevy::prelude::*;
 
 pub mod components;
@@ -73,22 +73,13 @@ impl Plugin for SelectionPlugin {
             .init_resource::<SelectionState>()
             .init_resource::<DragSelectionState>()
             .init_resource::<DragPointState>()
-
             // Configure system sets for proper ordering
             .configure_sets(
                 Update,
-                (
-                    SelectionSystemSet::Input,
-                    SelectionSystemSet::Processing,
-                )
+                (SelectionSystemSet::Input, SelectionSystemSet::Processing)
                     .chain(),
             )
-            .configure_sets(
-                PostUpdate,
-                (
-                    SelectionSystemSet::Render,
-                ),
-            )
+            .configure_sets(PostUpdate, (SelectionSystemSet::Render,))
             // Input systems - the process_selection_input_events system handles the actual selection logic
             // It's called by the centralized input consumer system when in select mode
             .add_systems(
@@ -137,7 +128,8 @@ impl Plugin for SelectionPlugin {
         #[cfg(debug_assertions)]
         app.add_systems(
             PostUpdate,
-            systems::debug_validate_point_entity_uniqueness.after(SelectionSystemSet::Render),
+            systems::debug_validate_point_entity_uniqueness
+                .after(SelectionSystemSet::Render),
         );
     }
 }
@@ -161,10 +153,10 @@ pub fn sync_selected_components(
     entities: Query<Entity>,
 ) {
     // Always run this system to ensure components stay synchronized
-            debug!(
-            "Synchronizing Selected components with SelectionState (current: {})",
-            selection_state.selected.len()
-        );
+    debug!(
+        "Synchronizing Selected components with SelectionState (current: {})",
+        selection_state.selected.len()
+    );
 
     // First, ensure all entities in the selection_state have the Selected component
     for &entity in &selection_state.selected {
@@ -190,4 +182,4 @@ pub fn sync_selected_components(
 #[allow(dead_code)]
 fn selection_drag_active(drag_state: Res<DragSelectionState>) -> bool {
     drag_state.is_dragging
-} 
+}

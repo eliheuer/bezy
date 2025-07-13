@@ -3,9 +3,9 @@
 //! This module provides the core structures for working with individual points
 //! and entities within a glyph's outline.
 
+use crate::core::state::font_data::PointTypeData;
 use bevy::prelude::*;
 use kurbo::Point;
-use crate::core::state::font_data::PointTypeData;
 
 /// A point in a glyph's outline that can be edited
 #[derive(Component, Debug, Clone, PartialEq)]
@@ -91,4 +91,4 @@ impl EntityId {
     pub fn is_component(&self) -> bool {
         self.kind == EntityKind::Component
     }
-} 
+}

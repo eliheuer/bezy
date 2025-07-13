@@ -60,8 +60,6 @@ impl DPoint {
         DVec2 { x, y }
     }
 
-
-
     pub fn lerp(self, other: DPoint, t: f32) -> DPoint {
         DPoint::from_raw(Vec2::new(
             self.x + (other.x - self.x) * t,
@@ -100,8 +98,6 @@ impl DVec2 {
             DVec2::new(0.0, self.y)
         }
     }
-
-
 }
 
 impl Add<DVec2> for DPoint {
@@ -176,22 +172,12 @@ impl fmt::Debug for DPoint {
 
 impl fmt::Display for DPoint {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            formatter,
-            "x: {:.1}, y: {:.1}",
-            self.x,
-            self.y
-        )
+        write!(formatter, "x: {:.1}, y: {:.1}", self.x, self.y)
     }
 }
 
 impl fmt::Display for DVec2 {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            formatter,
-            "x: {:.1}, y: {:.1}",
-            self.x,
-            self.y
-        )
+        write!(formatter, "x: {:.1}, y: {:.1}", self.x, self.y)
     }
-} 
+}

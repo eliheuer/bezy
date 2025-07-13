@@ -3,8 +3,8 @@
 //! This module provides functionality for navigating between glyphs
 //! using Unicode codepoints and cycling through available glyphs.
 
-use bevy::prelude::*;
 use crate::core::state::app_state::AppState;
+use bevy::prelude::*;
 
 /// Glyph navigation state
 #[derive(Resource)]
@@ -45,7 +45,7 @@ impl GlyphNavigation {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Create a new navigation state with a starting codepoint
     #[allow(dead_code)]
     pub fn with_codepoint(initial_codepoint: Option<String>) -> Self {
@@ -71,17 +71,17 @@ impl GlyphNavigation {
 
     /// Find the glyph name for the current codepoint
     pub fn find_glyph(&self, app_state: &AppState) -> Option<String> {
-        self.current_codepoint
-            .as_ref()
-            .and_then(|codepoint| find_glyph_by_unicode_codepoint(app_state, codepoint))
+        self.current_codepoint.as_ref().and_then(|codepoint| {
+            find_glyph_by_unicode_codepoint(app_state, codepoint)
+        })
     }
-    
+
     /// Legacy methods for compatibility
     #[allow(dead_code)]
     pub fn set_current_glyph(&mut self, glyph_name: String) {
         self.current_glyph = Some(glyph_name);
     }
-    
+
     #[allow(dead_code)]
     pub fn get_current_glyph(&self) -> Option<&String> {
         self.current_glyph.as_ref()
@@ -89,7 +89,10 @@ impl GlyphNavigation {
 }
 
 /// Find a glyph by Unicode codepoint in the app state
-pub fn find_glyph_by_unicode_codepoint(app_state: &AppState, codepoint: &str) -> Option<String> {
+pub fn find_glyph_by_unicode_codepoint(
+    app_state: &AppState,
+    codepoint: &str,
+) -> Option<String> {
     // Parse the codepoint string to a character
     if let Ok(codepoint_num) = u32::from_str_radix(codepoint, 16) {
         if let Some(ch) = char::from_u32(codepoint_num) {
@@ -107,7 +110,7 @@ pub fn find_glyph_by_unicode_codepoint(app_state: &AppState, codepoint: &str) ->
 /// Get all unicode codepoints available in the font
 pub fn get_all_codepoints(app_state: &AppState) -> Vec<String> {
     let mut codepoints = Vec::new();
-    
+
     for glyph_data in app_state.workspace.font.glyphs.values() {
         for &unicode_char in &glyph_data.unicode_values {
             let codepoint = format!("{:04X}", unicode_char as u32);
@@ -116,7 +119,7 @@ pub fn get_all_codepoints(app_state: &AppState) -> Vec<String> {
             }
         }
     }
-    
+
     // Sort and return
     codepoints.sort();
     codepoints
@@ -124,24 +127,25 @@ pub fn get_all_codepoints(app_state: &AppState) -> Vec<String> {
 
 /// Find the next or previous codepoint in the font's available codepoints
 pub fn cycle_codepoint_in_list(
-    current_codepoint: Option<String>, 
+    current_codepoint: Option<String>,
     app_state: &AppState,
     direction: CycleDirection,
 ) -> Option<String> {
     let codepoints = get_all_codepoints(app_state);
-    
+
     if codepoints.is_empty() {
         return None;
     }
-    
+
     // If no current codepoint, return the first one
     let current = match current_codepoint {
         Some(cp) => cp,
         None => return codepoints.first().cloned(),
     };
-    
+
     // Find the position of the current codepoint
-    if let Some(current_index) = codepoints.iter().position(|cp| cp == &current) {
+    if let Some(current_index) = codepoints.iter().position(|cp| cp == &current)
+    {
         match direction {
             CycleDirection::Next => {
                 let next_index = (current_index + 1) % codepoints.len();
@@ -160,4 +164,4 @@ pub fn cycle_codepoint_in_list(
         // Current codepoint not found, return first
         codepoints.first().cloned()
     }
-} 
+}

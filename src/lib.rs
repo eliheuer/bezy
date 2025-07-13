@@ -6,4 +6,4 @@ pub mod geometry;
 pub mod rendering;
 pub mod systems;
 pub mod ui;
-pub mod utils; 
+pub mod utils;

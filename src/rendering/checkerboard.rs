@@ -5,7 +5,7 @@
 //! Uses dynamic rendering to only show squares visible to the camera.
 //!
 //! ## CRITICAL: Zoom Logic
-//! 
+//!
 //! The grid scaling follows this relationship:
 //! - **ZOOMED OUT** (large projection scale) → **LARGE grid squares** (better performance)
 //! - **ZOOMED IN** (small projection scale) → **SMALL grid squares** (more detail)
@@ -15,9 +15,9 @@
 
 use crate::rendering::cameras::DesignCamera;
 use crate::ui::theme::{
-    CHECKERBOARD_COLOR, CHECKERBOARD_DEFAULT_UNIT_SIZE, CHECKERBOARD_SCALE_FACTOR,
-    CHECKERBOARD_MAX_ZOOM_VISIBLE, CHECKERBOARD_ENABLED_BY_DEFAULT,
-    WINDOW_WIDTH, WINDOW_HEIGHT,
+    CHECKERBOARD_COLOR, CHECKERBOARD_DEFAULT_UNIT_SIZE,
+    CHECKERBOARD_ENABLED_BY_DEFAULT, CHECKERBOARD_MAX_ZOOM_VISIBLE,
+    CHECKERBOARD_SCALE_FACTOR, WINDOW_HEIGHT, WINDOW_WIDTH,
 };
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -99,26 +99,27 @@ pub struct CheckerboardState {
 /// - SMALLER scale = less world space visible = more ZOOMED IN
 pub fn calculate_dynamic_grid_size(zoom_scale: f32) -> f32 {
     let base_size = CHECKERBOARD_DEFAULT_UNIT_SIZE;
-    
+
     // CORRECTED LOGIC: Higher zoom_scale (more zoomed out) = larger grid squares
     // This prevents performance issues when viewing large areas
     let zoom_thresholds = [
-        (15.0, 64.0),   // Very zoomed out: 2048 units per square
-        (8.0, 32.0),    // Zoomed out: 1024 units per square  
-        (4.0, 16.0),    // Moderately zoomed out: 512 units per square
-        (2.0, 8.0),     // Slightly zoomed out: 256 units per square
-        (1.5, 4.0),     // Just zoomed out: 128 units per square
-        (1.2, 2.0),     // Barely zoomed out: 64 units per square
-        (0.0, 1.0),     // Zoomed in or normal: 32 units per square (base size)
+        (15.0, 64.0), // Very zoomed out: 2048 units per square
+        (8.0, 32.0),  // Zoomed out: 1024 units per square
+        (4.0, 16.0),  // Moderately zoomed out: 512 units per square
+        (2.0, 8.0),   // Slightly zoomed out: 256 units per square
+        (1.5, 4.0),   // Just zoomed out: 128 units per square
+        (1.2, 2.0),   // Barely zoomed out: 64 units per square
+        (0.0, 1.0),   // Zoomed in or normal: 32 units per square (base size)
     ];
-    
+
     // Find the appropriate scale multiplier based on current zoom
     // We iterate from highest zoom (most zoomed out) to lowest
-    let scale_multiplier = zoom_thresholds.iter()
+    let scale_multiplier = zoom_thresholds
+        .iter()
         .find(|(threshold, _)| zoom_scale >= *threshold)
         .map(|(_, multiplier)| *multiplier)
         .unwrap_or(1.0); // Default to base size for very zoomed in
-    
+
     base_size * scale_multiplier
 }
 
@@ -130,101 +131,121 @@ pub fn update_checkerboard(
     mut commands: Commands,
     mut state: ResMut<CheckerboardState>,
     camera_query: Query<
-        (&Transform, &Projection, Option<&PanCam>), 
-        With<DesignCamera>
+        (&Transform, &Projection, Option<&PanCam>),
+        With<DesignCamera>,
     >,
     square_query: Query<(Entity, &CheckerboardSquare)>,
     checkerboard_enabled: Res<CheckerboardEnabled>,
     window_query: Query<&Window, With<PrimaryWindow>>,
 ) {
-    // If checkerboard is disabled, despawn all squares and return early for 
+    // If checkerboard is disabled, despawn all squares and return early for
     // performance
     if !checkerboard_enabled.enabled {
         despawn_all_squares(&mut commands, &mut state, &square_query);
         return;
     }
 
-    let Ok((camera_transform, projection, _pancam_opt)) = 
-        camera_query.single() else {
+    let Ok((camera_transform, projection, _pancam_opt)) = camera_query.single()
+    else {
         return;
     };
 
-    // Get camera scale from OrthographicProjection (this is what PanCam 
+    // Get camera scale from OrthographicProjection (this is what PanCam
     // actually modifies for zoom)
     let projection_scale = match projection {
         Projection::Orthographic(ortho) => ortho.scale,
         _ => 1.0, // Default for non-orthographic projections
     };
     let transform_scale = camera_transform.scale.x;
-    
+
     // Use projection scale for grid calculation (this is the real zoom level)
     let camera_scale = projection_scale;
     let current_grid_size = calculate_dynamic_grid_size(camera_scale);
-    
-    // Debug logging to help troubleshoot zoom issues (only log when scale 
+
+    // Debug logging to help troubleshoot zoom issues (only log when scale
     // changes significantly)
-    let significant_scale_change = state.last_camera_state.map_or(true, 
-        |(_, last_scale)| {     
-            (camera_scale / last_scale - 1.0).abs() > 0.05 // Log if scale 
+    let significant_scale_change =
+        state.last_camera_state.map_or(true, |(_, last_scale)| {
+            (camera_scale / last_scale - 1.0).abs() > 0.05 // Log if scale
                                                            // changes by >5%
         });
-    
+
     if significant_scale_change {
-        info!("Camera debug: projection_scale={:.3}, transform_scale={:.3}, \
-               using={:.3}, transform=({:.1}, {:.1}, {:.1}), grid_size={:.0}", 
-              projection_scale, transform_scale, camera_scale, 
-              camera_transform.translation.x, camera_transform.translation.y, 
-              camera_transform.translation.z, current_grid_size);
-              
+        info!(
+            "Camera debug: projection_scale={:.3}, transform_scale={:.3}, \
+               using={:.3}, transform=({:.1}, {:.1}, {:.1}), grid_size={:.0}",
+            projection_scale,
+            transform_scale,
+            camera_scale,
+            camera_transform.translation.x,
+            camera_transform.translation.y,
+            camera_transform.translation.z,
+            current_grid_size
+        );
+
         // Also show what zoom threshold this should trigger
         let expected_grid_size = calculate_dynamic_grid_size(camera_scale);
-        info!("Grid size calculation: zoom={:.3} → expected_size={:.0}, \
-               last_size={:?}", 
-              camera_scale, expected_grid_size, state.last_grid_size);
+        info!(
+            "Grid size calculation: zoom={:.3} → expected_size={:.0}, \
+               last_size={:?}",
+            camera_scale, expected_grid_size, state.last_grid_size
+        );
     }
 
     // Hide checkerboard if zoom is outside visible range
     if !is_checkerboard_visible(camera_scale) {
-        info!("Checkerboard not visible at current zoom scale: {:.3} \
-               (range: {:.3} to {:.1})", 
-               camera_scale, MIN_VISIBILITY_ZOOM, 
-               CHECKERBOARD_MAX_ZOOM_VISIBLE);
+        info!(
+            "Checkerboard not visible at current zoom scale: {:.3} \
+               (range: {:.3} to {:.1})",
+            camera_scale, MIN_VISIBILITY_ZOOM, CHECKERBOARD_MAX_ZOOM_VISIBLE
+        );
         despawn_all_squares(&mut commands, &mut state, &square_query);
         return;
     }
 
     // Debug logging for checkerboard (only log once per grid size change)
-    
-    if state.last_grid_size.is_none() || 
-       state.last_grid_size.unwrap() != current_grid_size || 
-       significant_scale_change {
-        info!("Checkerboard: camera_scale={:.3}, grid_size={:.0} units, \
-               camera_pos=({:.1}, {:.1})", 
-              camera_scale, current_grid_size, 
-              camera_transform.translation.x, 
-              camera_transform.translation.y);
-        
+
+    if state.last_grid_size.is_none()
+        || state.last_grid_size.unwrap() != current_grid_size
+        || significant_scale_change
+    {
+        info!(
+            "Checkerboard: camera_scale={:.3}, grid_size={:.0} units, \
+               camera_pos=({:.1}, {:.1})",
+            camera_scale,
+            current_grid_size,
+            camera_transform.translation.x,
+            camera_transform.translation.y
+        );
+
         // Calculate and show the actual grid level being used
         let base_size = CHECKERBOARD_DEFAULT_UNIT_SIZE;
         let scale_multiplier = current_grid_size / base_size;
         if scale_multiplier == 1.0 {
-            info!("  → Grid: Base level ({:.0} units) at zoom ≥ 1.0", base_size);
+            info!(
+                "  → Grid: Base level ({:.0} units) at zoom ≥ 1.0",
+                base_size
+            );
         } else {
             // Show the zoom threshold for this level
             let zoom_threshold = match scale_multiplier as i32 {
                 2 => "1.2",
-                4 => "1.5", 
+                4 => "1.5",
                 8 => "2.0",
                 16 => "4.0",
                 32 => "8.0",
                 64 => "15.0",
-                _ => "very high"
+                _ => "very high",
             };
-            info!("  → Grid: {}x scale ({:.0} units) at zoom ≥ {}", 
-                  scale_multiplier, current_grid_size, zoom_threshold);
+            info!(
+                "  → Grid: {}x scale ({:.0} units) at zoom ≥ {}",
+                scale_multiplier, current_grid_size, zoom_threshold
+            );
         }
-        info!("  → Checkerboard visible: {}", 
-              is_checkerboard_visible(camera_scale));
+        info!(
+            "  → Checkerboard visible: {}",
+            is_checkerboard_visible(camera_scale)
+        );
     }
 
     // Check if grid size changed significantly - if so, respawn all squares
@@ -232,28 +253,33 @@ pub fn update_checkerboard(
         // Use a more responsive threshold than just doubling/halving
         // This prevents sudden jumps but still triggers when grid size changes meaningfully
         let ratio = current_grid_size / last_size;
-        let should_change = ratio >= GRID_SIZE_CHANGE_THRESHOLD || ratio <= (1.0 / GRID_SIZE_CHANGE_THRESHOLD);
-        
+        let should_change = ratio >= GRID_SIZE_CHANGE_THRESHOLD
+            || ratio <= (1.0 / GRID_SIZE_CHANGE_THRESHOLD);
+
         // Debug why grid size change isn't happening
         if !should_change && significant_scale_change {
-                    debug!("Grid size NOT changing: current={:.0}, last={:.0}, \
-               ratio={:.2}, threshold={:.1}", 
-              current_grid_size, last_size, ratio, GRID_SIZE_CHANGE_THRESHOLD);
+            debug!(
+                "Grid size NOT changing: current={:.0}, last={:.0}, \
+               ratio={:.2}, threshold={:.1}",
+                current_grid_size, last_size, ratio, GRID_SIZE_CHANGE_THRESHOLD
+            );
         }
-        
+
         should_change
     });
 
     if grid_size_changed {
-        info!("🔄 GRID SIZE CHANGED! Respawning all squares: \
-               old={:?} → new={:.0}", 
-              state.last_grid_size, current_grid_size);
+        info!(
+            "🔄 GRID SIZE CHANGED! Respawning all squares: \
+               old={:?} → new={:.0}",
+            state.last_grid_size, current_grid_size
+        );
         // Clear all existing squares and state
         despawn_all_squares(&mut commands, &mut state, &square_query);
         state.last_grid_size = Some(current_grid_size);
         state.last_camera_state = None; // Force camera update
-        // Don't update visible squares this frame - let the next frame handle 
-        // spawning
+                                        // Don't update visible squares this frame - let the next frame handle
+                                        // spawning
         return;
     }
 
@@ -297,40 +323,44 @@ fn update_visible_squares(
     window_size: Vec2,
 ) {
     let camera_pos = camera_transform.translation.truncate();
-    
+
     // Skip update if camera hasn't moved significantly
     if let Some((last_pos, last_scale)) = state.last_camera_state {
         let pos_diff = (camera_pos - last_pos).length();
         let scale_diff = (camera_scale - last_scale).abs();
-        
+
         // Only update if moved more than one grid unit or zoom changed >5%
         // Reduced zoom threshold from 10% to 5% for more responsive grid changes
-        if pos_diff < current_grid_size 
-            && scale_diff < last_scale * 0.05 
-        {
+        if pos_diff < current_grid_size && scale_diff < last_scale * 0.05 {
             return;
         }
     }
-    
+
     // Update camera state
     state.last_camera_state = Some((camera_pos, camera_scale));
 
     // Calculate visible area
     let visible_area = calculate_visible_area(
-        camera_transform, 
-        camera_scale, 
-        current_grid_size, 
-        window_size
+        camera_transform,
+        camera_scale,
+        current_grid_size,
+        window_size,
     );
-   let needed_squares = get_needed_squares(&visible_area, current_grid_size);
+    let needed_squares = get_needed_squares(&visible_area, current_grid_size);
 
     // Debug logging for visible area (only when grid size changes)
-    if state.last_grid_size.is_none() || 
-       state.last_grid_size.unwrap() != current_grid_size {
-        debug!("Design space grid: visible=({:.0}, {:.0}) to ({:.0}, {:.0}), \
-               {} squares", 
-              visible_area.min.x, visible_area.min.y, 
-              visible_area.max.x, visible_area.max.y, needed_squares.len());
+    if state.last_grid_size.is_none()
+        || state.last_grid_size.unwrap() != current_grid_size
+    {
+        debug!(
+            "Design space grid: visible=({:.0}, {:.0}) to ({:.0}, {:.0}), \
+               {} squares",
+            visible_area.min.x,
+            visible_area.min.y,
+            visible_area.max.x,
+            visible_area.max.y,
+            needed_squares.len()
+        );
     }
 
     // Despawn squares that are no longer needed
@@ -349,40 +379,46 @@ fn calculate_visible_area(
     window_size: Vec2,
 ) -> Rect {
     let camera_pos = camera_transform.translation.truncate();
-    
+
     // Calculate screen coverage in world space
     let screen_width = window_size.x;
     let screen_height = window_size.y;
-    
+
     // CRITICAL: Always ensure complete screen coverage first
     // This is the minimum area needed to cover the entire screen
     let min_screen_half_width = (screen_width * camera_scale) / 2.0;
     let min_screen_half_height = (screen_height * camera_scale) / 2.0;
-    
+
     // Add padding to extend beyond screen edges for smooth scrolling
     // Use fixed padding that's proportional to grid size but not too conservative
     let edge_padding = current_grid_size * 2.0; // Always at least 2 grid squares beyond edges
-    
+
     // Calculate conservative coverage for performance, but never less than screen coverage
     let base_size = CHECKERBOARD_DEFAULT_UNIT_SIZE;
     let grid_scale_factor = current_grid_size / base_size;
-    let performance_coverage_multiplier = VISIBLE_AREA_COVERAGE_MULTIPLIER / grid_scale_factor.sqrt();
-    
+    let performance_coverage_multiplier =
+        VISIBLE_AREA_COVERAGE_MULTIPLIER / grid_scale_factor.sqrt();
+
     // Performance-based coverage
-    let perf_half_width = (screen_width * camera_scale * performance_coverage_multiplier) / 2.0;
-    let perf_half_height = (screen_height * camera_scale * performance_coverage_multiplier) / 2.0;
-    
+    let perf_half_width =
+        (screen_width * camera_scale * performance_coverage_multiplier) / 2.0;
+    let perf_half_height =
+        (screen_height * camera_scale * performance_coverage_multiplier) / 2.0;
+
     // ENSURE COMPLETE COVERAGE: Use the larger of screen coverage or performance coverage
-    let final_half_width = (min_screen_half_width + edge_padding).max(perf_half_width);
-    let final_half_height = (min_screen_half_height + edge_padding).max(perf_half_height);
+    let final_half_width =
+        (min_screen_half_width + edge_padding).max(perf_half_width);
+    let final_half_height =
+        (min_screen_half_height + edge_padding).max(perf_half_height);
 
     // Only log when grid size changes to reduce spam
     // TODO: Refactor to use OnceCell or Lazy for safer static access
     #[allow(static_mut_refs)]
     static mut LAST_LOGGED_GRID_SIZE: Option<f32> = None;
     unsafe {
-        if LAST_LOGGED_GRID_SIZE.is_none() || 
-           LAST_LOGGED_GRID_SIZE.unwrap() != current_grid_size {
+        if LAST_LOGGED_GRID_SIZE.is_none()
+            || LAST_LOGGED_GRID_SIZE.unwrap() != current_grid_size
+        {
             info!("✅ Screen coverage: window=({:.0}x{:.0}), camera_scale={:.3}, \
                    min_screen=({:.0}, {:.0}), final=({:.0}, {:.0}), \
                    grid_size={:.0}, padding={:.0}", 
@@ -395,16 +431,16 @@ fn calculate_visible_area(
     }
 
     Rect::from_center_half_size(
-        camera_pos, 
-        Vec2::new(final_half_width, final_half_height)
+        camera_pos,
+        Vec2::new(final_half_width, final_half_height),
     )
 }
 
 /// Gets the set of grid positions that need checkerboard squares
 #[allow(static_mut_refs)]
 fn get_needed_squares(
-    visible_area: &Rect, 
-    current_grid_size: f32
+    visible_area: &Rect,
+    current_grid_size: f32,
 ) -> HashSet<IVec2> {
     let mut needed = HashSet::new();
 
@@ -414,19 +450,28 @@ fn get_needed_squares(
     let max_x = (visible_area.max.x / current_grid_size).ceil() as i32 + 1;
     let min_y = (visible_area.min.y / current_grid_size).floor() as i32 - 1;
     let max_y = (visible_area.max.y / current_grid_size).ceil() as i32 + 1;
-    
+
     // Debug log grid bounds occasionally to verify coverage
     // TODO: Refactor to use OnceCell or Lazy for safer static access
     #[allow(static_mut_refs)]
     static mut BOUNDS_LOG_COUNT: u32 = 0;
     unsafe {
         BOUNDS_LOG_COUNT += 1;
-        if BOUNDS_LOG_COUNT % 100 == 1 { // Log every 100th call
-            info!("🔢 Grid bounds: visible_area=({:.0},{:.0} to {:.0},{:.0}), \
+        if BOUNDS_LOG_COUNT % 100 == 1 {
+            // Log every 100th call
+            info!(
+                "🔢 Grid bounds: visible_area=({:.0},{:.0} to {:.0},{:.0}), \
                    grid_bounds=({},{} to {},{}), grid_size={:.0}",
-                  visible_area.min.x, visible_area.min.y, 
-                  visible_area.max.x, visible_area.max.y,
-                  min_x, min_y, max_x, max_y, current_grid_size);
+                visible_area.min.x,
+                visible_area.min.y,
+                visible_area.max.x,
+                visible_area.max.y,
+                min_x,
+                min_y,
+                max_x,
+                max_y,
+                current_grid_size
+            );
         }
     }
 
@@ -439,13 +484,17 @@ fn get_needed_squares(
             }
         }
     }
-    
+
     // Performance safety check - if too many squares, warn but still return them
     // The grid size should have been calculated to prevent this, but this is a safeguard
     if needed.len() > MAX_SQUARES_PER_FRAME {
-        warn!("⚠️  Many squares needed: {} (max recommended: {}). \
-               Grid size {:.0} may be too small for current zoom level.", 
-              needed.len(), MAX_SQUARES_PER_FRAME, current_grid_size);
+        warn!(
+            "⚠️  Many squares needed: {} (max recommended: {}). \
+               Grid size {:.0} may be too small for current zoom level.",
+            needed.len(),
+            MAX_SQUARES_PER_FRAME,
+            current_grid_size
+        );
     }
 
     needed
@@ -459,14 +508,14 @@ fn despawn_unneeded_squares(
     needed_squares: &HashSet<IVec2>,
 ) {
     let mut to_remove = Vec::new();
-    
+
     for (entity, square) in square_query.iter() {
         if !needed_squares.contains(&square.grid_pos) {
             commands.entity(entity).despawn();
             to_remove.push(square.grid_pos);
         }
     }
-    
+
     for pos in to_remove {
         state.spawned_squares.remove(&pos);
     }
@@ -479,16 +528,20 @@ fn spawn_needed_squares(
     needed_squares: &HashSet<IVec2>,
     current_grid_size: f32,
 ) {
-    let new_squares: Vec<_> = needed_squares.iter()
+    let new_squares: Vec<_> = needed_squares
+        .iter()
         .filter(|pos| !state.spawned_squares.contains(pos))
         .copied()
         .collect();
-        
+
     if !new_squares.is_empty() {
-        debug!("Spawning {} new checkerboard squares (grid size: {:.1})", 
-               new_squares.len(), current_grid_size);
+        debug!(
+            "Spawning {} new checkerboard squares (grid size: {:.1})",
+            new_squares.len(),
+            current_grid_size
+        );
     }
-    
+
     for grid_pos in new_squares {
         spawn_square(commands, grid_pos, current_grid_size);
         state.spawned_squares.insert(grid_pos);
@@ -498,26 +551,32 @@ fn spawn_needed_squares(
 /// Spawns a single checkerboard square at the given grid position
 #[allow(static_mut_refs)]
 fn spawn_square(
-    commands: &mut Commands, 
-    grid_pos: IVec2, 
-    current_grid_size: f32
+    commands: &mut Commands,
+    grid_pos: IVec2,
+    current_grid_size: f32,
 ) {
     let world_pos = grid_to_world_position(grid_pos, current_grid_size);
-    
+
     // Debug log the first few squares spawned to verify design space alignment
     // TODO: Refactor to use OnceCell or Lazy for safer static access
     #[allow(static_mut_refs)]
     static mut SPAWN_COUNT: usize = 0;
     unsafe {
         if SPAWN_COUNT < 3 {
-            info!("Design space square {} at grid=({}, {}), \
-                   world=({:.0}, {:.0}), size={:.0}", 
-                  SPAWN_COUNT, grid_pos.x, grid_pos.y, 
-                  world_pos.x, world_pos.y, current_grid_size);
+            info!(
+                "Design space square {} at grid=({}, {}), \
+                   world=({:.0}, {:.0}), size={:.0}",
+                SPAWN_COUNT,
+                grid_pos.x,
+                grid_pos.y,
+                world_pos.x,
+                world_pos.y,
+                current_grid_size
+            );
             SPAWN_COUNT += 1;
         }
     }
-    
+
     commands.spawn((
         CheckerboardSquare { grid_pos },
         Sprite {
@@ -534,8 +593,8 @@ fn spawn_square(
 }
 
 /// Converts grid position to world position aligned to design space
-/// The grid is positioned so that (0,0) - the font baseline/left sidebearing 
-/// intersection - falls exactly at the intersection of four grid squares, 
+/// The grid is positioned so that (0,0) - the font baseline/left sidebearing
+/// intersection - falls exactly at the intersection of four grid squares,
 /// making unit counting accurate
 fn grid_to_world_position(grid_pos: IVec2, current_grid_size: f32) -> Vec2 {
     Vec2::new(
@@ -554,11 +613,11 @@ fn despawn_all_squares(
         commands.entity(entity).despawn();
     }
     state.spawned_squares.clear();
-    
+
     // Also clear grid size to force recalculation
     state.last_grid_size = None;
 }
- 
+
 #[derive(Default)]
 pub struct CheckerboardPlugin;
 
@@ -568,4 +627,4 @@ impl Plugin for CheckerboardPlugin {
             .init_resource::<CheckerboardEnabled>()
             .add_systems(Update, update_checkerboard);
     }
-} 
+}

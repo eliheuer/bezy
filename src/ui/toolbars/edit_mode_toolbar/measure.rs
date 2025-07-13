@@ -7,36 +7,36 @@ impl EditTool for MeasureTool {
     fn id(&self) -> crate::ui::toolbars::edit_mode_toolbar::ToolId {
         "measure"
     }
-    
+
     fn name(&self) -> &'static str {
         "Measure"
     }
-    
+
     fn icon(&self) -> &'static str {
         "\u{E015}"
     }
-    
+
     fn shortcut_key(&self) -> Option<char> {
         Some('m')
     }
-    
+
     fn default_order(&self) -> i32 {
         60 // After text tool, before pan
     }
-    
+
     fn description(&self) -> &'static str {
         "Measure distances and dimensions"
     }
-    
+
     fn update(&self, _commands: &mut Commands) {
         // Implementation for measure tool update
         // TODO: Add distance and angle measurement functionality
     }
-    
+
     fn on_enter(&self) {
         info!("Entered Measure tool");
     }
-    
+
     fn on_exit(&self) {
         info!("Exited Measure tool");
     }
@@ -53,4 +53,4 @@ impl Plugin for MeasureToolPlugin {
 
 fn register_measure_tool(mut tool_registry: ResMut<ToolRegistry>) {
     tool_registry.register_tool(Box::new(MeasureTool));
-} 
+}

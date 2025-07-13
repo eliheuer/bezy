@@ -73,4 +73,4 @@ impl Default for PointList {
     fn default() -> Self {
         Self::new()
     }
-} 
+}

@@ -7,7 +7,8 @@ use crate::core::state::{ContourData, OutlineData, PointData, PointTypeData};
 use crate::ui::theme::{
     HANDLE_LINE_COLOR, OFF_CURVE_INNER_CIRCLE_RATIO, OFF_CURVE_POINT_COLOR,
     OFF_CURVE_POINT_RADIUS, ON_CURVE_INNER_CIRCLE_RATIO, ON_CURVE_POINT_COLOR,
-    ON_CURVE_POINT_RADIUS, ON_CURVE_SQUARE_ADJUSTMENT, PATH_STROKE_COLOR, USE_SQUARE_FOR_ON_CURVE,
+    ON_CURVE_POINT_RADIUS, ON_CURVE_SQUARE_ADJUSTMENT, PATH_STROKE_COLOR,
+    USE_SQUARE_FOR_ON_CURVE,
 };
 use bevy::prelude::*;
 
@@ -117,7 +118,8 @@ pub fn draw_contour_path_at_position(
     if !is_on_curve(&points[0]) {
         // Find the last on-curve point to start with
         let mut last_on_curve_idx = points.len() - 1;
-        while last_on_curve_idx > 0 && !is_on_curve(&points[last_on_curve_idx]) {
+        while last_on_curve_idx > 0 && !is_on_curve(&points[last_on_curve_idx])
+        {
             last_on_curve_idx -= 1;
         }
 
@@ -141,8 +143,10 @@ pub fn draw_contour_path_at_position(
             let start_point = &points[segment_start_idx];
             let end_point = &points[point_idx];
 
-            let start_pos = Vec2::new(start_point.x as f32, start_point.y as f32) + offset;
-            let end_pos = Vec2::new(end_point.x as f32, end_point.y as f32) + offset;
+            let start_pos =
+                Vec2::new(start_point.x as f32, start_point.y as f32) + offset;
+            let end_pos =
+                Vec2::new(end_point.x as f32, end_point.y as f32) + offset;
 
             gizmos.line_2d(start_pos, end_pos, path_color);
 
@@ -163,7 +167,12 @@ pub fn draw_contour_path_at_position(
             }
 
             // Draw the appropriate curve based on number of points
-            draw_curve_segment_at_position(gizmos, &segment_points, path_color, offset);
+            draw_curve_segment_at_position(
+                gizmos,
+                &segment_points,
+                path_color,
+                offset,
+            );
 
             // Update for next segment
             segment_start_idx = point_idx;
@@ -208,7 +217,10 @@ pub fn draw_control_handles_at_position(
     for _ in 0..points.len() {
         // We're only processing segments that start with an on-curve point
         if is_on_curve(&points[current_idx]) {
-            let current_on_curve_pos = Vec2::new(points[current_idx].x as f32, points[current_idx].y as f32) + offset;
+            let current_on_curve_pos = Vec2::new(
+                points[current_idx].x as f32,
+                points[current_idx].y as f32,
+            ) + offset;
 
             // Look for the next on-curve point and collect off-curve points between them
             let mut off_curve_points = Vec::new();
@@ -227,37 +239,63 @@ pub fn draw_control_handles_at_position(
 
             // Only proceed if we found another on-curve point and have off-curve points
             if next_idx != current_idx && !off_curve_points.is_empty() {
-                let next_on_curve_pos = Vec2::new(points[next_idx].x as f32, points[next_idx].y as f32) + offset;
+                let next_on_curve_pos = Vec2::new(
+                    points[next_idx].x as f32,
+                    points[next_idx].y as f32,
+                ) + offset;
 
                 // For cubic Bézier with 2 control points (most common case)
                 if off_curve_points.len() == 2 {
                     // First control point connects back to the current on-curve point
                     let p1_idx = off_curve_points[0];
-                    let p1_pos = Vec2::new(points[p1_idx].x as f32, points[p1_idx].y as f32) + offset;
+                    let p1_pos = Vec2::new(
+                        points[p1_idx].x as f32,
+                        points[p1_idx].y as f32,
+                    ) + offset;
                     gizmos.line_2d(current_on_curve_pos, p1_pos, handle_color);
 
                     // Second control point connects forward to the next on-curve point
                     let p2_idx = off_curve_points[1];
-                    let p2_pos = Vec2::new(points[p2_idx].x as f32, points[p2_idx].y as f32) + offset;
+                    let p2_pos = Vec2::new(
+                        points[p2_idx].x as f32,
+                        points[p2_idx].y as f32,
+                    ) + offset;
                     gizmos.line_2d(next_on_curve_pos, p2_pos, handle_color);
                 }
                 // For quadratic Bézier or other cases with just one control point
                 else if off_curve_points.len() == 1 {
                     // The single control point gets a handle from the current on-curve point
                     let control_idx = off_curve_points[0];
-                    let control_pos = Vec2::new(points[control_idx].x as f32, points[control_idx].y as f32) + offset;
-                    gizmos.line_2d(current_on_curve_pos, control_pos, handle_color);
+                    let control_pos = Vec2::new(
+                        points[control_idx].x as f32,
+                        points[control_idx].y as f32,
+                    ) + offset;
+                    gizmos.line_2d(
+                        current_on_curve_pos,
+                        control_pos,
+                        handle_color,
+                    );
                 }
                 // For cases with more than 2 control points (less common)
                 else {
                     // Connect first control point to the current on-curve point
                     let first_idx = off_curve_points[0];
-                    let first_pos = Vec2::new(points[first_idx].x as f32, points[first_idx].y as f32) + offset;
-                    gizmos.line_2d(current_on_curve_pos, first_pos, handle_color);
+                    let first_pos = Vec2::new(
+                        points[first_idx].x as f32,
+                        points[first_idx].y as f32,
+                    ) + offset;
+                    gizmos.line_2d(
+                        current_on_curve_pos,
+                        first_pos,
+                        handle_color,
+                    );
 
                     // Connect last control point to the next on-curve point
                     let last_idx = off_curve_points[off_curve_points.len() - 1];
-                    let last_pos = Vec2::new(points[last_idx].x as f32, points[last_idx].y as f32) + offset;
+                    let last_pos = Vec2::new(
+                        points[last_idx].x as f32,
+                        points[last_idx].y as f32,
+                    ) + offset;
                     gizmos.line_2d(next_on_curve_pos, last_pos, handle_color);
                 }
 
@@ -287,8 +325,10 @@ fn draw_curve_segment_at_position(
 
     if points.len() == 2 {
         // Simple line segment between two on-curve points
-        let start_pos = Vec2::new(points[0].x as f32, points[0].y as f32) + offset;
-        let end_pos = Vec2::new(points[1].x as f32, points[1].y as f32) + offset;
+        let start_pos =
+            Vec2::new(points[0].x as f32, points[0].y as f32) + offset;
+        let end_pos =
+            Vec2::new(points[1].x as f32, points[1].y as f32) + offset;
         gizmos.line_2d(start_pos, end_pos, color);
         return;
     }
@@ -314,8 +354,10 @@ fn draw_curve_segment_at_position(
     // For other cases (e.g. multiple off-curve points), approximate with line segments
     // This is a fallback and should be improved for proper curve rendering
     for i in 0..points.len() - 1 {
-        let start_pos = Vec2::new(points[i].x as f32, points[i].y as f32) + offset;
-        let end_pos = Vec2::new(points[i + 1].x as f32, points[i + 1].y as f32) + offset;
+        let start_pos =
+            Vec2::new(points[i].x as f32, points[i].y as f32) + offset;
+        let end_pos =
+            Vec2::new(points[i + 1].x as f32, points[i + 1].y as f32) + offset;
         gizmos.line_2d(start_pos, end_pos, color);
     }
 }
@@ -345,8 +387,14 @@ fn draw_cubic_bezier(
 
         // Cubic Bezier formula: B(t) = (1-t)^3*P0 + 3*(1-t)^2*t*P1 + 3*(1-t)*t^2*P2 + t^3*P3
         let point = Vec2::new(
-            mt3 * p0.x + 3.0 * mt2 * t * p1.x + 3.0 * mt * t2 * p2.x + t3 * p3.x,
-            mt3 * p0.y + 3.0 * mt2 * t * p1.y + 3.0 * mt * t2 * p2.y + t3 * p3.y,
+            mt3 * p0.x
+                + 3.0 * mt2 * t * p1.x
+                + 3.0 * mt * t2 * p2.x
+                + t3 * p3.x,
+            mt3 * p0.y
+                + 3.0 * mt2 * t * p1.y
+                + 3.0 * mt * t2 * p2.y
+                + t3 * p3.y,
         );
 
         // Draw line segment from last point to current point
@@ -361,4 +409,4 @@ fn is_on_curve(point: &PointData) -> bool {
         point.point_type,
         PointTypeData::Move | PointTypeData::Line | PointTypeData::Curve
     )
-} 
+}
