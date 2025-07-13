@@ -11,6 +11,7 @@
 pub mod commands;
 pub mod debug;
 pub mod input_consumer;
+pub mod lifecycle;
 pub mod metrics;
 pub mod plugins;
 pub mod sort_interaction;
@@ -21,5 +22,6 @@ pub mod ui_interaction;
 // Re-export commonly used items
 pub use commands::CommandsPlugin;
 pub use input_consumer::InputConsumerPlugin;
+pub use lifecycle::{exit_on_esc, load_ufo_font};
 pub use plugins::{configure_default_plugins, BezySystems};
 pub use ui_interaction::UiInteractionPlugin;

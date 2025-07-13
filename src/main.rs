@@ -16,8 +16,7 @@ use std::process;
 
 /// Create and run the application with the given CLI arguments.
 fn run_app(cli_args: core::cli::CliArgs) -> Result<()> {
-    let mut app = core::app::create_app(cli_args)
-        .map_err(|e| anyhow::anyhow!("Failed to create application: {}", e))?;
+    let mut app = core::app::create_app(cli_args)?;
     app.run();
     Ok(())
 }

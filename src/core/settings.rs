@@ -12,6 +12,14 @@ use bevy::prelude::*;
 /// Default UFO file to load if none is specified
 pub const DEFAULT_UFO_PATH: &str = "assets/fonts/bezy-grotesk-regular.ufo";
 
+// WINDOW SETTINGS
+
+/// Default window title
+pub const WINDOW_TITLE: &str = "Bezy Font Editor";
+
+/// Default window resolution
+pub const DEFAULT_WINDOW_SIZE: (f32, f32) = (1024.0, 768.0);
+
 // GRID AND SNAPPING
 
 /// Configuration for grid snapping behavior
