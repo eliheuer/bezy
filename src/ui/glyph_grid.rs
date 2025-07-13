@@ -88,27 +88,22 @@ fn should_create_glyph_grid(
         app_state.workspace.font.glyphs.len(), 
         sorts_query.iter().count()
     );
-    
     if has_run {
         debug!("[GlyphGrid] Already ran, skipping.");
         return false;
     }
-    
     if !settings.glyph_grid.enabled {
         debug!("[GlyphGrid] Disabled in settings, skipping.");
         return false;
     }
-    
     if app_state.workspace.font.glyphs.is_empty() {
         debug!("[GlyphGrid] Font not loaded yet, skipping.");
         return false;
     }
-    
     if !sorts_query.is_empty() {
         debug!("[GlyphGrid] Sorts already exist, skipping.");
         return false;
     }
-    
     true
 }
 
@@ -120,7 +115,6 @@ fn calculate_glyph_positions(
     let codepoints = get_all_codepoints(app_state);
     let mut positions = Vec::new();
     let mut layout_state = GridLayoutState::new();
-    
     for codepoint_hex in codepoints {
         if let Some(glyph_name) = find_glyph_for_codepoint(app_state, &codepoint_hex) {
             if let Some(position) = layout_state.place_glyph(app_state, &glyph_name, config) {
@@ -128,7 +122,6 @@ fn calculate_glyph_positions(
             }
         }
     }
-    
     positions
 }
 
