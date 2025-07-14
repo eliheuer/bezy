@@ -96,7 +96,7 @@ impl CliArgs {
 
             // Validate theme if provided
             if let Some(theme_name) = &self.theme {
-                if ThemeVariant::from_str(theme_name).is_none() {
+                if ThemeVariant::parse(theme_name).is_none() {
                     let available_themes = ThemeVariant::all_names().join(", ");
                     return Err(format!(
                         "Unknown theme: '{theme_name}'\nAvailable themes: {available_themes}"
@@ -132,7 +132,7 @@ impl CliArgs {
     pub fn get_theme_variant(&self) -> ThemeVariant {
         self.theme
             .as_ref()
-            .and_then(|theme_name| ThemeVariant::from_str(theme_name))
+            .and_then(|theme_name| ThemeVariant::parse(theme_name))
             .unwrap_or_default()
     }
 }

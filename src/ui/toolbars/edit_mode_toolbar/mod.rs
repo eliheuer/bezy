@@ -509,7 +509,7 @@ fn initialize_default_tool(
     );
 
     // Set Select as the default tool
-    if let Some(_) = tool_registry.get_tool("select") {
+    if tool_registry.get_tool("select").is_some() {
         current_tool.switch_to("select");
         info!("Initialized with default tool: select");
     } else {

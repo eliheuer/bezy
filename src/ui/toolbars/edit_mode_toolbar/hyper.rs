@@ -113,6 +113,7 @@ fn register_hyper_tool(mut tool_registry: ResMut<ToolRegistry>) {
 }
 
 /// Handle mouse events for the hyper tool
+#[allow(clippy::too_many_arguments)]
 pub fn handle_hyper_mouse_events(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,

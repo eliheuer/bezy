@@ -136,6 +136,7 @@ fn register_shapes_tool(mut tool_registry: ResMut<ToolRegistry>) {
 }
 
 /// Handle mouse events for shape drawing
+#[allow(clippy::too_many_arguments)]
 pub fn handle_shape_mouse_events(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,

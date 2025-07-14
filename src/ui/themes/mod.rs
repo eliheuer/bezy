@@ -37,6 +37,7 @@
 
 use bevy::prelude::*;
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::OnceLock;
 
 // =================================================================
@@ -131,7 +132,7 @@ static GLOBAL_REGISTRY: OnceLock<ThemeRegistry> = OnceLock::new();
 
 /// Get the global theme registry
 pub fn get_theme_registry() -> &'static ThemeRegistry {
-    GLOBAL_REGISTRY.get_or_init(|| ThemeRegistry::new())
+    GLOBAL_REGISTRY.get_or_init(ThemeRegistry::new)
 }
 
 /// Legacy ThemeVariant for backward compatibility
@@ -152,7 +153,7 @@ impl ThemeVariant {
     }
 
     /// Parse theme name from string (case-insensitive)
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         let registry = get_theme_registry();
         let name = s.to_lowercase();
 
@@ -172,6 +173,14 @@ impl ThemeVariant {
 impl Default for ThemeVariant {
     fn default() -> Self {
         Self::new("darkmode".to_string())
+    }
+}
+
+impl FromStr for ThemeVariant {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::parse(s).ok_or_else(|| format!("Unknown theme: '{s}'"))
     }
 }
 

@@ -147,6 +147,7 @@ fn create_button_text(
 // INTERACTION HANDLING --------------------------------------------------------
 
 /// Handles toolbar button interactions and tool switching
+#[allow(clippy::type_complexity)]
 pub fn handle_toolbar_mode_selection(
     interaction_query: Query<
         (&Interaction, &ToolButtonData),

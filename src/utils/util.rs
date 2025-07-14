@@ -47,17 +47,15 @@ pub fn create_blank_font() -> norad::Font {
         family_name: Some("Untitled".into()),
         style_name: Some("Regular".into()),
         units_per_em: Some(TryFrom::try_from(1000.0f64).unwrap()),
-        descender: Some(From::from(-200.0)),
-        ascender: Some(800.0.into()),
-        cap_height: Some(700.0.into()),
-        x_height: Some(500.0.into()),
+        descender: Some(-200.0),
+        ascender: Some(800.0),
+        cap_height: Some(700.0),
+        x_height: Some(500.0),
         ..Default::default()
-    }
-    .into();
+    };
 
     let layer = font.default_layer_mut();
     ('a'..='z')
-        .into_iter()
         .chain('A'..='Z')
         .map(|chr| norad::Glyph::new(&chr.to_string()))
         .for_each(|glyph| layer.insert_glyph(glyph));

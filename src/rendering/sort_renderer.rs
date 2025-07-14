@@ -31,6 +31,7 @@ pub struct SortUnicodeText {
 }
 
 /// System to render all sorts in the design space
+#[allow(clippy::too_many_arguments)]
 pub fn render_sorts_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
@@ -119,6 +120,8 @@ pub fn render_sorts_system(
 }
 
 /// System to manage text labels (glyph name and unicode) for all sorts
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 pub fn manage_sort_labels(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -288,7 +291,7 @@ pub fn update_sort_label_positions(
 /// System to update text label colors when sorts change state (active/inactive)
 pub fn update_sort_label_colors(
     active_sorts_query: Query<Entity, (With<Sort>, With<ActiveSort>)>,
-    inactive_sorts_query: Query<Entity, (With<Sort>, With<InactiveSort>)>,
+    _inactive_sorts_query: Query<Entity, (With<Sort>, With<InactiveSort>)>,
     mut text_query: Query<(&mut TextColor, &SortGlyphNameText)>,
 ) {
     // Helper function to determine color

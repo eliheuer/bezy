@@ -359,6 +359,7 @@ pub fn handle_text_mode_cursor(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_text_mode_sort_placement(
     _commands: Commands,
     mut text_editor_state: ResMut<TextEditorState>,
@@ -463,6 +464,7 @@ pub fn handle_text_mode_sort_placement(
 
 // -- Preview Rendering and Keyboard Handling --
 
+#[allow(clippy::too_many_arguments)]
 pub fn render_sort_preview(
     mut gizmos: Gizmos,
     text_mode_active: Res<TextModeActive>,
@@ -639,6 +641,7 @@ pub fn reset_text_mode_when_inactive(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_text_mode_keyboard(
     text_mode_active: Res<TextModeActive>,
     current_placement_mode: Res<CurrentTextPlacementMode>,

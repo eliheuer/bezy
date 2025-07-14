@@ -23,6 +23,7 @@ use bevy::prelude::*;
 #[allow(unused_imports)]
 use bevy::window::PrimaryWindow;
 
+
 /// Event to signal that app state has changed
 #[derive(Event, Debug, Clone)]
 pub struct AppStateChanged;
@@ -39,6 +40,7 @@ const SELECTION_MARGIN: f32 = 16.0; // Distance in pixels for selection hit test
 // Legacy handle_mouse_input system removed - replaced by handle_selection_input_events
 
 /// System to handle selection shortcuts (Ctrl+A for select all, etc.)
+#[allow(clippy::too_many_arguments)]
 pub fn handle_selection_shortcuts(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
@@ -453,6 +455,7 @@ pub fn render_hovered_entities(
 }
 
 /// System to update the actual glyph data when a point is moved
+#[allow(clippy::type_complexity)]
 pub fn update_glyph_data_from_selection(
     query: Query<
         (
@@ -686,6 +689,7 @@ pub fn despawn_inactive_sort_points(
 }
 
 /// System to update point positions when sort position changes
+#[allow(clippy::type_complexity)]
 pub fn sync_point_positions_to_sort(
     mut param_set: ParamSet<(
         Query<
@@ -784,6 +788,7 @@ pub fn clear_selection_on_app_change(
 }
 
 /// System to handle advanced point dragging with constraints and snapping
+#[allow(clippy::type_complexity)]
 pub fn handle_point_drag(
     pointer_info: Res<PointerInfo>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
@@ -906,6 +911,8 @@ pub fn cleanup_click_resource(mut commands: Commands) {
 }
 
 /// System to process selection input events from the new input system
+#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 pub fn process_selection_input_events(
     mut commands: Commands,
     mut input_events: EventReader<crate::core::input::InputEvent>,
@@ -913,6 +920,7 @@ pub fn process_selection_input_events(
     mut drag_state: ResMut<DragSelectionState>,
     mut drag_point_state: ResMut<DragPointState>,
     mut event_writer: EventWriter<EditEvent>,
+    #[allow(clippy::type_complexity)]
     selectable_query: Query<
         (
             Entity,
@@ -1117,6 +1125,8 @@ pub fn process_selection_input_events(
 }
 
 /// Handle mouse click for selection
+#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 pub fn handle_selection_click(
     commands: &mut Commands,
     position: &DPoint,
@@ -1324,6 +1334,8 @@ pub fn handle_selection_click(
 }
 
 /// Handle mouse drag for selection
+#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 pub fn handle_selection_drag(
     commands: &mut Commands,
     start_position: &DPoint,
@@ -1544,6 +1556,7 @@ pub fn handle_selection_drag(
 }
 
 /// Handle mouse release for selection
+#[allow(clippy::too_many_arguments)]
 pub fn handle_selection_release(
     commands: &mut Commands,
     position: &DPoint,
@@ -1593,6 +1606,8 @@ pub fn handle_selection_release(
 }
 
 /// Handle key press for selection shortcuts
+#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 pub fn handle_selection_key_press(
     commands: &mut Commands,
     key: &KeyCode,

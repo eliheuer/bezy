@@ -55,7 +55,7 @@ pub fn manage_sort_activation(
         let mut found_entity = None;
         for (entity, sort) in sort_entities.iter() {
             // Match by glyph name and approximate position
-            if sort.glyph_name == sort_entry.kind.glyph_name().to_string() {
+            if sort.glyph_name == sort_entry.kind.glyph_name() {
                 // Additional position check to ensure we get the right sort instance
                 let sort_pos =
                     text_editor_state.get_sort_visual_position(buffer_index);
@@ -163,6 +163,7 @@ pub fn initialize_text_editor_sorts(
 }
 
 /// Render the text editor sorts
+#[allow(clippy::too_many_arguments)]
 pub fn render_text_editor_sorts(
     mut gizmos: Gizmos,
     text_editor_state: Res<TextEditorState>,
@@ -700,6 +701,7 @@ pub fn debug_text_editor_state(
 }
 
 /// System to respawn all point entities when the active sort changes
+#[allow(clippy::type_complexity)]
 pub fn respawn_active_sort_points(
     mut commands: Commands,
     text_editor_state: Res<TextEditorState>,
@@ -844,6 +846,7 @@ pub fn respawn_active_sort_points(
 }
 
 /// Spawn missing sort entities for buffer sorts only
+#[allow(clippy::type_complexity)]
 pub fn spawn_missing_sort_entities(
     mut commands: Commands,
     text_editor_state: Res<TextEditorState>,
@@ -906,6 +909,7 @@ pub fn spawn_missing_sort_entities(
 }
 
 /// Handle sort placement using the centralized input system
+#[allow(clippy::too_many_arguments)]
 pub fn handle_sort_placement_input(
     mut input_events: EventReader<crate::core::input::InputEvent>,
     _input_state: Res<crate::core::input::InputState>,
@@ -1055,6 +1059,7 @@ pub fn handle_sort_placement_input(
 }
 
 /// System to handle text input using cosmic-text for proper Unicode support
+#[allow(clippy::too_many_arguments)]
 pub fn handle_text_input_with_cosmic(
     mut text_editor_state: ResMut<TextEditorState>,
     app_state: Res<AppState>,
@@ -1180,6 +1185,7 @@ pub fn handle_text_input_with_cosmic(
 
 /// System to handle Arabic and Unicode text input using cosmic-text
 /// This system can handle any Unicode character including Arabic, Hebrew, etc.
+#[allow(clippy::too_many_arguments)]
 pub fn handle_arabic_text_input(
     mut text_editor_state: ResMut<TextEditorState>,
     app_state: Res<AppState>,

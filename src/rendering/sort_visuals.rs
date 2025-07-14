@@ -59,6 +59,8 @@ pub fn render_sort_visuals(
 
 /// Enhanced sort rendering that uses live Transform positions during nudging
 /// This ensures perfect synchronization between points and outline
+#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 pub fn render_sort_visuals_with_live_sync(
     gizmos: &mut Gizmos,
     outline: &Option<OutlineData>,
@@ -71,6 +73,7 @@ pub fn render_sort_visuals_with_live_sync(
     sort_entity: Option<Entity>,
     sort_transform: Option<&Transform>,
     glyph_name: Option<&str>,
+    #[allow(clippy::type_complexity)]
     point_query: Option<&Query<(
         Entity,
         &Transform,
@@ -82,7 +85,7 @@ pub fn render_sort_visuals_with_live_sync(
     nudge_state: Option<&NudgeState>,
 ) {
     // Determine if we should use live rendering
-    let nudge_active = nudge_state.map_or(false, |ns| ns.is_nudging);
+    let nudge_active = nudge_state.is_some_and(|ns| ns.is_nudging);
     let has_sort_entity = sort_entity.is_some();
     let has_sort_transform = sort_transform.is_some();
     let has_glyph_name = glyph_name.is_some();

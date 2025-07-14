@@ -319,6 +319,7 @@ fn deactivate_pen_mode(
 // ================================================================
 
 /// Main system for handling mouse interactions with the pen tool
+#[allow(clippy::too_many_arguments)]
 pub fn handle_pen_mouse_events(
     mut commands: Commands,
     pointer_info: Res<PointerInfo>,
@@ -371,10 +372,11 @@ pub fn handle_pen_mouse_events(
 
 /// Check if pen mode is currently active
 fn is_pen_mode_active(pen_mode: &Option<Res<PenModeActive>>) -> bool {
-    pen_mode.as_ref().map_or(false, |mode| mode.0)
+    pen_mode.as_ref().is_some_and(|mode| mode.0)
 }
 
 /// Handle left mouse button clicks
+#[allow(clippy::too_many_arguments)]
 fn handle_left_click(
     _commands: &mut Commands,
     keyboard: &Res<ButtonInput<KeyCode>>,

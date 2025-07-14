@@ -345,6 +345,7 @@ fn update_coordinate_selection(
 }
 
 /// System to update the coordinate display text
+#[allow(clippy::type_complexity)]
 fn update_coordinate_display(
     coord_selection: Res<CoordinateSelection>,
     mut x_query: Query<

@@ -333,7 +333,7 @@ pub fn create_widget_label_value_pair(
         Node {
             ..Default::default()
         },
-        Text(format!("{} {}", label, value)),
+        Text(format!("{label} {value}")),
     )
 }
 

@@ -37,7 +37,7 @@ fn handle_error(error: anyhow::Error) {
     {
         eprintln!();
         eprintln!("Error starting Bezy:");
-        eprintln!("{}", error);
+        eprintln!("{error}");
         eprintln!();
         eprintln!("Try running with --help for usage information.");
         eprintln!("Or visit: https://bezy.org");

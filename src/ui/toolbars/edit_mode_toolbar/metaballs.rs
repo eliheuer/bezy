@@ -537,9 +537,7 @@ fn outline_points_to_cubic_curves(
     });
 
     // Convert points to cubic curves
-    for i in 1..points.len() {
-        let point = points[i];
-
+    for point in points.iter().skip(1) {
         // For simplicity, use line segments (can be improved with proper cubic curve fitting)
         current_curve.push(crate::core::state::PointData {
             x: point.x as f64,

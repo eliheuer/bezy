@@ -203,6 +203,7 @@ pub fn handle_glyph_navigation_changes(
 }
 
 /// System to respawn sort points when the glyph changes
+#[allow(clippy::type_complexity)]
 pub fn respawn_sort_points_on_glyph_change(
     _commands: Commands,
     _changed_sorts: Query<(Entity, &Sort), (With<ActiveSort>, Changed<Sort>)>,

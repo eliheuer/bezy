@@ -98,19 +98,16 @@ impl InputConsumer for PenInputConsumer {
     }
 
     fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
-        match event {
-            InputEvent::MouseClick {
-                button,
-                position,
-                modifiers,
-            } => {
-                debug!(
-                    "[PEN] Mouse click: {:?} at {:?} with {:?}",
-                    button, position, modifiers
-                );
-                // Pen tool logic would go here
-            }
-            _ => {}
+        if let InputEvent::MouseClick {
+            button,
+            position,
+            modifiers,
+        } = event {
+            debug!(
+                "[PEN] Mouse click: {:?} at {:?} with {:?}",
+                button, position, modifiers
+            );
+            // Pen tool logic would go here
         }
     }
 }
@@ -133,19 +130,16 @@ impl InputConsumer for KnifeInputConsumer {
     }
 
     fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
-        match event {
-            InputEvent::MouseClick {
-                button,
-                position,
-                modifiers,
-            } => {
-                debug!(
-                    "[KNIFE] Mouse click: {:?} at {:?} with {:?}",
-                    button, position, modifiers
-                );
-                // Knife tool logic would go here
-            }
-            _ => {}
+        if let InputEvent::MouseClick {
+            button,
+            position,
+            modifiers,
+        } = event {
+            debug!(
+                "[KNIFE] Mouse click: {:?} at {:?} with {:?}",
+                button, position, modifiers
+            );
+            // Knife tool logic would go here
         }
     }
 }
@@ -168,19 +162,16 @@ impl InputConsumer for ShapeInputConsumer {
     }
 
     fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
-        match event {
-            InputEvent::MouseClick {
-                button,
-                position,
-                modifiers,
-            } => {
-                debug!(
-                    "[SHAPE] Mouse click: {:?} at {:?} with {:?}",
-                    button, position, modifiers
-                );
-                // Shape tool logic would go here
-            }
-            _ => {}
+        if let InputEvent::MouseClick {
+            button,
+            position,
+            modifiers,
+        } = event {
+            debug!(
+                "[SHAPE] Mouse click: {:?} at {:?} with {:?}",
+                button, position, modifiers
+            );
+            // Shape tool logic would go here
         }
     }
 }
@@ -203,19 +194,16 @@ impl InputConsumer for HyperInputConsumer {
     }
 
     fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
-        match event {
-            InputEvent::MouseClick {
-                button,
-                position,
-                modifiers,
-            } => {
-                debug!(
-                    "[HYPER] Mouse click: {:?} at {:?} with {:?}",
-                    button, position, modifiers
-                );
-                // Hyper tool logic would go here
-            }
-            _ => {}
+        if let InputEvent::MouseClick {
+            button,
+            position,
+            modifiers,
+        } = event {
+            debug!(
+                "[HYPER] Mouse click: {:?} at {:?} with {:?}",
+                button, position, modifiers
+            );
+            // Hyper tool logic would go here
         }
     }
 }
@@ -311,24 +299,22 @@ impl InputConsumer for MeasurementToolInputConsumer {
     }
 
     fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
-        match event {
-            InputEvent::MouseClick {
-                button,
-                position,
-                modifiers,
-            } => {
-                debug!(
-                    "[MEASURE] Mouse click: {:?} at {:?} with {:?}",
-                    button, position, modifiers
-                );
-                // Measurement tool logic would go here
-            }
-            _ => {}
+        if let InputEvent::MouseClick {
+            button,
+            position,
+            modifiers,
+        } = event {
+            debug!(
+                "[MEASURE] Mouse click: {:?} at {:?} with {:?}",
+                button, position, modifiers
+            );
+            // Measurement tool logic would go here
         }
     }
 }
 
 /// System to process input events and route them to appropriate consumers
+#[allow(clippy::too_many_arguments)]
 fn process_input_events(
     mut input_events: EventReader<InputEvent>,
     input_state: Res<InputState>,

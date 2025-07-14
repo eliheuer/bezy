@@ -7,6 +7,7 @@ use crate::editing::sort::ActiveSortState;
 use crate::systems::sort_manager::SortPointEntity;
 use bevy::prelude::*;
 
+
 /// Resource to track nudge state for preventing selection loss during nudging
 #[derive(Resource, Debug, Default, Reflect)]
 #[reflect(Resource)]
@@ -19,6 +20,8 @@ pub struct NudgeState {
 
 /// System to handle keyboard input for nudging selected points
 /// This is the idiomatic Bevy ECS approach: direct system that queries and mutates
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 pub fn handle_nudge_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut queries: ParamSet<(

@@ -260,6 +260,7 @@ pub enum InputEvent {
 }
 
 /// System to update the centralized input state
+#[allow(clippy::too_many_arguments)]
 fn update_input_state(
     mut _input_state: ResMut<InputState>,
     pointer_info: Res<PointerInfo>,
