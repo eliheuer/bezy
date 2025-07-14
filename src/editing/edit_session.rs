@@ -5,21 +5,12 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 /// A session for editing a glyph
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Default)]
 pub struct EditSession {
     /// The selection state
     pub selection_count: usize,
     /// Point positions (entity ID -> position)
     pub point_positions: HashMap<Entity, Vec2>,
-}
-
-impl Default for EditSession {
-    fn default() -> Self {
-        Self {
-            selection_count: 0,
-            point_positions: HashMap::new(),
-        }
-    }
 }
 
 impl EditSession {

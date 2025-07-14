@@ -192,7 +192,6 @@ pub fn spawn_glyph_pane(
         bottom: Val::Px(WIDGET_MARGIN),
         top: Val::Auto, // Explicitly set top to Auto to prevent stretching
         right: Val::Auto, // Explicitly set right to Auto for correct sizing
-        ..default()
     };
 
     commands
@@ -548,7 +547,7 @@ pub fn update_glyph_metrics(
                 let lsb = min_x;
 
                 // Right side bearing is the distance from the rightmost point to the advance width
-                let rsb = glyph_data.advance_width as f64 - max_x;
+                let rsb = glyph_data.advance_width - max_x;
 
                 metrics.left_bearing = format!("{}", lsb as i32);
                 metrics.right_bearing = format!("{}", rsb as i32);

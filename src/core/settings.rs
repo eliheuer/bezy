@@ -106,7 +106,7 @@ impl Default for CameraSettings {
 ///
 /// This is a Bevy resource that can be accessed from any system.
 /// Settings are loaded at startup and can be modified at runtime.
-#[derive(Resource, Debug, Clone)]
+#[derive(Resource, Debug, Clone, Default)]
 pub struct BezySettings {
     pub grid: GridSettings,
     #[allow(dead_code)]
@@ -115,17 +115,6 @@ pub struct BezySettings {
     pub camera: CameraSettings,
     /// Current theme variant
     pub theme: ThemeVariant,
-}
-
-impl Default for BezySettings {
-    fn default() -> Self {
-        Self {
-            grid: GridSettings::default(),
-            keyboard: KeyboardSettings::default(),
-            camera: CameraSettings::default(),
-            theme: ThemeVariant::default(),
-        }
-    }
 }
 
 // HELPER FUNCTIONS

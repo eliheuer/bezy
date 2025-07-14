@@ -211,14 +211,14 @@ pub fn initialize_font_state(
 /// Load and set up a font when the app starts (compatibility function)
 /// This provides the same API as the old version but works with the new architecture
 #[allow(dead_code)]
-fn load_font_at_startup(commands: &mut Commands, font_path: &PathBuf) {
+fn load_font_at_startup(commands: &mut Commands, font_path: &Path) {
     let path_string = font_path.to_str().unwrap_or_default();
 
     match load_ufo_from_path_compat(path_string) {
         Ok(_font) => {
             // Successfully loaded font - initialize AppState and let the main app system handle loading
             let mut app_state = AppState::default();
-            match app_state.load_font_from_path(font_path.clone()) {
+            match app_state.load_font_from_path(font_path.to_path_buf()) {
                 Ok(_) => {
                     let font_name = app_state.get_font_display_name();
                     commands.insert_resource(app_state);

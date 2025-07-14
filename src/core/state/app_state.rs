@@ -142,7 +142,7 @@ impl AppState {
         let outline = glyph
             .outline
             .as_ref()
-            .context(format!("Glyph '{}' has no outline data", glyph_name))?;
+            .context(format!("Glyph '{glyph_name}' has no outline data"))?;
 
         // Validate contour exists
         ensure!(

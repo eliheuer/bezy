@@ -22,8 +22,8 @@ impl GlyphData {
 
         Self {
             name: norad_glyph.name().to_string(),
-            advance_width: norad_glyph.width as f64,
-            advance_height: Some(norad_glyph.height as f64),
+            advance_width: norad_glyph.width,
+            advance_height: Some(norad_glyph.height),
             unicode_values: norad_glyph.codepoints.iter().collect(),
             outline,
         }
@@ -89,8 +89,8 @@ impl ContourData {
 impl PointData {
     pub fn from_norad_point(norad_point: &norad::ContourPoint) -> Self {
         Self {
-            x: norad_point.x as f64,
-            y: norad_point.y as f64,
+            x: norad_point.x,
+            y: norad_point.y,
             point_type: PointTypeData::from_norad_point_type(&norad_point.typ),
         }
     }
@@ -156,7 +156,7 @@ impl FontData {
 
         // Add glyphs to the default layer
         let layer = font.default_layer_mut();
-        for (_name, glyph_data) in &self.glyphs {
+        for glyph_data in self.glyphs.values() {
             let glyph = glyph_data.to_norad_glyph();
             layer.insert_glyph(glyph);
         }

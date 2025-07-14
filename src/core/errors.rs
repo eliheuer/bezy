@@ -60,8 +60,7 @@ where
     ) -> BezyResult<T> {
         self.with_context(|| {
             format!(
-                "Failed to {} glyph '{}': Operation failed",
-                operation, glyph_name
+                "Failed to {operation} glyph '{glyph_name}': Operation failed"
             )
         })
     }
@@ -75,8 +74,7 @@ where
     ) -> BezyResult<T> {
         self.with_context(|| {
             format!(
-                "Failed to {} point {}.{} in glyph '{}': Operation failed",
-                operation, contour_idx, point_idx, glyph_name
+                "Failed to {operation} point {contour_idx}.{point_idx} in glyph '{glyph_name}': Operation failed"
             )
         })
     }

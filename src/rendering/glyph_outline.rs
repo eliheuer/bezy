@@ -205,8 +205,8 @@ pub fn draw_control_handles_at_position(
     let mut current_on_curve_idx = None;
 
     // First, find the first on-curve point
-    for i in 0..points.len() {
-        if is_on_curve(&points[i]) {
+    for (i, point) in points.iter().enumerate() {
+        if is_on_curve(point) {
             current_on_curve_idx = Some(i);
             break;
         }

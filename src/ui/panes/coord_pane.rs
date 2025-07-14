@@ -92,7 +92,6 @@ pub fn spawn_coord_pane(
         bottom: Val::Px(WIDGET_MARGIN),
         top: Val::Auto,
         left: Val::Auto,
-        ..default()
     };
 
     commands

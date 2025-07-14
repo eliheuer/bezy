@@ -465,7 +465,7 @@ pub fn update_glyph_data_from_selection(
     sort_query: Query<(&crate::editing::sort::Sort, &Transform)>,
     mut app_state: ResMut<AppState>,
     // Track if we're in a nudging operation
-    nudge_state: Res<crate::editing::selection::nudge::NudgeState>,
+    _nudge_state: Res<crate::editing::selection::nudge::NudgeState>,
     knife_mode: Option<
         Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>,
     >,
@@ -670,10 +670,7 @@ pub fn despawn_inactive_sort_points(
     // Despawn points for sorts that are no longer active
     for (entity, sort_point) in point_entities.iter() {
         let is_active = active_sort_state
-            .active_sort_entity
-            .map_or(false, |active_entity| {
-                active_entity == sort_point.sort_entity
-            });
+            .active_sort_entity == Some(sort_point.sort_entity);
 
         if !is_active {
             // Remove from selection state if selected
@@ -1053,9 +1050,9 @@ pub fn process_selection_input_events(
                     debug!("Selection: Calling handle_selection_drag...");
                     handle_selection_drag(
                         &mut commands,
-                        &start_position,
-                        &current_position,
-                        &delta,
+                        start_position,
+                        current_position,
+                        delta,
                         modifiers,
                         &mut drag_state,
                         &mut drag_point_state,
@@ -1300,9 +1297,7 @@ pub fn handle_selection_click(
         }
 
         // Also store position of newly clicked entity
-        if !drag_point_state.original_positions.contains_key(&entity) {
-            drag_point_state.original_positions.insert(entity, pos);
-        }
+        drag_point_state.original_positions.entry(entity).or_insert(pos);
 
         event_writer.write(EditEvent {
             edit_type: EditType::Normal,

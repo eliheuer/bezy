@@ -99,8 +99,7 @@ impl CliArgs {
                 if ThemeVariant::from_str(theme_name).is_none() {
                     let available_themes = ThemeVariant::all_names().join(", ");
                     return Err(format!(
-                        "Unknown theme: '{}'\nAvailable themes: {}",
-                        theme_name, available_themes
+                        "Unknown theme: '{theme_name}'\nAvailable themes: {available_themes}"
                     ));
                 }
             }

@@ -93,21 +93,12 @@ impl Default for MouseState {
 }
 
 /// Keyboard input state
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct KeyboardState {
     /// Modifier key states
     pub modifiers: ModifierState,
     /// Text input buffer (for text editing)
     pub text_buffer: String,
-}
-
-impl Default for KeyboardState {
-    fn default() -> Self {
-        Self {
-            modifiers: ModifierState::default(),
-            text_buffer: String::new(),
-        }
-    }
 }
 
 /// Gamepad input state (placeholder for future expansion)
@@ -168,9 +159,10 @@ pub struct ModifierState {
 }
 
 /// Current input processing mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Resource)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Resource, Default)]
 pub enum InputMode {
     /// Normal editing mode
+    #[default]
     Normal,
     /// Text editing mode
     Text,
@@ -188,12 +180,6 @@ pub enum InputMode {
     Hyper,
     /// Temporary mode
     Temporary,
-}
-
-impl Default for InputMode {
-    fn default() -> Self {
-        InputMode::Normal
-    }
 }
 
 /// Input priority levels for determining which system handles input

@@ -14,7 +14,6 @@ use crate::editing::sort::{
     ActiveSort, ActiveSortState, InactiveSort, Sort, SortEvent,
 };
 #[allow(unused_imports)]
-#[allow(unused_imports)]
 use crate::rendering::cameras::DesignCamera;
 
 #[allow(unused_imports)]
@@ -442,7 +441,6 @@ pub fn spawn_initial_sort(
     _has_run: Local<bool>,
 ) {
     // DISABLED: Skip creating initial sorts grid to keep design space clean
-    return;
 }
 
 /// System to automatically activate the first sort that is created
@@ -453,5 +451,4 @@ pub fn auto_activate_first_sort(
     _active_sorts_query: Query<Entity, With<ActiveSort>>,
 ) {
     // DISABLED: Skip auto-activation to keep design space clean
-    return;
 }

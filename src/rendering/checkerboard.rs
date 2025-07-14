@@ -36,14 +36,14 @@ const GRID_SIZE_CHANGE_THRESHOLD: f32 = 1.25;
 const VISIBLE_AREA_COVERAGE_MULTIPLIER: f32 = 1.2;
 const MAX_SQUARES_PER_FRAME: usize = 2000;
 
-/// The alpha of the darker checkerboard squares.
+// /// The alpha of the darker checkerboard squares.
 // const CHECKERBOARD_DARK_ALPHA: f32 = 0.04;
-
-/// The target number of grid squares to cover the larger of the screen dimensions
-/// This is used to calculate the ideal grid size at a given zoom level
+//
+// /// The target number of grid squares to cover the larger of the screen dimensions
+// /// This is used to calculate the ideal grid size at a given zoom level
 // const TARGET_GRID_SQUARES_COVERAGE: f32 = 8.0;
-
-/// The scale factor for the secondary grid lines (e.g., 10x smaller/larger)
+//
+// /// The scale factor for the secondary grid lines (e.g., 10x smaller/larger)
 // const SECONDARY_GRID_SCALE_FACTOR: f32 = 10.0;
 
 // Resources -------------------
@@ -165,7 +165,7 @@ pub fn update_checkerboard(
     // Debug logging to help troubleshoot zoom issues (only log when scale
     // changes significantly)
     let significant_scale_change =
-        state.last_camera_state.map_or(true, |(_, last_scale)| {
+        state.last_camera_state.is_none_or(|(_, last_scale)| {
             (camera_scale / last_scale - 1.0).abs() > 0.05 // Log if scale
                                                            // changes by >5%
         });
@@ -249,7 +249,7 @@ pub fn update_checkerboard(
     }
 
     // Check if grid size changed significantly - if so, respawn all squares
-    let grid_size_changed = state.last_grid_size.map_or(true, |last_size| {
+    let grid_size_changed = state.last_grid_size.is_none_or(|last_size| {
         // Use a more responsive threshold than just doubling/halving
         // This prevents sudden jumps but still triggers when grid size changes meaningfully
         let ratio = current_grid_size / last_size;
@@ -309,7 +309,7 @@ pub fn update_checkerboard(
 fn is_checkerboard_visible(zoom_scale: f32) -> bool {
     // Always show checkerboard within our zoom limits
     // The dynamic grid scaling ensures it's always useful
-    zoom_scale >= 0.05 && zoom_scale <= 100.0
+    (0.05..=100.0).contains(&zoom_scale)
 }
 
 /// Updates which squares are visible based on camera position

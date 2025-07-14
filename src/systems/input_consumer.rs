@@ -349,46 +349,46 @@ fn process_input_events(
 
         // Route events to consumers based on priority
         // High priority: Text input
-        if text_consumer.should_handle_input(&event, &input_state) {
-            text_consumer.handle_input(&event, &input_state);
+        if text_consumer.should_handle_input(event, &input_state) {
+            text_consumer.handle_input(event, &input_state);
             continue;
         }
 
         // Mode-specific consumers
-        if pen_consumer.should_handle_input(&event, &input_state) {
-            pen_consumer.handle_input(&event, &input_state);
+        if pen_consumer.should_handle_input(event, &input_state) {
+            pen_consumer.handle_input(event, &input_state);
             continue;
         }
 
-        if knife_consumer.should_handle_input(&event, &input_state) {
-            knife_consumer.handle_input(&event, &input_state);
+        if knife_consumer.should_handle_input(event, &input_state) {
+            knife_consumer.handle_input(event, &input_state);
             continue;
         }
 
-        if shape_consumer.should_handle_input(&event, &input_state) {
-            shape_consumer.handle_input(&event, &input_state);
+        if shape_consumer.should_handle_input(event, &input_state) {
+            shape_consumer.handle_input(event, &input_state);
             continue;
         }
 
-        if hyper_consumer.should_handle_input(&event, &input_state) {
-            hyper_consumer.handle_input(&event, &input_state);
+        if hyper_consumer.should_handle_input(event, &input_state) {
+            hyper_consumer.handle_input(event, &input_state);
             continue;
         }
 
-        if measurement_consumer.should_handle_input(&event, &input_state) {
-            measurement_consumer.handle_input(&event, &input_state);
+        if measurement_consumer.should_handle_input(event, &input_state) {
+            measurement_consumer.handle_input(event, &input_state);
             continue;
         }
 
         // Normal mode consumers
-        if selection_consumer.should_handle_input(&event, &input_state) {
-            selection_consumer.handle_input(&event, &input_state);
+        if selection_consumer.should_handle_input(event, &input_state) {
+            selection_consumer.handle_input(event, &input_state);
             continue;
         }
 
         // Low priority: Camera control
-        if camera_consumer.should_handle_input(&event, &input_state) {
-            camera_consumer.handle_input(&event, &input_state);
+        if camera_consumer.should_handle_input(event, &input_state) {
+            camera_consumer.handle_input(event, &input_state);
             continue;
         }
 

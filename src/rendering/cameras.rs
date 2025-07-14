@@ -18,7 +18,7 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(PanCamPlugin::default())
+        app.add_plugins(PanCamPlugin)
             .add_systems(Startup, setup_camera)
             .add_systems(Update, (zoom_camera, toggle_camera_controls));
     }
@@ -69,13 +69,11 @@ fn zoom_camera(
             }
     });
 
-    if scroll == 0.0 {
-        return;
+    if scroll != 0.0 {
+        // We don't need to manually handle zooming here,
+        // as PanCam will handle it automatically
+        // This system is kept in place for future custom zoom behavior if needed
     }
-
-    // We don't need to manually handle zooming here,
-    // as PanCam will handle it automatically
-    // This system is kept in place for future custom zoom behavior if needed
 }
 
 /// Handles keyboard shortcuts for camera control

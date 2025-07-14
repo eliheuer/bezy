@@ -864,7 +864,7 @@ pub fn spawn_missing_sort_entities(
                     (pos.x.round() as i32, pos.y.round() as i32),
                 );
 
-                if !sort_entities.contains_key(&key) {
+                sort_entities.entry(key).or_insert_with(|| {
                     // Get advance width from the virtual font
                     let _advance_width = if let Some(glyph_data) =
                         app_state.workspace.font.get_glyph(&glyph_name)
@@ -894,12 +894,12 @@ pub fn spawn_missing_sort_entities(
                         ))
                         .id();
 
-                    sort_entities.insert(key, entity);
                     debug!(
                         "Spawned text sort '{}' at ({:.1}, {:.1})",
                         glyph_name, pos.x, pos.y
                     );
-                }
+                    entity
+                });
             }
         }
     }
@@ -1289,17 +1289,16 @@ pub fn handle_arabic_text_input(
 
     // Process text buffer when it gets long enough or after a delay
     let current_time = time.elapsed_secs_f64();
-    if input_text.len() >= 3
-        || (current_time - *last_input_time > 0.5 && !input_text.is_empty())
+    if (input_text.len() >= 3
+        || (current_time - *last_input_time > 0.5 && !input_text.is_empty()))
+        && !input_text.is_empty()
     {
-        if !input_text.is_empty() {
-            process_unicode_text_to_sorts(
-                &mut text_editor_state,
-                &app_state,
-                &input_text,
-            );
-            input_text.clear();
-        }
+        process_unicode_text_to_sorts(
+            &mut text_editor_state,
+            &app_state,
+            &input_text,
+        );
+        input_text.clear();
     }
 }
 

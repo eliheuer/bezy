@@ -247,7 +247,7 @@ pub fn manage_sort_labels(
                     InheritedVisibility::default(),
                     ViewVisibility::default(),
                     SortGlyphNameText { sort_entity },
-                    Name::new(format!("GlyphNameText_{:?}", sort_entity)),
+                    Name::new(format!("GlyphNameText_{sort_entity:?}")),
                 ));
             }
         }
@@ -295,10 +295,8 @@ pub fn update_sort_label_colors(
     let get_color = |sort_entity: Entity| -> Color {
         if active_sorts_query.get(sort_entity).is_ok() {
             SORT_ACTIVE_METRICS_COLOR // Green for active sorts
-        } else if inactive_sorts_query.get(sort_entity).is_ok() {
-            Color::srgba(0.8, 0.8, 0.8, 0.9) // Light gray for inactive sorts
         } else {
-            Color::srgba(0.8, 0.8, 0.8, 0.9) // Default color
+            Color::srgba(0.8, 0.8, 0.8, 0.9) // Light gray for inactive sorts and default
         }
     };
 
