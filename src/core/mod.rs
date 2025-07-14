@@ -10,15 +10,14 @@
 pub mod app;
 pub mod cli;
 pub mod errors;
-pub mod input;
-pub mod pointer;
+pub mod io;
 pub mod settings;
 pub mod state;
 
 // Re-export commonly used items
 pub use app::create_app;
 pub use cli::CliArgs;
-pub use input::{helpers, InputEvent, InputState};
-pub use pointer::{PointerInfo, PointerPlugin};
+pub use io::input::{helpers, InputEvent, InputState};
+pub use io::pointer::{PointerInfo, PointerPlugin};
 pub use settings::BezySettings;
 pub use state::{AppState, GlyphNavigation};

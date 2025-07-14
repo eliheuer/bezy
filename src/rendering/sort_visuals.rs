@@ -4,7 +4,9 @@ use crate::core::state::font_data::OutlineData;
 use crate::core::state::font_metrics::FontMetrics;
 use crate::editing::selection::components::GlyphPointReference;
 use crate::editing::selection::nudge::NudgeState;
-use crate::rendering::glyph_outline::{draw_glyph_outline_at_position, draw_glyph_outline_from_live_transforms};
+use crate::rendering::glyph_outline::{
+    draw_glyph_outline_at_position, draw_glyph_outline_from_live_transforms,
+};
 use crate::rendering::metrics::draw_metrics_at_position;
 use crate::systems::sort_manager::SortPointEntity;
 use bevy::prelude::*;
@@ -73,14 +75,20 @@ pub fn render_sort_visuals_with_live_sync(
     sort_entity: Option<Entity>,
     sort_transform: Option<&Transform>,
     glyph_name: Option<&str>,
-    #[allow(clippy::type_complexity)]
-    point_query: Option<&Query<(
-        Entity,
-        &Transform,
-        &GlyphPointReference,
-        &crate::editing::selection::components::PointType,
-    ), With<SortPointEntity>>>,
-    selected_query: Option<&Query<Entity, With<crate::editing::selection::components::Selected>>>,
+    #[allow(clippy::type_complexity)] point_query: Option<
+        &Query<
+            (
+                Entity,
+                &Transform,
+                &GlyphPointReference,
+                &crate::editing::selection::components::PointType,
+            ),
+            With<SortPointEntity>,
+        >,
+    >,
+    selected_query: Option<
+        &Query<Entity, With<crate::editing::selection::components::Selected>>,
+    >,
     app_state: Option<&crate::core::state::AppState>,
     nudge_state: Option<&NudgeState>,
 ) {
@@ -91,12 +99,12 @@ pub fn render_sort_visuals_with_live_sync(
     let has_glyph_name = glyph_name.is_some();
     let has_point_query = point_query.is_some();
     let has_app_state = app_state.is_some();
-    
+
     let has_selected_query = selected_query.is_some();
-    
-    let use_live_rendering = nudge_active 
+
+    let use_live_rendering = nudge_active
         && has_sort_entity
-        && has_sort_transform 
+        && has_sort_transform
         && has_glyph_name
         && has_point_query
         && has_selected_query

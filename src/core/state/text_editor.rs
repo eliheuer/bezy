@@ -1263,7 +1263,12 @@ impl TextEditorState {
             };
             let mut best_idx = prev_line_start;
             let mut best_dist = f32::MAX;
-            for (offset_idx, &x_offset) in x_offsets.iter().enumerate().take(prev_line_end).skip(prev_line_start) {
+            for (offset_idx, &x_offset) in x_offsets
+                .iter()
+                .enumerate()
+                .take(prev_line_end)
+                .skip(prev_line_start)
+            {
                 let dist = (x_offset - curr_x).abs();
                 if dist < best_dist {
                     best_dist = dist;
@@ -1323,7 +1328,12 @@ impl TextEditorState {
             // Find closest x in next line
             let mut best_idx = next_line_start;
             let mut best_dist = f32::MAX;
-            for (offset_idx, &x_offset) in x_offsets.iter().enumerate().take(next_line_end).skip(next_line_start) {
+            for (offset_idx, &x_offset) in x_offsets
+                .iter()
+                .enumerate()
+                .take(next_line_end)
+                .skip(next_line_start)
+            {
                 let dist = (x_offset - curr_x).abs();
                 if dist < best_dist {
                     best_dist = dist;

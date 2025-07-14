@@ -37,16 +37,25 @@ pub fn render_sorts_system(
     app_state: Res<AppState>,
     _sorts_query: Query<&Sort>,
     active_sorts_query: Query<(Entity, &Sort, &Transform), With<ActiveSort>>,
-    inactive_sorts_query: Query<(Entity, &Sort, &Transform), With<InactiveSort>>,
+    inactive_sorts_query: Query<
+        (Entity, &Sort, &Transform),
+        With<InactiveSort>,
+    >,
     // Additional parameters for live rendering
     nudge_state: Res<crate::editing::selection::nudge::NudgeState>,
-    point_query: Query<(
+    point_query: Query<
+        (
+            Entity,
+            &Transform,
+            &crate::editing::selection::components::GlyphPointReference,
+            &crate::editing::selection::components::PointType,
+        ),
+        With<crate::systems::sort_manager::SortPointEntity>,
+    >,
+    selected_query: Query<
         Entity,
-        &Transform,
-        &crate::editing::selection::components::GlyphPointReference,
-        &crate::editing::selection::components::PointType,
-    ), With<crate::systems::sort_manager::SortPointEntity>>,
-    selected_query: Query<Entity, With<crate::editing::selection::components::Selected>>,
+        With<crate::editing::selection::components::Selected>,
+    >,
 ) {
     let font_metrics = &app_state.workspace.info.metrics;
 

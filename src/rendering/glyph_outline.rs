@@ -2,7 +2,7 @@
 //!
 //! Renders glyph outlines with proper cubic Bézier curves, control points, and handles.
 //! This uses our thread-safe FontData structures for performance.
-//! 
+//!
 //! IMPORTANT: Includes live rendering mode that reads from Transform components
 //! during nudging to ensure perfect synchronization between points and outline.
 
@@ -424,17 +424,24 @@ pub fn draw_glyph_outline_from_live_transforms(
     _sort_entity: Entity,
     sort_transform: &Transform,
     glyph_name: &str,
-    point_query: &Query<(
-        Entity,
-        &Transform,
-        &GlyphPointReference,
-        &crate::editing::selection::components::PointType,
-    ), With<SortPointEntity>>,
+    point_query: &Query<
+        (
+            Entity,
+            &Transform,
+            &GlyphPointReference,
+            &crate::editing::selection::components::PointType,
+        ),
+        With<SortPointEntity>,
+    >,
     app_state: &crate::core::state::AppState,
-    selected_query: &Query<Entity, With<crate::editing::selection::components::Selected>>,
+    selected_query: &Query<
+        Entity,
+        With<crate::editing::selection::components::Selected>,
+    >,
 ) {
     // Get the original glyph structure to understand point organization
-    let Some(glyph_data) = app_state.workspace.font.get_glyph(glyph_name) else {
+    let Some(glyph_data) = app_state.workspace.font.get_glyph(glyph_name)
+    else {
         return;
     };
     let Some(outline) = &glyph_data.outline else {
@@ -448,7 +455,7 @@ pub fn draw_glyph_outline_from_live_transforms(
             let world_pos = transform.translation.truncate();
             let sort_pos = sort_transform.translation.truncate();
             let relative_pos = world_pos - sort_pos;
-            
+
             live_positions.insert(
                 (point_ref.contour_index, point_ref.point_index),
                 (relative_pos, point_type.is_on_curve),
@@ -465,7 +472,9 @@ pub fn draw_glyph_outline_from_live_transforms(
         // Build live contour data
         let mut live_points = Vec::new();
         for (point_idx, original_point) in contour.points.iter().enumerate() {
-            if let Some((live_pos, is_on_curve)) = live_positions.get(&(contour_idx, point_idx)) {
+            if let Some((live_pos, is_on_curve)) =
+                live_positions.get(&(contour_idx, point_idx))
+            {
                 // Use live position
                 live_points.push(PointData {
                     x: live_pos.x as f64,
@@ -486,8 +495,12 @@ pub fn draw_glyph_outline_from_live_transforms(
         let live_contour = ContourData {
             points: live_points,
         };
-        
-        draw_contour_path_at_position(gizmos, &live_contour, sort_transform.translation.truncate());
+
+        draw_contour_path_at_position(
+            gizmos,
+            &live_contour,
+            sort_transform.translation.truncate(),
+        );
     }
 
     // CRITICAL: Also draw the individual points when in live mode
@@ -495,37 +508,54 @@ pub fn draw_glyph_outline_from_live_transforms(
     for (entity, transform, point_ref, point_type) in point_query.iter() {
         if point_ref.glyph_name == glyph_name {
             let position = transform.translation.truncate();
-            
+
             // Check if this point is selected
             let is_selected = selected_query.get(entity).is_ok();
-            
+
             // Use selected colors if selected, normal colors if not
             let (size, color) = if is_selected {
                 // Selected points use yellow color but normal size
                 if point_type.is_on_curve {
-                    (crate::ui::theme::ON_CURVE_POINT_RADIUS, crate::ui::theme::SELECTED_POINT_COLOR)
+                    (
+                        crate::ui::theme::ON_CURVE_POINT_RADIUS,
+                        crate::ui::theme::SELECTED_POINT_COLOR,
+                    )
                 } else {
-                    (crate::ui::theme::OFF_CURVE_POINT_RADIUS, crate::ui::theme::SELECTED_POINT_COLOR)
+                    (
+                        crate::ui::theme::OFF_CURVE_POINT_RADIUS,
+                        crate::ui::theme::SELECTED_POINT_COLOR,
+                    )
                 }
             } else {
                 // Normal point colors
                 if point_type.is_on_curve {
-                    (crate::ui::theme::ON_CURVE_POINT_RADIUS, crate::ui::theme::ON_CURVE_POINT_COLOR)
+                    (
+                        crate::ui::theme::ON_CURVE_POINT_RADIUS,
+                        crate::ui::theme::ON_CURVE_POINT_COLOR,
+                    )
                 } else {
-                    (crate::ui::theme::OFF_CURVE_POINT_RADIUS, crate::ui::theme::OFF_CURVE_POINT_COLOR)
+                    (
+                        crate::ui::theme::OFF_CURVE_POINT_RADIUS,
+                        crate::ui::theme::OFF_CURVE_POINT_COLOR,
+                    )
                 }
             };
 
             // Draw point as circle or square based on type, preserving crosshairs
-            if point_type.is_on_curve && crate::ui::theme::USE_SQUARE_FOR_ON_CURVE {
-                let half_size = size / crate::ui::theme::ON_CURVE_SQUARE_ADJUSTMENT;
+            if point_type.is_on_curve
+                && crate::ui::theme::USE_SQUARE_FOR_ON_CURVE
+            {
+                let half_size =
+                    size / crate::ui::theme::ON_CURVE_SQUARE_ADJUSTMENT;
                 let square_size = Vec2::new(size * 2.0, size * 2.0);
                 gizmos.rect_2d(position, square_size, color);
-                let inner_radius = half_size * crate::ui::theme::ON_CURVE_INNER_CIRCLE_RATIO;
+                let inner_radius =
+                    half_size * crate::ui::theme::ON_CURVE_INNER_CIRCLE_RATIO;
                 gizmos.circle_2d(position, inner_radius, color);
             } else {
                 gizmos.circle_2d(position, size, color);
-                let inner_radius = size * crate::ui::theme::OFF_CURVE_INNER_CIRCLE_RATIO;
+                let inner_radius =
+                    size * crate::ui::theme::OFF_CURVE_INNER_CIRCLE_RATIO;
                 gizmos.circle_2d(position, inner_radius, color);
             }
         }
@@ -540,15 +570,19 @@ pub fn draw_glyph_outline_from_live_transforms(
 fn render_live_control_handles(
     gizmos: &mut Gizmos,
     glyph_name: &str,
-    point_query: &Query<(
-        Entity,
-        &Transform,
-        &GlyphPointReference,
-        &crate::editing::selection::components::PointType,
-    ), With<SortPointEntity>>,
+    point_query: &Query<
+        (
+            Entity,
+            &Transform,
+            &GlyphPointReference,
+            &crate::editing::selection::components::PointType,
+        ),
+        With<SortPointEntity>,
+    >,
     app_state: &crate::core::state::AppState,
 ) {
-    let Some(glyph_data) = app_state.workspace.font.get_glyph(glyph_name) else {
+    let Some(glyph_data) = app_state.workspace.font.get_glyph(glyph_name)
+    else {
         return;
     };
     let Some(outline) = &glyph_data.outline else {
@@ -598,14 +632,14 @@ fn render_live_contour_handles(
     contour_points: &[(Vec2, bool, usize)],
 ) {
     let len = contour_points.len();
-    
+
     for i in 0..len {
         let (current_pos, current_on_curve, _) = contour_points[i];
-        
+
         // Check next point (wrapping around)
         let next_i = (i + 1) % len;
         let (next_pos, next_on_curve, _) = contour_points[next_i];
-        
+
         // Draw handle line if one point is on-curve and the other is off-curve
         if current_on_curve != next_on_curve {
             gizmos.line_2d(

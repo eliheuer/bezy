@@ -2,18 +2,12 @@
 //!
 //! The enjoyment of one's tools is an essential ingredient of successful work.
 //! — Donald Knuth
-//!
-//! # Platform Support
-//!
-//! This application supports both native desktop and WebAssembly targets:
-//! - **Desktop**: Full CLI argument parsing and file system access
-//! - **WASM**: Web-optimized build with default settings
 
 use anyhow::Result;
 use bezy::core;
 use clap::Parser;
 use std::process;
-
+ 
 /// Create and run the application with the given CLI arguments.
 fn run_app(cli_args: core::cli::CliArgs) -> Result<()> {
     let mut app = core::app::create_app(cli_args)?;

@@ -1,8 +1,9 @@
 //! Application initialization and configuration
 
 use crate::core::cli::CliArgs;
-use crate::core::input::InputPlugin;
-use crate::core::pointer::PointerPlugin;
+use crate::core::io::gamepad::GamepadPlugin;
+use crate::core::io::input::InputPlugin;
+use crate::core::io::pointer::PointerPlugin;
 use crate::core::settings::{BezySettings, DEFAULT_WINDOW_SIZE, WINDOW_TITLE};
 use crate::core::state::{AppState, GlyphNavigation};
 use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
@@ -33,6 +34,7 @@ impl PluginGroup for CorePluginGroup {
         PluginGroupBuilder::start::<Self>()
             .add(PointerPlugin)
             .add(InputPlugin)
+            .add(GamepadPlugin)
             .add(InputConsumerPlugin)
             .add(TextEditorPlugin)
             .add(SelectionPlugin)

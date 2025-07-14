@@ -7,7 +7,6 @@ use crate::editing::sort::ActiveSortState;
 use crate::systems::sort_manager::SortPointEntity;
 use bevy::prelude::*;
 
-
 /// Resource to track nudge state for preventing selection loss during nudging
 #[derive(Resource, Debug, Default, Reflect)]
 #[reflect(Resource)]

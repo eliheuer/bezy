@@ -7,10 +7,10 @@
 //! The tool converts placed points into UFO contours that are saved to the font file.
 
 use super::EditModeSystem;
-use crate::core::input::{
+use crate::core::io::input::{
     helpers, InputEvent, InputMode, InputState, ModifierState,
 };
-use crate::core::pointer::PointerInfo;
+use crate::core::io::pointer::PointerInfo;
 use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
 use crate::core::state::AppState;
 use crate::editing::edit_type::EditType;

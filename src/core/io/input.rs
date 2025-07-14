@@ -17,7 +17,7 @@ use bevy::input::mouse::MouseButton;
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 
-use crate::core::pointer::PointerInfo;
+use super::pointer::PointerInfo;
 use crate::geometry::design_space::DPoint;
 use bevy::input::mouse::MouseMotion;
 use bevy::input::mouse::MouseWheel;

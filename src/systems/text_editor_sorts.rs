@@ -13,7 +13,7 @@ use cosmic_text::{
 
 use std::collections::HashMap;
 
-use crate::core::pointer::PointerInfo;
+use crate::core::io::pointer::PointerInfo;
 use crate::core::state::GlyphNavigation;
 use crate::core::state::{
     ActiveSortEntity, AppState, GridConfig, SortBuffer, SortEntry, SortKind,
@@ -27,7 +27,9 @@ use crate::editing::sort::{ActiveSort, ActiveSortState, InactiveSort};
 use crate::geometry::point::EditPoint;
 use crate::rendering::cameras::DesignCamera;
 use crate::rendering::checkerboard::calculate_dynamic_grid_size;
-use crate::rendering::sort_visuals::{render_sort_visuals, render_sort_visuals_with_live_sync, SortRenderStyle};
+use crate::rendering::sort_visuals::{
+    render_sort_visuals, render_sort_visuals_with_live_sync, SortRenderStyle,
+};
 use crate::systems::sort_manager::SortPointEntity;
 use crate::systems::ui_interaction::UiHoverState;
 use crate::ui::theme::{
@@ -175,13 +177,19 @@ pub fn render_text_editor_sorts(
     // Additional parameters for live rendering
     nudge_state: Res<crate::editing::selection::nudge::NudgeState>,
     sort_entities: Query<(Entity, &crate::editing::sort::Sort, &Transform)>,
-    point_query: Query<(
+    point_query: Query<
+        (
+            Entity,
+            &Transform,
+            &GlyphPointReference,
+            &crate::editing::selection::components::PointType,
+        ),
+        With<SortPointEntity>,
+    >,
+    selected_query: Query<
         Entity,
-        &Transform,
-        &GlyphPointReference,
-        &crate::editing::selection::components::PointType,
-    ), With<SortPointEntity>>,
-    selected_query: Query<Entity, With<crate::editing::selection::components::Selected>>,
+        With<crate::editing::selection::components::Selected>,
+    >,
 ) {
     let font_metrics = &app_state.workspace.info.metrics;
     let _line_height = (font_metrics.ascender.unwrap_or(1024.0)
@@ -226,7 +234,9 @@ pub fn render_text_editor_sorts(
                     let (sort_entity, sort_transform) = sort_entities
                         .iter()
                         .find(|(_, sort, _)| sort.glyph_name == *glyph_name)
-                        .map(|(entity, _, transform)| (Some(entity), Some(transform)))
+                        .map(|(entity, _, transform)| {
+                            (Some(entity), Some(transform))
+                        })
                         .unwrap_or((None, None));
 
                     // Use new live-aware rendering
@@ -911,8 +921,8 @@ pub fn spawn_missing_sort_entities(
 /// Handle sort placement using the centralized input system
 #[allow(clippy::too_many_arguments)]
 pub fn handle_sort_placement_input(
-    mut input_events: EventReader<crate::core::input::InputEvent>,
-    _input_state: Res<crate::core::input::InputState>,
+    mut input_events: EventReader<crate::core::io::input::InputEvent>,
+    _input_state: Res<crate::core::io::input::InputState>,
     text_editor_state: Option<ResMut<TextEditorState>>,
     app_state: Res<AppState>,
     glyph_navigation: Res<GlyphNavigation>,
@@ -921,7 +931,7 @@ pub fn handle_sort_placement_input(
         crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode,
     >,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
-    pointer_info: Res<crate::core::pointer::PointerInfo>,
+    pointer_info: Res<crate::core::io::pointer::PointerInfo>,
     camera_query: Query<&Projection, With<DesignCamera>>,
 ) {
     // Debug: Log that this system is running
@@ -962,7 +972,7 @@ pub fn handle_sort_placement_input(
     // Process input events
     for event in input_events.read() {
         match event {
-            crate::core::input::InputEvent::MouseClick {
+            crate::core::io::input::InputEvent::MouseClick {
                 button,
                 position,
                 modifiers: _,

@@ -336,7 +336,7 @@ pub fn handle_text_mode_cursor(
     mut text_mode_state: ResMut<TextModeState>,
     mut cursor_moved_events: EventReader<CursorMoved>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
-    pointer_info: Res<crate::core::pointer::PointerInfo>,
+    pointer_info: Res<crate::core::io::pointer::PointerInfo>,
 ) {
     if !text_mode_active.0 {
         return;
@@ -368,7 +368,7 @@ pub fn handle_text_mode_sort_placement(
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
     current_placement_mode: Res<CurrentTextPlacementMode>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
-    pointer_info: Res<crate::core::pointer::PointerInfo>,
+    pointer_info: Res<crate::core::io::pointer::PointerInfo>,
     mut camera_query: Query<&mut Projection, With<DesignCamera>>,
 ) {
     if current_tool.get_current() != Some("text") {
@@ -473,7 +473,7 @@ pub fn render_sort_preview(
     current_placement_mode: Res<CurrentTextPlacementMode>,
     glyph_navigation: Res<GlyphNavigation>,
     app_state: Res<AppState>,
-    pointer_info: Res<crate::core::pointer::PointerInfo>,
+    pointer_info: Res<crate::core::io::pointer::PointerInfo>,
     camera_query: Query<&Projection, With<DesignCamera>>,
 ) {
     debug!("[PREVIEW] Entered render_sort_preview");

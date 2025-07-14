@@ -5,8 +5,8 @@
 //! It ensures that input is handled consistently and predictably across
 //! the application.
 
-use crate::core::input::{helpers, InputEvent, InputMode, InputState};
-use crate::core::pointer::PointerInfo;
+use crate::core::io::input::{helpers, InputEvent, InputMode, InputState};
+use crate::core::io::pointer::PointerInfo;
 use crate::editing::selection::components::{
     GlyphPointReference, PointType, Selectable, Selected, SelectionRect,
 };
@@ -102,7 +102,8 @@ impl InputConsumer for PenInputConsumer {
             button,
             position,
             modifiers,
-        } = event {
+        } = event
+        {
             debug!(
                 "[PEN] Mouse click: {:?} at {:?} with {:?}",
                 button, position, modifiers
@@ -134,7 +135,8 @@ impl InputConsumer for KnifeInputConsumer {
             button,
             position,
             modifiers,
-        } = event {
+        } = event
+        {
             debug!(
                 "[KNIFE] Mouse click: {:?} at {:?} with {:?}",
                 button, position, modifiers
@@ -166,7 +168,8 @@ impl InputConsumer for ShapeInputConsumer {
             button,
             position,
             modifiers,
-        } = event {
+        } = event
+        {
             debug!(
                 "[SHAPE] Mouse click: {:?} at {:?} with {:?}",
                 button, position, modifiers
@@ -198,7 +201,8 @@ impl InputConsumer for HyperInputConsumer {
             button,
             position,
             modifiers,
-        } = event {
+        } = event
+        {
             debug!(
                 "[HYPER] Mouse click: {:?} at {:?} with {:?}",
                 button, position, modifiers
@@ -303,7 +307,8 @@ impl InputConsumer for MeasurementToolInputConsumer {
             button,
             position,
             modifiers,
-        } = event {
+        } = event
+        {
             debug!(
                 "[MEASURE] Mouse click: {:?} at {:?} with {:?}",
                 button, position, modifiers

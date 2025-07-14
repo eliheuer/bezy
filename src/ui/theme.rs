@@ -122,7 +122,6 @@ pub const SORT_HORIZONTAL_PADDING: f32 = 256.0;
 // Selection constants
 pub const SELECTION_MARGIN: f32 = 16.0;
 
-
 // Camera constants
 pub const MIN_ALLOWED_ZOOM_SCALE: f32 = 0.1;
 pub const MAX_ALLOWED_ZOOM_SCALE: f32 = 64.0;

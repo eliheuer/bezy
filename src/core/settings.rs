@@ -43,7 +43,6 @@ impl Default for GridSettings {
     }
 }
 
-
 // KEYBOARD CONTROLS
 
 /// Configuration for keyboard-based editing
