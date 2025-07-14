@@ -122,9 +122,6 @@ pub const SORT_HORIZONTAL_PADDING: f32 = 256.0;
 // Selection constants
 pub const SELECTION_MARGIN: f32 = 16.0;
 
-// Grid layout constants
-pub const MIN_GLYPH_GRID_GAP_MULTIPLIER: f32 = 4.0;
-pub const MAX_GLYPH_GRID_ROW_WIDTH_UPM: f32 = 16.0;
 
 // Camera constants
 pub const MIN_ALLOWED_ZOOM_SCALE: f32 = 0.1;

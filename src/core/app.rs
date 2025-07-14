@@ -19,7 +19,6 @@ use crate::ui::panes::design_space::DesignSpacePlugin;
 use crate::ui::panes::glyph_pane::GlyphPanePlugin;
 use crate::ui::theme::CurrentTheme;
 use crate::ui::toolbars::EditModeToolbarPlugin;
-use crate::ui::GlyphGridPlugin;
 use anyhow::Result;
 use bevy::app::{PluginGroup, PluginGroupBuilder};
 use bevy::prelude::*;
@@ -68,7 +67,6 @@ impl PluginGroup for EditorPluginGroup {
             .add(CoordinatePanePlugin)
             .add(EditModeToolbarPlugin)
             .add(HudPlugin)
-            .add(GlyphGridPlugin)
     }
 }
 

@@ -482,15 +482,6 @@ pub trait BezyTheme: Send + Sync + 'static {
     }
 
     // =================================================================
-    // GLYPH GRID LAYOUT
-    // =================================================================
-
-    fn min_glyph_grid_gap_multiplier(&self) -> f32 {
-        4.0
-    }
-    fn max_glyph_grid_row_width_upm(&self) -> f32 {
-        16.0
-    }
 
     // =================================================================
     // RENDERING PERFORMANCE
