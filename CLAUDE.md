@@ -141,3 +141,12 @@ Point selection uses coordinate-based hit testing with visual feedback. The sele
 - Multi-select with Shift+click
 - Box selection with click+drag
 - Keyboard-based nudging with configurable amounts (2, 8, 32 units)
+
+# critical-behavior-guidelines
+NEVER make changes the user didn't explicitly ask for, even if they seem helpful.
+NEVER change default behaviors, settings, or configurations unless specifically requested.
+NEVER add "improvements" or "enhancements" that weren't requested.
+ALWAYS ask for clarification if the request is unclear rather than making assumptions.
+FOCUS entirely on the specific issue described by the user.
+DO NOT be ambitious or make sweeping changes - be precise and minimal.
+RESPECT the existing default tool (select) and user workflows.

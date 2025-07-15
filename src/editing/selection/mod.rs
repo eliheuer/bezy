@@ -8,12 +8,21 @@ use bevy::prelude::*;
 
 pub mod components;
 pub mod coordinate_system;
+pub mod entity_management;
+pub mod events;
+pub mod input;
 pub mod nudge;
+pub mod rendering;
 pub mod systems;
+pub mod utils;
 
 pub use components::*;
+pub use entity_management::*;
+pub use events::{AppStateChanged, ClickWorldPosition, SELECTION_MARGIN};
+pub use input::*;
 pub use nudge::*;
-pub use systems::*;
+pub use rendering::*;
+pub use utils::{clear_selection_on_app_change, update_hover_state};
 
 use std::collections::HashMap;
 
@@ -58,7 +67,7 @@ impl Plugin for SelectionPlugin {
     fn build(&self, app: &mut App) {
         app
             // Add events
-            .add_event::<systems::AppStateChanged>()
+            .add_event::<AppStateChanged>()
             .add_event::<EditEvent>()
             .register_type::<EditType>()
             .register_type::<NudgeState>()
@@ -84,7 +93,7 @@ impl Plugin for SelectionPlugin {
             // It's called by the centralized input consumer system when in select mode
             .add_systems(
                 Update,
-                systems::process_selection_input_events
+                input::process_selection_input_events
                     .in_set(SelectionSystemSet::Input),
             )
             // Processing systems
@@ -92,9 +101,9 @@ impl Plugin for SelectionPlugin {
                 Update,
                 (
                     sync_selected_components,
-                    systems::update_glyph_data_from_selection,
-                    systems::clear_selection_on_app_change,
-                    systems::cleanup_click_resource,
+                    entity_management::update_glyph_data_from_selection,
+                    clear_selection_on_app_change,
+                    entity_management::cleanup_click_resource,
                 )
                     .in_set(SelectionSystemSet::Processing)
                     .after(SelectionSystemSet::Input),
@@ -103,21 +112,21 @@ impl Plugin for SelectionPlugin {
             .add_systems(
                 Update,
                 (
-                    // systems::spawn_active_sort_points, // DISABLED: Causes duplicate point entities
-                    systems::despawn_inactive_sort_points,
-                    systems::sync_point_positions_to_sort,
+                    // entity_management::spawn_active_sort_points, // DISABLED: Causes duplicate point entities
+                    entity_management::despawn_inactive_sort_points,
+                    entity_management::sync_point_positions_to_sort,
                 )
-                    .after(systems::update_glyph_data_from_selection),
+                    .after(entity_management::update_glyph_data_from_selection),
             )
             // Rendering systems - moved to PostUpdate to run after transform propagation
             .add_systems(
                 PostUpdate,
                 (
-                    systems::render_selection_marquee,
-                    systems::render_selected_entities,
-                    systems::render_all_point_entities,
-                    systems::render_control_handles,
-                    systems::debug_print_selection_rects, // TEMP: debug system
+                    rendering::render_selection_marquee,
+                    rendering::render_selected_entities,
+                    rendering::render_all_point_entities,
+                    rendering::render_control_handles,
+                    utils::debug_print_selection_rects, // TEMP: debug system
                 )
                     .in_set(SelectionSystemSet::Render),
             )
@@ -128,7 +137,7 @@ impl Plugin for SelectionPlugin {
         #[cfg(debug_assertions)]
         app.add_systems(
             PostUpdate,
-            systems::debug_validate_point_entity_uniqueness
+            utils::debug_validate_point_entity_uniqueness
                 .after(SelectionSystemSet::Render),
         );
     }

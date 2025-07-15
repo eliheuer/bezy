@@ -51,6 +51,8 @@ impl Plugin for TextEditorPlugin {
             .add_systems(Update, (
                 render_text_editor_sorts
                     .after(crate::editing::selection::nudge::handle_nudge_input),
+                crate::systems::text_editor_sorts::sort_rendering::render_text_editor_cursor
+                    .after(crate::editing::selection::nudge::handle_nudge_input),
                 // handle_text_editor_keyboard_input, // DISABLED: Causes double input
                 // handle_arabic_text_input, // DISABLED: Causes double input
                 handle_unicode_text_input, // KEEP: Most comprehensive text input system

@@ -153,7 +153,7 @@ impl Plugin for TextModePlugin {
                     update_text_mode_active,
                     handle_text_tool_shortcuts,
                     handle_text_mode_cursor,
-                    handle_text_mode_mouse_clicks, // Re-enabled for sort placement
+                    // handle_text_mode_clicks, // DISABLED: Old input system
                     handle_text_mode_keyboard,
                     render_sort_preview,
                     reset_text_mode_when_inactive,
@@ -360,68 +360,23 @@ pub fn handle_text_mode_cursor(
 }
 
 #[allow(clippy::too_many_arguments)]
-/// Handle mouse clicks for sort placement in text mode
-#[allow(clippy::too_many_arguments)]
-pub fn handle_text_mode_mouse_clicks(
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    text_mode_active: Res<TextModeActive>,
-    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
-    ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
-    pointer_info: Res<crate::core::io::pointer::PointerInfo>,
-    mut current_placement_mode: ResMut<CurrentTextPlacementMode>,
+pub fn handle_text_mode_sort_placement(
+    _commands: Commands,
     mut text_editor_state: ResMut<TextEditorState>,
     app_state: Res<AppState>,
     glyph_navigation: Res<GlyphNavigation>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    current_placement_mode: Res<CurrentTextPlacementMode>,
+    ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
+    pointer_info: Res<crate::core::io::pointer::PointerInfo>,
     mut camera_query: Query<&mut Projection, With<DesignCamera>>,
 ) {
-    // Debug text mode state
-    debug!("Text mode click handler: text_mode_active={}, current_tool={:?}, ui_hover={}", 
-           text_mode_active.0, current_tool.get_current(), ui_hover_state.is_hovering_ui);
-    
-    // Only handle clicks when text mode is active and we're the active tool
-    if !text_mode_active.0 || current_tool.get_current() != Some("text") {
-        debug!("Text mode click handler: early return - not active or wrong tool");
+    if current_tool.get_current() != Some("text") {
         return;
     }
-
-    // Don't handle clicks when hovering over UI
     if ui_hover_state.is_hovering_ui {
-        debug!("Text mode click handler: early return - hovering over UI");
         return;
     }
-
-    // Handle left mouse click for sort placement
-    if mouse_button_input.just_pressed(MouseButton::Left) {
-        debug!("Text mode: Left mouse clicked - attempting sort placement");
-        let did_place_text_sort = handle_text_mode_sort_placement(
-            &mut text_editor_state,
-            &app_state,
-            &glyph_navigation,
-            &*current_placement_mode,
-            &pointer_info,
-            &mut camera_query,
-        );
-        
-        // If we placed a text sort, automatically switch to Insert mode
-        if did_place_text_sort && current_placement_mode.0 == TextPlacementMode::Text {
-            current_placement_mode.0 = TextPlacementMode::Insert;
-            info!("Auto-switched to Insert mode after placing text sort");
-        }
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn handle_text_mode_sort_placement(
-    text_editor_state: &mut ResMut<TextEditorState>,
-    app_state: &Res<AppState>,
-    glyph_navigation: &Res<GlyphNavigation>,
-    current_placement_mode: &CurrentTextPlacementMode,
-    pointer_info: &Res<crate::core::io::pointer::PointerInfo>,
-    camera_query: &mut Query<&mut Projection, With<DesignCamera>>,
-) -> bool {
-    debug!("Sort placement function called with mode: {:?}", current_placement_mode.0);
-    
-    // Function is only called from text tool, so no need to check current tool
 
     // Get camera zoom for grid snapping
     let zoom_scale = camera_query
@@ -451,7 +406,7 @@ pub fn handle_text_mode_sort_placement(
                 first_glyph.clone()
             } else {
                 warn!("No glyphs available in font");
-                return false;
+                return;
             }
         }
     };
@@ -476,7 +431,6 @@ pub fn handle_text_mode_sort_placement(
 
     match current_placement_mode.0 {
         TextPlacementMode::Text => {
-            debug!("Placing text sort in Text mode");
             text_editor_state.create_text_sort_at_position(
                 glyph_name.clone(),
                 sort_position,
@@ -490,15 +444,11 @@ pub fn handle_text_mode_sort_placement(
                 "Placed sort '{}' in text mode at position ({:.1}, {:.1})",
                 glyph_name, sort_position.x, sort_position.y
             );
-            return true; // Successfully placed a text sort
         }
         TextPlacementMode::Insert => {
-            debug!("In Insert mode: Use keyboard to edit text mode sorts, not mouse clicks");
             info!("Insert mode: Use keyboard to edit text mode sorts, not mouse clicks");
-            return false; // No sort placed
         }
         TextPlacementMode::Freeform => {
-            debug!("Placing text sort in Freeform mode");
             text_editor_state.add_freeform_sort(
                 glyph_name.clone(),
                 sort_position,
@@ -508,7 +458,6 @@ pub fn handle_text_mode_sort_placement(
                 "Placed sort '{}' in freeform mode at position ({:.1}, {:.1})",
                 glyph_name, sort_position.x, sort_position.y
             );
-            return false; // Freeform doesn't auto-switch to insert mode
         }
     }
 }
@@ -711,7 +660,9 @@ pub fn handle_text_mode_keyboard(
     if !text_mode_active.0 || current_tool.get_current() != Some("text") {
         return;
     }
-    // Insert mode keyboard handling is now supported below
+    if current_placement_mode.0 == TextPlacementMode::Insert {
+        return;
+    }
 
     // Check if there are any selected points - if so, don't handle arrow keys
     // This gives priority to the nudge system
@@ -784,56 +735,6 @@ pub fn handle_text_mode_keyboard(
             keyboard_input.clear_just_pressed(KeyCode::Backspace);
         }
     }
-
-    // Handle Insert mode cursor navigation
-    if current_placement_mode.0 == TextPlacementMode::Insert {
-        if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
-            text_editor_state.move_cursor_left();
-            debug!(
-                "Insert mode: moved cursor left to position {}",
-                text_editor_state.cursor_position
-            );
-            keyboard_input.clear_just_pressed(KeyCode::ArrowLeft);
-        }
-        if keyboard_input.just_pressed(KeyCode::ArrowRight) {
-            text_editor_state.move_cursor_right();
-            debug!(
-                "Insert mode: moved cursor right to position {}",
-                text_editor_state.cursor_position
-            );
-            keyboard_input.clear_just_pressed(KeyCode::ArrowRight);
-        }
-        if keyboard_input.just_pressed(KeyCode::Home) {
-            text_editor_state.move_cursor_to(0);
-            debug!("Insert mode: moved cursor to beginning");
-            keyboard_input.clear_just_pressed(KeyCode::Home);
-        }
-        if keyboard_input.just_pressed(KeyCode::End) {
-            let end_position = text_editor_state.buffer.len();
-            text_editor_state.move_cursor_to(end_position);
-            debug!("Insert mode: moved cursor to end");
-            keyboard_input.clear_just_pressed(KeyCode::End);
-        }
-        if keyboard_input.just_pressed(KeyCode::Delete) {
-            text_editor_state.delete_sort_at_cursor();
-            debug!("Insert mode: deleted sort at cursor position");
-            keyboard_input.clear_just_pressed(KeyCode::Delete);
-        }
-        if keyboard_input.just_pressed(KeyCode::Backspace) {
-            if text_editor_state.cursor_position > 0 {
-                text_editor_state.move_cursor_left();
-                text_editor_state.delete_sort_at_cursor();
-                debug!("Insert mode: backspace deleted sort");
-            }
-            keyboard_input.clear_just_pressed(KeyCode::Backspace);
-        }
-        if keyboard_input.just_pressed(KeyCode::Enter) {
-            text_editor_state.insert_line_break_at_cursor();
-            debug!("Insert mode: inserted line break at cursor position {}", text_editor_state.cursor_position);
-            keyboard_input.clear_just_pressed(KeyCode::Enter);
-        }
-    }
-
     let mut glyph_switched = false;
     for (i, key) in [
         KeyCode::Digit1,
@@ -962,14 +863,8 @@ pub fn handle_text_mode_keyboard(
                         );
                     }
                     TextPlacementMode::Insert => {
-                        // Insert character at cursor position in text buffer
-                        text_editor_state.insert_sort_at_cursor(
-                            char_glyph.to_string(),
-                            char_advance_width,
-                        );
                         info!(
-                            "Insert mode: Inserted '{}' at cursor position {}",
-                            char_glyph, text_editor_state.cursor_position
+                            "Insert mode: Keyboard typing should be handled by text editor system"
                         );
                     }
                     TextPlacementMode::Freeform => {

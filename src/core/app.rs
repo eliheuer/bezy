@@ -69,6 +69,11 @@ impl PluginGroup for EditorPluginGroup {
             .add(CoordinatePanePlugin)
             .add(EditModeToolbarPlugin)
             .add(HudPlugin)
+            // Add clean tools plugin and supporting plugins
+            .add(crate::tools::CleanToolsPlugin)
+            .add(crate::tools::SelectToolPlugin)
+            .add(crate::tools::PenToolPlugin)
+            // .add(crate::tools::TextToolPlugin) // Disabled - handled by legacy text tool with submenu
     }
 }
 

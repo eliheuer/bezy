@@ -7,7 +7,7 @@ use anyhow::Result;
 use bezy::core;
 use clap::Parser;
 use std::process;
- 
+
 /// Create and run the application with the given CLI arguments.
 fn run_app(cli_args: core::cli::CliArgs) -> Result<()> {
     let mut app = core::app::create_app(cli_args)?;

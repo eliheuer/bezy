@@ -548,15 +548,15 @@ impl Plugin for EditModeToolbarPlugin {
             // .init_resource::<UiInteractionState>()  // Will be added when shapes is ported
             .init_resource::<SpacebarToggleState>()
             // Add tool plugins (they will register themselves)
-            .add_plugins(SelectToolPlugin)
+            // .add_plugins(SelectToolPlugin) // Disabled - using new clean tools system
             .add_plugins(PanToolPlugin)
             .add_plugins(MeasureToolPlugin)
-            .add_plugins(TextToolPlugin)
-            .add_plugins(PenModePlugin)
-            .add_plugins(ShapesToolPlugin)
-            .add_plugins(knife::KnifeToolPlugin)
-            .add_plugins(hyper::HyperToolPlugin)
-            .add_plugins(metaballs::MetaballsToolPlugin)
+            .add_plugins(TextToolPlugin) // Re-enabled for submenu functionality
+            // .add_plugins(PenModePlugin) // Disabled - using new tools system
+            // .add_plugins(ShapesToolPlugin) // Temporarily disabled - event ordering issue
+            // .add_plugins(knife::KnifeToolPlugin) // Temporarily disabled - event ordering issue
+            // .add_plugins(hyper::HyperToolPlugin) // Temporarily disabled - event ordering issue
+            // .add_plugins(metaballs::MetaballsToolPlugin) // Temporarily disabled - event ordering issue
             .add_systems(
                 PostStartup,
                 (
