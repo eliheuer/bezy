@@ -1,33 +1,98 @@
-//! Point entity rendering for selection system
+//! Selection rendering systems
+//!
+//! This module handles all visual rendering for selection-related features:
+//! - Selected point highlighting
+//! - Selection marquee/rectangle
+//! - Hover effects
+//! - Control handle rendering for selected points
+//!
+//! All actual selection logic (what is selected, hit testing, etc.) 
+//! remains in the editing/selection module.
 
-use crate::core::state::{AppState, TextEditorState};
 use crate::editing::selection::components::{
-    GlyphPointReference, Hovered, PointType, Selected,
+    GlyphPointReference, Hovered, PointType, Selected, SelectionRect,
 };
-use crate::editing::selection::nudge::NudgeState;
-use crate::editing::selection::DragPointState;
-use crate::rendering::cameras::DesignCamera;
+use crate::editing::selection::{DragPointState, DragSelectionState};
+use crate::editing::sort::ActiveSort;
 use crate::systems::sort_manager::SortPointEntity;
-use crate::ui::theme::{
-    HANDLE_LINE_COLOR, OFF_CURVE_INNER_CIRCLE_RATIO, OFF_CURVE_POINT_COLOR,
-    OFF_CURVE_POINT_RADIUS, ON_CURVE_INNER_CIRCLE_RATIO, ON_CURVE_POINT_COLOR,
-    ON_CURVE_POINT_RADIUS, ON_CURVE_SQUARE_ADJUSTMENT,
-    SELECTED_CIRCLE_RADIUS_MULTIPLIER, SELECTED_POINT_COLOR,
-    SELECTION_POINT_RADIUS, USE_SQUARE_FOR_ON_CURVE,
-};
+use crate::core::state::{AppState, TextEditorState};
+use crate::editing::selection::nudge::NudgeState;
+use crate::ui::theme::*;
 use bevy::prelude::*;
 
-/// System to render selected entities with visual feedback
+/// Renders the selection marquee rectangle during drag selection
+pub fn render_selection_marquee(
+    mut gizmos: Gizmos,
+    drag_state: Res<DragSelectionState>,
+    marquee_query: Query<&SelectionRect>,
+) {
+    if !drag_state.is_dragging {
+        return;
+    }
+
+    // Try to find the selection rect from the query first
+    if let Some(rect) = marquee_query.iter().next() {
+        info!(
+            "[render_selection_marquee] Drawing marquee: start={:?}, end={:?}",
+            rect.start, rect.end
+        );
+        let start = rect.start;
+        let end = rect.end;
+        let color = Color::srgb(1.0, 0.5, 0.0); // Orange
+        
+        // Four corners
+        let p1 = Vec2::new(start.x, start.y);
+        let p2 = Vec2::new(end.x, start.y);
+        let p3 = Vec2::new(end.x, end.y);
+        let p4 = Vec2::new(start.x, end.y);
+        
+        // Draw dashed lines for each edge
+        draw_dashed_line(&mut gizmos, p1, p2, color, 16.0, 8.0);
+        draw_dashed_line(&mut gizmos, p2, p3, color, 16.0, 8.0);
+        draw_dashed_line(&mut gizmos, p3, p4, color, 16.0, 8.0);
+        draw_dashed_line(&mut gizmos, p4, p1, color, 16.0, 8.0);
+    }
+}
+
+/// Helper to draw a dashed line between two points
+fn draw_dashed_line(
+    gizmos: &mut Gizmos,
+    start: Vec2,
+    end: Vec2,
+    color: Color,
+    dash_length: f32,
+    gap_length: f32,
+) {
+    let total_length = (end - start).length();
+    let direction = (end - start).normalize_or_zero();
+    let mut current_length = 0.0;
+    let mut draw = true;
+    let mut p = start;
+    
+    while current_length < total_length {
+        let segment_length = if draw { dash_length } else { gap_length };
+        let next_length = (current_length + segment_length).min(total_length);
+        let next_p = start + direction * next_length;
+        
+        if draw {
+            gizmos.line_2d(p, next_p, color);
+        }
+        
+        p = next_p;
+        current_length = next_length;
+        draw = !draw;
+    }
+}
+
+/// Renders visual feedback for selected entities
 pub fn render_selected_entities(
     mut gizmos: Gizmos,
     selected_query: Query<(&GlobalTransform, &PointType), With<Selected>>,
     drag_point_state: Res<DragPointState>,
-    knife_mode: Option<
-        Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>,
-    >,
+    knife_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>>,
     nudge_state: Res<NudgeState>,
 ) {
-    // CRITICAL: ALWAYS skip this system during nudging
+    // Skip during nudging - live renderer handles everything
     if nudge_state.is_nudging {
         return;
     }
@@ -44,14 +109,8 @@ pub fn render_selected_entities(
         }
     }
 
+    let selection_color = SELECTED_POINT_COLOR;
     let is_dragging = drag_point_state.is_dragging;
-    let size_multiplier = if is_dragging { 1.25 } else { 1.0 };
-
-    let selection_color = if is_dragging {
-        Color::srgb(1.0, 0.7, 0.2) // Brighter orange during dragging
-    } else {
-        SELECTED_POINT_COLOR
-    };
 
     for (transform, point_type) in &selected_query {
         let position = transform.translation().truncate();
@@ -62,64 +121,30 @@ pub fn render_selected_entities(
         );
         let position_2d = position_3d.truncate();
 
-        // Different rendering based on point type
-        if point_type.is_on_curve && USE_SQUARE_FOR_ON_CURVE {
-            let half_size = SELECTION_POINT_RADIUS / ON_CURVE_SQUARE_ADJUSTMENT
-                * size_multiplier;
-
-            gizmos.rect_2d(
-                position_2d,
-                Vec2::new(half_size * 2.0, half_size * 2.0),
-                selection_color,
-            );
-
-            gizmos.circle_2d(
-                position_2d,
-                half_size * ON_CURVE_INNER_CIRCLE_RATIO,
-                selection_color,
-            );
+        // Draw selection indicator
+        let outer_radius = if point_type.is_on_curve {
+            ON_CURVE_POINT_RADIUS * 3.0
         } else {
-            gizmos.circle_2d(
-                position_2d,
-                SELECTION_POINT_RADIUS
-                    * SELECTED_CIRCLE_RADIUS_MULTIPLIER
-                    * size_multiplier,
-                selection_color,
-            );
-
-            if !point_type.is_on_curve {
-                gizmos.circle_2d(
-                    position_2d,
-                    SELECTION_POINT_RADIUS
-                        * OFF_CURVE_INNER_CIRCLE_RATIO
-                        * size_multiplier,
-                    selection_color,
-                );
-            }
-        }
-
-        // Draw crosshair for all selected points
-        let line_size = if point_type.is_on_curve && USE_SQUARE_FOR_ON_CURVE {
-            SELECTION_POINT_RADIUS / ON_CURVE_SQUARE_ADJUSTMENT
-        } else {
-            SELECTION_POINT_RADIUS * SELECTED_CIRCLE_RADIUS_MULTIPLIER
+            OFF_CURVE_POINT_RADIUS * 3.0
         };
 
-        let line_size = line_size * size_multiplier;
+        // Single circle
+        gizmos.circle_2d(position_2d, outer_radius, selection_color);
 
+        // Draw cross at the point
+        let line_size = 12.0;
         gizmos.line_2d(
             Vec2::new(position_2d.x - line_size, position_2d.y),
             Vec2::new(position_2d.x + line_size, position_2d.y),
             selection_color,
         );
-
         gizmos.line_2d(
             Vec2::new(position_2d.x, position_2d.y - line_size),
             Vec2::new(position_2d.x, position_2d.y + line_size),
             selection_color,
         );
 
-        // Make crosshairs thicker during dragging
+        // Make lines thicker when dragging
         if is_dragging {
             let offset = 0.5;
             gizmos.line_2d(
@@ -127,43 +152,26 @@ pub fn render_selected_entities(
                 Vec2::new(position_2d.x + line_size, position_2d.y + offset),
                 selection_color,
             );
-
-            gizmos.line_2d(
-                Vec2::new(position_2d.x - line_size, position_2d.y - offset),
-                Vec2::new(position_2d.x + line_size, position_2d.y - offset),
-                selection_color,
-            );
-
             gizmos.line_2d(
                 Vec2::new(position_2d.x + offset, position_2d.y - line_size),
                 Vec2::new(position_2d.x + offset, position_2d.y + line_size),
-                selection_color,
-            );
-
-            gizmos.line_2d(
-                Vec2::new(position_2d.x - offset, position_2d.y - line_size),
-                Vec2::new(position_2d.x - offset, position_2d.y + line_size),
                 selection_color,
             );
         }
     }
 }
 
-/// System to render all point entities (not just selected ones)
+/// Renders all point entities (not just selected ones)
+/// This is used to visualize all points in the active sort for debugging
 pub fn render_all_point_entities(
     mut gizmos: Gizmos,
     point_entities: Query<
         (Entity, &GlobalTransform, &PointType),
-        With<SortPointEntity>,
+        (With<SortPointEntity>, Without<Selected>),
     >,
-    // Add a separate query to count all SortPointEntity components
-    all_sort_points: Query<Entity, With<SortPointEntity>>,
     selected_query: Query<Entity, With<Selected>>,
-    camera_query: Query<
-        (&Camera, &GlobalTransform, &Projection),
-        With<DesignCamera>,
-    >,
     nudge_state: Res<NudgeState>,
+    camera_query: Query<(&Camera, &GlobalTransform, &Projection), With<Camera2d>>,
 ) {
     // Skip during nudging
     if nudge_state.is_nudging {
@@ -171,21 +179,7 @@ pub fn render_all_point_entities(
     }
 
     let point_count = point_entities.iter().count();
-    let all_sort_point_count = all_sort_points.iter().count();
     
-    // Only log when there are actually point entities to render, or when there's a mismatch
-    if point_count > 0 || point_count != all_sort_point_count {
-        debug!(
-            "[render_all_point_entities] Called, found {} point entities, {} total SortPointEntity components",
-            point_count, all_sort_point_count
-        );
-        
-        if point_count != all_sort_point_count {
-            warn!("Component mismatch: {} points have full components, but {} have SortPointEntity", 
-                  point_count, all_sort_point_count);
-        }
-    }
-
     // Debug camera information only when we have points to render
     if point_count > 0 {
         if let Ok((_camera, camera_transform, projection)) = camera_query.single() {
@@ -194,57 +188,59 @@ pub fn render_all_point_entities(
                 Projection::Orthographic(ortho) => ortho.scale,
                 _ => 1.0,
             };
-            debug!("[render_all_point_entities] Camera: pos=({:.1}, {:.1}, {:.1}), scale={:.3}", 
-                  camera_pos.x, camera_pos.y, camera_pos.z, camera_scale);
-        } else {
-            warn!("[render_all_point_entities] No camera found");
+            debug!(
+                "[render_all_point_entities] Camera pos: ({:.1}, {:.1}, {:.1}), scale: {:.3}",
+                camera_pos.x, camera_pos.y, camera_pos.z, camera_scale
+            );
         }
     }
 
-    for (i, (entity, transform, point_type)) in
-        point_entities.iter().enumerate()
-    {
-        // Skip if selected (rendered by render_selected_entities)
+    for (i, (entity, transform, point_type)) in point_entities.iter().enumerate() {
+        // Skip if selected (already rendered by render_selected_entities)
         if selected_query.get(entity).is_ok() {
             continue;
         }
-
+        
         let position = transform.translation().truncate();
 
         if i < 5 {
             info!("[render_all_point_entities] Rendering point {} at ({:.1}, {:.1}), is_on_curve={}", 
-                  i, position.x, position.y, point_type.is_on_curve);
+                i, position.x, position.y, point_type.is_on_curve);
         }
 
-        let (size, color) = if point_type.is_on_curve {
-            (ON_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR)
+        // Draw point based on type
+        if point_type.is_on_curve {
+            if USE_SQUARE_FOR_ON_CURVE {
+                let adjusted_radius = ON_CURVE_POINT_RADIUS * ON_CURVE_SQUARE_ADJUSTMENT;
+                gizmos.rect_2d(
+                    position,
+                    Vec2::splat(adjusted_radius * 2.0),
+                    ON_CURVE_POINT_COLOR,
+                );
+                if ON_CURVE_INNER_CIRCLE_RATIO > 0.0 {
+                    let inner_radius = adjusted_radius * ON_CURVE_INNER_CIRCLE_RATIO;
+                    gizmos.rect_2d(
+                        position,
+                        Vec2::splat(inner_radius * 2.0),
+                        Color::BLACK,
+                    );
+                }
+            } else {
+                gizmos.circle_2d(position, ON_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR);
+                if ON_CURVE_INNER_CIRCLE_RATIO > 0.0 {
+                    let inner_radius = ON_CURVE_POINT_RADIUS * ON_CURVE_INNER_CIRCLE_RATIO;
+                    gizmos.circle_2d(position, inner_radius, Color::BLACK);
+                }
+            }
         } else {
-            (OFF_CURVE_POINT_RADIUS, OFF_CURVE_POINT_COLOR)
-        };
-
-        if point_type.is_on_curve && USE_SQUARE_FOR_ON_CURVE {
-            let half_size = size / ON_CURVE_SQUARE_ADJUSTMENT;
-            let square_size = Vec2::new(size * 2.0, size * 2.0);
-            gizmos.rect_2d(position, square_size, color);
-
-            let inner_radius = half_size * ON_CURVE_INNER_CIRCLE_RATIO;
-            gizmos.circle_2d(position, inner_radius, color);
-        } else {
-            gizmos.circle_2d(position, size, color);
-
-            let inner_radius = size * OFF_CURVE_INNER_CIRCLE_RATIO;
-            gizmos.circle_2d(position, inner_radius, color);
+            // Off-curve point
+            gizmos.circle_2d(position, OFF_CURVE_POINT_RADIUS, OFF_CURVE_POINT_COLOR);
+            if OFF_CURVE_INNER_CIRCLE_RATIO > 0.0 {
+                let inner_radius = OFF_CURVE_POINT_RADIUS * OFF_CURVE_INNER_CIRCLE_RATIO;
+                gizmos.circle_2d(position, inner_radius, Color::BLACK);
+            }
         }
     }
-}
-
-/// System to render hovered entities (disabled for now)
-#[allow(dead_code)]
-pub fn render_hovered_entities(
-    mut _gizmos: Gizmos,
-    _hovered_query: Query<(&GlobalTransform, &PointType), With<Hovered>>,
-) {
-    // Hover functionality is disabled per user request
 }
 
 /// Render control handles between on-curve points and their off-curve control points
@@ -264,15 +260,13 @@ pub fn render_control_handles(
         return;
     }
 
-    let Some((_active_sort_index, active_sort)) =
-        text_editor_state.get_active_sort()
-    else {
+    // Get the active sort to find the glyph data
+    let Some((_active_sort_index, active_sort)) = text_editor_state.get_active_sort() else {
         return;
     };
 
     let glyph_name = active_sort.kind.glyph_name();
-    let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name)
-    else {
+    let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) else {
         return;
     };
 
@@ -320,6 +314,7 @@ pub fn render_control_handles(
         }
     }
 
+    // Log summary of what we found
     if total_points > 0 {
         debug!(
             "[render_control_handles] Total points: {}, Unique positions: {}",
@@ -359,26 +354,22 @@ fn render_contour_handles(
         return;
     }
 
-    let mut handle_count = 0;
     for i in 0..len {
-        let (curr_pos, curr_on, curr_idx) = contour_points[i];
+        let (curr_pos, curr_on, _) = contour_points[i];
         let next_idx = (i + 1) % len;
-        let (next_pos, next_on, next_orig_idx) = contour_points[next_idx];
+        let (next_pos, next_on, _) = contour_points[next_idx];
 
         // Draw handle lines between on-curve and off-curve points
         if (curr_on && !next_on) || (!curr_on && next_on) {
-            handle_count += 1;
-            if handle_count <= 3 {
-                debug!(
-                    "[render_contour_handles] Handle {}: from ({:.1}, {:.1})[idx={}] to ({:.1}, {:.1})[idx={}], curr_on={}, next_on={}",
-                    handle_count, curr_pos.x, curr_pos.y, curr_idx, next_pos.x, next_pos.y, next_orig_idx, curr_on, next_on
-                );
-            }
             gizmos.line_2d(curr_pos, next_pos, handle_color);
         }
     }
-    
-    if handle_count > 0 {
-        debug!("[render_contour_handles] Drew {} handle lines for contour with {} points", handle_count, len);
-    }
+}
+
+/// Renders hovered entities (currently disabled)
+pub fn render_hovered_entities(
+    mut _gizmos: Gizmos,
+    _hovered_query: Query<(&GlobalTransform, &PointType), With<Hovered>>,
+) {
+    // Hover functionality is disabled per user request
 }

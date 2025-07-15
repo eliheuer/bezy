@@ -5,6 +5,7 @@
 //! - Camera management for viewport control
 //! - Background patterns and visual aids
 //! - Debug visualization tools
+//! - Selection visualization (marquee, selected points, handles)
 
 #![allow(unused_imports)]
 
@@ -14,8 +15,13 @@ pub mod debug;
 pub mod draw;
 pub mod glyph_outline;
 pub mod metrics;
+pub mod selection;
 pub mod sort_renderer;
 pub mod sort_visuals;
 
 // Re-export commonly used items
 pub use checkerboard::{CheckerboardEnabled, CheckerboardPlugin};
+pub use selection::{
+    render_all_point_entities, render_control_handles, render_hovered_entities,
+    render_selected_entities, render_selection_marquee,
+};

@@ -12,7 +12,6 @@ pub mod entity_management;
 pub mod events;
 pub mod input;
 pub mod nudge;
-pub mod rendering;
 pub mod systems;
 pub mod utils;
 
@@ -21,7 +20,6 @@ pub use entity_management::*;
 pub use events::{AppStateChanged, ClickWorldPosition, SELECTION_MARGIN};
 pub use input::*;
 pub use nudge::*;
-pub use rendering::*;
 pub use utils::{clear_selection_on_app_change, update_hover_state};
 
 use std::collections::HashMap;
@@ -126,10 +124,10 @@ impl Plugin for SelectionPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    rendering::render_selection_marquee,
-                    rendering::render_selected_entities,
-                    rendering::render_all_point_entities,
-                    rendering::render_control_handles,
+                    crate::rendering::selection::render_selection_marquee,
+                    crate::rendering::selection::render_selected_entities,
+                    crate::rendering::selection::render_all_point_entities,
+                    crate::rendering::selection::render_control_handles,
                     utils::debug_print_selection_rects, // TEMP: debug system
                 )
                     .in_set(SelectionSystemSet::Render),
