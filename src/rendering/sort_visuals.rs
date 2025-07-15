@@ -28,6 +28,46 @@ pub fn render_sort_visuals(
     metrics_color: Color,
     style: SortRenderStyle,
 ) {
+    render_sort_visuals_with_selection(
+        gizmos,
+        outline,
+        advance_width,
+        metrics,
+        position,
+        metrics_color,
+        style,
+        false, // not selected
+        false, // not active
+    );
+}
+
+/// Draws a sort with selection and activation state support
+pub fn render_sort_visuals_with_selection(
+    gizmos: &mut Gizmos,
+    outline: &Option<OutlineData>,
+    advance_width: f32,
+    metrics: &FontMetrics,
+    position: Vec2,
+    metrics_color: Color,
+    style: SortRenderStyle,
+    is_selected: bool,
+    is_active: bool,
+) {
+    // Determine colors based on state
+    let handle_color = if is_selected {
+        Color::srgb(1.0, 1.0, 0.0) // Yellow for selected
+    } else if is_active {
+        Color::srgb(0.0, 1.0, 0.0) // Green for active  
+    } else {
+        metrics_color // Default metrics color
+    };
+    
+    let metrics_render_color = if is_active {
+        Color::srgb(0.0, 1.0, 0.0) // Green metrics for active sorts
+    } else {
+        metrics_color // Default metrics color
+    };
+
     // Draw outline
     draw_glyph_outline_at_position(gizmos, outline, position);
     // Draw metrics
@@ -36,25 +76,25 @@ pub fn render_sort_visuals(
         advance_width,
         metrics,
         position,
-        metrics_color,
+        metrics_render_color,
     );
 
     // Draw handle at descender position (matching click detection logic)
     let descender = metrics.descender.unwrap_or(-200.0) as f32;
     let handle_position = position + Vec2::new(0.0, descender);
 
-    // Normal handle: smaller and uses metrics color
+    // Normal handle: smaller and uses appropriate color
     let normal_size = 16.0;
 
     match style {
         SortRenderStyle::TextBuffer => {
             // Square handle for text sorts
             let square_size = Vec2::new(normal_size * 2.0, normal_size * 2.0);
-            gizmos.rect_2d(handle_position, square_size, metrics_color);
+            gizmos.rect_2d(handle_position, square_size, handle_color);
         }
         SortRenderStyle::Freeform => {
             // Circle handle for freeform sorts
-            gizmos.circle_2d(handle_position, normal_size, metrics_color);
+            gizmos.circle_2d(handle_position, normal_size, handle_color);
         }
     }
 }
@@ -145,18 +185,45 @@ pub fn render_sort_visuals_with_live_sync(
     let descender = metrics.descender.unwrap_or(-200.0) as f32;
     let handle_position = position + Vec2::new(0.0, descender);
 
-    // Normal handle: smaller and uses metrics color
+    // Normal handle: smaller and uses appropriate color based on selection state
     let normal_size = 16.0;
+
+    // Determine handle color based on selection state
+    let handle_color = if let (Some(entity), Some(selected_query)) = (sort_entity, selected_query) {
+        // Check if this sort is selected
+        if selected_query.iter().any(|selected_entity| selected_entity == entity) {
+            Color::srgb(1.0, 1.0, 0.0) // Yellow for selected
+        } else {
+            metrics_color // Default metrics color
+        }
+    } else {
+        metrics_color // Default metrics color if we can't check selection
+    };
 
     match style {
         SortRenderStyle::TextBuffer => {
             // Square handle for text sorts
             let square_size = Vec2::new(normal_size * 2.0, normal_size * 2.0);
-            gizmos.rect_2d(handle_position, square_size, metrics_color);
+            gizmos.rect_2d(handle_position, square_size, handle_color);
+            
+            // Add bigger square indicator for selected sorts
+            if let (Some(entity), Some(selected_query)) = (sort_entity, selected_query) {
+                if selected_query.iter().any(|selected_entity| selected_entity == entity) {
+                    let big_square_size = Vec2::new(normal_size * 3.0, normal_size * 3.0);
+                    gizmos.rect_2d(handle_position, big_square_size, Color::srgba(1.0, 1.0, 0.0, 0.5));
+                }
+            }
         }
         SortRenderStyle::Freeform => {
             // Circle handle for freeform sorts
-            gizmos.circle_2d(handle_position, normal_size, metrics_color);
+            gizmos.circle_2d(handle_position, normal_size, handle_color);
+            
+            // Add bigger circle indicator for selected sorts
+            if let (Some(entity), Some(selected_query)) = (sort_entity, selected_query) {
+                if selected_query.iter().any(|selected_entity| selected_entity == entity) {
+                    gizmos.circle_2d(handle_position, normal_size * 1.5, Color::srgba(1.0, 1.0, 0.0, 0.5));
+                }
+            }
         }
     }
 }

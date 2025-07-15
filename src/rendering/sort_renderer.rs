@@ -36,9 +36,9 @@ pub fn render_sorts_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
     _sorts_query: Query<&Sort>,
-    active_sorts_query: Query<(Entity, &Sort, &Transform), With<ActiveSort>>,
+    active_sorts_query: Query<(Entity, &Sort, &Transform, Option<&crate::editing::selection::components::Selected>), With<ActiveSort>>,
     inactive_sorts_query: Query<
-        (Entity, &Sort, &Transform),
+        (Entity, &Sort, &Transform, Option<&crate::editing::selection::components::Selected>),
         With<InactiveSort>,
     >,
     // Additional parameters for live rendering
@@ -60,7 +60,7 @@ pub fn render_sorts_system(
     let font_metrics = &app_state.workspace.info.metrics;
 
     // Render inactive sorts (both buffer and freeform)
-    for (entity, sort, transform) in inactive_sorts_query.iter() {
+    for (entity, sort, transform, selected) in inactive_sorts_query.iter() {
         if let Some(glyph_data) =
             app_state.workspace.font.glyphs.get(&sort.glyph_name)
         {
@@ -73,13 +73,20 @@ pub fn render_sorts_system(
                 SortLayoutMode::Freeform => SortRenderStyle::Freeform,
             };
 
+            let is_selected = selected.is_some();
+            let metrics_color = if is_selected {
+                Color::srgb(1.0, 1.0, 0.0) // Yellow for selected inactive sorts
+            } else {
+                SORT_INACTIVE_METRICS_COLOR
+            };
+
             crate::rendering::sort_visuals::render_sort_visuals_with_live_sync(
                 &mut gizmos,
                 &glyph_data.outline,
                 advance_width,
                 font_metrics,
                 position,
-                SORT_INACTIVE_METRICS_COLOR,
+                metrics_color,
                 render_style,
                 // Live rendering parameters
                 Some(entity),
@@ -94,7 +101,7 @@ pub fn render_sorts_system(
     }
 
     // Render active sorts (both buffer and freeform)
-    for (entity, sort, transform) in active_sorts_query.iter() {
+    for (entity, sort, transform, selected) in active_sorts_query.iter() {
         if let Some(glyph_data) =
             app_state.workspace.font.glyphs.get(&sort.glyph_name)
         {
@@ -107,13 +114,16 @@ pub fn render_sorts_system(
                 SortLayoutMode::Freeform => SortRenderStyle::Freeform,
             };
 
+            // Active sorts are green, selected active sorts might be a different shade
+            let metrics_color = SORT_ACTIVE_METRICS_COLOR; // Green for active sorts
+
             crate::rendering::sort_visuals::render_sort_visuals_with_live_sync(
                 &mut gizmos,
                 &glyph_data.outline,
                 advance_width,
                 font_metrics,
                 position,
-                SORT_ACTIVE_METRICS_COLOR,
+                metrics_color,
                 render_style,
                 // Live rendering parameters
                 Some(entity),

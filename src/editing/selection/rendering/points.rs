@@ -34,7 +34,7 @@ pub fn render_selected_entities(
 
     let selected_count = selected_query.iter().count();
     if selected_count > 0 {
-        info!("Selection: Rendering {} selected entities", selected_count);
+        debug!("Selection: Rendering {} selected entities", selected_count);
     }
 
     // Skip rendering if knife mode is active
@@ -173,27 +173,32 @@ pub fn render_all_point_entities(
     let point_count = point_entities.iter().count();
     let all_sort_point_count = all_sort_points.iter().count();
     
-    info!(
-        "[render_all_point_entities] Called, found {} point entities, {} total SortPointEntity components",
-        point_count, all_sort_point_count
-    );
-    
-    if point_count != all_sort_point_count {
-        warn!("Component mismatch: {} points have full components, but {} have SortPointEntity", 
-              point_count, all_sort_point_count);
+    // Only log when there are actually point entities to render, or when there's a mismatch
+    if point_count > 0 || point_count != all_sort_point_count {
+        debug!(
+            "[render_all_point_entities] Called, found {} point entities, {} total SortPointEntity components",
+            point_count, all_sort_point_count
+        );
+        
+        if point_count != all_sort_point_count {
+            warn!("Component mismatch: {} points have full components, but {} have SortPointEntity", 
+                  point_count, all_sort_point_count);
+        }
     }
 
-    // Debug camera information
-    if let Ok((_camera, camera_transform, projection)) = camera_query.single() {
-        let camera_pos = camera_transform.translation();
-        let camera_scale = match projection {
-            Projection::Orthographic(ortho) => ortho.scale,
-            _ => 1.0,
-        };
-        info!("[render_all_point_entities] Camera: pos=({:.1}, {:.1}, {:.1}), scale={:.3}", 
-              camera_pos.x, camera_pos.y, camera_pos.z, camera_scale);
-    } else {
-        warn!("[render_all_point_entities] No camera found");
+    // Debug camera information only when we have points to render
+    if point_count > 0 {
+        if let Ok((_camera, camera_transform, projection)) = camera_query.single() {
+            let camera_pos = camera_transform.translation();
+            let camera_scale = match projection {
+                Projection::Orthographic(ortho) => ortho.scale,
+                _ => 1.0,
+            };
+            debug!("[render_all_point_entities] Camera: pos=({:.1}, {:.1}, {:.1}), scale={:.3}", 
+                  camera_pos.x, camera_pos.y, camera_pos.z, camera_scale);
+        } else {
+            warn!("[render_all_point_entities] No camera found");
+        }
     }
 
     for (i, (entity, transform, point_type)) in

@@ -93,12 +93,15 @@ pub fn render_selection_marquee(
     selection_rects: Query<&SelectionRect>,
 ) {
     let count = selection_rects.iter().count();
-    info!(
-        "[render_selection_marquee] Called, found {} SelectionRect entities",
-        count
-    );
+    // Only log when there are actually rectangles to render
+    if count > 0 {
+        debug!(
+            "[render_selection_marquee] Called, found {} SelectionRect entities",
+            count
+        );
+    }
     for rect in selection_rects.iter() {
-        info!(
+        debug!(
             "[render_selection_marquee] Drawing marquee: start={:?}, end={:?}",
             rect.start, rect.end
         );

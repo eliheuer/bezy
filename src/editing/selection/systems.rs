@@ -301,7 +301,7 @@ pub fn render_selected_entities(
 
     let selected_count = selected_query.iter().count();
     if selected_count > 0 {
-        info!("Selection: Rendering {} selected entities", selected_count);
+        debug!("Selection: Rendering {} selected entities", selected_count);
     }
 
     // Skip rendering if knife mode is active
@@ -999,13 +999,13 @@ pub fn process_selection_input_events(
                         debug!("[process_selection_input_events] Clicked near sort handle at index {}", clicked_sort_index);
                         let is_ctrl_held = modifiers.ctrl;
                         if is_ctrl_held {
-                            // ECS-based selection: activate the clicked sort directly
-                            text_editor_state.activate_sort(clicked_sort_index);
-                            debug!("[process_selection_input_events] Ctrl: activated sort {}", clicked_sort_index);
+                            // OLD: ECS-based selection: activate the clicked sort directly
+                            // text_editor_state.activate_sort(clicked_sort_index);
+                            debug!("[process_selection_input_events] Ctrl: skipping activation (handled by selection system)");
                         } else {
-                            // ECS-based selection: activate the clicked sort directly
-                            text_editor_state.activate_sort(clicked_sort_index);
-                            debug!("[process_selection_input_events] Regular click: activated sort {}", clicked_sort_index);
+                            // OLD: ECS-based selection: activate the clicked sort directly  
+                            // text_editor_state.activate_sort(clicked_sort_index);
+                            debug!("[process_selection_input_events] Regular click: skipping activation (handled by selection system)");
                         }
                         // Early return: don't run the rest of the selection logic for this click
                         return;
@@ -1720,22 +1720,25 @@ pub fn render_all_point_entities(
     }
 
     let point_count = point_entities.iter().count();
-    info!(
-        "[render_all_point_entities] Called, found {} point entities",
-        point_count
-    );
+    // Only log when there are actually point entities to render
+    if point_count > 0 {
+        debug!(
+            "[render_all_point_entities] Called, found {} point entities",
+            point_count
+        );
 
-    // Debug camera information
-    if let Ok((_camera, camera_transform, projection)) = camera_query.single() {
-        let camera_pos = camera_transform.translation();
-        let camera_scale = match projection {
-            Projection::Orthographic(ortho) => ortho.scale,
-            _ => 1.0,
-        };
-        info!("[render_all_point_entities] Camera: pos=({:.1}, {:.1}, {:.1}), scale={:.3}", 
-              camera_pos.x, camera_pos.y, camera_pos.z, camera_scale);
-    } else {
-        warn!("[render_all_point_entities] No camera found");
+        // Debug camera information only when we have points to render
+        if let Ok((_camera, camera_transform, projection)) = camera_query.single() {
+            let camera_pos = camera_transform.translation();
+            let camera_scale = match projection {
+                Projection::Orthographic(ortho) => ortho.scale,
+                _ => 1.0,
+            };
+            debug!("[render_all_point_entities] Camera: pos=({:.1}, {:.1}, {:.1}), scale={:.3}", 
+                  camera_pos.x, camera_pos.y, camera_pos.z, camera_scale);
+        } else {
+            warn!("[render_all_point_entities] No camera found");
+        }
     }
 
     for (i, (entity, transform, point_type)) in

@@ -82,6 +82,8 @@ impl Plugin for SelectionPlugin {
             .init_resource::<SelectionState>()
             .init_resource::<DragSelectionState>()
             .init_resource::<DragPointState>()
+            // TEMP FIX: Manually initialize SelectModeActive since it's not being created
+            .insert_resource(crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive(true))
             // Configure system sets for proper ordering
             .configure_sets(
                 Update,
@@ -100,8 +102,9 @@ impl Plugin for SelectionPlugin {
             .add_systems(
                 Update,
                 (
-                    sync_selected_components,
-                    entity_management::update_glyph_data_from_selection,
+                    // TEMP DISABLED: Causing performance lag during text input
+                    // sync_selected_components,
+                    // entity_management::update_glyph_data_from_selection,
                     clear_selection_on_app_change,
                     entity_management::cleanup_click_resource,
                 )
@@ -109,15 +112,16 @@ impl Plugin for SelectionPlugin {
                     .after(SelectionSystemSet::Input),
             )
             // Add the new ECS-based point management systems
-            .add_systems(
-                Update,
-                (
-                    // entity_management::spawn_active_sort_points, // DISABLED: Causes duplicate point entities
-                    entity_management::despawn_inactive_sort_points,
-                    entity_management::sync_point_positions_to_sort,
-                )
-                    .after(entity_management::update_glyph_data_from_selection),
-            )
+            // TEMP DISABLED: Causing performance lag during text input
+            // .add_systems(
+            //     Update,
+            //     (
+            //         // entity_management::spawn_active_sort_points, // DISABLED: Causes duplicate point entities
+            //         entity_management::despawn_inactive_sort_points,
+            //         entity_management::sync_point_positions_to_sort,
+            //     )
+            //         .after(entity_management::update_glyph_data_from_selection),
+            // )
             // Rendering systems - moved to PostUpdate to run after transform propagation
             .add_systems(
                 PostUpdate,
@@ -161,11 +165,13 @@ pub fn sync_selected_components(
     selected_entities: Query<Entity, With<Selected>>,
     entities: Query<Entity>,
 ) {
-    // Always run this system to ensure components stay synchronized
-    debug!(
-        "Synchronizing Selected components with SelectionState (current: {})",
-        selection_state.selected.len()
-    );
+    // Only log when there are changes to synchronize to avoid spam
+    if !selection_state.selected.is_empty() || selected_entities.iter().count() > 0 {
+        debug!(
+            "Synchronizing Selected components with SelectionState (current: {})",
+            selection_state.selected.len()
+        );
+    }
 
     // First, ensure all entities in the selection_state have the Selected component
     for &entity in &selection_state.selected {

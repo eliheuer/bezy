@@ -45,15 +45,28 @@ pub fn process_selection_input_events(
     >,
     mut text_editor_state: ResMut<TextEditorState>,
     app_state: Res<crate::core::state::AppState>,
+    buffer_entities: Res<crate::systems::text_editor_sorts::sort_entities::BufferSortEntities>,
 ) {
-    debug!("[process_selection_input_events] Called");
-    // Only process if in select mode
+    // Early exit if no events to process - this prevents expensive logging every frame
+    let event_count = input_events.len();
+    if event_count == 0 {
+        return;
+    }
+
+    // Only log when we actually have events to process
+    let mode_status = select_mode.as_ref().map(|s| s.0).unwrap_or(false);
+    debug!("[process_selection_input_events] System called with {} events, select_mode exists: {}, active: {}", 
+          event_count, select_mode.is_some(), mode_status);
+    
+    // Only process if in select mode 
     if let Some(select_mode) = select_mode {
         if !select_mode.0 {
-            debug!("[process_selection_input_events] Not in select mode, returning early");
-            return;
+            debug!("[process_selection_input_events] Select mode inactive but processing anyway");
         }
+    } else {
+        debug!("[process_selection_input_events] SelectModeActive resource not found, processing anyway");
     }
+    
     for event in input_events.read() {
         debug!(
             "[process_selection_input_events] Processing event: {:?}",
@@ -66,8 +79,12 @@ pub fn process_selection_input_events(
             continue;
         }
 
-        // Only handle events that are relevant to selection
+        // Only handle events that are relevant to selection - ignore MouseMove for performance
         match event {
+            InputEvent::MouseMove { .. } => {
+                // Skip mouse move events to avoid performance lag
+                continue;
+            }
             InputEvent::MouseClick {
                 button,
                 position,
@@ -77,23 +94,26 @@ pub fn process_selection_input_events(
                     let world_position = position.to_raw();
                     let handle_tolerance = 50.0;
                     let font_metrics = &app_state.workspace.info.metrics;
-                    debug!("[sort-handle-hit] Click at world position: ({:.1}, {:.1})", world_position.x, world_position.y);
-
-                    // Print all handle positions and distances
-                    for i in 0..text_editor_state.buffer.len() {
-                        if let Some(_sort) = text_editor_state.buffer.get(i) {
-                            if let Some(sort_pos) =
-                                text_editor_state.get_sort_visual_position(i)
-                            {
-                                let descender =
-                                    font_metrics.descender.unwrap_or(-200.0)
-                                        as f32;
-                                let handle_pos =
-                                    sort_pos + Vec2::new(0.0, descender);
-                                let distance =
-                                    world_position.distance(handle_pos);
-                                debug!("[sort-handle-hit] Sort {}: handle_pos=({:.1}, {:.1}), distance={:.1}, tolerance={:.1}",
-                                    i, handle_pos.x, handle_pos.y, distance, handle_tolerance);
+                    debug!("[sort-handle-hit] Mouse click at world position: ({:.1}, {:.1})", world_position.x, world_position.y);
+                    debug!("[sort-handle-hit] Buffer has {} sorts", text_editor_state.buffer.len());
+                    
+                    // Only log detailed handle positions if we have a small number of sorts to avoid spam
+                    if text_editor_state.buffer.len() <= 10 {
+                        for i in 0..text_editor_state.buffer.len() {
+                            if let Some(_sort) = text_editor_state.buffer.get(i) {
+                                if let Some(sort_pos) =
+                                    text_editor_state.get_sort_visual_position(i)
+                                {
+                                    let descender =
+                                        font_metrics.descender.unwrap_or(-200.0)
+                                            as f32;
+                                    let handle_pos =
+                                        sort_pos + Vec2::new(0.0, descender);
+                                    let distance =
+                                        world_position.distance(handle_pos);
+                                    debug!("[sort-handle-hit] Sort {}: handle_pos=({:.1}, {:.1}), distance={:.1}, tolerance={:.1}",
+                                        i, handle_pos.x, handle_pos.y, distance, handle_tolerance);
+                                }
                             }
                         }
                     }
@@ -105,17 +125,42 @@ pub fn process_selection_input_events(
                             Some(font_metrics),
                         )
                     {
-                        debug!("[process_selection_input_events] Clicked near sort handle at index {}", clicked_sort_index);
-                        let is_ctrl_held = modifiers.ctrl;
-                        if is_ctrl_held {
-                            // ECS-based selection: activate the clicked sort directly
-                            text_editor_state.activate_sort(clicked_sort_index);
-                            debug!("[process_selection_input_events] Ctrl: activated sort {}", clicked_sort_index);
+                        info!("[process_selection_input_events] Clicked on sort handle at index {}", clicked_sort_index);
+                        
+                        // Find the entity corresponding to this buffer index
+                        if let Some(&sort_entity) = buffer_entities.entities.get(&clicked_sort_index) {
+                            let is_ctrl_held = modifiers.ctrl;
+                            
+                            if is_ctrl_held {
+                                // Multi-select: toggle selection
+                                if selection_state.selected.contains(&sort_entity) {
+                                    // Remove from selection
+                                    commands.entity(sort_entity).remove::<crate::editing::selection::components::Selected>();
+                                    selection_state.selected.remove(&sort_entity);
+                                    info!("[process_selection_input_events] Ctrl+click: removed sort {} from selection", clicked_sort_index);
+                                } else {
+                                    // Add to selection
+                                    commands.entity(sort_entity).insert(crate::editing::selection::components::Selected);
+                                    selection_state.selected.insert(sort_entity);
+                                    info!("[process_selection_input_events] Ctrl+click: added sort {} to selection", clicked_sort_index);
+                                }
+                            } else {
+                                // Single select: clear others and select this one
+                                // Clear all current selections
+                                for entity in selection_state.selected.clone() {
+                                    commands.entity(entity).remove::<crate::editing::selection::components::Selected>();
+                                }
+                                selection_state.selected.clear();
+                                
+                                // Select this sort
+                                commands.entity(sort_entity).insert(crate::editing::selection::components::Selected);
+                                selection_state.selected.insert(sort_entity);
+                                info!("[process_selection_input_events] Single click: selected sort {} exclusively", clicked_sort_index);
+                            }
                         } else {
-                            // ECS-based selection: activate the clicked sort directly
-                            text_editor_state.activate_sort(clicked_sort_index);
-                            debug!("[process_selection_input_events] Regular click: activated sort {}", clicked_sort_index);
+                            warn!("[process_selection_input_events] Could not find entity for sort index {}", clicked_sort_index);
                         }
+                        
                         // Early return: don't run the rest of the selection logic for this click
                         return;
                     } else {

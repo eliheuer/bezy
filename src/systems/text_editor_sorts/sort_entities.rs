@@ -36,16 +36,21 @@ pub fn manage_sort_activation(
     mut text_editor_state: ResMut<TextEditorState>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
 ) {
+    // System is working - debug confirmed
+    // info!("[manage_sort_activation] System called, ui_hover_state.is_hovering_ui = {}", ui_hover_state.is_hovering_ui);
+    
     // Don't process clicks when hovering over UI
     if ui_hover_state.is_hovering_ui {
+        info!("[manage_sort_activation] Skipping - hovering over UI");
         return;
     }
 
     // Check for left mouse click
     if !mouse_button_input.just_pressed(MouseButton::Left) {
+        // info!("[manage_sort_activation] No left mouse click this frame");
         return;
     }
-
+    
     // Get cursor position in world coordinates
     let Ok((camera, camera_transform)) = camera_query.get_single() else {
         return;
@@ -55,18 +60,22 @@ pub fn manage_sort_activation(
         return;
     };
     
+    info!("[manage_sort_activation] Left mouse button pressed at screen pos: {:?}", window.cursor_position());
+    
     let Some(cursor_position) = window.cursor_position() else {
         return;
     };
 
     let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
+        debug!("[manage_sort_activation] Failed to convert cursor to world position");
         return;
     };
 
     // Check if click is on any sort
     let click_threshold = 200.0; // Increased click tolerance in design units
     
-    debug!("Mouse click at world position ({:.1}, {:.1})", world_position.x, world_position.y);
+    debug!("[manage_sort_activation] Mouse click at world position ({:.1}, {:.1})", world_position.x, world_position.y);
+    debug!("[manage_sort_activation] Checking {} sorts for handle clicks", sort_query.iter().count());
     
     for (entity, transform, sort, buffer_index) in sort_query.iter() {
         let sort_position = transform.translation.truncate();
@@ -76,23 +85,22 @@ pub fn manage_sort_activation(
                sort.glyph_name, sort_position.x, sort_position.y, distance);
         
         if distance <= click_threshold {
-            // Deactivate any currently active sort
-            for active_entity in active_sort_query.iter() {
-                commands.entity(active_entity).remove::<crate::editing::sort::ActiveSort>();
-                commands.entity(active_entity).insert(crate::editing::sort::InactiveSort);
+            // TODO: Get modifier key state to support multi-select
+            // For now, implement single-select behavior (clear others, select this one)
+            
+            // Clear selection from all other sorts
+            let all_sorts = sort_query.iter().map(|(e, _, _, _)| e).collect::<Vec<_>>();
+            for other_entity in all_sorts {
+                if other_entity != entity {
+                    commands.entity(other_entity).remove::<crate::editing::selection::components::Selected>();
+                }
             }
             
-            // Activate the clicked sort
-            commands.entity(entity).remove::<crate::editing::sort::InactiveSort>();
-            commands.entity(entity).insert(crate::editing::sort::ActiveSort);
+            // Add this sort to the selection
+            commands.entity(entity).insert(crate::editing::selection::components::Selected);
+            info!("Selected sort '{}' at position ({:.1}, {:.1})", sort.glyph_name, sort_position.x, sort_position.y);
             
-            // Update text editor state if this is a buffer sort
-            if let Some(BufferSortIndex(index)) = buffer_index {
-                text_editor_state.activate_sort(*index);
-                info!("Activated sort at buffer index {}", index);
-            }
-            
-            info!("Activated sort '{}' at position ({:.1}, {:.1})", sort.glyph_name, sort_position.x, sort_position.y);
+            // Note: Activation will be handled separately based on selection state
             break;
         }
     }
@@ -140,28 +148,23 @@ pub fn spawn_missing_sort_entities(
                     layout_mode: sort_entry.layout_mode.clone(),
                 };
 
-                // Deactivate all existing active sorts
-                for active_entity in existing_active_sorts.iter() {
-                    commands.entity(active_entity).remove::<crate::editing::sort::ActiveSort>();
-                    commands.entity(active_entity).insert(crate::editing::sort::InactiveSort);
-                }
-                
-                // Spawn entity with Sort, Transform, and ActiveSort components (default active)
+                // Spawn entity with Sort, Transform, and InactiveSort components (start inactive)
                 let entity = commands.spawn((
                     sort,
                     Transform::from_translation(position.extend(0.0)),
-                    ActiveSort, // Make new sorts active by default
+                    InactiveSort, // Start inactive - activation will be handled by selection system
                     BufferSortIndex(i),
+                    crate::editing::selection::components::Selectable, // Make sorts selectable
                     Name::new(format!("BufferSort[{}]", i)),
                 )).id();
 
                 // Track the entity
                 buffer_entities.entities.insert(i, entity);
                 
-                // Also activate this sort in the text editor state
-                text_editor_state.activate_sort(i);
+                // OLD: Also activate this sort in the text editor state
+                // text_editor_state.activate_sort(i); // Disabled - let selection system handle activation
                 
-                debug!("Spawned ACTIVE sort entity for buffer index {} at position ({:.1}, {:.1})", 
+                debug!("Spawned INACTIVE sort entity for buffer index {} at position ({:.1}, {:.1})", 
                        i, position.x, position.y);
             }
         }
@@ -207,6 +210,40 @@ pub fn update_buffer_sort_positions(
                 }
             }
         }
+    }
+}
+
+/// System to auto-activate sorts when exactly one is selected
+pub fn auto_activate_selected_sorts(
+    mut commands: Commands,
+    selected_sorts: Query<Entity, (With<Sort>, With<crate::editing::selection::components::Selected>)>,
+    active_sorts: Query<Entity, With<ActiveSort>>,
+) {
+    let selected_count = selected_sorts.iter().count();
+    
+    if selected_count == 1 {
+        // Exactly one sort is selected - activate it
+        if let Ok(selected_sort) = selected_sorts.get_single() {
+            // Deactivate all currently active sorts
+            for active_entity in active_sorts.iter() {
+                commands.entity(active_entity).remove::<ActiveSort>();
+                commands.entity(active_entity).insert(InactiveSort);
+            }
+            
+            // Activate the selected sort
+            commands.entity(selected_sort).remove::<InactiveSort>();
+            commands.entity(selected_sort).insert(ActiveSort);
+            
+            info!("Auto-activated selected sort {:?}", selected_sort);
+        }
+    } else if selected_count == 0 {
+        // No sorts selected - keep current state for now
+        // TODO: Could deactivate all if we want that behavior
+        debug!("No sorts selected - keeping current activation state");
+    } else {
+        // Multiple sorts selected - keep current activation state for now
+        // TODO: Could implement "first selected becomes active" logic here
+        debug!("Multiple sorts selected ({}) - keeping current activation state", selected_count);
     }
 }
 

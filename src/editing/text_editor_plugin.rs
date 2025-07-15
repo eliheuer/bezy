@@ -26,6 +26,7 @@ pub struct TextEditorPlugin;
 
 impl Plugin for TextEditorPlugin {
     fn build(&self, app: &mut App) {
+        info!("[TextEditorPlugin] Building plugin...");
         app
             // Initialize resources
             .init_resource::<crate::core::state::text_editor::TextEditorState>()
@@ -36,9 +37,10 @@ impl Plugin for TextEditorPlugin {
             
             // Sort activation management (runs first)
             .add_systems(Update, (
-                manage_sort_activation,
+                // manage_sort_activation, // DISABLED: Use selection system instead
                 spawn_missing_sort_entities,
                 crate::systems::text_editor_sorts::sort_entities::update_buffer_sort_positions, // NEW: Update existing sort positions
+                crate::systems::text_editor_sorts::sort_entities::auto_activate_selected_sorts, // NEW: Auto-activate when one sort is selected
                 crate::systems::text_editor_sorts::despawn_missing_buffer_sort_entities, // NEW: Despawn deleted buffer sorts
             ).chain())
             

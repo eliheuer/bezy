@@ -390,9 +390,28 @@ pub fn handle_text_mode_mouse_clicks(
         return;
     }
 
-    // Handle left mouse click for sort placement
+    // Handle left mouse click
     if mouse_button_input.just_pressed(MouseButton::Left) {
-        debug!("Text mode: Left mouse clicked - attempting sort placement");
+        debug!("Text mode: Left mouse clicked - checking for sort handle clicks first");
+        
+        // First check if we're clicking on a sort handle (regardless of placement mode)
+        let world_position = pointer_info.design.to_raw();
+        let handle_tolerance = 50.0;
+        let font_metrics = &app_state.workspace.info.metrics;
+        
+        if let Some(clicked_sort_index) = text_editor_state.find_sort_handle_at_position(
+            world_position,
+            handle_tolerance,
+            Some(font_metrics),
+        ) {
+            info!("Clicked on sort handle at index {}, activating sort", clicked_sort_index);
+            text_editor_state.activate_sort(clicked_sort_index);
+            // Don't place a new sort when clicking on a handle
+            return;
+        }
+        
+        // If not clicking on a handle, proceed with sort placement
+        debug!("Not clicking on handle - attempting sort placement");
         let did_place_text_sort = handle_text_mode_sort_placement(
             &mut text_editor_state,
             &app_state,
