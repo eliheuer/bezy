@@ -30,8 +30,7 @@ pub fn spawn_active_sort_points_optimized(
         let has_points = existing_points.iter().any(|parent| parent.0 == sort_entity);
         if has_points {
             debug!("Skipping point spawning for sort entity {:?} - points already exist", sort_entity);
-            // TEMP: Force spawn even if points exist to debug the issue
-            // continue; // Skip if points already exist
+            continue; // Skip if points already exist
         }
         
         info!("Spawning points for active sort entity {:?}, glyph: {}", sort_entity, sort.glyph_name);
@@ -56,6 +55,11 @@ pub fn spawn_active_sort_points_optimized(
                                   point_count, point.x, point.y, position.x, position.y, world_pos.x, world_pos.y);
                         }
                         
+                        // Double check the position is correct
+                        if point_count > 0 && world_pos.x == position.x && world_pos.y == position.y {
+                            warn!("Point {} has zero offset from sort position! Raw point: ({}, {})", point_count, point.x, point.y);
+                        }
+                        
                         // Create the EditPoint with proper Point type
                         let edit_point = EditPoint {
                             position: Point::new(world_pos.x as f64, world_pos.y as f64),
@@ -67,10 +71,14 @@ pub fn spawn_active_sort_points_optimized(
                             is_on_curve: matches!(point.point_type, PointTypeData::Move | PointTypeData::Line | PointTypeData::Curve),
                         };
                         
-                        // Spawn the point entity
+                        // Spawn the point entity with visibility components
                         commands.spawn((
                             Transform::from_xyz(world_pos.x, world_pos.y, 10.0), // Z=10 for points above glyphs
                             GlobalTransform::default(),
+                            // Add visibility components required for transform propagation
+                            Visibility::default(),
+                            InheritedVisibility::default(),
+                            ViewVisibility::default(),
                             edit_point,
                             point_type_component,
                             GlyphPointReference {

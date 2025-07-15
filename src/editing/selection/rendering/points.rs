@@ -284,11 +284,32 @@ pub fn render_control_handles(
     let mut contour_points: Vec<Vec<(Vec2, bool, usize)>> =
         vec![Vec::new(); outline.contours.len()];
 
+    let mut total_points = 0;
+    let mut unique_positions = std::collections::HashSet::new();
+
     for (transform, point_type, glyph_ref) in point_entities.iter() {
         let position = transform.translation().truncate();
         let is_on_curve = point_type.is_on_curve;
         let contour_index = glyph_ref.contour_index;
         let point_index = glyph_ref.point_index;
+
+        total_points += 1;
+        unique_positions.insert((position.x.to_bits(), position.y.to_bits()));
+
+        if total_points <= 5 {
+            debug!(
+                "[render_control_handles] Point {}: pos=({:.1}, {:.1}), contour={}, index={}, on_curve={}",
+                total_points, position.x, position.y, contour_index, point_index, is_on_curve
+            );
+        }
+        
+        // Check if this position is exactly zero - this indicates a transform propagation issue
+        if position.x == 0.0 && position.y == 0.0 {
+            warn!(
+                "[render_control_handles] Point {} at ZERO position - GlobalTransform propagation issue!",
+                total_points
+            );
+        }
 
         if contour_index < contour_points.len() {
             contour_points[contour_index].push((
@@ -296,6 +317,20 @@ pub fn render_control_handles(
                 is_on_curve,
                 point_index,
             ));
+        }
+    }
+
+    if total_points > 0 {
+        debug!(
+            "[render_control_handles] Total points: {}, Unique positions: {}",
+            total_points,
+            unique_positions.len()
+        );
+        if unique_positions.len() == 1 && total_points > 1 {
+            warn!(
+                "[render_control_handles] ALL {} POINTS ARE AT THE SAME POSITION!",
+                total_points
+            );
         }
     }
 
@@ -324,14 +359,26 @@ fn render_contour_handles(
         return;
     }
 
+    let mut handle_count = 0;
     for i in 0..len {
-        let (curr_pos, curr_on, _) = contour_points[i];
+        let (curr_pos, curr_on, curr_idx) = contour_points[i];
         let next_idx = (i + 1) % len;
-        let (next_pos, next_on, _) = contour_points[next_idx];
+        let (next_pos, next_on, next_orig_idx) = contour_points[next_idx];
 
         // Draw handle lines between on-curve and off-curve points
         if (curr_on && !next_on) || (!curr_on && next_on) {
+            handle_count += 1;
+            if handle_count <= 3 {
+                debug!(
+                    "[render_contour_handles] Handle {}: from ({:.1}, {:.1})[idx={}] to ({:.1}, {:.1})[idx={}], curr_on={}, next_on={}",
+                    handle_count, curr_pos.x, curr_pos.y, curr_idx, next_pos.x, next_pos.y, next_orig_idx, curr_on, next_on
+                );
+            }
             gizmos.line_2d(curr_pos, next_pos, handle_color);
         }
+    }
+    
+    if handle_count > 0 {
+        debug!("[render_contour_handles] Drew {} handle lines for contour with {} points", handle_count, len);
     }
 }
