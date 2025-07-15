@@ -114,8 +114,26 @@ pub fn spawn_missing_sort_entities(
         }
 
         if let Some(sort_entry) = text_editor_state.buffer.get(i) {
-            // Get the visual position for this sort
-            if let Some(position) = text_editor_state.get_sort_visual_position(i) {
+            // Get the visual position for this sort using correct font metrics
+            let font_metrics = &app_state.workspace.info.metrics;
+            let position = match sort_entry.layout_mode {
+                crate::core::state::SortLayoutMode::Text => {
+                    if sort_entry.is_buffer_root {
+                        // Text roots use their exact stored position
+                        Some(sort_entry.root_position)
+                    } else {
+                        // Non-root text sorts flow from their text root using actual font metrics
+                        text_editor_state.get_text_sort_flow_position(
+                            i,
+                            font_metrics,
+                            0.0,
+                        )
+                    }
+                }
+                crate::core::state::SortLayoutMode::Freeform => Some(sort_entry.root_position),
+            };
+            
+            if let Some(position) = position {
                 // Create Sort component
                 let sort = Sort {
                     glyph_name: sort_entry.kind.glyph_name().to_string(),
@@ -145,6 +163,48 @@ pub fn spawn_missing_sort_entities(
                 
                 debug!("Spawned ACTIVE sort entity for buffer index {} at position ({:.1}, {:.1})", 
                        i, position.x, position.y);
+            }
+        }
+    }
+}
+
+/// Update positions of existing buffer sort entities to match text flow
+pub fn update_buffer_sort_positions(
+    text_editor_state: Res<TextEditorState>,
+    app_state: Res<AppState>,
+    buffer_entities: Res<BufferSortEntities>,
+    mut sort_query: Query<&mut Transform, With<BufferSortIndex>>,
+) {
+    let font_metrics = &app_state.workspace.info.metrics;
+    
+    // Update Transform positions for all existing buffer sorts
+    for (&buffer_index, &entity) in buffer_entities.entities.iter() {
+        if let Ok(mut transform) = sort_query.get_mut(entity) {
+            // Calculate correct position using the font metrics from app state
+            if let Some(sort) = text_editor_state.buffer.get(buffer_index) {
+                let new_position = match sort.layout_mode {
+                    crate::core::state::SortLayoutMode::Text => {
+                        if sort.is_buffer_root {
+                            // Text roots use their exact stored position
+                            Some(sort.root_position)
+                        } else {
+                            // Non-root text sorts flow from their text root using actual font metrics
+                            text_editor_state.get_text_sort_flow_position(
+                                buffer_index,
+                                font_metrics,
+                                0.0,
+                            )
+                        }
+                    }
+                    crate::core::state::SortLayoutMode::Freeform => Some(sort.root_position),
+                };
+                
+                if let Some(new_pos) = new_position {
+                    let new_pos_3d = new_pos.extend(transform.translation.z);
+                    transform.translation = new_pos_3d;
+                    info!("Sort {} positioned at ({:.1}, {:.1})", 
+                           buffer_index, new_pos.x, new_pos.y);
+                }
             }
         }
     }

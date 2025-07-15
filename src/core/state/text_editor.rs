@@ -518,127 +518,78 @@ impl TextEditorState {
         );
     }
 
-    /// Calculate flow position for text sorts
+    /// Calculate flow position for text sorts using same logic as cursor positioning
     pub fn get_text_sort_flow_position(
         &self,
         buffer_position: usize,
         font_metrics: &FontMetrics,
-        leading: f32,
+        _leading: f32,
     ) -> Option<Vec2> {
         if let Some(sort) = self.buffer.get(buffer_position) {
             if sort.layout_mode == SortLayoutMode::Text {
+                // Find the active buffer root
+                let mut active_root_index = None;
                 let mut root_position = Vec2::ZERO;
-                let mut x_offset = 0.0;
-                let mut y_offset = 0.0;
-                let mut found_root = false;
-                let _line_height = (font_metrics.ascender.unwrap_or(1024.0)
-                    - font_metrics.descender.unwrap_or(-256.0))
-                    as f32
-                    + leading;
-
-                debug!("Calculating flow position for buffer_position {} (glyph: '{}')", buffer_position, sort.kind.glyph_name());
-
+                
+                // Look for the buffer root for this position
                 for i in (0..=buffer_position).rev() {
                     if let Some(candidate) = self.buffer.get(i) {
-                        if candidate.is_buffer_root
-                            && candidate.layout_mode == SortLayoutMode::Text
-                        {
+                        if candidate.is_buffer_root && candidate.layout_mode == SortLayoutMode::Text {
+                            active_root_index = Some(i);
                             root_position = candidate.root_position;
-                            found_root = true;
-                            debug!("Found text root at index {} with position ({:.1}, {:.1})", i, root_position.x, root_position.y);
-
-                            // For the root itself, return the root position
-                            if buffer_position == i {
-                                debug!(
-                                    "This is the root, returning root position"
-                                );
-                                return Some(root_position);
-                            }
-
-                            // For glyphs after the root, sum advance widths including the root's advance width
-                            let mut total_advance = 0.0;
-
-                            // Add the root's advance width if it's a real glyph (not empty placeholder)
-                            if candidate.kind.is_glyph()
-                                && !candidate.kind.glyph_name().is_empty()
-                            {
-                                total_advance +=
-                                    candidate.kind.glyph_advance_width();
-                                debug!("Added root advance width {} for glyph '{}', total: {:.1}", 
-                                       candidate.kind.glyph_advance_width(), candidate.kind.glyph_name(), total_advance);
-                            }
-
-                            // Add advance widths for all glyphs between root and current position
-                            debug!(
-                                "Summing advance widths from index {} to {}",
-                                i + 1,
-                                buffer_position
-                            );
-                            for j in (i + 1)..buffer_position {
-                                if let Some(text_sort) = self.buffer.get(j) {
-                                    debug!(
-                                        "Processing index {}: glyph '{}'",
-                                        j,
-                                        text_sort.kind.glyph_name()
-                                    );
-                                    match &text_sort.kind {
-                                        SortKind::Glyph {
-                                            advance_width,
-                                            ..
-                                        } => {
-                                            total_advance += *advance_width;
-                                            debug!("Added advance width {} for glyph '{}', total: {:.1}", 
-                                                   advance_width, text_sort.kind.glyph_name(), total_advance);
-                                        }
-                                        SortKind::LineBreak => {
-                                            total_advance = 0.0;
-                                            // FIXED: Use same line height calculation as cursor positioning
-                                            let upm = font_metrics.units_per_em
-                                                as f32;
-                                            let descender = font_metrics
-                                                .descender
-                                                .unwrap_or(-256.0)
-                                                as f32;
-                                            let line_height =
-                                                upm - descender + leading;
-                                            y_offset -= line_height; // Move down by line height
-                                            debug!("Line break: reset total_advance to 0.0, y_offset: {:.1} (line_height: {:.1})", y_offset, line_height);
-                                        }
-                                    }
-                                }
-                            }
-
-                            x_offset = total_advance;
-                            debug!(
-                                "Final total_advance: {:.1}, x_offset: {:.1}",
-                                total_advance, x_offset
-                            );
                             break;
                         }
                     }
                 }
-                if found_root {
-                    let final_position =
-                        root_position + Vec2::new(x_offset, y_offset);
-                    debug!("Calculated flow position for sort at index {}: root({:.1}, {:.1}) + offset({:.1}, {:.1}) = ({:.1}, {:.1})", 
-                           buffer_position, root_position.x, root_position.y, x_offset, y_offset, final_position.x, final_position.y);
-                    return Some(final_position);
-                } else {
-                    debug!(
-                        "No root found for buffer_position {}",
-                        buffer_position
-                    );
+                
+                let root_index = active_root_index?;
+                
+                // If this is the root itself, return root position
+                if buffer_position == root_index {
+                    return Some(root_position);
                 }
+                
+                // Calculate position using same logic as cursor positioning
+                let mut x_offset = 0.0;
+                let mut y_offset = 0.0;
+                
+                // Get font metrics for line height calculation  
+                let upm = font_metrics.units_per_em as f32;
+                let descender = font_metrics.descender.unwrap_or(-256.0) as f32;
+                let line_height = upm - descender;
+                
+                // Start from the root and accumulate advances up to (but not including) target position
+                for i in root_index..buffer_position {
+                    if let Some(sort_entry) = self.buffer.get(i) {
+                        // Stop if we hit another buffer root
+                        if i != root_index && sort_entry.is_buffer_root {
+                            break;
+                        }
+                        
+                        // Process this position's advance  
+                        if i == root_index || sort_entry.layout_mode == SortLayoutMode::Text {
+                            match &sort_entry.kind {
+                                SortKind::LineBreak => {
+                                    // Line break: reset x_offset and move down a line (same as cursor)
+                                    x_offset = 0.0;
+                                    y_offset -= line_height;
+                                }
+                                SortKind::Glyph { advance_width, .. } => {
+                                    x_offset += advance_width;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Return final position
+                Some(Vec2::new(root_position.x + x_offset, root_position.y + y_offset))
             } else {
-                debug!(
-                    "Sort at index {} is not in Text layout mode",
-                    buffer_position
-                );
+                None
             }
         } else {
-            debug!("No sort found at buffer_position {}", buffer_position);
+            None
         }
-        None
     }
 
     /// Create a new text root at the specified world position

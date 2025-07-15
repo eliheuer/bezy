@@ -787,8 +787,11 @@ pub fn handle_text_mode_keyboard(
 
     // Handle Insert mode cursor navigation
     if current_placement_mode.0 == TextPlacementMode::Insert {
+        debug!("Checking Insert mode keyboard input...");
         if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
+            info!("Arrow left pressed in Insert mode");
             text_editor_state.move_cursor_left();
+            info!("Insert mode: moved cursor left");
             debug!(
                 "Insert mode: moved cursor left to position {}",
                 text_editor_state.cursor_position
@@ -820,11 +823,10 @@ pub fn handle_text_mode_keyboard(
             keyboard_input.clear_just_pressed(KeyCode::Delete);
         }
         if keyboard_input.just_pressed(KeyCode::Backspace) {
-            if text_editor_state.cursor_position > 0 {
-                text_editor_state.move_cursor_left();
-                text_editor_state.delete_sort_at_cursor();
-                debug!("Insert mode: backspace deleted sort");
-            }
+            // Backspace should delete the sort to the LEFT of cursor (standard backspace behavior)
+            // delete_sort_at_cursor already handles moving cursor left automatically
+            text_editor_state.delete_sort_at_cursor();
+            info!("Insert mode: backspace deleted sort to the left of cursor");
             keyboard_input.clear_just_pressed(KeyCode::Backspace);
         }
         if keyboard_input.just_pressed(KeyCode::Enter) {
