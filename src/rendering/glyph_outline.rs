@@ -558,6 +558,21 @@ pub fn draw_glyph_outline_from_live_transforms(
                     size * crate::ui::theme::OFF_CURVE_INNER_CIRCLE_RATIO;
                 gizmos.circle_2d(position, inner_radius, color);
             }
+
+            // Draw crosshairs for selected points during nudging
+            if color == crate::ui::theme::SELECTED_POINT_COLOR {
+                let line_size = size;
+                gizmos.line_2d(
+                    Vec2::new(position.x - line_size, position.y),
+                    Vec2::new(position.x + line_size, position.y),
+                    color,
+                );
+                gizmos.line_2d(
+                    Vec2::new(position.x, position.y - line_size),
+                    Vec2::new(position.x, position.y + line_size),
+                    color,
+                );
+            }
         }
     }
 

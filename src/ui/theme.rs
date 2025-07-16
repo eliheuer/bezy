@@ -105,8 +105,8 @@ pub const DEBUG_SHOW_ORIGIN_CROSS: bool = false;
 pub const ON_CURVE_POINT_RADIUS: f32 = 4.0;
 pub const OFF_CURVE_POINT_RADIUS: f32 = 4.0;
 pub const ON_CURVE_SQUARE_ADJUSTMENT: f32 = 1.0;
-pub const ON_CURVE_INNER_CIRCLE_RATIO: f32 = 0.5;
-pub const OFF_CURVE_INNER_CIRCLE_RATIO: f32 = 0.5;
+pub const ON_CURVE_INNER_CIRCLE_RATIO: f32 = 0.25;
+pub const OFF_CURVE_INNER_CIRCLE_RATIO: f32 = 0.25;
 pub const USE_SQUARE_FOR_ON_CURVE: bool = true;
 
 // Layout constants

@@ -248,7 +248,7 @@ pub fn render_all_point_entities(
                     gizmos.rect_2d(
                         position,
                         Vec2::splat(inner_radius * 2.0),
-                        Color::BLACK,
+                        ON_CURVE_POINT_COLOR,
                     );
                 }
             } else {
@@ -260,7 +260,7 @@ pub fn render_all_point_entities(
                 if ON_CURVE_INNER_CIRCLE_RATIO > 0.0 {
                     let inner_radius =
                         ON_CURVE_POINT_RADIUS * ON_CURVE_INNER_CIRCLE_RATIO;
-                    gizmos.circle_2d(position, inner_radius, Color::BLACK);
+                    gizmos.circle_2d(position, inner_radius, ON_CURVE_POINT_COLOR);
                 }
             }
         } else {
@@ -273,7 +273,7 @@ pub fn render_all_point_entities(
             if OFF_CURVE_INNER_CIRCLE_RATIO > 0.0 {
                 let inner_radius =
                     OFF_CURVE_POINT_RADIUS * OFF_CURVE_INNER_CIRCLE_RATIO;
-                gizmos.circle_2d(position, inner_radius, Color::BLACK);
+                gizmos.circle_2d(position, inner_radius, OFF_CURVE_POINT_COLOR);
             }
         }
     }
