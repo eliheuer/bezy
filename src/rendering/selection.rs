@@ -48,11 +48,11 @@ pub fn render_selection_marquee(
         let p3 = Vec2::new(end.x, end.y);
         let p4 = Vec2::new(start.x, end.y);
 
-        // Draw dashed lines for each edge
-        draw_dashed_line(&mut gizmos, p1, p2, color, 16.0, 8.0);
-        draw_dashed_line(&mut gizmos, p2, p3, color, 16.0, 8.0);
-        draw_dashed_line(&mut gizmos, p3, p4, color, 16.0, 8.0);
-        draw_dashed_line(&mut gizmos, p4, p1, color, 16.0, 8.0);
+        // gizmos, start, end, color, dash_length, gap_length
+        draw_dashed_line(&mut gizmos, p1, p2, color, 8.0, 4.0);
+        draw_dashed_line(&mut gizmos, p2, p3, color, 8.0, 4.0);
+        draw_dashed_line(&mut gizmos, p3, p4, color, 8.0, 4.0);
+        draw_dashed_line(&mut gizmos, p4, p1, color, 8.0, 4.0);
     }
 }
 
@@ -69,18 +69,18 @@ fn draw_dashed_line(
     let direction = (end - start).normalize_or_zero();
     let mut current_length = 0.0;
     let mut draw = true;
-    let mut p = start;
+    let mut current_position = start;
 
     while current_length < total_length {
         let segment_length = if draw { dash_length } else { gap_length };
         let next_length = (current_length + segment_length).min(total_length);
-        let next_p = start + direction * next_length;
+        let segment_end_position = start + direction * next_length;
 
         if draw {
-            gizmos.line_2d(p, next_p, color);
+            gizmos.line_2d(current_position, segment_end_position, color);
         }
 
-        p = next_p;
+        current_position = segment_end_position;
         current_length = next_length;
         draw = !draw;
     }
@@ -116,27 +116,38 @@ pub fn render_selected_entities(
     let selection_color = SELECTED_POINT_COLOR;
     let is_dragging = drag_point_state.is_dragging;
 
+    // Render each selected point with selection styling
     for (transform, point_type) in &selected_query {
         let position = transform.translation().truncate();
         let position_3d = Vec3::new(
             position.x,
             position.y,
-            transform.translation().z + 100.0,
+            transform.translation().z + SELECTION_Z_DEPTH_OFFSET,
         );
         let position_2d = position_3d.truncate();
 
-        // Draw selection indicator
-        let outer_radius = if point_type.is_on_curve {
-            ON_CURVE_POINT_RADIUS * 3.0
+        // Draw selection indicator with same shape and size as unselected points
+        let point_radius = if point_type.is_on_curve {
+            if USE_SQUARE_FOR_ON_CURVE {
+                let adjusted_radius = ON_CURVE_POINT_RADIUS * ON_CURVE_SQUARE_ADJUSTMENT;
+                gizmos.rect_2d(
+                    position_2d,
+                    Vec2::splat(adjusted_radius * 2.0),
+                    selection_color,
+                );
+                adjusted_radius
+            } else {
+                gizmos.circle_2d(position_2d, ON_CURVE_POINT_RADIUS, selection_color);
+                ON_CURVE_POINT_RADIUS
+            }
         } else {
-            OFF_CURVE_POINT_RADIUS * 3.0
+            // Off-curve point - always a circle
+            gizmos.circle_2d(position_2d, OFF_CURVE_POINT_RADIUS, selection_color);
+            OFF_CURVE_POINT_RADIUS
         };
 
-        // Single circle
-        gizmos.circle_2d(position_2d, outer_radius, selection_color);
-
-        // Draw cross at the point
-        let line_size = 12.0;
+        // Draw cross at the point, sized to match point radius
+        let line_size = point_radius;
         gizmos.line_2d(
             Vec2::new(position_2d.x - line_size, position_2d.y),
             Vec2::new(position_2d.x + line_size, position_2d.y),

@@ -22,6 +22,6 @@ pub mod sort_visuals;
 // Re-export commonly used items
 pub use checkerboard::{CheckerboardEnabled, CheckerboardPlugin};
 pub use selection::{
-    render_all_point_entities, render_control_handles, render_hovered_entities,
+    render_all_point_entities, render_control_handles,
     render_selected_entities, render_selection_marquee,
 };

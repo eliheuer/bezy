@@ -86,6 +86,7 @@ pub struct CheckerboardConstants {
 
 // Constants that can be accessed directly (don't change with theme)
 pub const CHECKERBOARD_Z_LEVEL: f32 = 0.1;
+pub const SELECTION_Z_DEPTH_OFFSET: f32 = 100.0;
 pub const MIN_VISIBILITY_ZOOM: f32 = 0.01;
 pub const GRID_SIZE_CHANGE_THRESHOLD: f32 = 1.25;
 pub const VISIBLE_AREA_COVERAGE_MULTIPLIER: f32 = 1.2;
