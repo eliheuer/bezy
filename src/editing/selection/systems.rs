@@ -129,11 +129,6 @@ pub fn update_hover_state(
     // Hover functionality is disabled per user request
 }
 
-
-
-
-
-
 /// System to update the actual glyph data when a point is moved
 #[allow(clippy::type_complexity)]
 pub fn update_glyph_data_from_selection(
@@ -306,8 +301,8 @@ pub fn spawn_active_sort_points(
                                     },
                                     glyph_point_ref,
                                     crate::editing::selection::components::PointType {
-                                        is_on_curve: matches!(point.point_type, 
-                                            crate::core::state::font_data::PointTypeData::Move | 
+                                        is_on_curve: matches!(point.point_type,
+                                            crate::core::state::font_data::PointTypeData::Move |
                                             crate::core::state::font_data::PointTypeData::Line |
                                             crate::core::state::font_data::PointTypeData::Curve),
                                     },
@@ -617,7 +612,7 @@ pub fn process_selection_input_events(
     select_mode: Option<
         Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>,
     >,
-    mut text_editor_state: ResMut<TextEditorState>,
+    text_editor_state: ResMut<TextEditorState>,
     app_state: Res<crate::core::state::AppState>,
 ) {
     debug!("[process_selection_input_events] Called");
@@ -684,7 +679,7 @@ pub fn process_selection_input_events(
                             // text_editor_state.activate_sort(clicked_sort_index);
                             debug!("[process_selection_input_events] Ctrl: skipping activation (handled by selection system)");
                         } else {
-                            // OLD: ECS-based selection: activate the clicked sort directly  
+                            // OLD: ECS-based selection: activate the clicked sort directly
                             // text_editor_state.activate_sort(clicked_sort_index);
                             debug!("[process_selection_input_events] Regular click: skipping activation (handled by selection system)");
                         }
@@ -1374,9 +1369,6 @@ pub fn debug_print_selection_rects(
         }
     }
 }
-
-
-
 
 #[cfg(debug_assertions)]
 pub fn debug_validate_point_entity_uniqueness(

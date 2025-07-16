@@ -36,9 +36,22 @@ pub fn render_sorts_system(
     mut gizmos: Gizmos,
     app_state: Res<AppState>,
     _sorts_query: Query<&Sort>,
-    active_sorts_query: Query<(Entity, &Sort, &Transform, Option<&crate::editing::selection::components::Selected>), With<ActiveSort>>,
+    active_sorts_query: Query<
+        (
+            Entity,
+            &Sort,
+            &Transform,
+            Option<&crate::editing::selection::components::Selected>,
+        ),
+        With<ActiveSort>,
+    >,
     inactive_sorts_query: Query<
-        (Entity, &Sort, &Transform, Option<&crate::editing::selection::components::Selected>),
+        (
+            Entity,
+            &Sort,
+            &Transform,
+            Option<&crate::editing::selection::components::Selected>,
+        ),
         With<InactiveSort>,
     >,
     // Additional parameters for live rendering
@@ -101,7 +114,7 @@ pub fn render_sorts_system(
     }
 
     // Render active sorts (both buffer and freeform)
-    for (entity, sort, transform, selected) in active_sorts_query.iter() {
+    for (entity, sort, transform, _selected) in active_sorts_query.iter() {
         if let Some(glyph_data) =
             app_state.workspace.font.glyphs.get(&sort.glyph_name)
         {

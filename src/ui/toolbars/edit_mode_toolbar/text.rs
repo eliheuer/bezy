@@ -377,10 +377,12 @@ pub fn handle_text_mode_mouse_clicks(
     // Debug text mode state
     debug!("Text mode click handler: text_mode_active={}, current_tool={:?}, ui_hover={}", 
            text_mode_active.0, current_tool.get_current(), ui_hover_state.is_hovering_ui);
-    
+
     // Only handle clicks when text mode is active and we're the active tool
     if !text_mode_active.0 || current_tool.get_current() != Some("text") {
-        debug!("Text mode click handler: early return - not active or wrong tool");
+        debug!(
+            "Text mode click handler: early return - not active or wrong tool"
+        );
         return;
     }
 
@@ -393,36 +395,43 @@ pub fn handle_text_mode_mouse_clicks(
     // Handle left mouse click
     if mouse_button_input.just_pressed(MouseButton::Left) {
         debug!("Text mode: Left mouse clicked - checking for sort handle clicks first");
-        
+
         // First check if we're clicking on a sort handle (regardless of placement mode)
         let world_position = pointer_info.design.to_raw();
         let handle_tolerance = 50.0;
         let font_metrics = &app_state.workspace.info.metrics;
-        
-        if let Some(clicked_sort_index) = text_editor_state.find_sort_handle_at_position(
-            world_position,
-            handle_tolerance,
-            Some(font_metrics),
-        ) {
-            info!("Clicked on sort handle at index {}, activating sort", clicked_sort_index);
+
+        if let Some(clicked_sort_index) = text_editor_state
+            .find_sort_handle_at_position(
+                world_position,
+                handle_tolerance,
+                Some(font_metrics),
+            )
+        {
+            info!(
+                "Clicked on sort handle at index {}, activating sort",
+                clicked_sort_index
+            );
             text_editor_state.activate_sort(clicked_sort_index);
             // Don't place a new sort when clicking on a handle
             return;
         }
-        
+
         // If not clicking on a handle, proceed with sort placement
         debug!("Not clicking on handle - attempting sort placement");
         let did_place_text_sort = handle_text_mode_sort_placement(
             &mut text_editor_state,
             &app_state,
             &glyph_navigation,
-            &*current_placement_mode,
+            &current_placement_mode,
             &pointer_info,
             &mut camera_query,
         );
-        
+
         // If we placed a text sort, automatically switch to Insert mode
-        if did_place_text_sort && current_placement_mode.0 == TextPlacementMode::Text {
+        if did_place_text_sort
+            && current_placement_mode.0 == TextPlacementMode::Text
+        {
             current_placement_mode.0 = TextPlacementMode::Insert;
             info!("Auto-switched to Insert mode after placing text sort");
         }
@@ -438,8 +447,11 @@ pub fn handle_text_mode_sort_placement(
     pointer_info: &Res<crate::core::io::pointer::PointerInfo>,
     camera_query: &mut Query<&mut Projection, With<DesignCamera>>,
 ) -> bool {
-    debug!("Sort placement function called with mode: {:?}", current_placement_mode.0);
-    
+    debug!(
+        "Sort placement function called with mode: {:?}",
+        current_placement_mode.0
+    );
+
     // Function is only called from text tool, so no need to check current tool
 
     // Get camera zoom for grid snapping
@@ -509,12 +521,12 @@ pub fn handle_text_mode_sort_placement(
                 "Placed sort '{}' in text mode at position ({:.1}, {:.1})",
                 glyph_name, sort_position.x, sort_position.y
             );
-            return true; // Successfully placed a text sort
+            true // Successfully placed a text sort
         }
         TextPlacementMode::Insert => {
             debug!("In Insert mode: Use keyboard to edit text mode sorts, not mouse clicks");
             info!("Insert mode: Use keyboard to edit text mode sorts, not mouse clicks");
-            return false; // No sort placed
+            false // No sort placed
         }
         TextPlacementMode::Freeform => {
             debug!("Placing text sort in Freeform mode");
@@ -527,7 +539,7 @@ pub fn handle_text_mode_sort_placement(
                 "Placed sort '{}' in freeform mode at position ({:.1}, {:.1})",
                 glyph_name, sort_position.x, sort_position.y
             );
-            return false; // Freeform doesn't auto-switch to insert mode
+            false // Freeform doesn't auto-switch to insert mode
         }
     }
 }
@@ -850,7 +862,10 @@ pub fn handle_text_mode_keyboard(
         }
         if keyboard_input.just_pressed(KeyCode::Enter) {
             text_editor_state.insert_line_break_at_cursor();
-            debug!("Insert mode: inserted line break at cursor position {}", text_editor_state.cursor_position);
+            debug!(
+                "Insert mode: inserted line break at cursor position {}",
+                text_editor_state.cursor_position
+            );
             keyboard_input.clear_just_pressed(KeyCode::Enter);
         }
     }

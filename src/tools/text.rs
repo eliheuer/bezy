@@ -8,7 +8,6 @@
 
 use super::{EditTool, ToolInfo};
 use crate::core::state::{SortLayoutMode, TextModeConfig};
-use crate::ui::theme::*;
 use bevy::prelude::*;
 /// Resource to track if text mode is active
 #[derive(Resource, Default)]
@@ -104,7 +103,7 @@ impl EditTool for TextTool {
     fn on_activate(&mut self, commands: &mut Commands) {
         commands.insert_resource(TextModeActive(true));
         commands.insert_resource(crate::core::io::input::InputMode::Text);
-        
+
         info!("Text tool activated - Enhanced features:");
         info!("• Click to place sorts, type letters to add glyphs");
         info!("• Tab to switch Text/Insert/Freeform modes");
@@ -115,7 +114,7 @@ impl EditTool for TextTool {
     fn on_deactivate(&mut self, commands: &mut Commands) {
         commands.insert_resource(TextModeActive(false));
         commands.insert_resource(crate::core::io::input::InputMode::Normal);
-        
+
         info!("Text tool deactivated");
     }
 
@@ -123,7 +122,6 @@ impl EditTool for TextTool {
         // Text tool behavior is handled by dedicated systems
     }
 }
-
 
 /// Plugin for the text tool
 pub struct TextToolPlugin;
@@ -136,5 +134,3 @@ impl Plugin for TextToolPlugin {
             .init_resource::<TextModeConfig>();
     }
 }
-
-

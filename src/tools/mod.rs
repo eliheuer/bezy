@@ -3,28 +3,28 @@
 //! This module contains all the tools for editing fonts in Bezy.
 //! Each tool implements the EditTool trait and provides specific functionality.
 
+pub mod adapters;
+pub mod hyper;
 pub mod knife;
 pub mod measure;
+pub mod metaballs;
 pub mod pan;
 pub mod pen;
 pub mod select;
 pub mod shapes;
 pub mod text;
-pub mod hyper;
-pub mod metaballs;
-pub mod adapters;
 
 // Re-export all tools
+pub use adapters::*;
+pub use hyper::*;
 pub use knife::*;
 pub use measure::*;
+pub use metaballs::*;
 pub use pan::*;
 pub use pen::*;
 pub use select::*;
 pub use shapes::*;
 pub use text::*;
-pub use hyper::*;
-pub use metaballs::*;
-pub use adapters::*;
 
 use bevy::prelude::*;
 

@@ -7,11 +7,9 @@
 //! The tool converts placed points into UFO contours that are saved to the font file.
 
 use super::{EditTool, ToolInfo};
-use crate::core::io::input::{
-    helpers, InputEvent, InputMode, InputState, ModifierState,
-};
+use crate::core::io::input::{helpers, InputEvent, InputMode, InputState};
 use crate::core::io::pointer::PointerInfo;
-use crate::core::state::{AppState, GlyphNavigation, ContourData, PointData, PointTypeData};
+use crate::core::state::{AppState, ContourData, PointData, PointTypeData};
 use crate::editing::selection::events::AppStateChanged;
 use crate::geometry::design_space::DPoint;
 use crate::systems::ui_interaction::UiHoverState;
@@ -151,14 +149,19 @@ pub fn handle_pen_mouse_events(
 
     if mouse_button_input.just_pressed(MouseButton::Left) {
         let click_position = pointer_info.design;
-        
+
         // Check if we should close the path
         if pen_state.current_path.len() > 2 {
             if let Some(first_point) = pen_state.current_path.first() {
-                let distance = click_position.to_raw().distance(first_point.to_raw());
+                let distance =
+                    click_position.to_raw().distance(first_point.to_raw());
                 if distance < CLOSE_PATH_THRESHOLD {
                     pen_state.should_close_path = true;
-                    finalize_pen_path(&mut pen_state, &mut app_state, &mut app_state_changed);
+                    finalize_pen_path(
+                        &mut pen_state,
+                        &mut app_state,
+                        &mut app_state_changed,
+                    );
                     return;
                 }
             }
@@ -167,15 +170,23 @@ pub fn handle_pen_mouse_events(
         // Add point to current path
         pen_state.current_path.push(click_position);
         pen_state.is_drawing = true;
-        
-        info!("Pen tool: Added point at ({:.1}, {:.1}), total points: {}", 
-              click_position.x, click_position.y, pen_state.current_path.len());
+
+        info!(
+            "Pen tool: Added point at ({:.1}, {:.1}), total points: {}",
+            click_position.x,
+            click_position.y,
+            pen_state.current_path.len()
+        );
     }
 
     if mouse_button_input.just_pressed(MouseButton::Right) {
         // Finish open path
         if pen_state.current_path.len() > 1 {
-            finalize_pen_path(&mut pen_state, &mut app_state, &mut app_state_changed);
+            finalize_pen_path(
+                &mut pen_state,
+                &mut app_state,
+                &mut app_state_changed,
+            );
         }
     }
 }
@@ -229,13 +240,18 @@ pub fn render_pen_preview(
     // Draw preview line to cursor if we have at least one point
     if let Some(&last_point) = pen_state.current_path.last() {
         let last_pos = Vec2::new(last_point.x, last_point.y);
-        let cursor_pos = Vec2::new(pointer_info.design.x, pointer_info.design.y);
+        let cursor_pos =
+            Vec2::new(pointer_info.design.x, pointer_info.design.y);
         gizmos.line_2d(last_pos, cursor_pos, preview_color.with_alpha(0.5));
     }
 
     // Draw cursor indicator
     let cursor_pos = Vec2::new(pointer_info.design.x, pointer_info.design.y);
-    gizmos.circle_2d(cursor_pos, CURSOR_INDICATOR_SIZE, preview_color.with_alpha(0.7));
+    gizmos.circle_2d(
+        cursor_pos,
+        CURSOR_INDICATOR_SIZE,
+        preview_color.with_alpha(0.7),
+    );
 }
 
 /// System to reset pen mode when it becomes inactive
@@ -256,7 +272,7 @@ pub fn reset_pen_mode_when_inactive(
 /// Helper function to finalize the current pen path
 fn finalize_pen_path(
     pen_state: &mut ResMut<PenToolState>,
-    app_state: &mut ResMut<AppState>,
+    _app_state: &mut ResMut<AppState>,
     app_state_changed: &mut EventWriter<AppStateChanged>,
 ) {
     if pen_state.current_path.len() < 2 {
@@ -265,14 +281,14 @@ fn finalize_pen_path(
 
     // Convert path to ContourData
     let mut points = Vec::new();
-    
+
     for (i, &point) in pen_state.current_path.iter().enumerate() {
-        let point_type = if i == 0 { 
-            PointTypeData::Move 
-        } else { 
-            PointTypeData::Line 
+        let point_type = if i == 0 {
+            PointTypeData::Move
+        } else {
+            PointTypeData::Line
         };
-        
+
         points.push(PointData {
             x: point.x as f64,
             y: point.y as f64,
@@ -300,6 +316,6 @@ fn finalize_pen_path(
     pen_state.current_path.clear();
     pen_state.is_drawing = false;
     pen_state.should_close_path = false;
-    
+
     app_state_changed.write(AppStateChanged);
 }

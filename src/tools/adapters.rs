@@ -1,11 +1,13 @@
 //! Adapters to bridge new clean tools with the legacy toolbar system
 //!
-//! This allows us to use the new clean EditTool trait while still working 
-//! with the existing toolbar infrastructure. Eventually we'll remove these 
+//! This allows us to use the new clean EditTool trait while still working
+//! with the existing toolbar infrastructure. Eventually we'll remove these
 //! adapters and fully migrate to the new system.
 
 use super::*;
-use crate::ui::toolbars::edit_mode_toolbar::{EditTool as LegacyEditTool, ToolId};
+use crate::ui::toolbars::edit_mode_toolbar::{
+    EditTool as LegacyEditTool, ToolId,
+};
 use bevy::prelude::*;
 
 /// Adapter for the new select tool to work with legacy system
@@ -312,7 +314,9 @@ impl LegacyEditTool for MetaballsToolAdapter {
 
 /// System to register all clean tools with the legacy toolbar system
 fn register_clean_tools(
-    mut tool_registry: ResMut<crate::ui::toolbars::edit_mode_toolbar::ToolRegistry>,
+    mut tool_registry: ResMut<
+        crate::ui::toolbars::edit_mode_toolbar::ToolRegistry,
+    >,
 ) {
     tool_registry.register_tool(Box::new(SelectToolAdapter));
     tool_registry.register_tool(Box::new(PenToolAdapter));
@@ -321,6 +325,6 @@ fn register_clean_tools(
     tool_registry.register_tool(Box::new(KnifeToolAdapter));
     tool_registry.register_tool(Box::new(HyperToolAdapter));
     tool_registry.register_tool(Box::new(MetaballsToolAdapter));
-    
+
     info!("Registered clean tools with legacy toolbar system");
 }

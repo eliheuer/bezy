@@ -31,10 +31,8 @@ impl Plugin for TextEditorPlugin {
             // Initialize resources
             .init_resource::<crate::core::state::text_editor::TextEditorState>()
             .init_resource::<crate::core::state::text_editor::ActiveSortEntity>()
-            
             // Initialize text editor state
             .add_systems(Startup, initialize_text_editor_sorts)
-            
             // Sort activation management (runs first)
             .add_systems(Update, (
                 // manage_sort_activation, // DISABLED: Use selection system instead
@@ -43,13 +41,11 @@ impl Plugin for TextEditorPlugin {
                 crate::systems::text_editor_sorts::sort_entities::auto_activate_selected_sorts, // NEW: Auto-activate when one sort is selected
                 crate::systems::text_editor_sorts::despawn_missing_buffer_sort_entities, // NEW: Despawn deleted buffer sorts
             ).chain())
-            
             // Instant point spawning/despawning (runs immediately after activation)
             .add_systems(Update, (
                 spawn_active_sort_points_optimized,
                 despawn_inactive_sort_points_optimized,
             ).chain().after(manage_sort_activation))
-            
             // Rendering and input handling (rendering must run after nudging)
             .add_systems(Update, (
                 render_text_editor_sorts
@@ -61,7 +57,6 @@ impl Plugin for TextEditorPlugin {
                 handle_unicode_text_input, // KEEP: Most comprehensive text input system
                 handle_sort_placement_input,
             ))
-            
             // Debug systems (optional)
             .add_systems(Update, debug_text_editor_state);
     }

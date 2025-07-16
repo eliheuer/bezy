@@ -164,7 +164,9 @@ pub fn sync_selected_components(
     entities: Query<Entity>,
 ) {
     // Only log when there are changes to synchronize to avoid spam
-    if !selection_state.selected.is_empty() || selected_entities.iter().count() > 0 {
+    if !selection_state.selected.is_empty()
+        || selected_entities.iter().count() > 0
+    {
         debug!(
             "Synchronizing Selected components with SelectionState (current: {})",
             selection_state.selected.len()

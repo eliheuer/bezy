@@ -530,34 +530,36 @@ impl TextEditorState {
                 // Find the active buffer root
                 let mut active_root_index = None;
                 let mut root_position = Vec2::ZERO;
-                
+
                 // Look for the buffer root for this position
                 for i in (0..=buffer_position).rev() {
                     if let Some(candidate) = self.buffer.get(i) {
-                        if candidate.is_buffer_root && candidate.layout_mode == SortLayoutMode::Text {
+                        if candidate.is_buffer_root
+                            && candidate.layout_mode == SortLayoutMode::Text
+                        {
                             active_root_index = Some(i);
                             root_position = candidate.root_position;
                             break;
                         }
                     }
                 }
-                
+
                 let root_index = active_root_index?;
-                
+
                 // If this is the root itself, return root position
                 if buffer_position == root_index {
                     return Some(root_position);
                 }
-                
+
                 // Calculate position using same logic as cursor positioning
                 let mut x_offset = 0.0;
                 let mut y_offset = 0.0;
-                
-                // Get font metrics for line height calculation  
+
+                // Get font metrics for line height calculation
                 let upm = font_metrics.units_per_em as f32;
                 let descender = font_metrics.descender.unwrap_or(-256.0) as f32;
                 let line_height = upm - descender;
-                
+
                 // Start from the root and accumulate advances up to (but not including) target position
                 for i in root_index..buffer_position {
                     if let Some(sort_entry) = self.buffer.get(i) {
@@ -565,9 +567,11 @@ impl TextEditorState {
                         if i != root_index && sort_entry.is_buffer_root {
                             break;
                         }
-                        
-                        // Process this position's advance  
-                        if i == root_index || sort_entry.layout_mode == SortLayoutMode::Text {
+
+                        // Process this position's advance
+                        if i == root_index
+                            || sort_entry.layout_mode == SortLayoutMode::Text
+                        {
                             match &sort_entry.kind {
                                 SortKind::LineBreak => {
                                     // Line break: reset x_offset and move down a line (same as cursor)
@@ -581,9 +585,12 @@ impl TextEditorState {
                         }
                     }
                 }
-                
+
                 // Return final position
-                Some(Vec2::new(root_position.x + x_offset, root_position.y + y_offset))
+                Some(Vec2::new(
+                    root_position.x + x_offset,
+                    root_position.y + y_offset,
+                ))
             } else {
                 None
             }

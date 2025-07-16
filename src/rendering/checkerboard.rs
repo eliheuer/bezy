@@ -422,7 +422,7 @@ fn calculate_visible_area(
             info!("✅ Screen coverage: window=({:.0}x{:.0}), camera_scale={:.3}, \
                    min_screen=({:.0}, {:.0}), final=({:.0}, {:.0}), \
                    grid_size={:.0}, padding={:.0}", 
-                   screen_width, screen_height, camera_scale, 
+                   screen_width, screen_height, camera_scale,
                    min_screen_half_width, min_screen_half_height,
                    final_half_width, final_half_height,
                    current_grid_size, edge_padding);
