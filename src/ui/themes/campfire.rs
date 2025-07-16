@@ -251,4 +251,32 @@ impl BezyTheme for CampfireTheme {
     fn sort_inactive_outline_color(&self) -> Color {
         Color::srgb(0.6, 0.4, 0.3)
     }
+
+    // =================================================================
+    // INFO COLORS - SEMANTIC COLORS
+    // =================================================================
+
+    fn error_color(&self) -> Color {
+        Color::srgb(1.0, 0.2, 0.1) // Bright red-orange
+    }
+
+    fn action_color(&self) -> Color {
+        Color::srgb(1.0, 0.6, 0.1) // Warm orange
+    }
+
+    fn selected_color(&self) -> Color {
+        Color::srgb(1.0, 0.9, 0.3) // Golden yellow
+    }
+
+    fn active_color(&self) -> Color {
+        Color::srgb(0.6, 1.0, 0.3) // Bright green
+    }
+
+    fn helper_color(&self) -> Color {
+        Color::srgb(0.3, 0.7, 1.0) // Sky blue
+    }
+
+    fn special_color(&self) -> Color {
+        Color::srgb(0.9, 0.4, 1.0) // Purple
+    }
 }

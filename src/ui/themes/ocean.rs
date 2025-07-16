@@ -257,4 +257,32 @@ impl BezyTheme for OceanTheme {
     fn sort_inactive_outline_color(&self) -> Color {
         Color::srgb(0.4, 0.6, 0.7) // Muted blue
     }
+
+    // =================================================================
+    // INFO COLORS - SEMANTIC COLORS
+    // =================================================================
+
+    fn error_color(&self) -> Color {
+        Color::srgb(1.0, 0.3, 0.3) // Coral red
+    }
+
+    fn action_color(&self) -> Color {
+        Color::srgb(1.0, 0.7, 0.2) // Sunset orange
+    }
+
+    fn selected_color(&self) -> Color {
+        Color::srgb(1.0, 1.0, 0.4) // Sandy yellow
+    }
+
+    fn active_color(&self) -> Color {
+        Color::srgb(0.3, 1.0, 0.6) // Sea green
+    }
+
+    fn helper_color(&self) -> Color {
+        Color::srgb(0.2, 0.8, 1.0) // Ocean blue
+    }
+
+    fn special_color(&self) -> Color {
+        Color::srgb(0.7, 0.4, 1.0) // Deep sea purple
+    }
 }

@@ -251,4 +251,32 @@ impl BezyTheme for StrawberryTheme {
     fn sort_inactive_outline_color(&self) -> Color {
         Color::srgb(0.6, 0.4, 0.4)
     }
+
+    // =================================================================
+    // INFO COLORS - SEMANTIC COLORS
+    // =================================================================
+
+    fn error_color(&self) -> Color {
+        Color::srgb(1.0, 0.1, 0.3) // Deep strawberry red
+    }
+
+    fn action_color(&self) -> Color {
+        Color::srgb(1.0, 0.5, 0.2) // Peach orange
+    }
+
+    fn selected_color(&self) -> Color {
+        Color::srgb(1.0, 0.9, 0.4) // Cream yellow
+    }
+
+    fn active_color(&self) -> Color {
+        Color::srgb(0.4, 1.0, 0.5) // Fresh green
+    }
+
+    fn helper_color(&self) -> Color {
+        Color::srgb(0.3, 0.6, 1.0) // Berry blue
+    }
+
+    fn special_color(&self) -> Color {
+        Color::srgb(0.8, 0.3, 1.0) // Berry purple
+    }
 }

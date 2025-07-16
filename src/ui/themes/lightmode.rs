@@ -251,4 +251,32 @@ impl BezyTheme for LightModeTheme {
     fn sort_inactive_outline_color(&self) -> Color {
         Color::srgb(0.4, 0.4, 0.4)
     }
+
+    // =================================================================
+    // INFO COLORS - SEMANTIC COLORS
+    // =================================================================
+
+    fn error_color(&self) -> Color {
+        Color::srgb(0.8, 0.0, 0.0) // Dark red
+    }
+
+    fn action_color(&self) -> Color {
+        Color::srgb(0.9, 0.4, 0.0) // Dark orange
+    }
+
+    fn selected_color(&self) -> Color {
+        Color::srgb(0.8, 0.7, 0.0) // Dark yellow
+    }
+
+    fn active_color(&self) -> Color {
+        Color::srgb(0.0, 0.6, 0.0) // Dark green
+    }
+
+    fn helper_color(&self) -> Color {
+        Color::srgb(0.0, 0.3, 0.8) // Dark blue
+    }
+
+    fn special_color(&self) -> Color {
+        Color::srgb(0.6, 0.0, 0.8) // Dark purple
+    }
 }

@@ -18,6 +18,7 @@ use crate::editing::selection::{DragPointState, DragSelectionState};
 use crate::editing::sort::ActiveSort;
 use crate::systems::sort_manager::SortPointEntity;
 use crate::ui::theme::*;
+use crate::ui::themes::CurrentTheme;
 use bevy::prelude::*;
 
 /// Renders the selection marquee rectangle during drag selection
@@ -25,6 +26,7 @@ pub fn render_selection_marquee(
     mut gizmos: Gizmos,
     drag_state: Res<DragSelectionState>,
     marquee_query: Query<&SelectionRect>,
+    theme: Res<CurrentTheme>,
 ) {
     if !drag_state.is_dragging {
         return;
@@ -38,7 +40,7 @@ pub fn render_selection_marquee(
         );
         let start = rect.start;
         let end = rect.end;
-        let color = Color::srgb(1.0, 0.5, 0.0); // Orange
+        let color = theme.action_color();
 
         // Four corners
         let p1 = Vec2::new(start.x, start.y);

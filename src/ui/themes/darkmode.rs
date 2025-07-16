@@ -137,6 +137,34 @@ impl BezyTheme for DarkModeTheme {
     }
 
     // =================================================================
+    // INFO COLORS - SEMANTIC COLORS
+    // =================================================================
+
+    fn error_color(&self) -> Color {
+        Color::srgb(1.0, 0.0, 0.0) // Red
+    }
+
+    fn action_color(&self) -> Color {
+        Color::srgb(1.0, 0.5, 0.0) // Orange
+    }
+
+    fn selected_color(&self) -> Color {
+        Color::srgb(1.0, 1.0, 0.0) // Yellow
+    }
+
+    fn active_color(&self) -> Color {
+        Color::srgb(0.0, 1.0, 0.0) // Green
+    }
+
+    fn helper_color(&self) -> Color {
+        Color::srgb(0.0, 0.5, 1.0) // Blue
+    }
+
+    fn special_color(&self) -> Color {
+        Color::srgb(0.8, 0.0, 1.0) // Purple
+    }
+
+    // =================================================================
     // SELECTION & INTERACTION
     // =================================================================
 

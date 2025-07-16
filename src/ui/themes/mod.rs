@@ -382,6 +382,28 @@ pub trait BezyTheme: Send + Sync + 'static {
     fn handle_line_color(&self) -> Color;
 
     // =================================================================
+    // INFO COLORS - SEMANTIC COLORS
+    // =================================================================
+
+    /// Error color - used for error states and validation failures
+    fn error_color(&self) -> Color;
+
+    /// Action color - used for active actions and interactions (like selection marquee)
+    fn action_color(&self) -> Color;
+
+    /// Selected color - used for selected items and highlighted elements
+    fn selected_color(&self) -> Color;
+
+    /// Active color - used for active/current states
+    fn active_color(&self) -> Color;
+
+    /// Helper color - used for helper text and guidance
+    fn helper_color(&self) -> Color;
+
+    /// Special color - used for special states and emphasis
+    fn special_color(&self) -> Color;
+
+    // =================================================================
     // SELECTION & INTERACTION
     // =================================================================
 
@@ -619,5 +641,39 @@ impl CurrentTheme {
     /// Get the highlight text color for the current theme
     pub fn get_highlight_text_color(&self) -> Color {
         self.theme().highlight_text_color()
+    }
+
+    // =================================================================
+    // INFO COLORS - SEMANTIC COLORS
+    // =================================================================
+
+    /// Get the error color for the current theme
+    pub fn error_color(&self) -> Color {
+        self.theme().error_color()
+    }
+
+    /// Get the action color for the current theme
+    pub fn action_color(&self) -> Color {
+        self.theme().action_color()
+    }
+
+    /// Get the selected color for the current theme
+    pub fn selected_color(&self) -> Color {
+        self.theme().selected_color()
+    }
+
+    /// Get the active color for the current theme
+    pub fn active_color(&self) -> Color {
+        self.theme().active_color()
+    }
+
+    /// Get the helper color for the current theme
+    pub fn helper_color(&self) -> Color {
+        self.theme().helper_color()
+    }
+
+    /// Get the special color for the current theme
+    pub fn special_color(&self) -> Color {
+        self.theme().special_color()
     }
 }
