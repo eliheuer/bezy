@@ -129,7 +129,8 @@ pub fn render_selected_entities(
         // Draw selection indicator with same shape and size as unselected points
         let point_radius = if point_type.is_on_curve {
             if USE_SQUARE_FOR_ON_CURVE {
-                let adjusted_radius = ON_CURVE_POINT_RADIUS * ON_CURVE_SQUARE_ADJUSTMENT;
+                let adjusted_radius =
+                    ON_CURVE_POINT_RADIUS * ON_CURVE_SQUARE_ADJUSTMENT;
                 gizmos.rect_2d(
                     position_2d,
                     Vec2::splat(adjusted_radius * 2.0),
@@ -137,12 +138,20 @@ pub fn render_selected_entities(
                 );
                 adjusted_radius
             } else {
-                gizmos.circle_2d(position_2d, ON_CURVE_POINT_RADIUS, selection_color);
+                gizmos.circle_2d(
+                    position_2d,
+                    ON_CURVE_POINT_RADIUS,
+                    selection_color,
+                );
                 ON_CURVE_POINT_RADIUS
             }
         } else {
             // Off-curve point - always a circle
-            gizmos.circle_2d(position_2d, OFF_CURVE_POINT_RADIUS, selection_color);
+            gizmos.circle_2d(
+                position_2d,
+                OFF_CURVE_POINT_RADIUS,
+                selection_color,
+            );
             OFF_CURVE_POINT_RADIUS
         };
 
@@ -260,7 +269,11 @@ pub fn render_all_point_entities(
                 if ON_CURVE_INNER_CIRCLE_RATIO > 0.0 {
                     let inner_radius =
                         ON_CURVE_POINT_RADIUS * ON_CURVE_INNER_CIRCLE_RATIO;
-                    gizmos.circle_2d(position, inner_radius, ON_CURVE_POINT_COLOR);
+                    gizmos.circle_2d(
+                        position,
+                        inner_radius,
+                        ON_CURVE_POINT_COLOR,
+                    );
                 }
             }
         } else {

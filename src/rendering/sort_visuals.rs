@@ -134,16 +134,34 @@ pub fn render_sort_visuals_with_live_sync(
     nudge_state: Option<&NudgeState>,
 ) {
     // Determine if we should use live rendering
+    // FIXED: Check if we have selected points, not just if nudging is active
+    // This ensures outline stays synced with Transform positions even after nudging stops
     let nudge_active = nudge_state.is_some_and(|ns| ns.is_nudging);
     let has_sort_entity = sort_entity.is_some();
     let has_sort_transform = sort_transform.is_some();
     let has_glyph_name = glyph_name.is_some();
     let has_point_query = point_query.is_some();
     let has_app_state = app_state.is_some();
-
     let has_selected_query = selected_query.is_some();
 
-    let use_live_rendering = nudge_active
+    // Check if there are any selected points for this sort
+    let has_selected_points = if let (
+        Some(_sort_entity_val),
+        Some(point_query),
+        Some(selected_query),
+    ) = (sort_entity, point_query, selected_query)
+    {
+        point_query.iter().any(|(entity, _, _, _)| {
+            // Check if this point is selected
+            selected_query.get(entity).is_ok()
+        })
+    } else {
+        false
+    };
+
+    // Use live rendering during nudging OR when there are selected points
+    // This ensures the outline doesn't revert when nudging stops but points are still selected
+    let use_live_rendering = (nudge_active || has_selected_points)
         && has_sort_entity
         && has_sort_transform
         && has_glyph_name
@@ -152,8 +170,8 @@ pub fn render_sort_visuals_with_live_sync(
         && has_app_state;
 
     // Debug logging
-    debug!("[LIVE RENDER CHECK] nudge_active={}, has_sort_entity={}, has_sort_transform={}, has_glyph_name={}, has_point_query={}, has_selected_query={}, has_app_state={}, use_live_rendering={}", 
-           nudge_active, has_sort_entity, has_sort_transform, has_glyph_name, has_point_query, has_selected_query, has_app_state, use_live_rendering);
+    debug!("[LIVE RENDER CHECK] nudge_active={}, has_selected_points={}, has_sort_entity={}, has_sort_transform={}, has_glyph_name={}, has_point_query={}, has_selected_query={}, has_app_state={}, use_live_rendering={}", 
+           nudge_active, has_selected_points, has_sort_entity, has_sort_transform, has_glyph_name, has_point_query, has_selected_query, has_app_state, use_live_rendering);
 
     // Draw outline with appropriate method
     if use_live_rendering {

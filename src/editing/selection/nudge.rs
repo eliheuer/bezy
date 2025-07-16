@@ -135,8 +135,11 @@ pub fn handle_nudge_input(
             debug!("[NUDGE] Arrow key pressed but no selected points found");
         }
     } else {
-        // DON'T reset nudge state immediately - let the timer handle it
-        // This ensures rendering systems see the nudging state
+        // If nudging was active but no keys are pressed, sync immediately and reset state
+        if nudge_state.is_nudging {
+            debug!("[NUDGE] Keys released, syncing immediately and resetting nudge state");
+            nudge_state.is_nudging = false;
+        }
     }
 }
 
@@ -150,6 +153,85 @@ pub fn reset_nudge_state(mut nudge_state: ResMut<NudgeState>, time: Res<Time>) {
     }
 }
 
+/// System to sync nudged points back to font data when nudging completes
+#[allow(clippy::type_complexity)]
+pub fn sync_nudged_points_on_completion(
+    nudge_state: Res<NudgeState>,
+    query: Query<
+        (
+            &Transform,
+            &crate::editing::selection::components::GlyphPointReference,
+            Option<&SortPointEntity>,
+        ),
+        With<Selected>,
+    >,
+    sort_query: Query<(&crate::editing::sort::Sort, &Transform)>,
+    mut app_state: ResMut<crate::core::state::AppState>,
+    mut last_nudge_state: Local<bool>,
+) {
+    // Only sync when transitioning from nudging to not nudging
+    if *last_nudge_state && !nudge_state.is_nudging {
+        info!("[NUDGE] Nudging completed, syncing points to font data");
+
+        let app_state = app_state.bypass_change_detection();
+        let mut sync_count = 0;
+
+        for (transform, point_ref, sort_point_entity_opt) in query.iter() {
+            // Calculate relative position from sort entity
+            let (relative_x, relative_y) =
+                if let Some(sort_point_entity) = sort_point_entity_opt {
+                    if let Ok((_sort, sort_transform)) =
+                        sort_query.get(sort_point_entity.sort_entity)
+                    {
+                        let world_pos = transform.translation.truncate();
+                        let sort_pos = sort_transform.translation.truncate();
+                        let rel = world_pos - sort_pos;
+                        (rel.x as f64, rel.y as f64)
+                    } else {
+                        (
+                            transform.translation.x as f64,
+                            transform.translation.y as f64,
+                        )
+                    }
+                } else {
+                    (
+                        transform.translation.x as f64,
+                        transform.translation.y as f64,
+                    )
+                };
+
+            let updated = app_state.set_point_position(
+                &point_ref.glyph_name,
+                point_ref.contour_index,
+                point_ref.point_index,
+                relative_x,
+                relative_y,
+            );
+
+            if updated {
+                sync_count += 1;
+                debug!(
+                    "[NUDGE] Synced point: glyph='{}' contour={} point={} pos=({:.1}, {:.1})",
+                    point_ref.glyph_name,
+                    point_ref.contour_index,
+                    point_ref.point_index,
+                    relative_x,
+                    relative_y
+                );
+            }
+        }
+
+        if sync_count > 0 {
+            info!(
+                "[NUDGE] Successfully synced {} points to font data",
+                sync_count
+            );
+        }
+    }
+
+    *last_nudge_state = nudge_state.is_nudging;
+}
+
 /// Plugin for the nudge system
 pub struct NudgePlugin;
 
@@ -157,7 +239,12 @@ impl Plugin for NudgePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<NudgeState>().add_systems(
             Update,
-            (handle_nudge_input, reset_nudge_state)
+            (
+                handle_nudge_input,
+                reset_nudge_state,
+                sync_nudged_points_on_completion,
+            )
+                .chain()
                 .before(super::systems::update_glyph_data_from_selection),
         );
     }
