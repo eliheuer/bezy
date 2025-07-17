@@ -26,16 +26,17 @@ use std::path::PathBuf;
     long_about = "Bezy is a cross-platform font editor that supports UFO (Unified Font Object) files. It provides glyph editing capabilities with a modern, game-engine-powered interface."
 )]
 pub struct CliArgs {
-    /// Path to a UFO file to load on startup
+    /// Path to a UFO file or designspace to load on startup
     ///
-    /// The UFO file should be a valid UFO version 3 directory structure.
+    /// The file should be either a valid UFO version 3 directory structure
+    /// or a .designspace file for variable fonts.
     /// If not specified, loads the default sample font.
     #[clap(
         long = "load-ufo",
         short = 'f',
         default_value = DEFAULT_UFO_PATH,
-        help = "UFO file to load",
-        long_help = "Path to a UFO (Unified Font Object) file to load on startup. The file should be a valid UFO directory structure."
+        help = "UFO file or designspace to load",
+        long_help = "Path to a UFO (Unified Font Object) file or designspace file to load on startup. UFO files should be directory structures, designspace files enable variable font support."
     )]
     pub ufo_path: Option<PathBuf>,
 
@@ -74,18 +75,28 @@ impl CliArgs {
                     ));
                 }
 
-                if !path.is_dir() {
+                // Check if it's a .designspace file or a UFO directory
+                if let Some(extension) = path.extension() {
+                    if extension == "designspace" {
+                        // Valid designspace file - no further validation needed
+                    } else {
+                        return Err(format!(
+                            "Unsupported file type: {}\nSupported formats: .ufo directories and .designspace files.",
+                            path.display()
+                        ));
+                    }
+                } else if path.is_dir() {
+                    // Assume it's a UFO directory - check for required files
+                    let meta_info = path.join("metainfo.plist");
+                    if !meta_info.exists() {
+                        return Err(format!(
+                            "Not a valid UFO file: missing metainfo.plist in {}\nMake sure this is a valid UFO directory.",
+                            path.display()
+                        ));
+                    }
+                } else {
                     return Err(format!(
-                        "UFO path is not a directory: {}\nUFO files should be directories, not single files.",
-                        path.display()
-                    ));
-                }
-
-                // Check for required UFO files
-                let meta_info = path.join("metainfo.plist");
-                if !meta_info.exists() {
-                    return Err(format!(
-                        "Not a valid UFO file: missing metainfo.plist in {}\nMake sure this is a valid UFO directory.",
+                        "Invalid path: {}\nPath must be either a .ufo directory or a .designspace file.",
                         path.display()
                     ));
                 }

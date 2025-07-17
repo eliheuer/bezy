@@ -5,13 +5,13 @@ use crate::core::io::gamepad::GamepadPlugin;
 use crate::core::io::input::InputPlugin;
 use crate::core::io::pointer::PointerPlugin;
 use crate::core::settings::{BezySettings, DEFAULT_WINDOW_SIZE, WINDOW_TITLE};
-use crate::core::state::{AppState, GlyphNavigation};
+use crate::core::state::{AppState, FontIRAppState, GlyphNavigation};
 use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
 use crate::rendering::{
     cameras::CameraPlugin, checkerboard::CheckerboardPlugin,
 };
 use crate::systems::{
-    exit_on_esc, load_ufo_font, BezySystems, CommandsPlugin,
+    exit_on_esc, load_fontir_font, load_ufo_font, BezySystems, CommandsPlugin,
     InputConsumerPlugin, UiInteractionPlugin,
 };
 use crate::ui::hud::HudPlugin;
@@ -105,8 +105,9 @@ fn configure_resources(app: &mut App, cli_args: CliArgs) {
     let current_theme = CurrentTheme::new(theme_variant);
     let background_color = current_theme.theme().background_color();
 
-    app.init_resource::<AppState>()
-        .insert_resource(cli_args)
+    // Note: FontIRAppState is initialized by load_fontir_font startup system
+    // app.init_resource::<AppState>() // Old system - keeping for gradual migration
+    app.insert_resource(cli_args)
         .insert_resource(glyph_navigation)
         .insert_resource(settings)
         .insert_resource(current_theme)
@@ -167,6 +168,6 @@ fn add_plugin_groups(app: &mut App) {
 
 /// Add lifecycle systems for startup and shutdown
 fn add_lifecycle_systems(app: &mut App) {
-    app.add_systems(Startup, load_ufo_font)
+    app.add_systems(Startup, load_fontir_font)
         .add_systems(Update, exit_on_esc);
 }

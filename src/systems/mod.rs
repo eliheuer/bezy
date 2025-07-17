@@ -9,6 +9,7 @@
 #![allow(unused_imports)]
 
 pub mod commands;
+pub mod fontir_lifecycle;
 pub mod input_consumer;
 pub mod lifecycle;
 pub mod plugins;
@@ -18,6 +19,7 @@ pub mod ui_interaction;
 
 // Re-export commonly used items
 pub use commands::CommandsPlugin;
+pub use fontir_lifecycle::load_fontir_font;
 pub use input_consumer::InputConsumerPlugin;
 pub use lifecycle::{exit_on_esc, load_ufo_font};
 pub use plugins::{configure_default_plugins, BezySystems};

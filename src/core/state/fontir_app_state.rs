@@ -6,6 +6,7 @@
 
 use anyhow::Result;
 use bevy::prelude::*;
+use tracing::info;
 use fontdrasil::coords::NormalizedLocation;
 use fontir::ir::Glyph as FontIRGlyph;
 use fontir::source::Source;
@@ -115,8 +116,9 @@ impl FontIRAppState {
     /// Load all glyphs into cache
     pub fn load_glyphs(&mut self) -> Result<()> {
         // This would iterate through the source and populate glyph_cache
-        // For now, placeholder
-        todo!("Implement glyph loading from FontIR source")
+        // For now, just log that we're skipping this step
+        info!("FontIR glyph loading not yet implemented - app will run without cached glyphs");
+        Ok(())
     }
 }
 
