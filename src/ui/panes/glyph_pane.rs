@@ -480,7 +480,7 @@ pub fn spawn_glyph_pane(
 
 /// Updates the glyph metrics for the current glyph
 pub fn update_glyph_metrics(
-    app_state: Res<AppState>,
+    app_state: Option<Res<AppState>>,
     text_editor_state: Res<crate::core::state::text_editor::TextEditorState>,
     mut metrics: ResMut<CurrentGlyphMetrics>,
 ) {
@@ -494,9 +494,8 @@ pub fn update_glyph_metrics(
         metrics.glyph_name = glyph_name.clone();
 
         // Set the Unicode information by finding the codepoint for this glyph
-        if let Some(glyph_data) =
-            app_state.workspace.font.get_glyph(&glyph_name)
-        {
+        if let Some(state) = app_state.as_ref() {
+            if let Some(glyph_data) = state.workspace.font.get_glyph(&glyph_name) {
             // Find the first Unicode codepoint for this glyph
             if let Some(first_codepoint) = glyph_data.unicode_values.first() {
                 metrics.unicode = format!("{:04X}", *first_codepoint as u32);
@@ -558,10 +557,19 @@ pub fn update_glyph_metrics(
             }
 
             // TODO: Get kerning groups when groups are implemented in current architecture
-            metrics.left_group = String::new();
-            metrics.right_group = String::new();
+                metrics.left_group = String::new();
+                metrics.right_group = String::new();
+            } else {
+                // No glyph data found
+                metrics.advance = "-".to_string();
+                metrics.left_bearing = "-".to_string();
+                metrics.right_bearing = "-".to_string();
+                metrics.left_group = String::new();
+                metrics.right_group = String::new();
+            }
         } else {
-            // No glyph data found
+            // AppState not available - show placeholders
+            metrics.unicode = String::new();
             metrics.advance = "-".to_string();
             metrics.left_bearing = "-".to_string();
             metrics.right_bearing = "-".to_string();

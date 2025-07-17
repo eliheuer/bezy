@@ -4,10 +4,10 @@
 //! Inactive sorts show as metrics boxes (similar to existing metrics display).
 //! Active sorts show the actual glyph outlines for editing.
 
-use crate::core::state::{AppState, FontMetrics, SortLayoutMode};
+use crate::core::state::{AppState, FontMetrics, SortLayoutMode, FontIRAppState};
 use crate::editing::sort::{ActiveSort, InactiveSort, Sort};
 use crate::rendering::cameras::DesignCamera;
-use crate::rendering::sort_visuals::{render_sort_visuals, SortRenderStyle};
+use crate::rendering::sort_visuals::{render_sort_visuals, render_fontir_sort_visuals, SortRenderStyle};
 use kurbo::BezPath;
 
 use crate::ui::theme::{
@@ -34,7 +34,8 @@ pub struct SortUnicodeText {
 #[allow(clippy::too_many_arguments)]
 pub fn render_sorts_system(
     mut gizmos: Gizmos,
-    app_state: Res<AppState>,
+    app_state: Option<Res<AppState>>,
+    fontir_app_state: Option<Res<FontIRAppState>>,
     _sorts_query: Query<&Sort>,
     active_sorts_query: Query<
         (
@@ -70,28 +71,65 @@ pub fn render_sorts_system(
         With<crate::editing::selection::components::Selected>,
     >,
 ) {
-    let font_metrics = &app_state.workspace.info.metrics;
+    // Check which state is available and get font metrics
+    let fontir_font_metrics;
+    let (font_metrics, app_state_deref) = if let Some(app_state) = app_state.as_ref() {
+        (&app_state.workspace.info.metrics, Some(app_state))
+    } else if let Some(fontir_state) = fontir_app_state.as_ref() {
+        // Using FontIR - create FontMetrics from FontIR data
+        let fontir_metrics = fontir_state.get_font_metrics();
+        fontir_font_metrics = crate::core::state::FontMetrics {
+            units_per_em: fontir_metrics.units_per_em as f64,
+            ascender: fontir_metrics.ascender.map(|a| a as f64),
+            descender: fontir_metrics.descender.map(|d| d as f64),
+            line_height: fontir_metrics.line_gap.unwrap_or(0.0) as f64,
+            x_height: None,
+            cap_height: None,
+            italic_angle: None,
+        };
+        (&fontir_font_metrics, None)
+    } else {
+        error!("Neither AppState nor FontIRAppState available for sort rendering");
+        return;
+    };
 
     // Render inactive sorts (both buffer and freeform)
     for (entity, sort, transform, selected) in inactive_sorts_query.iter() {
-        if let Some(glyph_data) =
-            app_state.workspace.font.glyphs.get(&sort.glyph_name)
-        {
-            let position = transform.translation.truncate();
+        let position = transform.translation.truncate();
+
+        // Choose render style based on layout mode
+        let render_style = match sort.layout_mode {
+            SortLayoutMode::Text => SortRenderStyle::TextBuffer,
+            SortLayoutMode::Freeform => SortRenderStyle::Freeform,
+        };
+
+        let is_selected = selected.is_some();
+        let metrics_color = if is_selected {
+            Color::srgb(1.0, 1.0, 0.0) // Yellow for selected inactive sorts
+        } else {
+            SORT_INACTIVE_METRICS_COLOR
+        };
+
+        // Try FontIR first, fallback to old system
+        if let Some(fontir_state) = &fontir_app_state {
+            // Use FontIR rendering
+            // For now, use a placeholder advance width since we haven't implemented metric extraction from FontIR yet
+            let advance_width = 600.0; // TODO: Get from FontIR
+            
+            render_fontir_sort_visuals(
+                &mut gizmos,
+                fontir_state,
+                &sort.glyph_name,
+                advance_width,
+                font_metrics,
+                position,
+                metrics_color,
+                render_style,
+            );
+        } else if let Some(app_state) = app_state_deref {
+            if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
+            // Fallback to old system
             let advance_width = glyph_data.advance_width as f32;
-
-            // Choose render style based on layout mode
-            let render_style = match sort.layout_mode {
-                SortLayoutMode::Text => SortRenderStyle::TextBuffer,
-                SortLayoutMode::Freeform => SortRenderStyle::Freeform,
-            };
-
-            let is_selected = selected.is_some();
-            let metrics_color = if is_selected {
-                Color::srgb(1.0, 1.0, 0.0) // Yellow for selected inactive sorts
-            } else {
-                SORT_INACTIVE_METRICS_COLOR
-            };
 
             crate::rendering::sort_visuals::render_sort_visuals_with_live_sync(
                 &mut gizmos,
@@ -110,25 +148,43 @@ pub fn render_sorts_system(
                 Some(&*app_state),
                 Some(&*nudge_state),
             );
+            }
         }
     }
 
     // Render active sorts (both buffer and freeform)
     for (entity, sort, transform, _selected) in active_sorts_query.iter() {
-        if let Some(glyph_data) =
-            app_state.workspace.font.glyphs.get(&sort.glyph_name)
-        {
-            let position = transform.translation.truncate();
+        let position = transform.translation.truncate();
+
+        // Choose render style based on layout mode
+        let render_style = match sort.layout_mode {
+            SortLayoutMode::Text => SortRenderStyle::TextBuffer,
+            SortLayoutMode::Freeform => SortRenderStyle::Freeform,
+        };
+
+        // Active sorts are green, selected active sorts might be a different shade
+        let metrics_color = SORT_ACTIVE_METRICS_COLOR; // Green for active sorts
+
+        // Try FontIR first, fallback to old system
+        if let Some(fontir_state) = &fontir_app_state {
+            // Use FontIR rendering
+            // For now, use a placeholder advance width since we haven't implemented metric extraction from FontIR yet
+            let advance_width = 600.0; // TODO: Get from FontIR
+            
+            render_fontir_sort_visuals(
+                &mut gizmos,
+                fontir_state,
+                &sort.glyph_name,
+                advance_width,
+                font_metrics,
+                position,
+                metrics_color,
+                render_style,
+            );
+        } else if let Some(app_state) = app_state_deref {
+            if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
+            // Fallback to old system
             let advance_width = glyph_data.advance_width as f32;
-
-            // Choose render style based on layout mode
-            let render_style = match sort.layout_mode {
-                SortLayoutMode::Text => SortRenderStyle::TextBuffer,
-                SortLayoutMode::Freeform => SortRenderStyle::Freeform,
-            };
-
-            // Active sorts are green, selected active sorts might be a different shade
-            let metrics_color = SORT_ACTIVE_METRICS_COLOR; // Green for active sorts
 
             crate::rendering::sort_visuals::render_sort_visuals_with_live_sync(
                 &mut gizmos,
@@ -147,6 +203,7 @@ pub fn render_sorts_system(
                 Some(&*app_state),
                 Some(&*nudge_state),
             );
+            }
         }
     }
 }
@@ -157,7 +214,7 @@ pub fn render_sorts_system(
 pub fn manage_sort_labels(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    app_state: Res<AppState>,
+    app_state: Option<Res<AppState>>,
     sorts_query: Query<
         (Entity, &Sort, &Transform),
         (Changed<Sort>, Or<(With<ActiveSort>, With<InactiveSort>)>),
@@ -167,6 +224,12 @@ pub fn manage_sort_labels(
     all_sorts_query: Query<Entity, With<Sort>>,
     active_sorts_query: Query<(Entity, &Sort), With<ActiveSort>>,
 ) {
+    // Early return if AppState not available
+    let Some(app_state) = app_state else {
+        warn!("Sort labels skipped - AppState not available (using FontIR)");
+        return;
+    };
+    
     // Remove text for sorts that no longer exist
     let existing_sort_entities: HashSet<Entity> =
         all_sorts_query.iter().collect();
@@ -303,10 +366,15 @@ pub fn manage_sort_labels(
 
 /// System to update positions of text labels when sorts move
 pub fn update_sort_label_positions(
-    app_state: Res<AppState>,
+    app_state: Option<Res<AppState>>,
     sorts_query: Query<(&Sort, &Transform), Changed<Sort>>,
     mut text_query: Query<(&mut Transform, &SortGlyphNameText)>,
 ) {
+    // Early return if AppState not available
+    let Some(app_state) = app_state else {
+        warn!("Sort label position updates skipped - AppState not available (using FontIR)");
+        return;
+    };
     let font_metrics = &app_state.workspace.info.metrics;
 
     // Update text positions (now only glyph name text which contains both unicode and name)

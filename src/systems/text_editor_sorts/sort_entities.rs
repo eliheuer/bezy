@@ -129,7 +129,7 @@ pub fn spawn_missing_sort_entities(
     mut commands: Commands,
     text_editor_state: ResMut<TextEditorState>,
     mut buffer_entities: ResMut<BufferSortEntities>,
-    app_state: Res<AppState>,
+    app_state: Option<Res<AppState>>,
     _existing_active_sorts: Query<
         Entity,
         With<crate::editing::sort::ActiveSort>,
@@ -144,24 +144,29 @@ pub fn spawn_missing_sort_entities(
 
         if let Some(sort_entry) = text_editor_state.buffer.get(i) {
             // Get the visual position for this sort using correct font metrics
-            let font_metrics = &app_state.workspace.info.metrics;
-            let position = match sort_entry.layout_mode {
-                crate::core::state::SortLayoutMode::Text => {
-                    if sort_entry.is_buffer_root {
-                        // Text roots use their exact stored position
+            let position = if let Some(state) = app_state.as_ref() {
+                let font_metrics = &state.workspace.info.metrics;
+                match sort_entry.layout_mode {
+                    crate::core::state::SortLayoutMode::Text => {
+                        if sort_entry.is_buffer_root {
+                            // Text roots use their exact stored position
+                            Some(sort_entry.root_position)
+                        } else {
+                            // Non-root text sorts flow from their text root using actual font metrics
+                            text_editor_state.get_text_sort_flow_position(
+                                i,
+                                font_metrics,
+                                0.0,
+                            )
+                        }
+                    }
+                    crate::core::state::SortLayoutMode::Freeform => {
                         Some(sort_entry.root_position)
-                    } else {
-                        // Non-root text sorts flow from their text root using actual font metrics
-                        text_editor_state.get_text_sort_flow_position(
-                            i,
-                            font_metrics,
-                            0.0,
-                        )
                     }
                 }
-                crate::core::state::SortLayoutMode::Freeform => {
-                    Some(sort_entry.root_position)
-                }
+            } else {
+                // Fallback when AppState not available - use root position
+                Some(sort_entry.root_position)
             };
 
             if let Some(position) = position {
@@ -199,11 +204,29 @@ pub fn spawn_missing_sort_entities(
 /// Update positions of existing buffer sort entities to match text flow
 pub fn update_buffer_sort_positions(
     text_editor_state: Res<TextEditorState>,
-    app_state: Res<AppState>,
+    app_state: Option<Res<AppState>>,
+    fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     buffer_entities: Res<BufferSortEntities>,
     mut sort_query: Query<&mut Transform, With<BufferSortIndex>>,
 ) {
-    let font_metrics = &app_state.workspace.info.metrics;
+    // Get font metrics from either AppState or FontIR
+    let font_metrics = if let Some(fontir_state) = fontir_app_state.as_ref() {
+        let fontir_metrics = fontir_state.get_font_metrics();
+        crate::core::state::FontMetrics {
+            units_per_em: fontir_metrics.units_per_em as f64,
+            ascender: fontir_metrics.ascender.map(|a| a as f64),
+            descender: fontir_metrics.descender.map(|d| d as f64),
+            line_height: fontir_metrics.line_gap.unwrap_or(0.0) as f64,
+            x_height: None,
+            cap_height: None,
+            italic_angle: None,
+        }
+    } else if let Some(app_state) = app_state.as_ref() {
+        app_state.workspace.info.metrics.clone()
+    } else {
+        warn!("Buffer sort position updates skipped - no font data available");
+        return;
+    };
 
     // Update Transform positions for all existing buffer sorts
     for (&buffer_index, &entity) in buffer_entities.entities.iter() {
@@ -219,7 +242,7 @@ pub fn update_buffer_sort_positions(
                             // Non-root text sorts flow from their text root using actual font metrics
                             text_editor_state.get_text_sort_flow_position(
                                 buffer_index,
-                                font_metrics,
+                                &font_metrics,
                                 0.0,
                             )
                         }

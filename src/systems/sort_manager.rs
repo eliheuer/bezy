@@ -73,7 +73,7 @@ pub fn handle_sort_events(
     mut commands: Commands,
     mut sort_events: EventReader<SortEvent>,
     mut active_sort_state: ResMut<ActiveSortState>,
-    app_state: Res<AppState>,
+    app_state: Option<Res<AppState>>,
     _sorts_query: Query<&Sort>,
     _active_sorts_query: Query<Entity, With<ActiveSort>>,
 ) {
@@ -87,12 +87,14 @@ pub fn handle_sort_events(
                 info!("Handling CreateSort event for '{}' at {:?} with layout mode {:?}", glyph_name, position, layout_mode);
 
                 // Get advance width from the virtual font
-                let advance_width = if let Some(glyph_data) =
-                    app_state.workspace.font.get_glyph(glyph_name)
-                {
-                    glyph_data.advance_width as f32
+                let advance_width = if let Some(state) = app_state.as_ref() {
+                    if let Some(glyph_data) = state.workspace.font.get_glyph(glyph_name) {
+                        glyph_data.advance_width as f32
+                    } else {
+                        600.0 // Default fallback
+                    }
                 } else {
-                    600.0 // Default fallback
+                    600.0 // Default fallback when AppState not available
                 };
 
                 let entity = create_sort(
@@ -196,7 +198,7 @@ fn delete_sort(
 /// System to handle glyph navigation changes
 pub fn handle_glyph_navigation_changes(
     _glyph_navigation: Res<GlyphNavigation>,
-    _app_state: Res<AppState>,
+    _app_state: Option<Res<AppState>>,
     _sorts_query: Query<(Entity, &mut Sort), With<ActiveSort>>,
 ) {
     // TODO: Implement glyph navigation when the navigation system is ported
@@ -209,7 +211,7 @@ pub fn respawn_sort_points_on_glyph_change(
     _changed_sorts: Query<(Entity, &Sort), (With<ActiveSort>, Changed<Sort>)>,
     _sort_point_entities: Query<(Entity, &SortPointEntity)>,
     // mut selection_state: ResMut<SelectionState>,
-    _app_state: Res<AppState>,
+    _app_state: Option<Res<AppState>>,
     mut _local_previous_glyphs: Local<HashMap<Entity, String>>,
     _newly_spawned_crosshairs: Query<
         &SortCrosshair,
@@ -375,8 +377,14 @@ pub fn spawn_sort_point_entities(
     // Find existing point entities for sorts
     sort_point_entities: Query<(Entity, &SortPointEntity)>,
     mut selection_state: ResMut<SelectionState>,
-    app_state: Res<AppState>,
+    app_state: Option<Res<AppState>>,
 ) {
+    // Early return if AppState not available
+    let Some(app_state) = app_state else {
+        warn!("Sort point spawning skipped - AppState not available (using FontIR)");
+        return;
+    };
+    
     // Spawn point entities for newly active sorts
     for (sort_entity, sort, transform) in added_active_sorts.iter() {
         info!(
@@ -438,7 +446,7 @@ pub fn debug_sort_point_entities() {}
 pub fn spawn_initial_sort(
     _commands: Commands,
     _sorts_query: Query<Entity, With<Sort>>,
-    _app_state: Res<AppState>,
+    _app_state: Option<Res<AppState>>,
     _has_run: Local<bool>,
 ) {
     // DISABLED: Skip creating initial sorts grid to keep design space clean

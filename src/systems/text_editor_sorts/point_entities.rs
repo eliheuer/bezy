@@ -20,7 +20,7 @@ pub fn spawn_active_sort_points_optimized(
     mut commands: Commands,
     active_sort_query: Query<(Entity, &Sort, &Transform), With<ActiveSort>>,
     existing_points: Query<&PointSortParent>,
-    app_state: Res<AppState>,
+    app_state: Option<Res<AppState>>,
 ) {
     let active_sort_count = active_sort_query.iter().count();
     if active_sort_count > 0 {
@@ -50,10 +50,9 @@ pub fn spawn_active_sort_points_optimized(
             sort.glyph_name, position.x, position.y
         );
 
-        // Get glyph data
-        if let Some(glyph_data) =
-            app_state.workspace.font.get_glyph(&sort.glyph_name)
-        {
+        // Get glyph data - skip if AppState not available (using FontIR)
+        if let Some(state) = app_state.as_ref() {
+            if let Some(glyph_data) = state.workspace.font.get_glyph(&sort.glyph_name) {
             if let Some(outline) = &glyph_data.outline {
                 let mut point_count = 0;
 
@@ -136,6 +135,11 @@ pub fn spawn_active_sort_points_optimized(
                     point_count, sort.glyph_name
                 );
             }
+            } else {
+                warn!("No glyph data found for '{}'", sort.glyph_name);
+            }
+        } else {
+            warn!("Point spawning skipped - AppState not available (using FontIR)");
         }
     }
 }

@@ -107,55 +107,67 @@ fn register_event_handlers(app: &mut App) {
 
 fn handle_open_file(
     mut events: EventReader<OpenFileEvent>,
-    mut app_state: ResMut<AppState>,
+    mut app_state: Option<ResMut<AppState>>,
 ) {
     for event in events.read() {
-        match app_state.load_font_from_path(event.path.clone()) {
-            Ok(_) => {
-                info!("Successfully loaded font from {:?}", event.path);
+        if let Some(mut state) = app_state.as_mut() {
+            match state.load_font_from_path(event.path.clone()) {
+                Ok(_) => {
+                    info!("Successfully loaded font from {:?}", event.path);
+                }
+                Err(e) => {
+                    error!("Failed to open file {:?}: {}", event.path, e);
+                }
             }
-            Err(e) => {
-                error!("Failed to open file {:?}: {}", event.path, e);
-            }
+        } else {
+            warn!("Open file requested but AppState not available (using FontIR)");
         }
     }
 }
 
 fn handle_save_file(
     mut events: EventReader<SaveFileEvent>,
-    mut app_state: ResMut<AppState>,
+    mut app_state: Option<ResMut<AppState>>,
 ) {
     for _ in events.read() {
-        match app_state.save_font() {
-            Ok(_) => {
-                info!("Font saved successfully");
+        if let Some(mut state) = app_state.as_mut() {
+            match state.save_font() {
+                Ok(_) => {
+                    info!("Font saved successfully");
+                }
+                Err(e) => {
+                    error!("Saving failed: {}", e);
+                }
             }
-            Err(e) => {
-                error!("Saving failed: {}", e);
-            }
+        } else {
+            warn!("Save file requested but AppState not available (using FontIR)");
         }
     }
 }
 
 fn handle_save_file_as(
     mut events: EventReader<SaveFileAsEvent>,
-    mut app_state: ResMut<AppState>,
+    mut app_state: Option<ResMut<AppState>>,
 ) {
     for event in events.read() {
-        match app_state.save_font_as(event.path.clone()) {
-            Ok(_) => {
-                info!("Font saved to {:?}", event.path);
+        if let Some(mut state) = app_state.as_mut() {
+            match state.save_font_as(event.path.clone()) {
+                Ok(_) => {
+                    info!("Font saved to {:?}", event.path);
+                }
+                Err(e) => {
+                    error!("Failed to save file to {:?}: {}", event.path, e);
+                }
             }
-            Err(e) => {
-                error!("Failed to save file to {:?}: {}", event.path, e);
-            }
+        } else {
+            warn!("Save file as requested but AppState not available (using FontIR)");
         }
     }
 }
 
 fn handle_new_glyph(
     mut event_reader: EventReader<NewGlyphEvent>,
-    _app_state: ResMut<AppState>,
+    _app_state: Option<ResMut<AppState>>,
 ) {
     for _event in event_reader.read() {
         debug!("New glyph creation requested");
@@ -165,7 +177,7 @@ fn handle_new_glyph(
 
 fn handle_delete_glyph(
     mut event_reader: EventReader<DeleteGlyphEvent>,
-    _app_state: ResMut<AppState>,
+    _app_state: Option<ResMut<AppState>>,
 ) {
     for event in event_reader.read() {
         debug!("Delete glyph requested for {:?}", event.glyph_name);
@@ -175,7 +187,7 @@ fn handle_delete_glyph(
 
 fn handle_rename_glyph(
     mut event_reader: EventReader<RenameGlyphEvent>,
-    _app_state: ResMut<AppState>,
+    _app_state: Option<ResMut<AppState>>,
 ) {
     for event in event_reader.read() {
         debug!(
@@ -188,7 +200,7 @@ fn handle_rename_glyph(
 
 fn handle_open_glyph_editor(
     mut event_reader: EventReader<OpenGlyphEditorEvent>,
-    _app_state: ResMut<AppState>,
+    _app_state: Option<ResMut<AppState>>,
 ) {
     for event in event_reader.read() {
         debug!("Open glyph editor requested for {:?}", event.glyph_name);
@@ -199,14 +211,18 @@ fn handle_open_glyph_editor(
 fn handle_cycle_codepoint(
     mut event_reader: EventReader<CycleCodepointEvent>,
     mut glyph_navigation: ResMut<GlyphNavigation>,
-    app_state: Res<AppState>,
+    app_state: Option<Res<AppState>>,
 ) {
     for event in event_reader.read() {
         debug!("Received codepoint cycling event: {:?}", event.direction);
 
         // Check if we have any codepoints available
-        let available_codepoints =
-            crate::core::state::get_all_codepoints(&app_state);
+        let available_codepoints = if let Some(state) = app_state.as_ref() {
+            crate::core::state::get_all_codepoints(&state)
+        } else {
+            warn!("Codepoint cycling requested but AppState not available (using FontIR)");
+            return;
+        };
         if available_codepoints.is_empty() {
             debug!("No codepoints found in font");
             return;
@@ -219,14 +235,14 @@ fn handle_cycle_codepoint(
             CodepointDirection::Next => {
                 crate::core::state::cycle_codepoint_in_list(
                     Some(current_codepoint),
-                    &app_state,
+                    &app_state.as_ref().unwrap(),
                     crate::core::state::CycleDirection::Next,
                 )
             }
             CodepointDirection::Previous => {
                 crate::core::state::cycle_codepoint_in_list(
                     Some(current_codepoint),
-                    &app_state,
+                    &app_state.as_ref().unwrap(),
                     crate::core::state::CycleDirection::Previous,
                 )
             }
@@ -299,20 +315,24 @@ pub fn handle_save_shortcuts(
 /// Handler for adding a new contour to the current glyph
 fn handle_create_contour(
     mut event_reader: EventReader<CreateContourEvent>,
-    mut app_state: ResMut<AppState>,
-    glyph_navigation: Res<GlyphNavigation>,
+    mut app_state: Option<ResMut<AppState>>,
+    glyph_navigation: Option<Res<GlyphNavigation>>,
 ) {
     for _event in event_reader.read() {
         debug!("Handling CreateContourEvent");
 
         // Get the glyph name first
-        if let Some(glyph_name) = glyph_navigation.find_glyph(&app_state) {
-            // Try to add the contour to the glyph
-            // Note: This will need to be implemented when we have the full glyph editing system
-            debug!("Would add contour to glyph: {}", glyph_name);
-            // TODO: Implement contour creation when glyph editing is ready
+        if let (Some(state), Some(nav)) = (app_state.as_ref(), glyph_navigation.as_ref()) {
+            if let Some(glyph_name) = nav.find_glyph(&state) {
+                // Try to add the contour to the glyph
+                // Note: This will need to be implemented when we have the full glyph editing system
+                debug!("Would add contour to glyph: {}", glyph_name);
+                // TODO: Implement contour creation when glyph editing is ready
+            } else {
+                warn!("No current glyph selected for contour creation");
+            }
         } else {
-            warn!("No current glyph selected for contour creation");
+            warn!("Create contour requested but AppState/GlyphNavigation not available (using FontIR)");
         }
     }
 }

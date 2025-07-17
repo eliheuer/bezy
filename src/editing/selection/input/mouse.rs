@@ -44,7 +44,7 @@ pub fn process_selection_input_events(
         Res<crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive>,
     >,
     text_editor_state: ResMut<TextEditorState>,
-    app_state: Res<crate::core::state::AppState>,
+    app_state: Option<Res<crate::core::state::AppState>>,
     buffer_entities: Res<
         crate::systems::text_editor_sorts::sort_entities::BufferSortEntities,
     >,
@@ -95,7 +95,12 @@ pub fn process_selection_input_events(
                 if *button == MouseButton::Left {
                     let world_position = position.to_raw();
                     let handle_tolerance = 50.0;
-                    let font_metrics = &app_state.workspace.info.metrics;
+                    let font_metrics = if let Some(state) = app_state.as_ref() {
+                        &state.workspace.info.metrics
+                    } else {
+                        warn!("[sort-handle-hit] AppState not available (using FontIR) - skipping sort handle detection");
+                        continue;
+                    };
                     debug!("[sort-handle-hit] Mouse click at world position: ({:.1}, {:.1})", world_position.x, world_position.y);
                     debug!(
                         "[sort-handle-hit] Buffer has {} sorts",

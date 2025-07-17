@@ -2,10 +2,14 @@
 
 use crate::core::state::font_data::OutlineData;
 use crate::core::state::font_metrics::FontMetrics;
+use crate::core::state::FontIRAppState;
 use crate::editing::selection::components::GlyphPointReference;
 use crate::editing::selection::nudge::NudgeState;
 use crate::rendering::glyph_outline::{
     draw_glyph_outline_at_position, draw_glyph_outline_from_live_transforms,
+};
+use crate::rendering::fontir_glyph_outline::{
+    draw_fontir_glyph_outline_at_position, get_fontir_glyph_paths,
 };
 use crate::rendering::metrics::draw_metrics_at_position;
 use crate::systems::sort_manager::SortPointEntity;
@@ -267,6 +271,50 @@ pub fn render_sort_visuals_with_live_sync(
                     );
                 }
             }
+        }
+    }
+}
+
+/// FontIR-compatible version of render_sort_visuals
+pub fn render_fontir_sort_visuals(
+    gizmos: &mut Gizmos,
+    fontir_app_state: &FontIRAppState,
+    glyph_name: &str,
+    advance_width: f32,
+    metrics: &FontMetrics,
+    position: Vec2,
+    metrics_color: Color,
+    style: SortRenderStyle,
+) {
+    // Get FontIR glyph paths
+    if let Some(paths) = get_fontir_glyph_paths(fontir_app_state, glyph_name) {
+        // Draw FontIR outline
+        draw_fontir_glyph_outline_at_position(gizmos, &paths, position);
+    }
+    
+    // Draw metrics (same as before)
+    draw_metrics_at_position(
+        gizmos,
+        advance_width,
+        metrics,
+        position,
+        metrics_color,
+    );
+
+    // Draw handle at descender position (same as before)
+    let descender = metrics.descender.unwrap_or(-200.0) as f32;
+    let handle_position = position + Vec2::new(0.0, descender);
+    let normal_size = 16.0;
+
+    match style {
+        SortRenderStyle::TextBuffer => {
+            // Square handle for text sorts
+            let square_size = Vec2::new(normal_size * 2.0, normal_size * 2.0);
+            gizmos.rect_2d(handle_position, square_size, metrics_color);
+        }
+        SortRenderStyle::Freeform => {
+            // Circle handle for freeform sorts
+            gizmos.circle_2d(handle_position, normal_size, metrics_color);
         }
     }
 }

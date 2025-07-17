@@ -35,7 +35,7 @@ pub fn handle_nudge_input(
         >,
         Query<(&crate::editing::sort::Sort, &Transform)>,
     )>,
-    _app_state: ResMut<crate::core::state::AppState>,
+    _app_state: Option<ResMut<crate::core::state::AppState>>,
     mut event_writer: EventWriter<EditEvent>,
     mut nudge_state: ResMut<NudgeState>,
     time: Res<Time>,
@@ -166,15 +166,16 @@ pub fn sync_nudged_points_on_completion(
         With<Selected>,
     >,
     sort_query: Query<(&crate::editing::sort::Sort, &Transform)>,
-    mut app_state: ResMut<crate::core::state::AppState>,
+    mut app_state: Option<ResMut<crate::core::state::AppState>>,
     mut last_nudge_state: Local<bool>,
 ) {
     // Only sync when transitioning from nudging to not nudging
     if *last_nudge_state && !nudge_state.is_nudging {
         info!("[NUDGE] Nudging completed, syncing points to font data");
 
-        let app_state = app_state.bypass_change_detection();
-        let mut sync_count = 0;
+        if let Some(mut state) = app_state {
+            let app_state = state.bypass_change_detection();
+            let mut sync_count = 0;
 
         for (transform, point_ref, sort_point_entity_opt) in query.iter() {
             // Calculate relative position from sort entity
@@ -221,11 +222,14 @@ pub fn sync_nudged_points_on_completion(
             }
         }
 
-        if sync_count > 0 {
-            info!(
-                "[NUDGE] Successfully synced {} points to font data",
-                sync_count
-            );
+            if sync_count > 0 {
+                info!(
+                    "[NUDGE] Successfully synced {} points to font data",
+                    sync_count
+                );
+            }
+        } else {
+            warn!("[NUDGE] Point syncing skipped - AppState not available (using FontIR)");
         }
     }
 

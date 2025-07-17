@@ -10,6 +10,7 @@ use super::{EditTool, ToolInfo};
 use crate::core::io::input::{helpers, InputEvent, InputMode, InputState};
 use crate::core::io::pointer::PointerInfo;
 use crate::core::state::{AppState, ContourData, PointData, PointTypeData};
+use kurbo::{BezPath, Point};
 use crate::editing::selection::events::AppStateChanged;
 use crate::geometry::design_space::DPoint;
 use crate::systems::ui_interaction::UiHoverState;
@@ -137,7 +138,8 @@ impl Plugin for PenToolPlugin {
 pub fn handle_pen_mouse_events(
     mut pen_state: ResMut<PenToolState>,
     pen_mode_active: Res<PenModeActive>,
-    mut app_state: ResMut<AppState>,
+    mut app_state: Option<ResMut<AppState>>,
+    mut fontir_app_state: Option<ResMut<crate::core::state::FontIRAppState>>,
     mut app_state_changed: EventWriter<AppStateChanged>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     pointer_info: Res<PointerInfo>,
@@ -160,6 +162,7 @@ pub fn handle_pen_mouse_events(
                     finalize_pen_path(
                         &mut pen_state,
                         &mut app_state,
+                        &mut fontir_app_state,
                         &mut app_state_changed,
                     );
                     return;
@@ -185,6 +188,7 @@ pub fn handle_pen_mouse_events(
             finalize_pen_path(
                 &mut pen_state,
                 &mut app_state,
+                &mut fontir_app_state,
                 &mut app_state_changed,
             );
         }
@@ -272,13 +276,57 @@ pub fn reset_pen_mode_when_inactive(
 /// Helper function to finalize the current pen path
 fn finalize_pen_path(
     pen_state: &mut ResMut<PenToolState>,
-    _app_state: &mut ResMut<AppState>,
+    _app_state: &mut Option<ResMut<AppState>>,
+    fontir_app_state: &mut Option<ResMut<crate::core::state::FontIRAppState>>,
     app_state_changed: &mut EventWriter<AppStateChanged>,
 ) {
     if pen_state.current_path.len() < 2 {
         return;
     }
 
+    // Try FontIR first, then fallback to AppState
+    if let Some(_fontir_state) = fontir_app_state.as_mut() {
+        finalize_fontir_path(pen_state);
+    } else if let Some(_app_state) = _app_state.as_mut() {
+        finalize_appstate_path(pen_state);
+    } else {
+        warn!("Pen tool: No AppState or FontIR available for path finalization");
+    }
+
+    // Reset state
+    pen_state.current_path.clear();
+    pen_state.is_drawing = false;
+    pen_state.should_close_path = false;
+
+    app_state_changed.write(AppStateChanged);
+}
+
+/// Helper function to finalize path using FontIR BezPath operations
+fn finalize_fontir_path(pen_state: &mut ResMut<PenToolState>) {
+    // Create a BezPath from the current path
+    let mut bez_path = BezPath::new();
+    
+    if let Some(&first_point) = pen_state.current_path.first() {
+        bez_path.move_to(Point::new(first_point.x as f64, first_point.y as f64));
+        
+        for &point in pen_state.current_path.iter().skip(1) {
+            bez_path.line_to(Point::new(point.x as f64, point.y as f64));
+        }
+        
+        if pen_state.should_close_path {
+            bez_path.close_path();
+        }
+    }
+    
+    // For now, just log the BezPath creation
+    // TODO: Add the BezPath to the FontIR glyph data
+    let path_info = format!("BezPath with {} elements", bez_path.elements().len());
+    info!("Pen tool (FontIR): Created {} for current glyph", path_info);
+    info!("Pen tool (FontIR): Path elements: {:?}", bez_path.elements());
+}
+
+/// Helper function to finalize path using traditional AppState operations
+fn finalize_appstate_path(pen_state: &mut ResMut<PenToolState>) {
     // Convert path to ContourData
     let mut points = Vec::new();
 
@@ -309,13 +357,6 @@ fn finalize_pen_path(
 
     // Add contour to current glyph - this needs to be done through a proper system
     // For now just log that we would add it
-    info!("Pen tool: Would add {} point contour to current glyph (contour has {} points)", 
+    info!("Pen tool (AppState): Would add {} point contour to current glyph (contour has {} points)", 
           pen_state.current_path.len(), contour.points.len());
-
-    // Reset state
-    pen_state.current_path.clear();
-    pen_state.is_drawing = false;
-    pen_state.should_close_path = false;
-
-    app_state_changed.write(AppStateChanged);
 }

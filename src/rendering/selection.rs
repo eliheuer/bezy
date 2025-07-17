@@ -300,7 +300,7 @@ pub fn render_control_handles(
         With<SortPointEntity>,
     >,
     text_editor_state: Res<TextEditorState>,
-    app_state: Res<AppState>,
+    app_state: Option<Res<AppState>>,
     nudge_state: Res<NudgeState>,
 ) {
     // Skip handle rendering during nudging
@@ -308,6 +308,12 @@ pub fn render_control_handles(
         debug!("[render_control_handles] SKIPPING - nudging in progress");
         return;
     }
+
+    // Early return if AppState not available
+    let Some(app_state) = app_state else {
+        debug!("[render_control_handles] Skipping - AppState not available (using FontIR)");
+        return;
+    };
 
     // Get the active sort to find the glyph data
     let Some((_active_sort_index, active_sort)) =

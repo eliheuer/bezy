@@ -17,7 +17,7 @@ pub fn render_text_editor_cursor(
     mut gizmos: Gizmos,
     text_editor_state: Option<Res<TextEditorState>>,
     current_placement_mode: Res<CurrentTextPlacementMode>,
-    app_state: Res<AppState>,
+    app_state: Option<Res<AppState>>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
 ) {
     // Only render cursor when text tool is active and in Insert mode
@@ -46,6 +46,10 @@ pub fn render_text_editor_cursor(
         calculate_cursor_visual_position(&text_editor_state, &app_state)
     {
         // Get font metrics for proper cursor height
+        let Some(app_state) = app_state.as_ref() else {
+            warn!("Text cursor skipped - AppState not available (using FontIR)");
+            return;
+        };
         let font_metrics = &app_state.workspace.info.metrics;
 
         // Calculate cursor bounds based on font metrics
@@ -115,7 +119,7 @@ pub fn render_text_editor_cursor(
 /// Calculate the visual world position of the cursor based on text buffer state
 fn calculate_cursor_visual_position(
     text_editor_state: &TextEditorState,
-    app_state: &AppState,
+    app_state: &Option<Res<AppState>>,
 ) -> Option<Vec2> {
     // Find the active buffer root
     let mut active_root_index = None;
@@ -163,6 +167,10 @@ fn calculate_cursor_visual_position(
     let mut glyph_count = 0;
 
     // Get font metrics for line height calculation
+    let Some(app_state) = app_state.as_ref() else {
+        warn!("Text cursor position calculation skipped - AppState not available (using FontIR)");
+        return Some(root_position); // Fallback to root position
+    };
     let font_metrics = &app_state.workspace.info.metrics;
     let upm = font_metrics.units_per_em as f32;
     let descender = font_metrics.descender.unwrap_or(-256.0) as f32;

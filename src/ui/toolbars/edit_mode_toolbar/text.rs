@@ -370,10 +370,27 @@ pub fn handle_text_mode_mouse_clicks(
     pointer_info: Res<crate::core::io::pointer::PointerInfo>,
     mut current_placement_mode: ResMut<CurrentTextPlacementMode>,
     mut text_editor_state: ResMut<TextEditorState>,
-    app_state: Res<AppState>,
+    app_state: Option<Res<AppState>>,
+    fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     glyph_navigation: Res<GlyphNavigation>,
     mut camera_query: Query<&mut Projection, With<DesignCamera>>,
 ) {
+    // Check which state is available
+    let (using_fontir, glyph_names, advance_width) = if let Some(fontir_state) = fontir_app_state.as_ref() {
+        let names = fontir_state.get_glyph_names();
+        let advance = fontir_state.get_glyph_advance_width("a"); // Default glyph for advance
+        (true, names, advance)
+    } else if let Some(app_state) = app_state.as_ref() {
+        let names: Vec<String> = app_state.workspace.font.glyphs.keys().cloned().collect();
+        let advance = app_state.workspace.font.glyphs.get("a")
+            .map(|g| g.advance_width as f32)
+            .unwrap_or(600.0);
+        (false, names, advance)
+    } else {
+        warn!("Text mode mouse clicks disabled - neither AppState nor FontIR available");
+        return;
+    };
+
     // Debug text mode state
     debug!("Text mode click handler: text_mode_active={}, current_tool={:?}, ui_hover={}", 
            text_mode_active.0, current_tool.get_current(), ui_hover_state.is_hovering_ui);
@@ -399,13 +416,36 @@ pub fn handle_text_mode_mouse_clicks(
         // First check if we're clicking on a sort handle (regardless of placement mode)
         let world_position = pointer_info.design.to_raw();
         let handle_tolerance = 50.0;
-        let font_metrics = &app_state.workspace.info.metrics;
+        
+        // Get font metrics from appropriate source
+        let font_metrics = if using_fontir {
+            if let Some(fontir_state) = fontir_app_state.as_ref() {
+                let metrics = fontir_state.get_font_metrics();
+                Some(crate::core::state::FontMetrics {
+                    units_per_em: metrics.units_per_em as f64,
+                    ascender: metrics.ascender.map(|a| a as f64),
+                    descender: metrics.descender.map(|d| d as f64),
+                    line_height: metrics.line_gap.unwrap_or(0.0) as f64,
+                    x_height: None,
+                    cap_height: None,
+                    italic_angle: None,
+                })
+            } else {
+                None
+            }
+        } else if let Some(app_state) = app_state.as_ref() {
+            Some(app_state.workspace.info.metrics.clone())
+        } else {
+            None
+        };
+        
+        let font_metrics_ref = font_metrics.as_ref();
 
         if let Some(clicked_sort_index) = text_editor_state
             .find_sort_handle_at_position(
                 world_position,
                 handle_tolerance,
-                Some(font_metrics),
+                font_metrics_ref,
             )
         {
             info!(
@@ -421,11 +461,12 @@ pub fn handle_text_mode_mouse_clicks(
         debug!("Not clicking on handle - attempting sort placement");
         let did_place_text_sort = handle_text_mode_sort_placement(
             &mut text_editor_state,
-            &app_state,
             &glyph_navigation,
             &current_placement_mode,
             &pointer_info,
             &mut camera_query,
+            &glyph_names,
+            advance_width,
         );
 
         // If we placed a text sort, automatically switch to Insert mode
@@ -441,11 +482,12 @@ pub fn handle_text_mode_mouse_clicks(
 #[allow(clippy::too_many_arguments)]
 pub fn handle_text_mode_sort_placement(
     text_editor_state: &mut ResMut<TextEditorState>,
-    app_state: &Res<AppState>,
     glyph_navigation: &Res<GlyphNavigation>,
     current_placement_mode: &CurrentTextPlacementMode,
     pointer_info: &Res<crate::core::io::pointer::PointerInfo>,
     camera_query: &mut Query<&mut Projection, With<DesignCamera>>,
+    glyph_names: &[String],
+    default_advance_width: f32,
 ) -> bool {
     debug!(
         "Sort placement function called with mode: {:?}",
@@ -474,11 +516,9 @@ pub fn handle_text_mode_sort_placement(
     let glyph_name = match &glyph_navigation.current_glyph {
         Some(name) => name.clone(),
         None => {
-            if app_state.workspace.font.glyphs.contains_key("a") {
+            if glyph_names.contains(&"a".to_string()) {
                 "a".to_string()
-            } else if let Some(first_glyph) =
-                app_state.workspace.font.glyphs.keys().next()
-            {
+            } else if let Some(first_glyph) = glyph_names.first() {
                 first_glyph.clone()
             } else {
                 warn!("No glyphs available in font");
@@ -487,14 +527,8 @@ pub fn handle_text_mode_sort_placement(
         }
     };
 
-    // Get glyph advance width
-    let advance_width = if let Some(glyph_data) =
-        app_state.workspace.font.glyphs.get(&glyph_name)
-    {
-        glyph_data.advance_width as f32
-    } else {
-        600.0
-    };
+    // Use the provided advance width
+    let advance_width = default_advance_width;
 
     let sort_position = snapped_position; // SIMPLIFIED: no offset
 
@@ -554,7 +588,7 @@ pub fn render_sort_preview(
     _text_editor_state: Option<Res<TextEditorState>>,
     current_placement_mode: Res<CurrentTextPlacementMode>,
     glyph_navigation: Res<GlyphNavigation>,
-    app_state: Res<AppState>,
+    app_state: Option<Res<AppState>>,
     pointer_info: Res<crate::core::io::pointer::PointerInfo>,
     camera_query: Query<&Projection, With<DesignCamera>>,
 ) {
@@ -567,6 +601,12 @@ pub fn render_sort_preview(
         debug!("[PREVIEW] Early return: placement mode is Insert");
         return;
     }
+
+    // Early return if AppState not available (using FontIR)
+    let Some(app_state) = app_state else {
+        debug!("[PREVIEW] Early return: AppState not available (using FontIR)");
+        return;
+    };
 
     let zoom_scale = camera_query
         .single()
@@ -729,7 +769,7 @@ pub fn handle_text_mode_keyboard(
     current_placement_mode: Res<CurrentTextPlacementMode>,
     _text_editor_state: Option<ResMut<TextEditorState>>,
     mut keyboard_input: ResMut<ButtonInput<KeyCode>>,
-    app_state: Res<AppState>,
+    app_state: Option<Res<AppState>>,
     mut glyph_navigation: ResMut<GlyphNavigation>,
     text_mode_state: Res<TextModeState>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
@@ -742,6 +782,12 @@ pub fn handle_text_mode_keyboard(
     if !text_mode_active.0 || current_tool.get_current() != Some("text") {
         return;
     }
+
+    // Early return if AppState not available (using FontIR)
+    let Some(app_state) = app_state else {
+        warn!("Text mode keyboard disabled - AppState not available (using FontIR)");
+        return;
+    };
     // Insert mode keyboard handling is now supported below
 
     // Check if there are any selected points - if so, don't handle arrow keys

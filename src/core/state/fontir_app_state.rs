@@ -16,6 +16,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use ufo2fontir::source::DesignSpaceIrSource;
 
+/// Font metrics extracted from FontIR
+#[derive(Debug, Clone)]
+pub struct FontIRMetrics {
+    pub units_per_em: f32,
+    pub ascender: Option<f32>,
+    pub descender: Option<f32>,
+    pub line_gap: Option<f32>,
+}
+
 /// The main application state using FontIR
 #[derive(Resource, Clone)]
 pub struct FontIRAppState {
@@ -119,6 +128,37 @@ impl FontIRAppState {
         // For now, just log that we're skipping this step
         info!("FontIR glyph loading not yet implemented - app will run without cached glyphs");
         Ok(())
+    }
+    
+    /// Get font metrics from FontIR source
+    pub fn get_font_metrics(&self) -> FontIRMetrics {
+        // For now, return sensible defaults
+        // TODO: Extract actual metrics from FontIR source
+        FontIRMetrics {
+            units_per_em: 1000.0,
+            ascender: Some(800.0),
+            descender: Some(-200.0),
+            line_gap: Some(0.0),
+        }
+    }
+    
+    /// Get glyph names available in the font
+    pub fn get_glyph_names(&self) -> Vec<String> {
+        // TODO: Extract from FontIR source
+        // For now, return some basic Latin glyphs
+        vec![
+            "a".to_string(), "b".to_string(), "c".to_string(), "d".to_string(), "e".to_string(),
+            "f".to_string(), "g".to_string(), "h".to_string(), "i".to_string(), "j".to_string(),
+            "k".to_string(), "l".to_string(), "m".to_string(), "n".to_string(), "o".to_string(),
+            "p".to_string(), "q".to_string(), "r".to_string(), "s".to_string(), "t".to_string(),
+            "u".to_string(), "v".to_string(), "w".to_string(), "x".to_string(), "y".to_string(), "z".to_string(),
+        ]
+    }
+    
+    /// Get advance width for a glyph
+    pub fn get_glyph_advance_width(&self, _glyph_name: &str) -> f32 {
+        // TODO: Extract from FontIR
+        600.0 // Default advance width
     }
 }
 

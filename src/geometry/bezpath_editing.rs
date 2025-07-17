@@ -3,10 +3,11 @@
 //! This module provides utilities for editing kurbo::BezPath structures
 //! in a way that's compatible with font editing operations.
 
+use bevy::prelude::*;
 use kurbo::{BezPath, PathEl, Point, Vec2};
 
 /// A reference to a specific point in a BezPath
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
 pub struct PathPointRef {
     /// Which path element this point belongs to
     pub element_index: usize,
@@ -23,7 +24,7 @@ pub struct EditablePoint {
 }
 
 /// Type of point in a path
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
 pub enum PathPointType {
     OnCurve,    // Move, Line, or end point of Curve/Quad
     OffCurve,   // Control point
