@@ -11,6 +11,7 @@
 pub mod app_state;
 pub mod font_data;
 pub mod font_metrics;
+pub mod fontir_app_state;
 pub mod navigation;
 pub mod text_editor;
 
@@ -18,5 +19,6 @@ pub mod text_editor;
 pub use app_state::*;
 pub use font_data::*;
 pub use font_metrics::*;
+pub use fontir_app_state::*;
 pub use navigation::*;
 pub use text_editor::*;

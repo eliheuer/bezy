@@ -1,5 +1,6 @@
 //! Geometric Primitives and Operations
 
+pub mod bezpath_editing;
 pub mod design_space;
 pub mod point;
 pub mod quadrant;
