@@ -244,28 +244,34 @@ pub fn get_fontir_glyph_paths(
     fontir_app_state: &FontIRAppState,
     glyph_name: &str,
 ) -> Option<Vec<BezPath>> {
-    // Try to get from cache first
+    use bevy::log::{info, warn};
+    
+    info!("get_fontir_glyph_paths: Looking for glyph '{}'", glyph_name);
+    info!("get_fontir_glyph_paths: Cache has {} glyphs", fontir_app_state.glyph_cache.len());
+    
+    // Debug: List first few glyph names in cache
+    let cache_names: Vec<String> = fontir_app_state.glyph_cache.keys().take(10).cloned().collect();
+    info!("get_fontir_glyph_paths: First 10 cache keys: {:?}", cache_names);
+    
+    // Try to get from FontIR cache first
     if let Some(glyph) = fontir_app_state.get_glyph(glyph_name) {
-        // Get the instance at our current location
-        if let Some(instance) = glyph.sources().get(&fontir_app_state.current_location) {
+        info!("get_fontir_glyph_paths: Found glyph '{}' in FontIR cache", glyph_name);
+        
+        // Always use the first available instance since location matching is complex
+        if let Some((_location, instance)) = glyph.sources().iter().next() {
+            info!("get_fontir_glyph_paths: Using first available instance for glyph '{}' with {} contours", glyph_name, instance.contours.len());
             return Some(instance.contours.clone());
+        } else {
+            warn!("get_fontir_glyph_paths: No instances found for glyph '{}'", glyph_name);
         }
+    } else {
+        warn!("get_fontir_glyph_paths: Glyph '{}' not found in FontIR cache", glyph_name);
     }
     
-    // If not in cache, try to get directly from the source
-    // For now, let's try to get the default glyph "a" for testing
-    if glyph_name == "a" {
-        // Create a simple test path for the letter 'a'
-        let mut path = BezPath::new();
-        path.move_to((100.0, 0.0));
-        path.line_to((100.0, 400.0));
-        path.line_to((300.0, 400.0));
-        path.line_to((300.0, 0.0));
-        path.close_path();
-        return Some(vec![path]);
-    }
+    warn!("get_fontir_glyph_paths: Falling back to placeholder shapes for '{}'", glyph_name);
     
-    None
+    // Use the comprehensive fallback system from FontIRAppState
+    fontir_app_state.get_glyph_paths(glyph_name)
 }
 
 /// Fallback function - try to get any glyph for testing

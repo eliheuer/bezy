@@ -4,8 +4,10 @@
 //! and side bearings in the lower left corner of the window.
 
 use crate::core::state::AppState;
+use crate::core::state::fontir_app_state::FontIRAppState;
 use crate::ui::theme::*;
 use bevy::prelude::*;
+use kurbo::{BezPath, PathEl};
 
 /// Resource to store current glyph metrics for display
 #[derive(Resource, Default)]
@@ -481,86 +483,144 @@ pub fn spawn_glyph_pane(
 /// Updates the glyph metrics for the current glyph
 pub fn update_glyph_metrics(
     app_state: Option<Res<AppState>>,
+    fontir_app_state: Option<Res<FontIRAppState>>,
     text_editor_state: Res<crate::core::state::text_editor::TextEditorState>,
     mut metrics: ResMut<CurrentGlyphMetrics>,
 ) {
+    // Debug: Always log when this system runs
+    let active_sort = text_editor_state.get_active_sort();
+    info!("Glyph pane: update_glyph_metrics running, active_sort = {:?}", 
+          active_sort.as_ref().map(|(idx, sort)| (idx, sort.kind.glyph_name())));
+    
     // Get information from the active sort instead of glyph navigation
-    if let Some((_buffer_index, sort_entry)) =
-        text_editor_state.get_active_sort()
-    {
+    if let Some((_buffer_index, sort_entry)) = active_sort {
         let glyph_name = sort_entry.kind.glyph_name().to_string();
 
         // Found an active sort, get its details
         metrics.glyph_name = glyph_name.clone();
 
-        // Set the Unicode information by finding the codepoint for this glyph
-        if let Some(state) = app_state.as_ref() {
-            if let Some(glyph_data) = state.workspace.font.get_glyph(&glyph_name) {
-            // Find the first Unicode codepoint for this glyph
-            if let Some(first_codepoint) = glyph_data.unicode_values.first() {
-                metrics.unicode = format!("{:04X}", *first_codepoint as u32);
+        // Try FontIR first, then fall back to AppState
+        if let Some(fontir_state) = fontir_app_state.as_ref() {
+            info!("Glyph pane: Using FontIR for glyph '{}'", glyph_name);
+            // Extract metrics from FontIR
+            
+            // TODO: Get Unicode from FontIR glyph data when available
+            // For now, try to get it from glyph name
+            metrics.unicode = if glyph_name == "a" {
+                "0061".to_string() // Unicode for 'a'
+            } else if glyph_name.len() == 1 && glyph_name.chars().next().unwrap().is_ascii_lowercase() {
+                format!("{:04X}", glyph_name.chars().next().unwrap() as u32)
             } else {
-                metrics.unicode = String::new();
+                String::new()
+            };
+
+            // Get advance width from FontIR
+            let advance_width = fontir_state.get_glyph_advance_width(&glyph_name);
+            info!("Glyph pane: advance_width for '{}' = {}", glyph_name, advance_width);
+            metrics.advance = format!("{}", advance_width as i32);
+
+            // Calculate sidebearings using FontIR paths
+            if let Some(paths) = fontir_state.get_glyph_paths(&glyph_name) {
+                info!("Glyph pane: Found {} paths for glyph '{}'", paths.len(), glyph_name);
+                let outline_bounds = calculate_fontir_bounds(&paths);
+                
+                if let Some((min_x, max_x)) = outline_bounds {
+                    // Left side bearing is the distance from origin to the leftmost point
+                    let lsb = min_x;
+                    
+                    // Right side bearing is the distance from the rightmost point to the advance width
+                    let rsb = advance_width - max_x;
+                    
+                    info!("Glyph pane: bounds for '{}': min_x={}, max_x={}, lsb={}, rsb={}", 
+                          glyph_name, min_x, max_x, lsb, rsb);
+                    
+                    metrics.left_bearing = format!("{}", lsb as i32);
+                    metrics.right_bearing = format!("{}", rsb as i32);
+                } else {
+                    info!("Glyph pane: Could not calculate bounds for '{}'", glyph_name);
+                    // If we couldn't calculate bounds, use placeholder values
+                    metrics.left_bearing = "0".to_string();
+                    metrics.right_bearing = "0".to_string();
+                }
+            } else {
+                info!("Glyph pane: No paths found for glyph '{}'", glyph_name);
+                // No paths found
+                metrics.left_bearing = "0".to_string();
+                metrics.right_bearing = "0".to_string();
             }
 
-            // Get advance width
-            metrics.advance = format!("{}", glyph_data.advance_width as i32);
+            // TODO: Get kerning groups from FontIR when available
+            metrics.left_group = String::new();
+            metrics.right_group = String::new();
+            
+        } else if let Some(state) = app_state.as_ref() {
+            // Fallback to AppState (UFO data)
+            if let Some(glyph_data) = state.workspace.font.get_glyph(&glyph_name) {
+                // Find the first Unicode codepoint for this glyph
+                if let Some(first_codepoint) = glyph_data.unicode_values.first() {
+                    metrics.unicode = format!("{:04X}", *first_codepoint as u32);
+                } else {
+                    metrics.unicode = String::new();
+                }
 
-            // Calculate sidebearings based on glyph outline bounds
-            let outline_bounds = if let Some(outline) = &glyph_data.outline {
-                if !outline.contours.is_empty() {
-                    // Calculate bounds from outline contours
-                    let mut min_x = f64::MAX;
-                    let mut max_x = f64::MIN;
+                // Get advance width
+                metrics.advance = format!("{}", glyph_data.advance_width as i32);
 
-                    // Iterate through all contours and their points
-                    let mut has_points = false;
-                    for contour in &outline.contours {
-                        for point in &contour.points {
-                            has_points = true;
-                            if point.x < min_x {
-                                min_x = point.x;
-                            }
-                            if point.x > max_x {
-                                max_x = point.x;
+                // Calculate sidebearings based on glyph outline bounds
+                let outline_bounds = if let Some(outline) = &glyph_data.outline {
+                    if !outline.contours.is_empty() {
+                        // Calculate bounds from outline contours
+                        let mut min_x = f64::MAX;
+                        let mut max_x = f64::MIN;
+
+                        // Iterate through all contours and their points
+                        let mut has_points = false;
+                        for contour in &outline.contours {
+                            for point in &contour.points {
+                                has_points = true;
+                                if point.x < min_x {
+                                    min_x = point.x;
+                                }
+                                if point.x > max_x {
+                                    max_x = point.x;
+                                }
                             }
                         }
-                    }
 
-                    // If we found valid bounds
-                    if has_points && min_x != f64::MAX && max_x != f64::MIN {
-                        Some((min_x, max_x))
+                        // If we found valid bounds
+                        if has_points && min_x != f64::MAX && max_x != f64::MIN {
+                            Some((min_x, max_x))
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
                 } else {
                     None
+                };
+
+                // Calculate LSB and RSB if we have both outline bounds and advance width
+                if let Some((min_x, max_x)) = outline_bounds {
+                    // Left side bearing is the distance from origin to the leftmost point
+                    let lsb = min_x;
+
+                    // Right side bearing is the distance from the rightmost point to the advance width
+                    let rsb = glyph_data.advance_width - max_x;
+
+                    metrics.left_bearing = format!("{}", lsb as i32);
+                    metrics.right_bearing = format!("{}", rsb as i32);
+                } else {
+                    // If we couldn't calculate bounds, use placeholder values
+                    metrics.left_bearing = "0".to_string();
+                    metrics.right_bearing = "0".to_string();
                 }
-            } else {
-                None
-            };
 
-            // Calculate LSB and RSB if we have both outline bounds and advance width
-            if let Some((min_x, max_x)) = outline_bounds {
-                // Left side bearing is the distance from origin to the leftmost point
-                let lsb = min_x;
-
-                // Right side bearing is the distance from the rightmost point to the advance width
-                let rsb = glyph_data.advance_width - max_x;
-
-                metrics.left_bearing = format!("{}", lsb as i32);
-                metrics.right_bearing = format!("{}", rsb as i32);
-            } else {
-                // If we couldn't calculate bounds, use placeholder values
-                metrics.left_bearing = "0".to_string();
-                metrics.right_bearing = "0".to_string();
-            }
-
-            // TODO: Get kerning groups when groups are implemented in current architecture
+                // TODO: Get kerning groups when groups are implemented in current architecture
                 metrics.left_group = String::new();
                 metrics.right_group = String::new();
             } else {
-                // No glyph data found
+                // No glyph data found in AppState
                 metrics.advance = "-".to_string();
                 metrics.left_bearing = "-".to_string();
                 metrics.right_bearing = "-".to_string();
@@ -568,7 +628,7 @@ pub fn update_glyph_metrics(
                 metrics.right_group = String::new();
             }
         } else {
-            // AppState not available - show placeholders
+            // Neither FontIR nor AppState available - show placeholders
             metrics.unicode = String::new();
             metrics.advance = "-".to_string();
             metrics.left_bearing = "-".to_string();
@@ -585,5 +645,48 @@ pub fn update_glyph_metrics(
         metrics.right_bearing = "-".to_string();
         metrics.left_group = String::new();
         metrics.right_group = String::new();
+    }
+}
+
+/// Calculate the bounding box of FontIR BezPaths
+fn calculate_fontir_bounds(paths: &[BezPath]) -> Option<(f32, f32)> {
+    let mut min_x = f64::MAX;
+    let mut max_x = f64::MIN;
+    let mut has_points = false;
+
+    for path in paths {
+        for element in path.elements() {
+            match element {
+                PathEl::MoveTo(pt) => {
+                    has_points = true;
+                    min_x = min_x.min(pt.x);
+                    max_x = max_x.max(pt.x);
+                }
+                PathEl::LineTo(pt) => {
+                    has_points = true;
+                    min_x = min_x.min(pt.x);
+                    max_x = max_x.max(pt.x);
+                }
+                PathEl::QuadTo(c1, pt) => {
+                    has_points = true;
+                    min_x = min_x.min(c1.x).min(pt.x);
+                    max_x = max_x.max(c1.x).max(pt.x);
+                }
+                PathEl::CurveTo(c1, c2, pt) => {
+                    has_points = true;
+                    min_x = min_x.min(c1.x).min(c2.x).min(pt.x);
+                    max_x = max_x.max(c1.x).max(c2.x).max(pt.x);
+                }
+                PathEl::ClosePath => {
+                    // No points to process
+                }
+            }
+        }
+    }
+
+    if has_points && min_x != f64::MAX && max_x != f64::MIN {
+        Some((min_x as f32, max_x as f32))
+    } else {
+        None
     }
 }

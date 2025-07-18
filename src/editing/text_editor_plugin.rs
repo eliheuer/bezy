@@ -52,9 +52,9 @@ impl Plugin for TextEditorPlugin {
                     .after(crate::editing::selection::nudge::handle_nudge_input),
                 crate::systems::text_editor_sorts::sort_rendering::render_text_editor_cursor
                     .after(crate::editing::selection::nudge::handle_nudge_input),
-                // handle_text_editor_keyboard_input, // DISABLED: Causes double input
-                // handle_arabic_text_input, // DISABLED: Causes double input
-                handle_unicode_text_input, // KEEP: Most comprehensive text input system
+                // handle_text_editor_keyboard_input, // DISABLED: Replaced by Unicode input system
+                // handle_arabic_text_input, // DISABLED: Replaced by Unicode input system  
+                handle_unicode_text_input, // NEW: Comprehensive Unicode input system for global scripts
                 handle_sort_placement_input,
             ))
             // Debug systems (optional)

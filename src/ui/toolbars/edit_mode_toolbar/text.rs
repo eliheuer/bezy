@@ -9,7 +9,7 @@
 
 use crate::core::settings::BezySettings;
 use crate::core::state::{
-    AppState, GlyphNavigation, SortLayoutMode, TextEditorState, TextModeConfig,
+    AppState, FontIRAppState, GlyphNavigation, SortLayoutMode, TextEditorState, TextModeConfig,
 };
 use bevy::input::ButtonState;
 use bevy::log::info;
@@ -589,6 +589,7 @@ pub fn render_sort_preview(
     current_placement_mode: Res<CurrentTextPlacementMode>,
     glyph_navigation: Res<GlyphNavigation>,
     app_state: Option<Res<AppState>>,
+    fontir_app_state: Option<Res<FontIRAppState>>,
     pointer_info: Res<crate::core::io::pointer::PointerInfo>,
     camera_query: Query<&Projection, With<DesignCamera>>,
 ) {
@@ -601,12 +602,6 @@ pub fn render_sort_preview(
         debug!("[PREVIEW] Early return: placement mode is Insert");
         return;
     }
-
-    // Early return if AppState not available (using FontIR)
-    let Some(app_state) = app_state else {
-        debug!("[PREVIEW] Early return: AppState not available (using FontIR)");
-        return;
-    };
 
     let zoom_scale = camera_query
         .single()
@@ -630,32 +625,70 @@ pub fn render_sort_preview(
 
     if let Some(glyph_name) = &glyph_navigation.current_glyph {
         debug!("[PREVIEW] current_glyph: {}", glyph_name);
-        if let Some(glyph_data) =
-            app_state.workspace.font.glyphs.get(glyph_name)
-        {
-            debug!(
-                "[PREVIEW] Drawing preview for glyph '{}' at ({:.1}, {:.1})",
-                glyph_name, snapped_position.x, snapped_position.y
-            );
-            // Draw glyph outline
-            crate::rendering::glyph_outline::draw_glyph_outline_at_position(
-                &mut gizmos,
-                &glyph_data.outline,
-                snapped_position,
-            );
-            // Draw metrics if available
-            crate::rendering::metrics::draw_metrics_at_position(
-                &mut gizmos,
-                glyph_data.advance_width as f32,
-                &app_state.workspace.info.metrics,
-                snapped_position,
-                preview_color,
-            );
+        
+        // Try FontIR first, then fall back to AppState
+        if let Some(fontir_state) = &fontir_app_state {
+            debug!("[PREVIEW] Using FontIR for preview");
+            if let Some(glyph_paths) = fontir_state.get_glyph_paths(glyph_name) {
+                debug!(
+                    "[PREVIEW] Drawing FontIR preview for glyph '{}' at ({:.1}, {:.1})",
+                    glyph_name, snapped_position.x, snapped_position.y
+                );
+                
+                // Draw glyph outline using FontIR paths
+                crate::rendering::fontir_glyph_outline::draw_fontir_glyph_outline_at_position(
+                    &mut gizmos,
+                    &glyph_paths,
+                    snapped_position,
+                );
+                
+                // Draw metrics using FontIR data
+                let advance_width = fontir_state.get_glyph_advance_width(glyph_name);
+                let font_metrics = fontir_state.get_font_metrics();
+                crate::rendering::metrics::draw_fontir_metrics_at_position(
+                    &mut gizmos,
+                    advance_width,
+                    &font_metrics,
+                    snapped_position,
+                    preview_color,
+                );
+            } else {
+                debug!(
+                    "[PREVIEW] No FontIR glyph_paths found for '{}', cannot draw preview",
+                    glyph_name
+                );
+            }
+        } else if let Some(app_state) = &app_state {
+            debug!("[PREVIEW] Using AppState for preview");
+            if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
+                debug!(
+                    "[PREVIEW] Drawing AppState preview for glyph '{}' at ({:.1}, {:.1})",
+                    glyph_name, snapped_position.x, snapped_position.y
+                );
+                
+                // Draw glyph outline
+                crate::rendering::glyph_outline::draw_glyph_outline_at_position(
+                    &mut gizmos,
+                    &glyph_data.outline,
+                    snapped_position,
+                );
+                
+                // Draw metrics if available
+                crate::rendering::metrics::draw_metrics_at_position(
+                    &mut gizmos,
+                    glyph_data.advance_width as f32,
+                    &app_state.workspace.info.metrics,
+                    snapped_position,
+                    preview_color,
+                );
+            } else {
+                debug!(
+                    "[PREVIEW] No AppState glyph_data found for '{}', cannot draw preview",
+                    glyph_name
+                );
+            }
         } else {
-            debug!(
-                "[PREVIEW] No glyph_data found for '{}', cannot draw preview",
-                glyph_name
-            );
+            debug!("[PREVIEW] Neither FontIR nor AppState available, cannot draw preview");
         }
     } else {
         debug!("[PREVIEW] No current_glyph set, cannot draw preview");
@@ -767,9 +800,10 @@ pub fn reset_text_mode_when_inactive(
 pub fn handle_text_mode_keyboard(
     text_mode_active: Res<TextModeActive>,
     current_placement_mode: Res<CurrentTextPlacementMode>,
-    _text_editor_state: Option<ResMut<TextEditorState>>,
+    mut text_editor_state: ResMut<TextEditorState>,
     mut keyboard_input: ResMut<ButtonInput<KeyCode>>,
     app_state: Option<Res<AppState>>,
+    fontir_app_state: Option<Res<FontIRAppState>>,
     mut glyph_navigation: ResMut<GlyphNavigation>,
     text_mode_state: Res<TextModeState>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
@@ -783,12 +817,19 @@ pub fn handle_text_mode_keyboard(
         return;
     }
 
-    // Early return if AppState not available (using FontIR)
-    let Some(app_state) = app_state else {
-        warn!("Text mode keyboard disabled - AppState not available (using FontIR)");
+    // Get font data from either AppState or FontIR
+    let font_has_glyph: Box<dyn Fn(&str) -> bool> = if let Some(app_state) = app_state.as_ref() {
+        Box::new(move |glyph_name: &str| -> bool {
+            app_state.workspace.font.glyphs.contains_key(glyph_name)
+        })
+    } else if let Some(fontir_state) = fontir_app_state.as_ref() {
+        Box::new(move |glyph_name: &str| -> bool {
+            fontir_state.get_glyph(glyph_name).is_some()
+        })
+    } else {
+        warn!("Text mode keyboard disabled - neither AppState nor FontIR available");
         return;
     };
-    // Insert mode keyboard handling is now supported below
 
     // Check if there are any selected points - if so, don't handle arrow keys
     // This gives priority to the nudge system
@@ -798,10 +839,7 @@ pub fn handle_text_mode_keyboard(
         return;
     }
 
-    let mut text_editor_state = match _text_editor_state {
-        Some(state) => state,
-        None => return,
-    };
+    // text_editor_state is now available directly as ResMut
 
     if current_placement_mode.0 == TextPlacementMode::Text {
         if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
@@ -932,8 +970,14 @@ pub fn handle_text_mode_keyboard(
     .enumerate()
     {
         if keyboard_input.just_pressed(*key) {
-            let glyph_names: Vec<String> =
-                app_state.workspace.font.glyphs.keys().cloned().collect();
+            // Get available glyphs from either source
+            let glyph_names: Vec<String> = if let Some(app_state) = app_state.as_ref() {
+                app_state.workspace.font.glyphs.keys().cloned().collect()
+            } else if let Some(fontir_state) = fontir_app_state.as_ref() {
+                fontir_state.get_glyph_names()
+            } else {
+                vec![]
+            };
             if let Some(glyph_name) = glyph_names.get(i) {
                 glyph_navigation.current_glyph = Some(glyph_name.clone());
                 info!(
@@ -955,26 +999,43 @@ pub fn handle_text_mode_keyboard(
     let default_glyph_name = match &glyph_navigation.current_glyph {
         Some(name) => name.clone(),
         None => {
-            if app_state.workspace.font.glyphs.contains_key("a") {
+            if font_has_glyph("a") {
                 "a".to_string()
-            } else if let Some(first_glyph) =
-                app_state.workspace.font.glyphs.keys().next()
-            {
-                first_glyph.clone()
             } else {
-                return;
+                // Get first available glyph
+                let glyph_names: Vec<String> = if let Some(app_state) = app_state.as_ref() {
+                    app_state.workspace.font.glyphs.keys().cloned().collect()
+                } else if let Some(fontir_state) = fontir_app_state.as_ref() {
+                    fontir_state.get_glyph_names()
+                } else {
+                    vec![]
+                };
+                
+                if let Some(first_glyph) = glyph_names.first() {
+                    first_glyph.clone()
+                } else {
+                    return;
+                }
             }
         }
     };
 
-    let default_advance_width = if let Some(glyph_data) =
+    let default_advance_width = if let Some(app_state) = app_state.as_ref() {
         app_state.workspace.font.glyphs.get(&default_glyph_name)
-    {
-        glyph_data.advance_width as f32
+            .map(|g| g.advance_width as f32)
+            .unwrap_or(600.0)
+    } else if let Some(fontir_state) = fontir_app_state.as_ref() {
+        fontir_state.get_glyph_advance_width(&default_glyph_name)
     } else {
         600.0
     };
 
+    // NOTE: Character input (a-z, 0-9, space) is now handled by the Unicode input system
+    // in unicode_input.rs. This section is disabled to prevent double input conflicts.
+    // Only navigation keys and tool shortcuts are handled in this function now.
+    
+    // DISABLED: Character input - now handled by Unicode system for global script support
+    /*
     let pressed_keys: Vec<KeyCode> =
         keyboard_input.get_just_pressed().cloned().collect();
 
@@ -1020,11 +1081,13 @@ pub fn handle_text_mode_keyboard(
             _ => None,
         };
         if let Some(char_glyph) = character_glyph {
-            if app_state.workspace.font.glyphs.contains_key(char_glyph) {
-                let char_advance_width = if let Some(glyph_data) =
+            if font_has_glyph(char_glyph) {
+                let char_advance_width = if let Some(app_state) = app_state.as_ref() {
                     app_state.workspace.font.glyphs.get(char_glyph)
-                {
-                    glyph_data.advance_width as f32
+                        .map(|g| g.advance_width as f32)
+                        .unwrap_or(default_advance_width)
+                } else if let Some(fontir_state) = fontir_app_state.as_ref() {
+                    fontir_state.get_glyph_advance_width(char_glyph)
                 } else {
                     default_advance_width
                 };
@@ -1075,4 +1138,5 @@ pub fn handle_text_mode_keyboard(
             }
         }
     }
+    */
 }

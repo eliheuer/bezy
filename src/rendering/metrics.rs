@@ -4,6 +4,7 @@
 //! by both the main metrics system and individual sorts.
 
 use crate::core::state::font_metrics::FontMetrics;
+use crate::core::state::fontir_app_state::FontIRMetrics;
 use crate::ui::theme::METRICS_GUIDE_COLOR;
 use bevy::prelude::*;
 
@@ -78,4 +79,50 @@ fn draw_rect(
     gizmos.line_2d(Vec2::new(br.x, top_left.y), br, color);
     gizmos.line_2d(br, Vec2::new(top_left.x, br.y), color);
     gizmos.line_2d(Vec2::new(top_left.x, br.y), top_left, color);
+}
+
+/// Draw FontIR metrics for a glyph at a specific design-space position
+pub fn draw_fontir_metrics_at_position(
+    gizmos: &mut Gizmos,
+    advance_width: f32,
+    metrics: &FontIRMetrics,
+    position: Vec2,
+    color: Color,
+) {
+    let upm = metrics.units_per_em;
+    let ascender = metrics.ascender.unwrap_or(upm * 0.8);
+    let descender = metrics.descender.unwrap_or(upm * -0.2);
+    
+    // Baseline (most important)
+    gizmos.line_2d(
+        position,
+        Vec2::new(position.x + advance_width, position.y),
+        color,
+    );
+
+    // Ascender line
+    gizmos.line_2d(
+        Vec2::new(position.x, position.y + ascender),
+        Vec2::new(position.x + advance_width, position.y + ascender),
+        color,
+    );
+
+    // Descender line
+    gizmos.line_2d(
+        Vec2::new(position.x, position.y + descender),
+        Vec2::new(position.x + advance_width, position.y + descender),
+        color,
+    );
+
+    // Advance width line (vertical)
+    gizmos.line_2d(
+        Vec2::new(position.x + advance_width, position.y + descender),
+        Vec2::new(position.x + advance_width, position.y + ascender),
+        color,
+    );
+
+    // Draw bounding box from descender to UPM (units per em)
+    let top_left = Vec2::new(position.x, position.y + upm);
+    let bottom_right = (position.x + advance_width, position.y + descender);
+    draw_rect(gizmos, top_left, bottom_right, color.with_alpha(0.7));
 }
