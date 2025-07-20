@@ -629,7 +629,7 @@ pub fn render_sort_preview(
         // Try FontIR first, then fall back to AppState
         if let Some(fontir_state) = &fontir_app_state {
             debug!("[PREVIEW] Using FontIR for preview");
-            if let Some(glyph_paths) = fontir_state.get_glyph_paths(glyph_name) {
+            if let Some(glyph_paths) = fontir_state.get_glyph_paths_with_edits(glyph_name) {
                 debug!(
                     "[PREVIEW] Drawing FontIR preview for glyph '{}' at ({:.1}, {:.1})",
                     glyph_name, snapped_position.x, snapped_position.y
