@@ -93,7 +93,10 @@ impl Plugin for SelectionPlugin {
             // It's called by the centralized input consumer system when in select mode
             .add_systems(
                 Update,
-                input::process_selection_input_events
+                (
+                    input::process_selection_input_events,
+                    input::handle_point_drag,
+                )
                     .in_set(SelectionSystemSet::Input),
             )
             // Processing systems

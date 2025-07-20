@@ -6,10 +6,10 @@
 
 use anyhow::Result;
 use bevy::prelude::*;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 use fontdrasil::coords::{NormalizedLocation, NormalizedCoord};
 use fontdrasil::types::GlyphName;
-use fontir::ir::Glyph as FontIRGlyph;
+use fontir::ir::{Glyph as FontIRGlyph, GlyphInstance};
 use fontir::source::Source;
 use fontir::orchestration::{Context, Flags, WorkId};
 use fontir::paths::Paths;
@@ -30,6 +30,29 @@ pub struct FontIRMetrics {
     pub cap_height: Option<f32>,
 }
 
+/// Mutable working copy of a glyph instance for high-performance editing
+#[derive(Clone, Debug)]
+pub struct EditableGlyphInstance {
+    pub width: f64,
+    pub height: Option<f64>,
+    pub vertical_origin: Option<f64>,
+    pub contours: Vec<BezPath>,
+    /// Track if this instance has been modified from the original
+    pub is_dirty: bool,
+}
+
+impl From<&GlyphInstance> for EditableGlyphInstance {
+    fn from(instance: &GlyphInstance) -> Self {
+        Self {
+            width: instance.width,
+            height: instance.height,
+            vertical_origin: instance.vertical_origin,
+            contours: instance.contours.clone(),
+            is_dirty: false,
+        }
+    }
+}
+
 /// The main application state using FontIR
 #[derive(Resource, Clone)]
 pub struct FontIRAppState {
@@ -39,9 +62,14 @@ pub struct FontIRAppState {
     /// FontIR context containing processed font data
     pub context: Option<Arc<Context>>,
     
-    /// Cached glyph data for quick access
+    /// Cached original glyph data (immutable, for reference)
     /// Maps glyph name to FontIR glyph
     pub glyph_cache: HashMap<String, Arc<FontIRGlyph>>,
+    
+    /// Working copies of glyphs being edited (mutable, for performance)
+    /// Only contains glyphs that have been opened for editing
+    /// Maps (glyph_name, location) to editable instance
+    pub working_copies: HashMap<(String, NormalizedLocation), EditableGlyphInstance>,
     
     /// Currently selected glyph name
     pub current_glyph: Option<String>,
@@ -69,6 +97,7 @@ impl FontIRAppState {
             source,
             context: None,
             glyph_cache: HashMap::new(),
+            working_copies: HashMap::new(),
             current_glyph: None,
             current_location,
             source_path: path,
@@ -162,22 +191,191 @@ impl FontIRAppState {
         }
     }
     
-    /// Update a path element (for point editing)
+    /// Get or create a working copy of a glyph instance for editing
+    /// This is optimized for zero-lag performance during editing
+    fn get_or_create_working_copy(&mut self, glyph_name: &str) -> Option<&mut EditableGlyphInstance> {
+        let location = self.current_location.clone();
+        let key = (glyph_name.to_string(), location.clone());
+        
+        // Fast path: working copy already exists
+        if self.working_copies.contains_key(&key) {
+            info!("*** FontIR: REUSING existing working copy for glyph '{}'", glyph_name);
+            return self.working_copies.get_mut(&key);
+        }
+        
+        // Slow path: create working copy from original FontIR data
+        if let Some(fontir_glyph) = self.glyph_cache.get(glyph_name) {
+            // Get the appropriate instance for our location
+            if let Some((_location, instance)) = fontir_glyph.sources().iter().next() {
+                let working_copy = EditableGlyphInstance::from(instance);
+                info!("FontIR: Created new working copy for glyph '{}' with {} contours", 
+                      glyph_name, working_copy.contours.len());
+                self.working_copies.insert(key.clone(), working_copy);
+                return self.working_copies.get_mut(&key);
+            } else {
+                warn!("FontIR: No instances found for glyph '{}'", glyph_name);
+            }
+        } else {
+            warn!("FontIR: Glyph '{}' not found in cache", glyph_name);
+        }
+        
+        None
+    }
+    
+    /// Update a point position in a FontIR glyph (high-performance implementation)
+    pub fn update_point_position(
+        &mut self,
+        glyph_name: &str,
+        contour_idx: usize,
+        point_idx: usize,
+        new_x: f64,
+        new_y: f64,
+    ) -> Result<bool> {
+        use bevy::log::{debug, info};
+        
+        debug!("FontIR: Updating point position for glyph '{}', contour {}, point {} to ({:.1}, {:.1})", 
+              glyph_name, contour_idx, point_idx, new_x, new_y);
+        
+        // Get or create the working copy for this glyph
+        if self.get_or_create_working_copy(glyph_name).is_some() {
+            let location = self.current_location.clone();
+            let key = (glyph_name.to_string(), location);
+            
+            if let Some(working_copy) = self.working_copies.get_mut(&key) {
+                // Check bounds
+                if contour_idx >= working_copy.contours.len() {
+                    warn!("FontIR: Contour index {} out of bounds for glyph '{}'", contour_idx, glyph_name);
+                    return Ok(false);
+                }
+                
+                // Update the point in the working copy BezPath
+                if Self::update_point_in_bezpath_static(&mut working_copy.contours[contour_idx], point_idx, new_x, new_y) {
+                    working_copy.is_dirty = true;
+                    debug!("FontIR: Successfully updated point {} in working copy", point_idx);
+                    return Ok(true);
+                }
+            }
+        }
+        
+        info!("FontIR: Could not update point - glyph '{}' not found or invalid indices", glyph_name);
+        Ok(false)
+    }
+    
+    /// Update a specific point in a BezPath (optimized for performance)
+    fn update_point_in_bezpath_static(path: &mut BezPath, point_idx: usize, new_x: f64, new_y: f64) -> bool {
+        let elements: Vec<PathEl> = path.elements().iter().cloned().collect();
+        let mut current_point_idx = 0;
+        let mut new_elements = Vec::new();
+        
+        for element in elements {
+            match element {
+                PathEl::MoveTo(pt) => {
+                    if current_point_idx == point_idx {
+                        new_elements.push(PathEl::MoveTo(Point::new(new_x, new_y)));
+                    } else {
+                        new_elements.push(element);
+                    }
+                    current_point_idx += 1;
+                }
+                PathEl::LineTo(pt) => {
+                    if current_point_idx == point_idx {
+                        new_elements.push(PathEl::LineTo(Point::new(new_x, new_y)));
+                    } else {
+                        new_elements.push(element);
+                    }
+                    current_point_idx += 1;
+                }
+                PathEl::CurveTo(c1, c2, pt) => {
+                    let mut new_c1 = c1;
+                    let mut new_c2 = c2;
+                    let mut new_pt = pt;
+                    
+                    // Check each control point and endpoint
+                    if current_point_idx == point_idx {
+                        new_c1 = Point::new(new_x, new_y);
+                    } else if current_point_idx + 1 == point_idx {
+                        new_c2 = Point::new(new_x, new_y);
+                    } else if current_point_idx + 2 == point_idx {
+                        new_pt = Point::new(new_x, new_y);
+                    }
+                    
+                    new_elements.push(PathEl::CurveTo(new_c1, new_c2, new_pt));
+                    current_point_idx += 3;
+                }
+                PathEl::QuadTo(c, pt) => {
+                    let mut new_c = c;
+                    let mut new_pt = pt;
+                    
+                    if current_point_idx == point_idx {
+                        new_c = Point::new(new_x, new_y);
+                    } else if current_point_idx + 1 == point_idx {
+                        new_pt = Point::new(new_x, new_y);
+                    }
+                    
+                    new_elements.push(PathEl::QuadTo(new_c, new_pt));
+                    current_point_idx += 2;
+                }
+                PathEl::ClosePath => {
+                    new_elements.push(element);
+                    // ClosePath doesn't increment point index
+                }
+            }
+        }
+        
+        // Rebuild the BezPath with updated elements
+        if current_point_idx > point_idx {
+            *path = BezPath::from_vec(new_elements);
+            return true;
+        }
+        
+        false
+    }
+    
+    /// Update a path element (for advanced point editing)
     pub fn update_path_element(
         &mut self,
-        _contour_idx: usize,
-        _element_idx: usize,
-        _new_element: PathEl,
+        glyph_name: &str,
+        contour_idx: usize,
+        element_idx: usize,
+        new_element: PathEl,
     ) -> Result<()> {
-        // This is where we'd update the FontIR glyph
-        // For now, this is a placeholder showing the interface
+        use bevy::log::{info, warn};
         
-        // In practice, we'd need to:
-        // 1. Get mutable access to the glyph
-        // 2. Update the specific path element
-        // 3. Mark the glyph as dirty for recompilation
+        info!("FontIR: Update path element for glyph '{}', contour {}, element {}", 
+              glyph_name, contour_idx, element_idx);
         
-        todo!("Implement FontIR glyph modification")
+        // Same issue as above - Arc<FontIRGlyph> is not easily mutable
+        warn!("FontIR path element mutation not yet implemented");
+        warn!("This requires architectural changes to support mutable FontIR data");
+        
+        // For now, log what we would do:
+        info!("Would update {:?} at contour {}, element {}", new_element, contour_idx, element_idx);
+        
+        Ok(())
+    }
+    
+    /// Check if this FontIR state can handle mutations
+    pub fn supports_mutations(&self) -> bool {
+        // Now we support mutations via working copies!
+        true
+    }
+    
+    /// Get glyph paths, preferring working copies over original FontIR data
+    /// This ensures live rendering shows the edited version
+    pub fn get_glyph_paths_with_edits(&self, glyph_name: &str) -> Option<Vec<BezPath>> {
+        let location = &self.current_location;
+        let key = (glyph_name.to_string(), location.clone());
+        
+        // Fast path: return working copy if it exists
+        if let Some(working_copy) = self.working_copies.get(&key) {
+            info!("*** FontIR: Using WORKING COPY for glyph '{}' (dirty: {}, {} contours)", 
+                  glyph_name, working_copy.is_dirty, working_copy.contours.len());
+            return Some(working_copy.contours.clone());
+        }
+        
+        // Fallback to original FontIR data
+        info!("*** FontIR: Using ORIGINAL DATA for glyph '{}' (no working copy found)", glyph_name);
+        self.get_glyph_paths(glyph_name)
     }
     
     /// Load all glyphs into cache

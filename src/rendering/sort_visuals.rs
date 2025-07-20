@@ -3,7 +3,7 @@
 use crate::core::state::font_data::OutlineData;
 use crate::core::state::font_metrics::FontMetrics;
 use crate::core::state::FontIRAppState;
-use crate::editing::selection::components::GlyphPointReference;
+use crate::editing::selection::components::{GlyphPointReference, PointType, Selected};
 use crate::editing::selection::nudge::NudgeState;
 use crate::rendering::glyph_outline::{
     draw_glyph_outline_at_position, draw_glyph_outline_from_live_transforms,
@@ -286,8 +286,8 @@ pub fn render_fontir_sort_visuals(
     metrics_color: Color,
     style: SortRenderStyle,
 ) {
-    // Get FontIR glyph paths
-    if let Some(paths) = get_fontir_glyph_paths(fontir_app_state, glyph_name) {
+    // Get FontIR glyph paths (with working copy edits if available)
+    if let Some(paths) = fontir_app_state.get_glyph_paths_with_edits(glyph_name) {
         // Draw FontIR outline
         draw_fontir_glyph_outline_at_position(gizmos, &paths, position);
     }
@@ -317,6 +317,126 @@ pub fn render_fontir_sort_visuals(
         }
         SortRenderStyle::Freeform => {
             // Circle handle for freeform sorts
+            gizmos.circle_2d(handle_position, normal_size, metrics_color);
+        }
+    }
+}
+
+/// Render FontIR sort with live synchronization support
+/// This checks if points are selected and uses live Transform positions for outline rendering
+#[allow(clippy::too_many_arguments)]
+pub fn render_fontir_sort_visuals_with_live_sync(
+    gizmos: &mut Gizmos,
+    fontir_app_state: &FontIRAppState,
+    glyph_name: &str,
+    advance_width: f32,
+    _metrics: &FontMetrics,
+    position: Vec2,
+    metrics_color: Color,
+    style: SortRenderStyle,
+    // Live rendering parameters
+    sort_entity: Option<Entity>,
+    sort_transform: Option<&Transform>,
+    #[allow(clippy::type_complexity)] point_query: Option<
+        &Query<
+            (
+                Entity,
+                &Transform,
+                &GlyphPointReference,
+                &PointType,
+            ),
+            With<SortPointEntity>,
+        >,
+    >,
+    selected_query: Option<&Query<Entity, With<Selected>>>,
+    nudge_state: Option<&NudgeState>,
+) {
+    use crate::editing::selection::components::{PointType, GlyphPointReference, Selected};
+    use crate::editing::selection::nudge::NudgeState;
+    use crate::systems::sort_manager::SortPointEntity;
+    
+    // Determine if we should use live rendering (similar to UFO logic)
+    // Check if there are any selected points specifically for this glyph
+    let has_selected_points = if let (Some(point_query), Some(selected_query)) = (point_query, selected_query) {
+        point_query.iter().any(|(entity, _, glyph_ref, _)| {
+            glyph_ref.glyph_name == glyph_name && selected_query.get(entity).is_ok()
+        })
+    } else {
+        false
+    };
+    
+    let nudge_active = if let Some(nudge_state) = nudge_state {
+        nudge_state.is_nudging
+    } else {
+        false
+    };
+    
+    let has_sort_entity = sort_entity.is_some();
+    let has_sort_transform = sort_transform.is_some();
+    let has_point_query = point_query.is_some();
+    let has_selected_query = selected_query.is_some();
+    
+    // TEMPORARY FIX: Only use live rendering during active nudging, not just when points are selected
+    // The live Transform reconstruction has issues with curve rebuilding
+    let use_live_rendering = nudge_active  // Only during active nudging, not selection
+        && has_sort_entity
+        && has_sort_transform
+        && has_point_query
+        && has_selected_query;
+    
+    if use_live_rendering {
+        info!("*** USING LIVE FontIR RENDERING for sort '{}' (nudge_active: {}, has_selected: {})", 
+              glyph_name, nudge_active, has_selected_points);
+        
+        // Use live Transform positions to render outline
+        if let Some(point_query) = point_query {
+            let point_count = point_query.iter().filter(|(_, _, glyph_ref, _)| {
+                glyph_ref.glyph_name == glyph_name
+            }).count();
+            debug!("Live rendering: Found {} points for glyph '{}'", point_count, glyph_name);
+            
+            crate::rendering::fontir_glyph_outline::draw_fontir_glyph_outline_from_live_transforms(
+                gizmos,
+                point_query,
+                glyph_name,
+                position,
+            );
+        } else {
+            warn!("Live rendering requested but no point query available");
+        }
+    } else {
+        // Use FontIR outline data (with working copy edits if available)
+        if let Some(paths) = fontir_app_state.get_glyph_paths_with_edits(glyph_name) {
+            info!("*** USING FontIR WORKING COPY/CACHE for glyph '{}' (nudge_active: {}, has_selected: {}) - FIXED: using stable rendering", 
+                  glyph_name, nudge_active, has_selected_points);
+            draw_fontir_glyph_outline_at_position(gizmos, &paths, position);
+        } else {
+            warn!("*** NO FontIR PATHS AVAILABLE for glyph '{}' (nudge_active: {}, has_selected: {})", 
+                  glyph_name, nudge_active, has_selected_points);
+        }
+    }
+    
+    // Always draw metrics and handles the same way
+    let fontir_metrics = fontir_app_state.get_font_metrics();
+    
+    crate::rendering::metrics::draw_fontir_metrics_at_position(
+        gizmos,
+        advance_width,
+        &fontir_metrics,
+        position,
+        metrics_color,
+    );
+
+    let descender = fontir_metrics.descender.unwrap_or(-200.0);
+    let handle_position = position + Vec2::new(0.0, descender);
+    let normal_size = 16.0;
+
+    match style {
+        SortRenderStyle::TextBuffer => {
+            let square_size = Vec2::new(normal_size * 2.0, normal_size * 2.0);
+            gizmos.rect_2d(handle_position, square_size, metrics_color);
+        }
+        SortRenderStyle::Freeform => {
             gizmos.circle_2d(handle_position, normal_size, metrics_color);
         }
     }

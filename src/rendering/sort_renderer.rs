@@ -115,7 +115,7 @@ pub fn render_sorts_system(
             // Use FontIR rendering
             let advance_width = fontir_state.get_glyph_advance_width(&sort.glyph_name);
             
-            render_fontir_sort_visuals(
+            crate::rendering::sort_visuals::render_fontir_sort_visuals_with_live_sync(
                 &mut gizmos,
                 fontir_state,
                 &sort.glyph_name,
@@ -124,6 +124,12 @@ pub fn render_sorts_system(
                 position,
                 metrics_color,
                 render_style,
+                // Live rendering parameters
+                Some(entity),
+                Some(transform),
+                Some(&point_query),
+                Some(&selected_query),
+                Some(&*nudge_state),
             );
         } else if let Some(app_state) = app_state_deref {
             if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
@@ -169,7 +175,7 @@ pub fn render_sorts_system(
             // Use FontIR rendering
             let advance_width = fontir_state.get_glyph_advance_width(&sort.glyph_name);
             
-            render_fontir_sort_visuals(
+            crate::rendering::sort_visuals::render_fontir_sort_visuals_with_live_sync(
                 &mut gizmos,
                 fontir_state,
                 &sort.glyph_name,
@@ -178,6 +184,12 @@ pub fn render_sorts_system(
                 position,
                 metrics_color,
                 render_style,
+                // Live rendering parameters
+                Some(entity),
+                Some(transform),
+                Some(&point_query),
+                Some(&selected_query),
+                Some(&*nudge_state),
             );
         } else if let Some(app_state) = app_state_deref {
             if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {

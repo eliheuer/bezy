@@ -101,7 +101,13 @@ All visual styling constants MUST be declared in `src/ui/theme.rs`. No visual co
 
 ### Font Data Model
 
-The application works with UFO (Unified Font Object) format fonts:
+The application uses FontIR as the primary runtime data structure:
+- **FontIR**: The single source of truth for font data that gets modified during editing
+- **Data Flow**: Load font sources (UFO, TTF, OTF, etc.) → FontIR runtime structure → Edit FontIR data → Save back to disk
+- **Transform Components**: Only for visual positioning in UI, NOT the source of truth
+- **Critical**: When editing points, ALWAYS update the underlying FontIR glyph data, not just Transform positions
+
+Legacy UFO support:
 - **Font**: Container for all glyphs and metadata
 - **Glyph**: Individual character containing contours and components
 - **Contour**: Closed or open paths made of points

@@ -61,16 +61,19 @@ pub fn spawn_active_sort_points_optimized(
                 // Spawn points for each BezPath (contour)
                 for (contour_index, path) in paths.iter().enumerate() {
                     let elements: Vec<_> = path.elements().iter().collect();
+                    let mut element_point_index = 0; // Track actual point index within the contour
                     
-                    for (point_index, element) in elements.iter().enumerate() {
-                        // Extract point position and type from PathEl
-                        if let Some((point_pos, point_type)) = extract_point_from_path_element(element) {
+                    for element in elements.iter() {
+                        // Extract all points (on-curve and off-curve) from PathEl
+                        let points = extract_points_from_path_element(element);
+                        
+                        for (point_pos, point_type) in points {
                             // Calculate world position for this point
                             let world_pos = position + Vec2::new(point_pos.x as f32, point_pos.y as f32);
 
-                            if point_count < 5 {
-                                info!("FontIR Point {}: raw=({:.1}, {:.1}), sort_pos=({:.1}, {:.1}), world_pos=({:.1}, {:.1})", 
-                                      point_count, point_pos.x, point_pos.y, position.x, position.y, world_pos.x, world_pos.y);
+                            if point_count < 10 {
+                                info!("FontIR Point {}: type={:?}, raw=({:.1}, {:.1}), sort_pos=({:.1}, {:.1}), world_pos=({:.1}, {:.1})", 
+                                      point_count, point_type, point_pos.x, point_pos.y, position.x, position.y, world_pos.x, world_pos.y);
                             }
 
                             // Create the EditPoint
@@ -99,17 +102,21 @@ pub fn spawn_active_sort_points_optimized(
                                 GlyphPointReference {
                                     glyph_name: sort.glyph_name.clone(),
                                     contour_index,
-                                    point_index,
+                                    point_index: element_point_index,
                                 },
                                 Selectable,
                                 SortPointEntity { sort_entity },
                                 PointSortParent(sort_entity),
-                                Name::new(format!("FontIR_Point[{contour_index},{point_index}]")),
+                                Name::new(format!("FontIR_Point[{},{},{}]", contour_index, element_point_index, 
+                                    if point_type == PointTypeData::OffCurve { "off" } else { "on" })),
                             ));
 
+                            element_point_index += 1;
                             point_count += 1;
-                            if point_count <= 5 {
-                                info!("FontIR: Spawned point {} at world position ({:.1}, {:.1})", point_count, world_pos.x, world_pos.y);
+                            if point_count <= 10 {
+                                info!("FontIR: Spawned {} point {} at world position ({:.1}, {:.1})", 
+                                      if point_type == PointTypeData::OffCurve { "off-curve" } else { "on-curve" },
+                                      point_count, world_pos.x, world_pos.y);
                             }
                         }
                     }
@@ -202,13 +209,20 @@ pub fn despawn_inactive_sort_points_optimized(
     }
 }
 
-/// Extract point position and type from a kurbo PathEl
-fn extract_point_from_path_element(element: &PathEl) -> Option<(Point, PointTypeData)> {
+/// Extract all points (on-curve and off-curve) from a kurbo PathEl
+fn extract_points_from_path_element(element: &PathEl) -> Vec<(Point, PointTypeData)> {
     match element {
-        PathEl::MoveTo(pt) => Some((*pt, PointTypeData::Move)),
-        PathEl::LineTo(pt) => Some((*pt, PointTypeData::Line)),
-        PathEl::CurveTo(_, _, pt) => Some((*pt, PointTypeData::Curve)),
-        PathEl::QuadTo(_, pt) => Some((*pt, PointTypeData::Curve)), // Treat quad as curve
-        PathEl::ClosePath => None, // ClosePath doesn't have a point
+        PathEl::MoveTo(pt) => vec![(*pt, PointTypeData::Move)],
+        PathEl::LineTo(pt) => vec![(*pt, PointTypeData::Line)],
+        PathEl::CurveTo(c1, c2, pt) => vec![
+            (*c1, PointTypeData::OffCurve), // First control point
+            (*c2, PointTypeData::OffCurve), // Second control point
+            (*pt, PointTypeData::Curve),    // End point
+        ],
+        PathEl::QuadTo(c, pt) => vec![
+            (*c, PointTypeData::OffCurve),  // Control point
+            (*pt, PointTypeData::Curve),    // End point
+        ],
+        PathEl::ClosePath => vec![], // ClosePath doesn't have points
     }
 }

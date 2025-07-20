@@ -6,6 +6,7 @@ use crate::editing::selection::components::Selected;
 use crate::editing::sort::ActiveSortState;
 use crate::systems::sort_manager::SortPointEntity;
 use bevy::prelude::*;
+use bevy::log::{debug, info, warn};
 
 /// Resource to track nudge state for preventing selection loss during nudging
 #[derive(Resource, Debug, Default, Reflect)]
@@ -167,15 +168,14 @@ pub fn sync_nudged_points_on_completion(
     >,
     sort_query: Query<(&crate::editing::sort::Sort, &Transform)>,
     mut app_state: Option<ResMut<crate::core::state::AppState>>,
+    mut fontir_app_state: Option<ResMut<crate::core::state::FontIRAppState>>,
     mut last_nudge_state: Local<bool>,
 ) {
     // Only sync when transitioning from nudging to not nudging
     if *last_nudge_state && !nudge_state.is_nudging {
         info!("[NUDGE] Nudging completed, syncing points to font data");
 
-        if let Some(mut state) = app_state {
-            let app_state = state.bypass_change_detection();
-            let mut sync_count = 0;
+        let mut sync_count = 0;
 
         for (transform, point_ref, sort_point_entity_opt) in query.iter() {
             // Calculate relative position from sort entity
@@ -201,35 +201,70 @@ pub fn sync_nudged_points_on_completion(
                     )
                 };
 
-            let updated = app_state.set_point_position(
-                &point_ref.glyph_name,
-                point_ref.contour_index,
-                point_ref.point_index,
-                relative_x,
-                relative_y,
-            );
-
-            if updated {
-                sync_count += 1;
-                debug!(
-                    "[NUDGE] Synced point: glyph='{}' contour={} point={} pos=({:.1}, {:.1})",
-                    point_ref.glyph_name,
+            // Try FontIR first, then fallback to UFO AppState (same pattern as drag system)
+            let mut handled = false;
+            
+            if let Some(ref mut fontir_state) = fontir_app_state {
+                match fontir_state.update_point_position(
+                    &point_ref.glyph_name,
                     point_ref.contour_index,
                     point_ref.point_index,
                     relative_x,
-                    relative_y
-                );
+                    relative_y,
+                ) {
+                    Ok(was_updated) => {
+                        if was_updated {
+                            sync_count += 1;
+                            handled = true;
+                            debug!("[NUDGE] FontIR: Updated point {} in glyph '{}'", 
+                                  point_ref.point_index, point_ref.glyph_name);
+                        }
+                    }
+                    Err(e) => {
+                        warn!("[NUDGE] Failed to update FontIR point: {}", e);
+                    }
+                }
+            }
+            
+            // Fallback to UFO AppState if FontIR didn't handle it
+            if !handled && app_state.is_some() {
+                if let Some(ref mut state) = app_state {
+                    let app_state = state.bypass_change_detection();
+                    let updated = app_state.set_point_position(
+                        &point_ref.glyph_name,
+                        point_ref.contour_index,
+                        point_ref.point_index,
+                        relative_x,
+                        relative_y,
+                    );
+
+                    if updated {
+                        sync_count += 1;
+                        handled = true;
+                        debug!(
+                            "[NUDGE] UFO: Synced point: glyph='{}' contour={} point={} pos=({:.1}, {:.1})",
+                            point_ref.glyph_name,
+                            point_ref.contour_index,
+                            point_ref.point_index,
+                            relative_x,
+                            relative_y
+                        );
+                    }
+                }
+            }
+            
+            // If neither FontIR nor UFO handled it, just track the Transform update
+            if !handled {
+                sync_count += 1;
+                debug!("[NUDGE] Point update handled via Transform only (no source data update)");
             }
         }
 
-            if sync_count > 0 {
-                info!(
-                    "[NUDGE] Successfully synced {} points to font data",
-                    sync_count
-                );
-            }
-        } else {
-            warn!("[NUDGE] Point syncing skipped - AppState not available (using FontIR)");
+        if sync_count > 0 {
+            info!(
+                "[NUDGE] Successfully synced {} points to font data",
+                sync_count
+            );
         }
     }
 

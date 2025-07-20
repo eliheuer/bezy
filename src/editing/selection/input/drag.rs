@@ -2,13 +2,14 @@
 
 use crate::core::io::pointer::PointerInfo;
 use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
-use crate::core::state::AppState;
+use crate::core::state::{AppState, FontIRAppState};
 use crate::editing::edit_type::EditType;
 use crate::editing::selection::components::{GlyphPointReference, Selected};
 use crate::editing::selection::nudge::{EditEvent, PointCoordinates};
 use crate::editing::selection::DragPointState;
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
+use bevy::log::{debug, warn};
 
 /// System to handle advanced point dragging with constraints and snapping
 #[allow(clippy::type_complexity)]
@@ -26,7 +27,8 @@ pub fn handle_point_drag(
         ),
         With<Selected>,
     >,
-    mut app_state: ResMut<AppState>,
+    mut app_state: Option<ResMut<AppState>>,
+    mut fontir_app_state: Option<ResMut<FontIRAppState>>,
     mut event_writer: EventWriter<EditEvent>,
 ) {
     // Only drag if the resource says we are
@@ -94,16 +96,51 @@ pub fn handle_point_drag(
                     coordinates.x = snapped_pos.x;
                     coordinates.y = snapped_pos.y;
 
-                    // Update UFO data for glyph points
-                    let updated = app_state.set_point_position(
-                        &point_ref.glyph_name,
-                        point_ref.contour_index,
-                        point_ref.point_index,
-                        transform.translation.x as f64, // Convert f32 to f64
-                        transform.translation.y as f64, // Convert f32 to f64
-                    );
-                    if updated {
+                    // Try FontIR first, then fallback to UFO AppState
+                    let mut handled = false;
+                    
+                    if let Some(ref mut fontir_state) = fontir_app_state {
+                        // Try to update FontIR data
+                        match fontir_state.update_point_position(
+                            &point_ref.glyph_name,
+                            point_ref.contour_index,
+                            point_ref.point_index,
+                            transform.translation.x as f64,
+                            transform.translation.y as f64,
+                        ) {
+                            Ok(was_updated) => {
+                                if was_updated {
+                                    updated_count += 1;
+                                    handled = true;
+                                }
+                            }
+                            Err(e) => {
+                                warn!("Failed to update FontIR point: {}", e);
+                            }
+                        }
+                    }
+                    
+                    // Fallback to UFO AppState if FontIR didn't handle it
+                    if !handled && app_state.is_some() {
+                        if let Some(ref mut app_state) = app_state {
+                            let updated = app_state.set_point_position(
+                                &point_ref.glyph_name,
+                                point_ref.contour_index,
+                                point_ref.point_index,
+                                transform.translation.x as f64,
+                                transform.translation.y as f64,
+                            );
+                            if updated {
+                                updated_count += 1;
+                                handled = true;
+                            }
+                        }
+                    }
+                    
+                    // If neither FontIR nor UFO handled it, just track the Transform update
+                    if !handled {
                         updated_count += 1;
+                        debug!("Point update handled via Transform only (no source data update)");
                     }
                 }
                 // Handle other draggable entities (no snapping, normal Z layer)

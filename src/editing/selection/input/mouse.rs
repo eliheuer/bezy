@@ -81,10 +81,14 @@ pub fn process_selection_input_events(
             continue;
         }
 
-        // Only handle events that are relevant to selection - ignore MouseMove for performance
+        // Only handle events that are relevant to selection
         match event {
             InputEvent::MouseMove { .. } => {
-                // Skip mouse move events to avoid performance lag
+                // Only skip mouse move events when NOT dragging points
+                if !drag_point_state.is_dragging {
+                    continue;
+                }
+                // Mouse moves during point dragging are handled by handle_point_drag system
                 continue;
             }
             InputEvent::MouseClick {
