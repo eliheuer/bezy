@@ -94,12 +94,9 @@ pub fn render_selected_entities(
     knife_mode: Option<
         Res<crate::ui::toolbars::edit_mode_toolbar::knife::KnifeModeActive>,
     >,
-    nudge_state: Res<NudgeState>,
+    _nudge_state: Res<NudgeState>,
 ) {
-    // Skip during nudging - live renderer handles everything
-    if nudge_state.is_nudging {
-        return;
-    }
+    // Always render selected points - no dual-mode rendering
 
     let selected_count = selected_query.iter().count();
     if selected_count > 0 {
@@ -196,16 +193,13 @@ pub fn render_all_point_entities(
         (With<SortPointEntity>, Without<Selected>),
     >,
     selected_query: Query<Entity, With<Selected>>,
-    nudge_state: Res<NudgeState>,
+    _nudge_state: Res<NudgeState>,
     camera_query: Query<
         (&Camera, &GlobalTransform, &Projection),
         With<Camera2d>,
     >,
 ) {
-    // Skip during nudging
-    if nudge_state.is_nudging {
-        return;
-    }
+    // Always render all points - no dual-mode rendering
 
     let point_count = point_entities.iter().count();
 
@@ -302,13 +296,9 @@ pub fn render_control_handles(
     text_editor_state: Res<TextEditorState>,
     app_state: Option<Res<AppState>>,
     fontir_app_state: Option<Res<FontIRAppState>>,
-    nudge_state: Res<NudgeState>,
+    _nudge_state: Res<NudgeState>,
 ) {
-    // Skip handle rendering during nudging
-    if nudge_state.is_nudging {
-        debug!("[render_control_handles] SKIPPING - nudging in progress");
-        return;
-    }
+    // Always render control handles - no dual-mode rendering
 
     // Try FontIR first, then fallback to AppState
     if let Some(fontir_state) = fontir_app_state {

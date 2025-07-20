@@ -37,6 +37,7 @@ pub fn handle_nudge_input(
         Query<(&crate::editing::sort::Sort, &Transform)>,
     )>,
     _app_state: Option<ResMut<crate::core::state::AppState>>,
+    mut fontir_app_state: Option<ResMut<crate::core::state::FontIRAppState>>,
     mut event_writer: EventWriter<EditEvent>,
     mut nudge_state: ResMut<NudgeState>,
     time: Res<Time>,
@@ -114,7 +115,10 @@ pub fn handle_nudge_input(
             // SIMPLIFIED APPROACH: Just update transforms immediately
             // The system ordering should ensure rendering happens after this
 
-            for (entity, mut transform, _point_ref, _sort_point_entity_opt) in
+            // Collect point updates first to avoid borrow checker issues
+            let mut point_updates = Vec::new();
+            
+            for (entity, mut transform, point_ref, sort_point_entity_opt) in
                 queries.p0().iter_mut()
             {
                 let old_pos = transform.translation.truncate();
@@ -123,9 +127,37 @@ pub fn handle_nudge_input(
                 debug!("[NUDGE] Moving point {:?} from ({:.1}, {:.1}) to ({:.1}, {:.1})", 
                        entity, old_pos.x, old_pos.y, new_pos.x, new_pos.y);
 
-                // Update transform immediately - the regular sync system will update glyph data
+                // Update transform immediately
                 transform.translation.x = new_pos.x;
                 transform.translation.y = new_pos.y;
+                
+                // Collect point data for FontIR update
+                if let Some(sort_point_entity) = sort_point_entity_opt {
+                    point_updates.push((point_ref.clone(), sort_point_entity.sort_entity, new_pos));
+                }
+            }
+            
+            // FLASHING FIX: Immediately update FontIR working copies for real-time rendering
+            for (point_ref, sort_entity, new_pos) in point_updates {
+                if let Ok((_sort, sort_transform)) = queries.p1().get(sort_entity) {
+                    // Calculate relative position from sort entity
+                    let sort_pos = sort_transform.translation.truncate();
+                    let rel = new_pos - sort_pos;
+                    let (relative_x, relative_y) = (rel.x as f64, rel.y as f64);
+                    
+                    // Try FontIR first for immediate update
+                    if let Some(ref mut fontir_state) = fontir_app_state {
+                        if let Ok(_was_updated) = fontir_state.update_point_position(
+                            &point_ref.glyph_name,
+                            point_ref.contour_index,
+                            point_ref.point_index,
+                            relative_x,
+                            relative_y,
+                        ) {
+                            debug!("[NUDGE] FontIR: Immediately updated working copy for '{}'", point_ref.glyph_name);
+                        }
+                    }
+                }
             }
 
             // Create an edit event for undo/redo

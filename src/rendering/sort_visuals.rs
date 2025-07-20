@@ -322,9 +322,7 @@ pub fn render_fontir_sort_visuals(
     }
 }
 
-/// Render FontIR sort with live synchronization support
-/// This checks if points are selected and uses live Transform positions for outline rendering
-#[allow(clippy::too_many_arguments)]
+/// Render FontIR sort with simplified stable rendering
 pub fn render_fontir_sort_visuals_with_live_sync(
     gizmos: &mut Gizmos,
     fontir_app_state: &FontIRAppState,
@@ -334,10 +332,10 @@ pub fn render_fontir_sort_visuals_with_live_sync(
     position: Vec2,
     metrics_color: Color,
     style: SortRenderStyle,
-    // Live rendering parameters
-    sort_entity: Option<Entity>,
-    sort_transform: Option<&Transform>,
-    #[allow(clippy::type_complexity)] point_query: Option<
+    // Unused parameters kept for API compatibility
+    _sort_entity: Option<Entity>,
+    _sort_transform: Option<&Transform>,
+    _point_query: Option<
         &Query<
             (
                 Entity,
@@ -348,72 +346,14 @@ pub fn render_fontir_sort_visuals_with_live_sync(
             With<SortPointEntity>,
         >,
     >,
-    selected_query: Option<&Query<Entity, With<Selected>>>,
-    nudge_state: Option<&NudgeState>,
+    _selected_query: Option<&Query<Entity, With<Selected>>>,
+    _nudge_state: Option<&NudgeState>,
 ) {
-    use crate::editing::selection::components::{PointType, GlyphPointReference, Selected};
-    use crate::editing::selection::nudge::NudgeState;
-    use crate::systems::sort_manager::SortPointEntity;
+    // Imports removed - no longer needed for simplified rendering
     
-    // Determine if we should use live rendering (similar to UFO logic)
-    // Check if there are any selected points specifically for this glyph
-    let has_selected_points = if let (Some(point_query), Some(selected_query)) = (point_query, selected_query) {
-        point_query.iter().any(|(entity, _, glyph_ref, _)| {
-            glyph_ref.glyph_name == glyph_name && selected_query.get(entity).is_ok()
-        })
-    } else {
-        false
-    };
-    
-    let nudge_active = if let Some(nudge_state) = nudge_state {
-        nudge_state.is_nudging
-    } else {
-        false
-    };
-    
-    let has_sort_entity = sort_entity.is_some();
-    let has_sort_transform = sort_transform.is_some();
-    let has_point_query = point_query.is_some();
-    let has_selected_query = selected_query.is_some();
-    
-    // TEMPORARY FIX: Only use live rendering during active nudging, not just when points are selected
-    // The live Transform reconstruction has issues with curve rebuilding
-    let use_live_rendering = nudge_active  // Only during active nudging, not selection
-        && has_sort_entity
-        && has_sort_transform
-        && has_point_query
-        && has_selected_query;
-    
-    if use_live_rendering {
-        info!("*** USING LIVE FontIR RENDERING for sort '{}' (nudge_active: {}, has_selected: {})", 
-              glyph_name, nudge_active, has_selected_points);
-        
-        // Use live Transform positions to render outline
-        if let Some(point_query) = point_query {
-            let point_count = point_query.iter().filter(|(_, _, glyph_ref, _)| {
-                glyph_ref.glyph_name == glyph_name
-            }).count();
-            debug!("Live rendering: Found {} points for glyph '{}'", point_count, glyph_name);
-            
-            crate::rendering::fontir_glyph_outline::draw_fontir_glyph_outline_from_live_transforms(
-                gizmos,
-                point_query,
-                glyph_name,
-                position,
-            );
-        } else {
-            warn!("Live rendering requested but no point query available");
-        }
-    } else {
-        // Use FontIR outline data (with working copy edits if available)
-        if let Some(paths) = fontir_app_state.get_glyph_paths_with_edits(glyph_name) {
-            info!("*** USING FontIR WORKING COPY/CACHE for glyph '{}' (nudge_active: {}, has_selected: {}) - FIXED: using stable rendering", 
-                  glyph_name, nudge_active, has_selected_points);
-            draw_fontir_glyph_outline_at_position(gizmos, &paths, position);
-        } else {
-            warn!("*** NO FontIR PATHS AVAILABLE for glyph '{}' (nudge_active: {}, has_selected: {})", 
-                  glyph_name, nudge_active, has_selected_points);
-        }
+    // SIMPLIFIED: Always use stable FontIR working copy rendering
+    if let Some(paths) = fontir_app_state.get_glyph_paths_with_edits(glyph_name) {
+        draw_fontir_glyph_outline_at_position(gizmos, &paths, position);
     }
     
     // Always draw metrics and handles the same way
