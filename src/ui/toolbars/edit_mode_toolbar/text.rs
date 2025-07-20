@@ -449,11 +449,11 @@ pub fn handle_text_mode_mouse_clicks(
             )
         {
             info!(
-                "Clicked on sort handle at index {}, activating sort",
+                "Clicked on sort handle at index {}, letting selection system handle activation",
                 clicked_sort_index
             );
-            text_editor_state.activate_sort(clicked_sort_index);
             // Don't place a new sort when clicking on a handle
+            // Let the selection system handle activation through auto_activate_selected_sorts
             return;
         }
 

@@ -281,7 +281,7 @@ pub fn render_fontir_sort_visuals(
     fontir_app_state: &FontIRAppState,
     glyph_name: &str,
     advance_width: f32,
-    metrics: &FontMetrics,
+    _metrics: &FontMetrics,
     position: Vec2,
     metrics_color: Color,
     style: SortRenderStyle,
@@ -292,17 +292,20 @@ pub fn render_fontir_sort_visuals(
         draw_fontir_glyph_outline_at_position(gizmos, &paths, position);
     }
     
-    // Draw metrics (same as before)
-    draw_metrics_at_position(
+    // Get real FontIR metrics instead of using converted FontMetrics
+    let fontir_metrics = fontir_app_state.get_font_metrics();
+    
+    // Draw FontIR metrics with real values
+    crate::rendering::metrics::draw_fontir_metrics_at_position(
         gizmos,
         advance_width,
-        metrics,
+        &fontir_metrics,
         position,
         metrics_color,
     );
 
-    // Draw handle at descender position (same as before)
-    let descender = metrics.descender.unwrap_or(-200.0) as f32;
+    // Draw handle at descender position using real FontIR descender
+    let descender = fontir_metrics.descender.unwrap_or(-200.0);
     let handle_position = position + Vec2::new(0.0, descender);
     let normal_size = 16.0;
 

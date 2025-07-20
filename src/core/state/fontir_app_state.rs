@@ -26,6 +26,8 @@ pub struct FontIRMetrics {
     pub ascender: Option<f32>,
     pub descender: Option<f32>,
     pub line_gap: Option<f32>,
+    pub x_height: Option<f32>,
+    pub cap_height: Option<f32>,
 }
 
 /// The main application state using FontIR
@@ -367,12 +369,23 @@ impl FontIRAppState {
             let global_metrics = context.global_metrics.get();
             let metrics = global_metrics.at(default_location);
             
-            FontIRMetrics {
+            let fontir_metrics = FontIRMetrics {
                 units_per_em,
                 ascender: Some(metrics.ascender.0 as f32),
                 descender: Some(metrics.descender.0 as f32),
                 line_gap: Some(metrics.os2_typo_line_gap.0 as f32),
-            }
+                x_height: Some(metrics.x_height.0 as f32),
+                cap_height: Some(metrics.cap_height.0 as f32),
+            };
+            
+            info!("FontIR metrics extracted: UPM={}, ascender={}, descender={}, x_height={}, cap_height={}", 
+                  fontir_metrics.units_per_em,
+                  fontir_metrics.ascender.unwrap_or(-1.0),
+                  fontir_metrics.descender.unwrap_or(-1.0),
+                  fontir_metrics.x_height.unwrap_or(-1.0),
+                  fontir_metrics.cap_height.unwrap_or(-1.0));
+            
+            fontir_metrics
         } else {
             // Fallback to sensible defaults if context not available
             FontIRMetrics {
@@ -380,6 +393,8 @@ impl FontIRAppState {
                 ascender: Some(800.0),
                 descender: Some(-200.0),
                 line_gap: Some(0.0),
+                x_height: Some(500.0),
+                cap_height: Some(700.0),
             }
         }
     }
@@ -431,22 +446,55 @@ impl FontIRAppState {
             
             // Use try_get since we're not sure if the glyph exists
             if let Some(glyph) = context.glyphs.try_get(&work_id) {
-                // Get the instance at our current location
-                if let Some(instance) = glyph.sources().get(&self.current_location) {
-                    return instance.width as f32;
+                info!("get_glyph_advance_width: Found glyph '{}' in context", glyph_name);
+                
+                // Log available locations
+                let sources = glyph.sources();
+                info!("get_glyph_advance_width: Glyph '{}' has {} sources", glyph_name, sources.len());
+                for (loc, instance) in sources.iter() {
+                    info!("  Location: {:?}, width: {}", loc, instance.width);
                 }
+                
+                // Get the instance at our current location
+                if let Some(instance) = sources.get(&self.current_location) {
+                    info!("get_glyph_advance_width: Found at current location, width: {}", instance.width);
+                    return instance.width as f32;
+                } else {
+                    info!("get_glyph_advance_width: Not found at current location {:?}", self.current_location);
+                    // Try first available instance
+                    if let Some((loc, instance)) = sources.iter().next() {
+                        info!("get_glyph_advance_width: Using first instance at {:?}, width: {}", loc, instance.width);
+                        return instance.width as f32;
+                    }
+                }
+            } else {
+                info!("get_glyph_advance_width: Glyph '{}' not found in context", glyph_name);
             }
+        } else {
+            info!("get_glyph_advance_width: No context available");
         }
         
         // Fall back to cached glyph data
         if let Some(glyph) = self.get_glyph(glyph_name) {
+            info!("get_glyph_advance_width: Found glyph '{}' in cache", glyph_name);
+            let sources = glyph.sources();
             // Get the instance at our current location
-            if let Some(instance) = glyph.sources().get(&self.current_location) {
+            if let Some(instance) = sources.get(&self.current_location) {
+                info!("get_glyph_advance_width: Found in cache at current location, width: {}", instance.width);
                 return instance.width as f32;
+            } else {
+                // Try first available instance
+                if let Some((loc, instance)) = sources.iter().next() {
+                    info!("get_glyph_advance_width: Using first cached instance at {:?}, width: {}", loc, instance.width);
+                    return instance.width as f32;
+                }
             }
+        } else {
+            info!("get_glyph_advance_width: Glyph '{}' not found in cache", glyph_name);
         }
         
         // Final fallback - return reasonable defaults for common glyphs
+        info!("get_glyph_advance_width: Using fallback value for glyph '{}'", glyph_name);
         match glyph_name {
             "a" | "c" | "e" | "o" | "u" => 500.0,
             "b" | "d" | "h" | "k" | "l" | "p" | "q" => 550.0,

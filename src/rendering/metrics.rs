@@ -92,11 +92,29 @@ pub fn draw_fontir_metrics_at_position(
     let upm = metrics.units_per_em;
     let ascender = metrics.ascender.unwrap_or(upm * 0.8);
     let descender = metrics.descender.unwrap_or(upm * -0.2);
+    let x_height = metrics.x_height.unwrap_or(upm * 0.5);
+    let cap_height = metrics.cap_height.unwrap_or(upm * 0.7);
     
     // Baseline (most important)
     gizmos.line_2d(
         position,
         Vec2::new(position.x + advance_width, position.y),
+        color,
+    );
+
+    // x-height
+    let x_height_y = position.y + x_height;
+    gizmos.line_2d(
+        Vec2::new(position.x, x_height_y),
+        Vec2::new(position.x + advance_width, x_height_y),
+        color,
+    );
+
+    // cap-height
+    let cap_height_y = position.y + cap_height;
+    gizmos.line_2d(
+        Vec2::new(position.x, cap_height_y),
+        Vec2::new(position.x + advance_width, cap_height_y),
         color,
     );
 

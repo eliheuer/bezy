@@ -113,8 +113,7 @@ pub fn render_sorts_system(
         // Try FontIR first, fallback to old system
         if let Some(fontir_state) = &fontir_app_state {
             // Use FontIR rendering
-            // For now, use a placeholder advance width since we haven't implemented metric extraction from FontIR yet
-            let advance_width = 600.0; // TODO: Get from FontIR
+            let advance_width = fontir_state.get_glyph_advance_width(&sort.glyph_name);
             
             render_fontir_sort_visuals(
                 &mut gizmos,
@@ -168,8 +167,7 @@ pub fn render_sorts_system(
         // Try FontIR first, fallback to old system
         if let Some(fontir_state) = &fontir_app_state {
             // Use FontIR rendering
-            // For now, use a placeholder advance width since we haven't implemented metric extraction from FontIR yet
-            let advance_width = 600.0; // TODO: Get from FontIR
+            let advance_width = fontir_state.get_glyph_advance_width(&sort.glyph_name);
             
             render_fontir_sort_visuals(
                 &mut gizmos,
