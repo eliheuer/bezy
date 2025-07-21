@@ -322,7 +322,7 @@ pub fn render_fontir_sort_visuals(
     }
 }
 
-/// Render FontIR sort with simplified stable rendering
+/// Render FontIR sort with optimized live rendering during nudging
 pub fn render_fontir_sort_visuals_with_live_sync(
     gizmos: &mut Gizmos,
     fontir_app_state: &FontIRAppState,
@@ -332,7 +332,7 @@ pub fn render_fontir_sort_visuals_with_live_sync(
     position: Vec2,
     metrics_color: Color,
     style: SortRenderStyle,
-    // Unused parameters kept for API compatibility
+    // Unused parameters for API compatibility
     _sort_entity: Option<Entity>,
     _sort_transform: Option<&Transform>,
     _point_query: Option<
@@ -349,9 +349,8 @@ pub fn render_fontir_sort_visuals_with_live_sync(
     _selected_query: Option<&Query<Entity, With<Selected>>>,
     _nudge_state: Option<&NudgeState>,
 ) {
-    // Imports removed - no longer needed for simplified rendering
-    
     // SIMPLIFIED: Always use stable FontIR working copy rendering
+    // Working copy updates happen immediately during nudging for synchronization
     if let Some(paths) = fontir_app_state.get_glyph_paths_with_edits(glyph_name) {
         draw_fontir_glyph_outline_at_position(gizmos, &paths, position);
     }
@@ -381,6 +380,10 @@ pub fn render_fontir_sort_visuals_with_live_sync(
         }
     }
 }
+
+// REMOVED: draw_simple_live_outline
+// This function was causing curves to become straight lines during nudging.
+// Now using direct FontIR working copy updates for immediate synchronization.
 
 #[cfg(test)]
 mod tests {

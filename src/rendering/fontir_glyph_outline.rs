@@ -283,9 +283,6 @@ pub fn get_first_available_glyph_paths(
     None
 }
 
-// REMOVED: draw_fontir_glyph_outline_from_live_transforms 
-// This buggy dual-mode rendering function caused visual flashing and is no longer needed.
-// We now use stable FontIR working copy rendering for all cases.
-
-// REMOVED: draw_quadratic_curve_gizmos and quadratic_bezier_point_vec2
-// These were only used by the buggy live rendering system that has been removed.
+// REMOVED: draw_fontir_glyph_outline_from_live_transforms and related functions
+// This approach caused severe outline distortion and flashing during nudging.
+// Using stable FontIR working copy rendering instead.

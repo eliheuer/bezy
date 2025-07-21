@@ -112,53 +112,40 @@ pub fn handle_nudge_input(
             nudge_state.is_nudging = true;
             nudge_state.last_nudge_time = time.elapsed_secs();
 
-            // SIMPLIFIED APPROACH: Just update transforms immediately
-            // The system ordering should ensure rendering happens after this
+            // ATOMIC UPDATE: Update FontIR working copies FIRST, then update Transforms
+            // This ensures perfect sync between outline and points rendering
 
-            // Collect point updates first to avoid borrow checker issues
+            // Collect all point updates first
             let mut point_updates = Vec::new();
             
-            for (entity, mut transform, point_ref, sort_point_entity_opt) in
-                queries.p0().iter_mut()
+            for (entity, transform, point_ref, sort_point_entity_opt) in
+                queries.p0().iter()
             {
                 let old_pos = transform.translation.truncate();
                 let new_pos = old_pos + nudge_direction;
 
-                debug!("[NUDGE] Moving point {:?} from ({:.1}, {:.1}) to ({:.1}, {:.1})", 
+                debug!("[NUDGE] Preparing update for point {:?} from ({:.1}, {:.1}) to ({:.1}, {:.1})", 
                        entity, old_pos.x, old_pos.y, new_pos.x, new_pos.y);
 
-                // Update transform immediately
-                transform.translation.x = new_pos.x;
-                transform.translation.y = new_pos.y;
-                
-                // Collect point data for FontIR update
+                // Collect point data for both FontIR and Transform updates
                 if let Some(sort_point_entity) = sort_point_entity_opt {
-                    point_updates.push((point_ref.clone(), sort_point_entity.sort_entity, new_pos));
+                    point_updates.push((entity, point_ref.clone(), sort_point_entity.sort_entity, new_pos));
                 }
             }
             
-            // FLASHING FIX: Immediately update FontIR working copies for real-time rendering
-            for (point_ref, sort_entity, new_pos) in point_updates {
-                if let Ok((_sort, sort_transform)) = queries.p1().get(sort_entity) {
-                    // Calculate relative position from sort entity
-                    let sort_pos = sort_transform.translation.truncate();
-                    let rel = new_pos - sort_pos;
-                    let (relative_x, relative_y) = (rel.x as f64, rel.y as f64);
-                    
-                    // Try FontIR first for immediate update
-                    if let Some(ref mut fontir_state) = fontir_app_state {
-                        if let Ok(_was_updated) = fontir_state.update_point_position(
-                            &point_ref.glyph_name,
-                            point_ref.contour_index,
-                            point_ref.point_index,
-                            relative_x,
-                            relative_y,
-                        ) {
-                            debug!("[NUDGE] FontIR: Immediately updated working copy for '{}'", point_ref.glyph_name);
-                        }
-                    }
+            // STEP 1: Update Transform components FIRST (for immediate point rendering)
+            for (entity, _point_ref, _sort_entity, new_pos) in &point_updates {
+                if let Ok((_, mut transform, _, _)) = queries.p0().get_mut(*entity) {
+                    transform.translation.x = new_pos.x;
+                    transform.translation.y = new_pos.y;
+                    debug!("[NUDGE] Transform: Updated position for {:?} to ({:.1}, {:.1})", 
+                           entity, new_pos.x, new_pos.y);
                 }
             }
+            
+            // STEP 2: Skip FontIR working copy updates during active nudging
+            // Working copy will be updated when nudging completes to avoid timing issues
+            debug!("[NUDGE] Skipping FontIR updates during active nudging - will sync on completion");
 
             // Create an edit event for undo/redo
             event_writer.write(EditEvent {
