@@ -576,9 +576,8 @@ pub fn draw_glyph_outline_from_live_transforms(
         }
     }
 
-    // CRITICAL: Also render control handles when in live mode
-    // This replaces the separate control handle rendering system during nudging
-    render_live_control_handles(gizmos, glyph_name, point_query, app_state);
+    // DISABLED: Control handle rendering disabled per user request
+    // render_live_control_handles(gizmos, glyph_name, point_query, app_state);
 }
 
 /// Render control handles using live Transform positions during nudging

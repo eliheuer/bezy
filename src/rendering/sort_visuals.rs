@@ -73,8 +73,8 @@ pub fn render_sort_visuals_with_selection(
         metrics_color // Default metrics color
     };
 
-    // Draw outline
-    draw_glyph_outline_at_position(gizmos, outline, position);
+    // Draw outline - DISABLED: Now using mesh-based rendering
+    // draw_glyph_outline_at_position(gizmos, outline, position);
     // Draw metrics
     draw_metrics_at_position(
         gizmos,
@@ -192,7 +192,7 @@ pub fn render_sort_visuals_with_live_sync(
     } else {
         // Use normal rendering from glyph data
         debug!("[NORMAL RENDER] Using glyph data for outline rendering");
-        draw_glyph_outline_at_position(gizmos, outline, position);
+        // draw_glyph_outline_at_position(gizmos, outline, position); // DISABLED: Using mesh rendering
     }
 
     // Draw metrics (always from original data)

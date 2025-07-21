@@ -235,147 +235,25 @@ pub fn render_all_point_entities(
                 i, position.x, position.y, point_type.is_on_curve);
         }
 
-        // Draw point based on type
-        if point_type.is_on_curve {
-            if USE_SQUARE_FOR_ON_CURVE {
-                let adjusted_radius =
-                    ON_CURVE_POINT_RADIUS * ON_CURVE_SQUARE_ADJUSTMENT;
-                gizmos.rect_2d(
-                    position,
-                    Vec2::splat(adjusted_radius * 2.0),
-                    ON_CURVE_POINT_COLOR,
-                );
-                // Inner circles are now rendered as solid sprites in point_backgrounds.rs
-            } else {
-                gizmos.circle_2d(
-                    position,
-                    ON_CURVE_POINT_RADIUS,
-                    ON_CURVE_POINT_COLOR,
-                );
-                // Inner circles are now rendered as solid sprites in point_backgrounds.rs
-            }
-        } else {
-            // Off-curve point
-            gizmos.circle_2d(
-                position,
-                OFF_CURVE_POINT_RADIUS,
-                OFF_CURVE_POINT_COLOR,
-            );
-            // Inner circles are now rendered as solid sprites in point_backgrounds.rs
-        }
+        // Point rendering is now handled by mesh-based system in point_backgrounds.rs
+        // This includes point backgrounds, center dots, and properly-sized outlines
     }
 }
 
 /// Render control handles between on-curve points and their off-curve control points
+/// DISABLED: Control handle rendering disabled per user request
 pub fn render_control_handles(
-    mut gizmos: Gizmos,
-    point_entities: Query<
+    _gizmos: Gizmos,
+    _point_entities: Query<
         (&GlobalTransform, &PointType, &GlyphPointReference),
         With<SortPointEntity>,
     >,
-    text_editor_state: Res<TextEditorState>,
-    app_state: Option<Res<AppState>>,
-    fontir_app_state: Option<Res<FontIRAppState>>,
+    _text_editor_state: Res<TextEditorState>,
+    _app_state: Option<Res<AppState>>,
+    _fontir_app_state: Option<Res<FontIRAppState>>,
     _nudge_state: Res<NudgeState>,
 ) {
-    // Always render control handles - no dual-mode rendering
-
-    // Try FontIR first, then fallback to AppState
-    if let Some(fontir_state) = fontir_app_state {
-        render_fontir_control_handles(&mut gizmos, &point_entities, &text_editor_state, &fontir_state);
-        return;
-    }
-    
-    // Early return if AppState not available
-    let Some(app_state) = app_state else {
-        debug!("[render_control_handles] Skipping - neither FontIR nor AppState available");
-        return;
-    };
-
-    // Get the active sort to find the glyph data
-    let Some((_active_sort_index, active_sort)) =
-        text_editor_state.get_active_sort()
-    else {
-        return;
-    };
-
-    let glyph_name = active_sort.kind.glyph_name();
-    let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name)
-    else {
-        return;
-    };
-
-    let Some(outline) = &glyph_data.outline else {
-        return;
-    };
-
-    // Group points by contour
-    let mut contour_points: Vec<Vec<(Vec2, bool, usize)>> =
-        vec![Vec::new(); outline.contours.len()];
-
-    let mut total_points = 0;
-    let mut unique_positions = std::collections::HashSet::new();
-
-    for (transform, point_type, glyph_ref) in point_entities.iter() {
-        let position = transform.translation().truncate();
-        let is_on_curve = point_type.is_on_curve;
-        let contour_index = glyph_ref.contour_index;
-        let point_index = glyph_ref.point_index;
-
-        total_points += 1;
-        unique_positions.insert((position.x.to_bits(), position.y.to_bits()));
-
-        if total_points <= 5 {
-            debug!(
-                "[render_control_handles] Point {}: pos=({:.1}, {:.1}), contour={}, index={}, on_curve={}",
-                total_points, position.x, position.y, contour_index, point_index, is_on_curve
-            );
-        }
-
-        // Check if this position is exactly zero - this indicates a transform propagation issue
-        if position.x == 0.0 && position.y == 0.0 {
-            warn!(
-                "[render_control_handles] Point {} at ZERO position - GlobalTransform propagation issue!",
-                total_points
-            );
-        }
-
-        if contour_index < contour_points.len() {
-            contour_points[contour_index].push((
-                position,
-                is_on_curve,
-                point_index,
-            ));
-        }
-    }
-
-    // Log summary of what we found
-    if total_points > 0 {
-        debug!(
-            "[render_control_handles] Total points: {}, Unique positions: {}",
-            total_points,
-            unique_positions.len()
-        );
-        if unique_positions.len() == 1 && total_points > 1 {
-            warn!(
-                "[render_control_handles] ALL {} POINTS ARE AT THE SAME POSITION!",
-                total_points
-            );
-        }
-    }
-
-    // Sort points within each contour by original index
-    for contour_points in &mut contour_points {
-        contour_points.sort_by_key(|(_, _, index)| *index);
-    }
-
-    // Render handles for each contour
-    for contour_points in contour_points {
-        if contour_points.len() < 2 {
-            continue;
-        }
-        render_contour_handles(&mut gizmos, &contour_points);
-    }
+    // Control handle rendering disabled - user only wants point backgrounds, center dots, and outlines
 }
 
 /// Render handles for a single contour

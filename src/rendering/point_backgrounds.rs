@@ -24,6 +24,12 @@ pub struct PointCenterDot {
     pub point_entity: Entity,
 }
 
+/// Component to mark entities as point outlines (replacing gizmos)
+#[derive(Component)]
+pub struct PointOutline {
+    pub point_entity: Entity,
+}
+
 /// System to spawn/update transparent background sprites for points
 #[allow(clippy::type_complexity)]
 pub fn manage_point_backgrounds(
@@ -42,6 +48,7 @@ pub fn manage_point_backgrounds(
     background_query: Query<(Entity, &PointBackground)>,
     existing_backgrounds: Query<Entity, With<PointBackground>>,
     existing_center_dots: Query<Entity, With<PointCenterDot>>,
+    existing_outlines: Query<Entity, With<PointOutline>>,
 ) {
     let point_count = point_entities.iter().count();
     let all_point_count = all_point_entities.iter().count();
@@ -57,11 +64,14 @@ pub fn manage_point_backgrounds(
         return;
     }
 
-    // Clear existing backgrounds and center dots
+    // Clear existing backgrounds, center dots, and outlines
     for entity in existing_backgrounds.iter() {
         commands.entity(entity).despawn();
     }
     for entity in existing_center_dots.iter() {
+        commands.entity(entity).despawn();
+    }
+    for entity in existing_outlines.iter() {
         commands.entity(entity).despawn();
     }
 
@@ -182,8 +192,11 @@ pub fn manage_point_backgrounds(
                 ViewVisibility::default(),
             ));
         }
+        
+        // DISABLED: Point outline rendering - user only wants backgrounds and center dots
     }
 }
+
 
 /// Plugin for point background rendering
 pub struct PointBackgroundPlugin;

@@ -8,7 +8,7 @@ use crate::core::settings::{BezySettings, DEFAULT_WINDOW_SIZE, WINDOW_TITLE};
 use crate::core::state::GlyphNavigation;
 use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
 use crate::rendering::{
-    cameras::CameraPlugin, checkerboard::CheckerboardPlugin, PointBackgroundPlugin,
+    cameras::CameraPlugin, checkerboard::CheckerboardPlugin, MeshGlyphOutlinePlugin, PointBackgroundPlugin,
 };
 use crate::systems::{
     exit_on_esc, load_fontir_font, load_ufo_font, BezySystems, CommandsPlugin,
@@ -54,6 +54,7 @@ impl PluginGroup for RenderingPluginGroup {
         PluginGroupBuilder::start::<Self>()
             .add(CameraPlugin)
             .add(CheckerboardPlugin)
+            .add(MeshGlyphOutlinePlugin)
             .add(PointBackgroundPlugin)
     }
 }

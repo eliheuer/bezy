@@ -15,6 +15,7 @@ pub mod debug;
 pub mod draw;
 pub mod fontir_glyph_outline;
 pub mod glyph_outline;
+pub mod mesh_glyph_outline;
 pub mod metrics;
 pub mod point_backgrounds;
 pub mod selection;
@@ -23,6 +24,7 @@ pub mod sort_visuals;
 
 // Re-export commonly used items
 pub use checkerboard::{CheckerboardEnabled, CheckerboardPlugin};
+pub use mesh_glyph_outline::MeshGlyphOutlinePlugin;
 pub use point_backgrounds::PointBackgroundPlugin;
 pub use selection::{
     render_all_point_entities, render_control_handles,
