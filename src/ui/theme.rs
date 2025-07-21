@@ -98,7 +98,7 @@ pub const WINDOW_HEIGHT: f32 = 768.0;
 pub const WINDOW_TITLE: &str = "Bezy";
 
 // Rendering constants
-pub const GIZMO_LINE_WIDTH: f32 = 3.0;
+pub const GIZMO_LINE_WIDTH: f32 = 4.0;
 pub const DEBUG_SHOW_ORIGIN_CROSS: bool = false;
 
 // Point rendering constants - these should use theme

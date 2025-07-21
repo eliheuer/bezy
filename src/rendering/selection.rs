@@ -245,30 +245,14 @@ pub fn render_all_point_entities(
                     Vec2::splat(adjusted_radius * 2.0),
                     ON_CURVE_POINT_COLOR,
                 );
-                if ON_CURVE_INNER_CIRCLE_RATIO > 0.0 {
-                    let inner_radius =
-                        adjusted_radius * ON_CURVE_INNER_CIRCLE_RATIO;
-                    gizmos.rect_2d(
-                        position,
-                        Vec2::splat(inner_radius * 2.0),
-                        ON_CURVE_POINT_COLOR,
-                    );
-                }
+                // Inner circles are now rendered as solid sprites in point_backgrounds.rs
             } else {
                 gizmos.circle_2d(
                     position,
                     ON_CURVE_POINT_RADIUS,
                     ON_CURVE_POINT_COLOR,
                 );
-                if ON_CURVE_INNER_CIRCLE_RATIO > 0.0 {
-                    let inner_radius =
-                        ON_CURVE_POINT_RADIUS * ON_CURVE_INNER_CIRCLE_RATIO;
-                    gizmos.circle_2d(
-                        position,
-                        inner_radius,
-                        ON_CURVE_POINT_COLOR,
-                    );
-                }
+                // Inner circles are now rendered as solid sprites in point_backgrounds.rs
             }
         } else {
             // Off-curve point
@@ -277,11 +261,7 @@ pub fn render_all_point_entities(
                 OFF_CURVE_POINT_RADIUS,
                 OFF_CURVE_POINT_COLOR,
             );
-            if OFF_CURVE_INNER_CIRCLE_RATIO > 0.0 {
-                let inner_radius =
-                    OFF_CURVE_POINT_RADIUS * OFF_CURVE_INNER_CIRCLE_RATIO;
-                gizmos.circle_2d(position, inner_radius, OFF_CURVE_POINT_COLOR);
-            }
+            // Inner circles are now rendered as solid sprites in point_backgrounds.rs
         }
     }
 }
