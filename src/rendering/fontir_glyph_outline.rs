@@ -107,13 +107,28 @@ pub fn draw_bezpath_points_and_handles_at_position(
             (OFF_CURVE_POINT_RADIUS, OFF_CURVE_POINT_COLOR)
         };
         
+        // Draw transparent background shape first
+        let transparent_color = Color::srgba(color.to_srgba().red, color.to_srgba().green, color.to_srgba().blue, 0.5);
+        
         if is_on_curve && USE_SQUARE_FOR_ON_CURVE {
             let half_size = size / ON_CURVE_SQUARE_ADJUSTMENT;
             let square_size = Vec2::new(size * 2.0, size * 2.0);
+            let bg_square_size = Vec2::new(size * 2.4, size * 2.4); // Slightly larger background
+            
+            // Background transparent shape
+            gizmos.rect_2d(point_pos, bg_square_size, transparent_color);
+            
+            // Original solid shapes
             gizmos.rect_2d(point_pos, square_size, color);
             let inner_radius = half_size * ON_CURVE_INNER_CIRCLE_RATIO;
             gizmos.circle_2d(point_pos, inner_radius, color);
         } else {
+            let bg_radius = size * 1.2; // Slightly larger background
+            
+            // Background transparent shape
+            gizmos.circle_2d(point_pos, bg_radius, transparent_color);
+            
+            // Original solid shapes
             gizmos.circle_2d(point_pos, size, color);
             let inner_radius = size * OFF_CURVE_INNER_CIRCLE_RATIO;
             gizmos.circle_2d(point_pos, inner_radius, color);
