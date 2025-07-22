@@ -27,8 +27,10 @@ pub mod sort_visuals;
 // Re-export commonly used items
 pub use checkerboard::{CheckerboardEnabled, CheckerboardPlugin};
 pub use mesh_glyph_outline::MeshGlyphOutlinePlugin;
+pub use metrics::MetricsRenderingPlugin;
 pub use outline_elements::OutlineElementsPlugin;
 pub use points::PointRenderingPlugin;
+pub use sort_visuals::SortHandleRenderingPlugin;
 pub use unified_glyph_editing::UnifiedGlyphEditingPlugin;
 pub use selection::{
     render_all_point_entities, render_control_handles,

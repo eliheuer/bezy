@@ -2,7 +2,7 @@
 
 use crate::core::state::font_data::OutlineData;
 use crate::core::state::font_metrics::FontMetrics;
-use crate::core::state::FontIRAppState;
+use crate::core::state::{FontIRAppState, SortLayoutMode};
 use crate::editing::selection::components::{GlyphPointReference, PointType, Selected};
 use crate::editing::selection::nudge::NudgeState;
 use crate::rendering::glyph_outline::{
@@ -14,12 +14,177 @@ use crate::rendering::fontir_glyph_outline::{
 use crate::rendering::metrics::draw_metrics_at_position;
 use crate::systems::sort_manager::SortPointEntity;
 use bevy::prelude::*;
+use bevy::sprite::{ColorMaterial, MeshMaterial2d};
+use bevy::render::mesh::Mesh2d;
 use kurbo::BezPath;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SortRenderStyle {
     TextBuffer,
     Freeform,
+}
+
+/// Component to mark entities as sort handle visual elements
+#[derive(Component)]
+pub struct SortHandle {
+    pub sort_entity: Entity,
+    pub handle_type: SortHandleType,
+}
+
+/// Types of sort handle elements
+#[derive(Debug, Clone)]
+pub enum SortHandleType {
+    Square,
+    Circle,
+    SelectionIndicator,
+}
+
+/// Resource to track sort handle entities
+#[derive(Resource, Default)]
+pub struct SortHandleEntities {
+    pub handles: std::collections::HashMap<Entity, Vec<Entity>>, // sort_entity -> handle entities
+}
+
+/// Z-levels for sort handles
+const SORT_HANDLE_Z: f32 = 20.0; // Above glyph editing elements
+
+/// Helper to spawn a mesh-based square handle
+fn spawn_square_handle(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    position: Vec2,
+    size: f32,
+    color: Color,
+    sort_entity: Entity,
+    handle_type: SortHandleType,
+) -> Entity {
+    // Create square outline using 4 line segments with 1px width
+    let half_size = size;
+    let line_width = 1.0;
+    
+    // Create a container entity for the 4 lines
+    let container = commands.spawn((
+        SortHandle { sort_entity, handle_type },
+        Transform::from_translation(position.extend(SORT_HANDLE_Z)),
+        GlobalTransform::default(),
+        Visibility::Visible,
+        InheritedVisibility::default(),
+        ViewVisibility::default(),
+    )).id();
+    
+    // Top line
+    let top_line = crate::rendering::mesh_glyph_outline::create_line_mesh(
+        Vec2::new(-half_size, half_size),
+        Vec2::new(half_size, half_size),
+        line_width
+    );
+    commands.spawn((
+        Mesh2d(meshes.add(top_line)),
+        MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+        Transform::from_translation(Vec3::ZERO),
+        GlobalTransform::default(),
+        Visibility::Visible,
+        InheritedVisibility::default(),
+        ViewVisibility::default(),
+    )).insert(ChildOf(container));
+    
+    // Right line
+    let right_line = crate::rendering::mesh_glyph_outline::create_line_mesh(
+        Vec2::new(half_size, half_size),
+        Vec2::new(half_size, -half_size),
+        line_width
+    );
+    commands.spawn((
+        Mesh2d(meshes.add(right_line)),
+        MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+        Transform::from_translation(Vec3::ZERO),
+        GlobalTransform::default(),
+        Visibility::Visible,
+        InheritedVisibility::default(),
+        ViewVisibility::default(),
+    )).insert(ChildOf(container));
+    
+    // Bottom line
+    let bottom_line = crate::rendering::mesh_glyph_outline::create_line_mesh(
+        Vec2::new(half_size, -half_size),
+        Vec2::new(-half_size, -half_size),
+        line_width
+    );
+    commands.spawn((
+        Mesh2d(meshes.add(bottom_line)),
+        MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+        Transform::from_translation(Vec3::ZERO),
+        GlobalTransform::default(),
+        Visibility::Visible,
+        InheritedVisibility::default(),
+        ViewVisibility::default(),
+    )).insert(ChildOf(container));
+    
+    // Left line
+    let left_line = crate::rendering::mesh_glyph_outline::create_line_mesh(
+        Vec2::new(-half_size, -half_size),
+        Vec2::new(-half_size, half_size),
+        line_width
+    );
+    commands.spawn((
+        Mesh2d(meshes.add(left_line)),
+        MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+        Transform::from_translation(Vec3::ZERO),
+        GlobalTransform::default(),
+        Visibility::Visible,
+        InheritedVisibility::default(),
+        ViewVisibility::default(),
+    )).insert(ChildOf(container));
+    
+    container
+}
+
+/// Helper to spawn a mesh-based circle handle
+fn spawn_circle_handle(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    position: Vec2,
+    radius: f32,
+    color: Color,
+    sort_entity: Entity,
+    handle_type: SortHandleType,
+) -> Entity {
+    // Create circle outline using line segments with 1px width
+    let line_width = 1.0;
+    let segments = 24; // 24 segments for smooth circle
+    
+    let container = commands.spawn((
+        SortHandle { sort_entity, handle_type },
+        Transform::from_translation(position.extend(SORT_HANDLE_Z)),
+        GlobalTransform::default(),
+        Visibility::Visible,
+        InheritedVisibility::default(),
+        ViewVisibility::default(),
+    )).id();
+    
+    // Create circle segments
+    for i in 0..segments {
+        let angle1 = (i as f32 / segments as f32) * 2.0 * std::f32::consts::PI;
+        let angle2 = ((i + 1) as f32 / segments as f32) * 2.0 * std::f32::consts::PI;
+        
+        let start = Vec2::new(angle1.cos() * radius, angle1.sin() * radius);
+        let end = Vec2::new(angle2.cos() * radius, angle2.sin() * radius);
+        
+        let segment_line = crate::rendering::mesh_glyph_outline::create_line_mesh(start, end, line_width);
+        commands.spawn((
+            Mesh2d(meshes.add(segment_line)),
+            MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+            Transform::from_translation(Vec3::ZERO),
+            GlobalTransform::default(),
+            Visibility::Visible,
+            InheritedVisibility::default(),
+            ViewVisibility::default(),
+        )).insert(ChildOf(container));
+    }
+    
+    container
 }
 
 /// Draws a sort (outline, metrics, handles) at the given position with the given style
@@ -91,17 +256,18 @@ pub fn render_sort_visuals_with_selection(
     // Normal handle: smaller and uses appropriate color
     let normal_size = 16.0;
 
-    match style {
-        SortRenderStyle::TextBuffer => {
-            // Square handle for text sorts
-            let square_size = Vec2::new(normal_size * 2.0, normal_size * 2.0);
-            gizmos.rect_2d(handle_position, square_size, handle_color);
-        }
-        SortRenderStyle::Freeform => {
-            // Circle handle for freeform sorts
-            gizmos.circle_2d(handle_position, normal_size, handle_color);
-        }
-    }
+    // DISABLED: Gizmo-based handle rendering - now using mesh system
+    // match style {
+    //     SortRenderStyle::TextBuffer => {
+    //         // Square handle for text sorts
+    //         let square_size = Vec2::new(normal_size * 2.0, normal_size * 2.0);
+    //         gizmos.rect_2d(handle_position, square_size, handle_color);
+    //     }
+    //     SortRenderStyle::Freeform => {
+    //         // Circle handle for freeform sorts
+    //         gizmos.circle_2d(handle_position, normal_size, handle_color);
+    //     }
+    // }
 }
 
 /// Enhanced sort rendering that uses live Transform positions during nudging
@@ -239,51 +405,52 @@ pub fn render_sort_visuals_with_live_sync(
         metrics_color // Default metrics color if we can't check selection
     };
 
-    match style {
-        SortRenderStyle::TextBuffer => {
-            // Square handle for text sorts
-            let square_size = Vec2::new(normal_size * 2.0, normal_size * 2.0);
-            gizmos.rect_2d(handle_position, square_size, handle_color);
-
-            // Add bigger square indicator for selected sorts
-            if let (Some(entity), Some(selected_query)) =
-                (sort_entity, selected_query)
-            {
-                if selected_query
-                    .iter()
-                    .any(|selected_entity| selected_entity == entity)
-                {
-                    let big_square_size =
-                        Vec2::new(normal_size * 3.0, normal_size * 3.0);
-                    gizmos.rect_2d(
-                        handle_position,
-                        big_square_size,
-                        Color::srgba(1.0, 1.0, 0.0, 0.5),
-                    );
-                }
-            }
-        }
-        SortRenderStyle::Freeform => {
-            // Circle handle for freeform sorts
-            gizmos.circle_2d(handle_position, normal_size, handle_color);
-
-            // Add bigger circle indicator for selected sorts
-            if let (Some(entity), Some(selected_query)) =
-                (sort_entity, selected_query)
-            {
-                if selected_query
-                    .iter()
-                    .any(|selected_entity| selected_entity == entity)
-                {
-                    gizmos.circle_2d(
-                        handle_position,
-                        normal_size * 1.5,
-                        Color::srgba(1.0, 1.0, 0.0, 0.5),
-                    );
-                }
-            }
-        }
-    }
+    // DISABLED: Gizmo-based handle rendering - now using mesh system
+    // match style {
+    //     SortRenderStyle::TextBuffer => {
+    //         // Square handle for text sorts
+    //         let square_size = Vec2::new(normal_size * 2.0, normal_size * 2.0);
+    //         gizmos.rect_2d(handle_position, square_size, handle_color);
+    //
+    //         // Add bigger square indicator for selected sorts
+    //         if let (Some(entity), Some(selected_query)) =
+    //             (sort_entity, selected_query)
+    //         {
+    //             if selected_query
+    //                 .iter()
+    //                 .any(|selected_entity| selected_entity == entity)
+    //             {
+    //                 let big_square_size =
+    //                     Vec2::new(normal_size * 3.0, normal_size * 3.0);
+    //                 gizmos.rect_2d(
+    //                     handle_position,
+    //                     big_square_size,
+    //                     Color::srgba(1.0, 1.0, 0.0, 0.5),
+    //                 );
+    //             }
+    //         }
+    //     }
+    //     SortRenderStyle::Freeform => {
+    //         // Circle handle for freeform sorts
+    //         gizmos.circle_2d(handle_position, normal_size, handle_color);
+    //
+    //         // Add bigger circle indicator for selected sorts
+    //         if let (Some(entity), Some(selected_query)) =
+    //             (sort_entity, selected_query)
+    //         {
+    //             if selected_query
+    //                 .iter()
+    //                 .any(|selected_entity| selected_entity == entity)
+    //             {
+    //                 gizmos.circle_2d(
+    //                     handle_position,
+    //                     normal_size * 1.5,
+    //                     Color::srgba(1.0, 1.0, 0.0, 0.5),
+    //                 );
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 /// FontIR-compatible version of render_sort_visuals
@@ -320,17 +487,18 @@ pub fn render_fontir_sort_visuals(
     let handle_position = position + Vec2::new(0.0, descender);
     let normal_size = 16.0;
 
-    match style {
-        SortRenderStyle::TextBuffer => {
-            // Square handle for text sorts
-            let square_size = Vec2::new(normal_size * 2.0, normal_size * 2.0);
-            gizmos.rect_2d(handle_position, square_size, metrics_color);
-        }
-        SortRenderStyle::Freeform => {
-            // Circle handle for freeform sorts
-            gizmos.circle_2d(handle_position, normal_size, metrics_color);
-        }
-    }
+    // DISABLED: Gizmo-based handle rendering - now using mesh system
+    // match style {
+    //     SortRenderStyle::TextBuffer => {
+    //         // Square handle for text sorts
+    //         let square_size = Vec2::new(normal_size * 2.0, normal_size * 2.0);
+    //         gizmos.rect_2d(handle_position, square_size, metrics_color);
+    //     }
+    //     SortRenderStyle::Freeform => {
+    //         // Circle handle for freeform sorts
+    //         gizmos.circle_2d(handle_position, normal_size, metrics_color);
+    //     }
+    // }
 }
 
 /// Render FontIR sort with optimized live rendering during nudging
@@ -382,20 +550,142 @@ pub fn render_fontir_sort_visuals_with_live_sync(
     let handle_position = position + Vec2::new(0.0, descender);
     let normal_size = 16.0;
 
-    match style {
-        SortRenderStyle::TextBuffer => {
-            let square_size = Vec2::new(normal_size * 2.0, normal_size * 2.0);
-            gizmos.rect_2d(handle_position, square_size, metrics_color);
-        }
-        SortRenderStyle::Freeform => {
-            gizmos.circle_2d(handle_position, normal_size, metrics_color);
-        }
-    }
+    // DISABLED: Gizmo-based handle rendering - now using mesh system
+    // match style {
+    //     SortRenderStyle::TextBuffer => {
+    //         let square_size = Vec2::new(normal_size * 2.0, normal_size * 2.0);
+    //         gizmos.rect_2d(handle_position, square_size, metrics_color);
+    //     }
+    //     SortRenderStyle::Freeform => {
+    //         gizmos.circle_2d(handle_position, normal_size, metrics_color);
+    //     }
+    // }
 }
 
 // REMOVED: draw_simple_live_outline
 // This function was causing curves to become straight lines during nudging.
 // Now using direct FontIR working copy updates for immediate synchronization.
+
+/// System to render mesh-based sort handles for all active sorts
+pub fn render_mesh_sort_handles(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut handle_entities: ResMut<SortHandleEntities>,
+    sort_query: Query<(Entity, &Transform, &crate::editing::sort::Sort), With<crate::editing::sort::ActiveSort>>,
+    existing_handles: Query<Entity, With<SortHandle>>,
+    selected_query: Query<Entity, With<Selected>>,
+    fontir_app_state: Option<Res<FontIRAppState>>,
+) {
+    // Clear existing handles
+    for entity in existing_handles.iter() {
+        commands.entity(entity).despawn();
+    }
+    handle_entities.handles.clear();
+
+    if let Some(fontir_state) = fontir_app_state {
+        let fontir_metrics = fontir_state.get_font_metrics();
+        
+        for (sort_entity, sort_transform, sort) in sort_query.iter() {
+            let position = sort_transform.translation.truncate();
+            
+            // Get advance width from FontIR
+            let advance_width = fontir_state.get_glyph_advance_width(&sort.glyph_name);
+            
+            // Handle position at descender
+            let descender = fontir_metrics.descender.unwrap_or(-200.0);
+            let handle_position = position + Vec2::new(0.0, descender);
+            
+            // Determine handle color
+            let is_selected = selected_query.get(sort_entity).is_ok();
+            let handle_color = if is_selected {
+                Color::srgb(1.0, 1.0, 0.0) // Yellow for selected
+            } else {
+                crate::ui::theme::SORT_INACTIVE_METRICS_COLOR // Default metrics color
+            };
+            
+            let normal_size = 16.0;
+            
+            // Create appropriate handle based on sort layout mode
+            let style = match sort.layout_mode {
+                SortLayoutMode::Text => SortRenderStyle::TextBuffer,
+                SortLayoutMode::Freeform => SortRenderStyle::Freeform,
+            };
+            
+            let handle_entity = match style {
+                SortRenderStyle::TextBuffer => {
+                    spawn_square_handle(
+                        &mut commands,
+                        &mut meshes,
+                        &mut materials,
+                        handle_position,
+                        normal_size, // Pass normal_size so total square size = 2 * normal_size (matching original)
+                        handle_color,
+                        sort_entity,
+                        SortHandleType::Square,
+                    )
+                }
+                SortRenderStyle::Freeform => {
+                    spawn_circle_handle(
+                        &mut commands,
+                        &mut meshes,
+                        &mut materials,
+                        handle_position,
+                        normal_size,
+                        handle_color,
+                        sort_entity,
+                        SortHandleType::Circle,
+                    )
+                }
+            };
+            
+            // Store handle entity
+            handle_entities.handles.insert(sort_entity, vec![handle_entity]);
+            
+            // Add selection indicator if selected
+            if is_selected {
+                let selection_entity = match style {
+                    SortRenderStyle::TextBuffer => {
+                        spawn_square_handle(
+                            &mut commands,
+                            &mut meshes,
+                            &mut materials,
+                            handle_position,
+                            normal_size * 1.5, // Pass 1.5x so total square size = 3 * normal_size (matching original)
+                            Color::srgba(1.0, 1.0, 0.0, 0.5),
+                            sort_entity,
+                            SortHandleType::SelectionIndicator,
+                        )
+                    }
+                    SortRenderStyle::Freeform => {
+                        spawn_circle_handle(
+                            &mut commands,
+                            &mut meshes,
+                            &mut materials,
+                            handle_position,
+                            normal_size * 1.5,
+                            Color::srgba(1.0, 1.0, 0.0, 0.5),
+                            sort_entity,
+                            SortHandleType::SelectionIndicator,
+                        )
+                    }
+                };
+                
+                handle_entities.handles.get_mut(&sort_entity).unwrap().push(selection_entity);
+            }
+        }
+    }
+}
+
+/// Plugin for mesh-based sort handle rendering
+pub struct SortHandleRenderingPlugin;
+
+impl Plugin for SortHandleRenderingPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<SortHandleEntities>()
+           .add_systems(Update, render_mesh_sort_handles);
+    }
+}
 
 #[cfg(test)]
 mod tests {
