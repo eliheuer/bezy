@@ -158,8 +158,23 @@ DO NOT be ambitious or make sweeping changes - be precise and minimal.
 RESPECT the existing default tool (select) and user workflows.
 
 # camera-zoom-scaling-direction
-IMPORTANT: Camera-responsive scaling relationship in src/rendering/camera_responsive.rs:
-- When USER ZOOMS OUT: camera_scale gets SMALLER, visual elements should get BIGGER
-- When USER ZOOMS IN: camera_scale gets LARGER, visual elements should get SMALLER
-- Therefore: responsive_factor = camera_scale * constant (PROPORTIONAL, not inverse)
-- NEVER use inverse relationship like 1.0/camera_scale - this makes elements huge when zoomed in and tiny when zoomed out!
+CRITICAL: Camera-responsive scaling relationship in src/rendering/camera_responsive.rs:
+⚠️  I KEEP GETTING THIS WRONG - READ CAREFULLY ⚠️
+
+ACTUAL PROVEN RELATIONSHIP (after multiple corrections):
+- When USER ZOOMS OUT: camera_scale < 1.0, visual elements need to be BIGGER  
+- When USER ZOOMS IN: camera_scale > 1.0, visual elements need to be SMALLER
+- Normal zoom: camera_scale = 1.0
+
+WORKING CODE PATTERN:
+```rust
+if camera_scale < 1.0 {
+    // ZOOMED OUT: make elements BIGGER  
+    base_responsive * 2.0
+} else {
+    // ZOOMED IN: make elements SMALLER
+    base_responsive * 0.5  
+}
+```
+
+DO NOT CHANGE THIS AGAIN - I have repeatedly gotten the camera_scale relationship backwards!

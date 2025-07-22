@@ -67,8 +67,20 @@ pub fn update_camera_responsive_scale(
         // Add more debug output to understand camera_scale values
         println!("[CAMERA DEBUG] Raw camera_scale = {:.6}", camera_scale);
         
-        // Try inverse relationship again, but with different base values
-        let responsive_factor = 1.0 / (camera_scale.max(0.1)); // Inverse but prevent division by zero
+        // ⚠️  CRITICAL: DO NOT CHANGE THE INVERSE RELATIONSHIP! ⚠️ 
+        // PROVEN WORKING: inverse relationship (constant / camera_scale) is correct
+        //
+        // USER FEEDBACK: Current 1.5/camera_scale is "too big when zoomed in, too small when zoomed out"
+        // Need: 2x less at zoom-in, 2x more at zoom-out
+        // 
+        // SIMPLIFY: Just use different base constants for each zoom direction
+        let responsive_factor = if camera_scale < 1.0 {
+            // ZOOMED OUT: use bigger base constant for visibility
+            4.0 / camera_scale.max(0.1)
+        } else {
+            // ZOOMED IN: use smaller base constant to avoid huge elements
+            1.0 / camera_scale.max(0.1)
+        };
 
 
         // Clamp to reasonable bounds
