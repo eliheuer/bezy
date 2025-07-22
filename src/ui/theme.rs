@@ -204,7 +204,7 @@ pub const CHECKERBOARD_SCALE_FACTOR: f32 = 2.0;
 pub const CHECKERBOARD_MAX_ZOOM_VISIBLE: f32 = 32.0;
 pub const CHECKERBOARD_ENABLED_BY_DEFAULT: bool = true;
 
-pub const HANDLE_LINE_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 0.3);
+pub const HANDLE_LINE_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
 pub const OFF_CURVE_POINT_COLOR: Color = Color::srgb(0.6, 0.4, 1.0);
 pub const ON_CURVE_POINT_COLOR: Color = Color::srgb(0.3, 1.0, 0.5);
 pub const PATH_STROKE_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
