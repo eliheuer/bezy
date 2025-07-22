@@ -128,9 +128,10 @@ impl Plugin for SelectionPlugin {
                 PostUpdate,
                 (
                     crate::rendering::selection::render_selection_marquee,
-                    crate::rendering::selection::render_selected_entities,
-                    crate::rendering::selection::render_all_point_entities,
-                    crate::rendering::selection::render_control_handles,
+                    // DISABLED: These are now handled by the unified glyph editing system
+                    // crate::rendering::selection::render_selected_entities,
+                    // crate::rendering::selection::render_all_point_entities,
+                    // crate::rendering::selection::render_control_handles,
                     utils::debug_print_selection_rects, // TEMP: debug system
                 )
                     .in_set(SelectionSystemSet::Render),
