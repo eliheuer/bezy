@@ -9,7 +9,7 @@ use crate::core::state::GlyphNavigation;
 use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
 use crate::rendering::{
     cameras::CameraPlugin, checkerboard::CheckerboardPlugin, MeshGlyphOutlinePlugin, 
-    OutlineElementsPlugin, PointBackgroundPlugin,
+    OutlineElementsPlugin, PointRenderingPlugin,
 };
 use crate::systems::{
     exit_on_esc, load_fontir_font, load_ufo_font, BezySystems, CommandsPlugin,
@@ -56,7 +56,7 @@ impl PluginGroup for RenderingPluginGroup {
             .add(CameraPlugin)
             .add(CheckerboardPlugin)
             .add(MeshGlyphOutlinePlugin)
-            .add(PointBackgroundPlugin)
+            .add(PointRenderingPlugin)
             .add(OutlineElementsPlugin)
     }
 }

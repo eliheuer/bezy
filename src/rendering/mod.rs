@@ -18,7 +18,7 @@ pub mod glyph_outline;
 pub mod mesh_glyph_outline;
 pub mod metrics;
 pub mod outline_elements;
-pub mod point_backgrounds;
+pub mod points;
 pub mod selection;
 pub mod sort_renderer;
 pub mod sort_visuals;
@@ -27,7 +27,7 @@ pub mod sort_visuals;
 pub use checkerboard::{CheckerboardEnabled, CheckerboardPlugin};
 pub use mesh_glyph_outline::MeshGlyphOutlinePlugin;
 pub use outline_elements::OutlineElementsPlugin;
-pub use point_backgrounds::PointBackgroundPlugin;
+pub use points::PointRenderingPlugin;
 pub use selection::{
     render_all_point_entities, render_control_handles,
     render_selected_entities, render_selection_marquee,

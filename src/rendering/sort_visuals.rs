@@ -188,22 +188,23 @@ pub fn render_sort_visuals_with_live_sync(
     }
 
     // Draw outline with appropriate method
-    if use_live_rendering {
-        println!("[LIVE RENDER] *** USING LIVE TRANSFORM POSITIONS FOR OUTLINE RENDERING ***");
-        draw_glyph_outline_from_live_transforms(
-            gizmos,
-            sort_entity.unwrap(),
-            sort_transform.unwrap(),
-            glyph_name.unwrap(),
-            point_query.unwrap(),
-            app_state.unwrap(),
-            selected_query.unwrap(),
-        );
-    } else {
-        // Use normal rendering from glyph data
-        debug!("[NORMAL RENDER] Using glyph data for outline rendering");
-        // draw_glyph_outline_at_position(gizmos, outline, position); // DISABLED: Using mesh rendering
-    }
+    // DISABLED: All gizmo-based outline rendering - now using mesh system exclusively
+    // if use_live_rendering {
+    //     println!("[LIVE RENDER] *** USING LIVE TRANSFORM POSITIONS FOR OUTLINE RENDERING ***");
+    //     draw_glyph_outline_from_live_transforms(
+    //         gizmos,
+    //         sort_entity.unwrap(),
+    //         sort_transform.unwrap(),
+    //         glyph_name.unwrap(),
+    //         point_query.unwrap(),
+    //         app_state.unwrap(),
+    //         selected_query.unwrap(),
+    //     );
+    // } else {
+    //     // Use normal rendering from glyph data
+    //     debug!("[NORMAL RENDER] Using glyph data for outline rendering");
+    //     // draw_glyph_outline_at_position(gizmos, outline, position); // DISABLED: Using mesh rendering
+    // }
 
     // Draw metrics (always from original data)
     draw_metrics_at_position(
@@ -298,8 +299,8 @@ pub fn render_fontir_sort_visuals(
 ) {
     // Get FontIR glyph paths (with working copy edits if available)
     if let Some(paths) = fontir_app_state.get_glyph_paths_with_edits(glyph_name) {
-        // Draw FontIR outline
-        draw_fontir_glyph_outline_at_position(gizmos, &paths, position);
+        // DISABLED: Draw FontIR outline - now using mesh system
+        // draw_fontir_glyph_outline_at_position(gizmos, &paths, position);
     }
     
     // Get real FontIR metrics instead of using converted FontMetrics
@@ -362,7 +363,8 @@ pub fn render_fontir_sort_visuals_with_live_sync(
     // SIMPLIFIED: Always use stable FontIR working copy rendering
     // Working copy updates happen immediately during nudging for synchronization
     if let Some(paths) = fontir_app_state.get_glyph_paths_with_edits(glyph_name) {
-        draw_fontir_glyph_outline_at_position(gizmos, &paths, position);
+        // DISABLED: Draw FontIR outline - now using mesh system
+        // draw_fontir_glyph_outline_at_position(gizmos, &paths, position);
     }
     
     // Always draw metrics and handles the same way

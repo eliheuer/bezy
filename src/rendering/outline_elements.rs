@@ -31,7 +31,9 @@ impl Plugin for OutlineElementsPlugin {
         println!("[HANDLES] OutlineElementsPlugin: Registering handle systems");
         app.add_systems(
             Update,
-            (update_handle_lines, cleanup_orphaned_handles).chain(),
+            (update_handle_lines, cleanup_orphaned_handles)
+                .chain()
+                .after(crate::editing::selection::nudge::handle_nudge_input),
         );
         println!("[HANDLES] OutlineElementsPlugin: Systems registered successfully");
     }
