@@ -163,9 +163,15 @@ pub fn render_sort_visuals_with_live_sync(
         false
     };
 
-    // Use live rendering during nudging OR when there are selected points
-    // This ensures the outline doesn't revert when nudging stops but points are still selected
-    let use_live_rendering = (nudge_active || has_selected_points)
+    // Use live rendering during nudging OR when there are selected points OR when there are any points visible
+    // This ensures handles are always visible when points are shown
+    let has_any_points = if let Some(point_query) = point_query {
+        !point_query.is_empty()
+    } else {
+        false
+    };
+    
+    let use_live_rendering = (nudge_active || has_selected_points || has_any_points)
         && has_sort_entity
         && has_sort_transform
         && has_glyph_name
@@ -173,13 +179,17 @@ pub fn render_sort_visuals_with_live_sync(
         && has_selected_query
         && has_app_state;
 
-    // Debug logging
-    debug!("[LIVE RENDER CHECK] nudge_active={}, has_selected_points={}, has_sort_entity={}, has_sort_transform={}, has_glyph_name={}, has_point_query={}, has_selected_query={}, has_app_state={}, use_live_rendering={}", 
-           nudge_active, has_selected_points, has_sort_entity, has_sort_transform, has_glyph_name, has_point_query, has_selected_query, has_app_state, use_live_rendering);
+    // Debug logging with println for visibility
+    static COUNTER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let count = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    if count % 60 == 0 { // Every second
+        println!("[LIVE RENDER CHECK] use_live_rendering={}, has_any_points={}, nudge_active={}, has_selected_points={}", 
+               use_live_rendering, has_any_points, nudge_active, has_selected_points);
+    }
 
     // Draw outline with appropriate method
     if use_live_rendering {
-        debug!("[LIVE RENDER] *** USING LIVE TRANSFORM POSITIONS FOR OUTLINE RENDERING ***");
+        println!("[LIVE RENDER] *** USING LIVE TRANSFORM POSITIONS FOR OUTLINE RENDERING ***");
         draw_glyph_outline_from_live_transforms(
             gizmos,
             sort_entity.unwrap(),

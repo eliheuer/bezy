@@ -576,8 +576,10 @@ pub fn draw_glyph_outline_from_live_transforms(
         }
     }
 
-    // DISABLED: Control handle rendering disabled per user request
-    // render_live_control_handles(gizmos, glyph_name, point_query, app_state);
+    // Render control handles for bezier curves
+    // Re-enable gizmo-based handles for immediate visibility
+    println!("[GIZMO HANDLES] About to call render_live_control_handles");
+    render_live_control_handles(gizmos, glyph_name, point_query, app_state);
 }
 
 /// Render control handles using live Transform positions during nudging
@@ -595,6 +597,7 @@ fn render_live_control_handles(
     >,
     app_state: &crate::core::state::AppState,
 ) {
+    println!("[GIZMO HANDLES] render_live_control_handles called for glyph: {}", glyph_name);
     let Some(glyph_data) = app_state.workspace.font.get_glyph(glyph_name)
     else {
         return;
@@ -656,6 +659,7 @@ fn render_live_contour_handles(
 
         // Draw handle line if one point is on-curve and the other is off-curve
         if current_on_curve != next_on_curve {
+            println!("[GIZMO HANDLES] Drawing handle line from {:?} to {:?}", current_pos, next_pos);
             gizmos.line_2d(
                 current_pos,
                 next_pos,
