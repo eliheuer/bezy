@@ -5,6 +5,7 @@
 
 use crate::core::state::font_metrics::FontMetrics;
 use crate::core::state::fontir_app_state::FontIRMetrics;
+use crate::rendering::camera_responsive::CameraResponsiveScale;
 use crate::ui::theme::METRICS_GUIDE_COLOR;
 use bevy::prelude::*;
 use bevy::sprite::{ColorMaterial, MeshMaterial2d};
@@ -48,8 +49,9 @@ fn spawn_metrics_line(
     color: Color,
     sort_entity: Entity,
     line_type: MetricsLineType,
+    camera_scale: &CameraResponsiveScale,
 ) -> Entity {
-    let line_width = 1.0; // Consistent 1px width
+    let line_width = camera_scale.adjusted_line_width(); // Camera-responsive width
     let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(start, end, line_width);
     
     commands.spawn((
@@ -73,6 +75,7 @@ pub fn render_mesh_metrics_lines(
     sort_query: Query<(Entity, &Transform, &crate::editing::sort::Sort), With<crate::editing::sort::ActiveSort>>,
     existing_metrics: Query<Entity, With<MetricsLine>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
+    camera_scale: Res<CameraResponsiveScale>,
 ) {
     // Clear existing metrics lines
     for entity in existing_metrics.iter() {
@@ -108,6 +111,7 @@ pub fn render_mesh_metrics_lines(
                 color,
                 sort_entity,
                 MetricsLineType::Baseline,
+                &camera_scale,
             );
             line_entities.push(baseline_entity);
             
@@ -122,6 +126,7 @@ pub fn render_mesh_metrics_lines(
                 color,
                 sort_entity,
                 MetricsLineType::XHeight,
+                &camera_scale,
             );
             line_entities.push(x_height_entity);
             
@@ -136,6 +141,7 @@ pub fn render_mesh_metrics_lines(
                 color,
                 sort_entity,
                 MetricsLineType::CapHeight,
+                &camera_scale,
             );
             line_entities.push(cap_height_entity);
             
@@ -150,6 +156,7 @@ pub fn render_mesh_metrics_lines(
                 color,
                 sort_entity,
                 MetricsLineType::Ascender,
+                &camera_scale,
             );
             line_entities.push(ascender_entity);
             
@@ -164,6 +171,7 @@ pub fn render_mesh_metrics_lines(
                 color,
                 sort_entity,
                 MetricsLineType::Descender,
+                &camera_scale,
             );
             line_entities.push(descender_entity);
             
@@ -177,6 +185,7 @@ pub fn render_mesh_metrics_lines(
                 color,
                 sort_entity,
                 MetricsLineType::AdvanceWidth,
+                &camera_scale,
             );
             line_entities.push(advance_width_entity);
             
@@ -194,6 +203,7 @@ pub fn render_mesh_metrics_lines(
                 color.with_alpha(0.7),
                 sort_entity,
                 MetricsLineType::BoundingBox,
+                &camera_scale,
             );
             line_entities.push(top_entity);
             
@@ -207,6 +217,7 @@ pub fn render_mesh_metrics_lines(
                 color.with_alpha(0.7),
                 sort_entity,
                 MetricsLineType::BoundingBox,
+                &camera_scale,
             );
             line_entities.push(right_entity);
             
@@ -220,6 +231,7 @@ pub fn render_mesh_metrics_lines(
                 color.with_alpha(0.7),
                 sort_entity,
                 MetricsLineType::BoundingBox,
+                &camera_scale,
             );
             line_entities.push(bottom_entity);
             
@@ -233,6 +245,7 @@ pub fn render_mesh_metrics_lines(
                 color.with_alpha(0.7),
                 sort_entity,
                 MetricsLineType::BoundingBox,
+                &camera_scale,
             );
             line_entities.push(left_entity);
             

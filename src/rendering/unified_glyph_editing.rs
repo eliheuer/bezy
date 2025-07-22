@@ -5,6 +5,7 @@
 
 use crate::editing::selection::components::{GlyphPointReference, PointType, Selected};
 use crate::editing::sort::ActiveSort;
+use crate::rendering::camera_responsive::CameraResponsiveScale;
 use crate::systems::sort_manager::SortPointEntity;
 use crate::ui::theme::*;
 use bevy::prelude::*;
@@ -45,6 +46,7 @@ pub fn render_unified_glyph_editing(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut unified_entities: ResMut<UnifiedGlyphEntities>,
+    camera_scale: Res<CameraResponsiveScale>,
     active_sort_query: Query<(Entity, &crate::editing::sort::Sort, &Transform), With<ActiveSort>>,
     point_query: Query<
         (Entity, &Transform, &GlyphPointReference, &PointType, Option<&Selected>),
@@ -90,20 +92,20 @@ pub fn render_unified_glyph_editing(
             // 1. Render outlines using live Transform positions
             render_unified_outline(&mut commands, &mut meshes, &mut materials, 
                                  &mut element_entities, sort_entity, &sort_points, sort_position,
-                                 fontir_app_state.as_ref().map(|v| &**v), app_state.as_ref().map(|v| &**v));
+                                 fontir_app_state.as_ref().map(|v| &**v), app_state.as_ref().map(|v| &**v), &camera_scale);
             
             // 2. Render handles using live Transform positions  
             render_unified_handles(&mut commands, &mut meshes, &mut materials,
-                                 &mut element_entities, sort_entity, &sort_points);
+                                 &mut element_entities, sort_entity, &sort_points, &camera_scale);
             
             // 3. Render points using live Transform positions
             render_unified_points(&mut commands, &mut meshes, &mut materials,
-                                &mut element_entities, sort_entity, &sort_points);
+                                &mut element_entities, sort_entity, &sort_points, &camera_scale);
         } else {
             // No points visible, render static outline from FontIR/UFO data
             render_static_outline(&mut commands, &mut meshes, &mut materials,
                                 &mut element_entities, sort_entity, &sort.glyph_name, sort_position,
-                                fontir_app_state.as_ref().map(|v| &**v), app_state.as_ref().map(|v| &**v));
+                                fontir_app_state.as_ref().map(|v| &**v), app_state.as_ref().map(|v| &**v), &camera_scale);
         }
 
         unified_entities.elements.insert(sort_entity, element_entities);
@@ -121,6 +123,7 @@ fn render_unified_outline(
     sort_position: Vec2,
     fontir_state: Option<&crate::core::state::FontIRAppState>,
     _app_state: Option<&crate::core::state::AppState>,
+    camera_scale: &CameraResponsiveScale,
 ) {
     // Build position map from live Transform data
     let mut live_positions = HashMap::new();
@@ -136,7 +139,7 @@ fn render_unified_outline(
     if let Some(fontir_state) = fontir_state {
         if let Some(original_paths) = fontir_state.get_glyph_paths_with_edits(&sort_points[0].2.glyph_name) {
             render_fontir_outline_unified(commands, meshes, materials, element_entities,
-                                        sort_entity, &original_paths, &live_positions, sort_position);
+                                        sort_entity, &original_paths, &live_positions, sort_position, camera_scale);
         }
     }
 }
@@ -149,6 +152,7 @@ fn render_unified_handles(
     element_entities: &mut Vec<Entity>,
     sort_entity: Entity,
     sort_points: &[(Entity, Vec2, &GlyphPointReference, &PointType, bool)],
+    camera_scale: &CameraResponsiveScale,
 ) {
     // Group points by contour
     let mut contours: HashMap<usize, Vec<_>> = HashMap::new();
@@ -179,7 +183,7 @@ fn render_unified_handles(
                     commands, meshes, materials,
                     current.1, next.1, 1.0, // 1px width
                     HANDLE_LINE_COLOR, UNIFIED_HANDLE_Z,
-                    sort_entity, UnifiedElementType::Handle
+                    sort_entity, UnifiedElementType::Handle, camera_scale
                 );
                 element_entities.push(entity);
             }
@@ -195,6 +199,7 @@ fn render_unified_points(
     element_entities: &mut Vec<Entity>,
     sort_entity: Entity,
     sort_points: &[(Entity, Vec2, &GlyphPointReference, &PointType, bool)],
+    camera_scale: &CameraResponsiveScale,
 ) {
     for (point_entity, position, _point_ref, point_type, is_selected) in sort_points {
         // Determine color based on selection state
@@ -209,7 +214,8 @@ fn render_unified_points(
         // Create the main point shape
         if point_type.is_on_curve && USE_SQUARE_FOR_ON_CURVE {
             // On-curve points: square
-            let size = ON_CURVE_POINT_RADIUS * ON_CURVE_SQUARE_ADJUSTMENT * 2.0;
+            let base_size = ON_CURVE_POINT_RADIUS * ON_CURVE_SQUARE_ADJUSTMENT * 2.0;
+            let size = camera_scale.adjusted_point_size(base_size);
             let entity = commands.spawn((
                 UnifiedGlyphElement { 
                     element_type: UnifiedElementType::Point { point_entity: *point_entity, is_outer: true },
@@ -249,11 +255,12 @@ fn render_unified_points(
             element_entities.push(inner_entity);
         } else {
             // Off-curve points and circular on-curve points: circle
-            let radius = if point_type.is_on_curve { 
+            let base_radius = if point_type.is_on_curve { 
                 ON_CURVE_POINT_RADIUS 
             } else { 
                 OFF_CURVE_POINT_RADIUS 
             };
+            let radius = camera_scale.adjusted_point_size(base_radius);
 
             let entity = commands.spawn((
                 UnifiedGlyphElement { 
@@ -294,11 +301,12 @@ fn render_unified_points(
 
         // Add crosshairs for selected points
         if *is_selected {
-            let line_size = if point_type.is_on_curve { 
+            let base_line_size = if point_type.is_on_curve { 
                 ON_CURVE_POINT_RADIUS 
             } else { 
                 OFF_CURVE_POINT_RADIUS 
             };
+            let line_size = camera_scale.adjusted_point_size(base_line_size);
 
             // Horizontal line
             let h_entity = commands.spawn((
@@ -308,7 +316,7 @@ fn render_unified_points(
                 },
                 Sprite {
                     color: point_color,
-                    custom_size: Some(Vec2::new(line_size * 2.0, 1.0)),
+                    custom_size: Some(Vec2::new(line_size * 2.0, camera_scale.adjusted_line_width())),
                     ..default()
                 },
                 Transform::from_translation(position.extend(UNIFIED_POINT_Z + 2.0)),
@@ -327,7 +335,7 @@ fn render_unified_points(
                 },
                 Sprite {
                     color: point_color,
-                    custom_size: Some(Vec2::new(1.0, line_size * 2.0)),
+                    custom_size: Some(Vec2::new(camera_scale.adjusted_line_width(), line_size * 2.0)),
                     ..default()
                 },
                 Transform::from_translation(position.extend(UNIFIED_POINT_Z + 2.0)),
@@ -352,6 +360,7 @@ fn render_static_outline(
     position: Vec2,
     fontir_state: Option<&crate::core::state::FontIRAppState>,
     _app_state: Option<&crate::core::state::AppState>,
+    camera_scale: &CameraResponsiveScale,
 ) {
     if let Some(fontir_state) = fontir_state {
         if let Some(paths) = fontir_state.get_glyph_paths_with_edits(glyph_name) {
@@ -372,7 +381,7 @@ fn render_static_outline(
                                     commands, meshes, materials,
                                     start, end, 1.0,
                                     PATH_STROKE_COLOR, UNIFIED_OUTLINE_Z,
-                                    sort_entity, UnifiedElementType::OutlineSegment
+                                    sort_entity, UnifiedElementType::OutlineSegment, camera_scale
                                 );
                                 element_entities.push(entity);
                                 current_pos = Some(end);
@@ -407,7 +416,7 @@ fn render_static_outline(
                                         commands, meshes, materials,
                                         last_pos, curve_pos, 1.0,
                                         PATH_STROKE_COLOR, UNIFIED_OUTLINE_Z,
-                                        sort_entity, UnifiedElementType::OutlineSegment
+                                        sort_entity, UnifiedElementType::OutlineSegment, camera_scale
                                     );
                                     element_entities.push(entity);
                                     last_pos = curve_pos;
@@ -437,7 +446,7 @@ fn render_static_outline(
                                         commands, meshes, materials,
                                         last_pos, curve_pos, 1.0,
                                         PATH_STROKE_COLOR, UNIFIED_OUTLINE_Z,
-                                        sort_entity, UnifiedElementType::OutlineSegment
+                                        sort_entity, UnifiedElementType::OutlineSegment, camera_scale
                                     );
                                     element_entities.push(entity);
                                     last_pos = curve_pos;
@@ -465,6 +474,7 @@ fn render_fontir_outline_unified(
     original_paths: &[kurbo::BezPath],
     live_positions: &HashMap<(usize, usize), (Vec2, bool)>,
     sort_position: Vec2,
+    camera_scale: &CameraResponsiveScale,
 ) {
     // Process each contour with live positions
     for (contour_idx, original_path) in original_paths.iter().enumerate() {
@@ -496,7 +506,7 @@ fn render_fontir_outline_unified(
                             commands, meshes, materials,
                             start, end, 1.0,
                             PATH_STROKE_COLOR, UNIFIED_OUTLINE_Z,
-                            sort_entity, UnifiedElementType::OutlineSegment
+                            sort_entity, UnifiedElementType::OutlineSegment, camera_scale
                         );
                         element_entities.push(entity);
                         current_pos = Some(end);
@@ -547,7 +557,7 @@ fn render_fontir_outline_unified(
                                 commands, meshes, materials,
                                 last_pos, curve_pos, 1.0,
                                 PATH_STROKE_COLOR, UNIFIED_OUTLINE_Z,
-                                sort_entity, UnifiedElementType::OutlineSegment
+                                sort_entity, UnifiedElementType::OutlineSegment, camera_scale
                             );
                             element_entities.push(entity);
                             last_pos = curve_pos;
@@ -587,7 +597,7 @@ fn render_fontir_outline_unified(
                                 commands, meshes, materials,
                                 last_pos, curve_pos, 1.0,
                                 PATH_STROKE_COLOR, UNIFIED_OUTLINE_Z,
-                                sort_entity, UnifiedElementType::OutlineSegment
+                                sort_entity, UnifiedElementType::OutlineSegment, camera_scale
                             );
                             element_entities.push(entity);
                             last_pos = curve_pos;
@@ -616,8 +626,10 @@ fn spawn_unified_line_mesh(
     z: f32,
     sort_entity: Entity,
     element_type: UnifiedElementType,
+    camera_scale: &CameraResponsiveScale,
 ) -> Entity {
-    let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(start, end, width);
+    let adjusted_width = camera_scale.adjusted_line_width() * width;
+    let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(start, end, adjusted_width);
     
     commands.spawn((
         UnifiedGlyphElement { element_type, sort_entity },

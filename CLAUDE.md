@@ -156,3 +156,10 @@ ALWAYS ask for clarification if the request is unclear rather than making assump
 FOCUS entirely on the specific issue described by the user.
 DO NOT be ambitious or make sweeping changes - be precise and minimal.
 RESPECT the existing default tool (select) and user workflows.
+
+# camera-zoom-scaling-direction
+IMPORTANT: Camera-responsive scaling relationship in src/rendering/camera_responsive.rs:
+- When USER ZOOMS OUT: camera_scale gets SMALLER, visual elements should get BIGGER
+- When USER ZOOMS IN: camera_scale gets LARGER, visual elements should get SMALLER
+- Therefore: responsive_factor = camera_scale * constant (PROPORTIONAL, not inverse)
+- NEVER use inverse relationship like 1.0/camera_scale - this makes elements huge when zoomed in and tiny when zoomed out!

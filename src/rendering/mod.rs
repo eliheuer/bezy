@@ -10,6 +10,7 @@
 #![allow(unused_imports)]
 
 pub mod cameras;
+pub mod camera_responsive;
 pub mod checkerboard;
 pub mod debug;
 pub mod draw;
@@ -25,6 +26,7 @@ pub mod sort_renderer;
 pub mod sort_visuals;
 
 // Re-export commonly used items
+pub use camera_responsive::{CameraResponsivePlugin, CameraResponsiveScale};
 pub use checkerboard::{CheckerboardEnabled, CheckerboardPlugin};
 pub use mesh_glyph_outline::MeshGlyphOutlinePlugin;
 pub use metrics::MetricsRenderingPlugin;

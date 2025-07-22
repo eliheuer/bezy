@@ -5,6 +5,7 @@ use crate::core::state::font_metrics::FontMetrics;
 use crate::core::state::{FontIRAppState, SortLayoutMode};
 use crate::editing::selection::components::{GlyphPointReference, PointType, Selected};
 use crate::editing::selection::nudge::NudgeState;
+use crate::rendering::camera_responsive::CameraResponsiveScale;
 use crate::rendering::glyph_outline::{
     draw_glyph_outline_at_position, draw_glyph_outline_from_live_transforms,
 };
@@ -58,10 +59,11 @@ fn spawn_square_handle(
     color: Color,
     sort_entity: Entity,
     handle_type: SortHandleType,
+    camera_scale: &CameraResponsiveScale,
 ) -> Entity {
-    // Create square outline using 4 line segments with 1px width
-    let half_size = size;
-    let line_width = 1.0;
+    // Create square outline using 4 line segments with camera-responsive width
+    let half_size = camera_scale.adjusted_handle_size(size);
+    let line_width = camera_scale.adjusted_line_width();
     
     // Create a container entity for the 4 lines
     let container = commands.spawn((
@@ -150,9 +152,11 @@ fn spawn_circle_handle(
     color: Color,
     sort_entity: Entity,
     handle_type: SortHandleType,
+    camera_scale: &CameraResponsiveScale,
 ) -> Entity {
-    // Create circle outline using line segments with 1px width
-    let line_width = 1.0;
+    // Create circle outline using line segments with camera-responsive width
+    let line_width = camera_scale.adjusted_line_width();
+    let adjusted_radius = camera_scale.adjusted_handle_size(radius);
     let segments = 24; // 24 segments for smooth circle
     
     let container = commands.spawn((
@@ -169,8 +173,8 @@ fn spawn_circle_handle(
         let angle1 = (i as f32 / segments as f32) * 2.0 * std::f32::consts::PI;
         let angle2 = ((i + 1) as f32 / segments as f32) * 2.0 * std::f32::consts::PI;
         
-        let start = Vec2::new(angle1.cos() * radius, angle1.sin() * radius);
-        let end = Vec2::new(angle2.cos() * radius, angle2.sin() * radius);
+        let start = Vec2::new(angle1.cos() * adjusted_radius, angle1.sin() * adjusted_radius);
+        let end = Vec2::new(angle2.cos() * adjusted_radius, angle2.sin() * adjusted_radius);
         
         let segment_line = crate::rendering::mesh_glyph_outline::create_line_mesh(start, end, line_width);
         commands.spawn((
@@ -576,6 +580,7 @@ pub fn render_mesh_sort_handles(
     existing_handles: Query<Entity, With<SortHandle>>,
     selected_query: Query<Entity, With<Selected>>,
     fontir_app_state: Option<Res<FontIRAppState>>,
+    camera_scale: Res<CameraResponsiveScale>,
 ) {
     // Clear existing handles
     for entity in existing_handles.iter() {
@@ -623,6 +628,7 @@ pub fn render_mesh_sort_handles(
                         handle_color,
                         sort_entity,
                         SortHandleType::Square,
+                        &camera_scale,
                     )
                 }
                 SortRenderStyle::Freeform => {
@@ -635,6 +641,7 @@ pub fn render_mesh_sort_handles(
                         handle_color,
                         sort_entity,
                         SortHandleType::Circle,
+                        &camera_scale,
                     )
                 }
             };
@@ -655,6 +662,7 @@ pub fn render_mesh_sort_handles(
                             Color::srgba(1.0, 1.0, 0.0, 0.5),
                             sort_entity,
                             SortHandleType::SelectionIndicator,
+                            &camera_scale,
                         )
                     }
                     SortRenderStyle::Freeform => {
@@ -667,6 +675,7 @@ pub fn render_mesh_sort_handles(
                             Color::srgba(1.0, 1.0, 0.0, 0.5),
                             sort_entity,
                             SortHandleType::SelectionIndicator,
+                            &camera_scale,
                         )
                     }
                 };
