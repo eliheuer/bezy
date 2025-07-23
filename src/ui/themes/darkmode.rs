@@ -1,17 +1,8 @@
 //! Dark Mode Theme for Bezy
-//!
-//! This is the default theme for the Bezy font editor.
 
 use super::BezyTheme;
 use bevy::prelude::*;
 
-/// Dark mode theme implementation
-///
-/// This theme provides the classic Bezy dark mode appearance with:
-/// - Black background (#000000)
-/// - Dark gray UI elements
-/// - Bright colors for points and tools
-/// - High contrast for editing clarity
 pub struct DarkModeTheme;
 
 impl BezyTheme for DarkModeTheme {
@@ -19,7 +10,7 @@ impl BezyTheme for DarkModeTheme {
         "Dark Mode"
     }
 
-    // TYPOGRAPHY
+    // TYPOGRAPHY --------------------------------------------------------------
 
     fn normal_text_color(&self) -> Color {
         Color::srgb(0.9, 0.9, 0.9)
@@ -33,9 +24,7 @@ impl BezyTheme for DarkModeTheme {
         Color::srgb(1.0, 0.8, 0.0)
     }
 
-    // =================================================================
-    // COLORS - BACKGROUNDS & UI
-    // =================================================================
+    // COLORS - BACKGROUNDS & UI -----------------------------------------------
 
     fn background_color(&self) -> Color {
         Color::srgb(0.0, 0.0, 0.0)
@@ -101,26 +90,22 @@ impl BezyTheme for DarkModeTheme {
         Color::srgb(0.9, 0.9, 0.9)
     }
 
-    // =================================================================
-    // GLYPH RENDERING
-    // =================================================================
+    // GLYPH RENDERING ---------------------------------------------------------
 
-    /// On-curve point colors (two-layer system)
     fn on_curve_primary_color(&self) -> Color {
-        Color::srgb(0.3, 1.0, 0.5) // Bright green
+        Color::srgb(0.9, 1.0, 0.5)
     }
 
     fn on_curve_secondary_color(&self) -> Color {
-        Color::srgb(0.1, 0.4, 0.15) // Dark green
+        Color::srgb(0.9, 0.5, 0.3)
     }
 
-    /// Off-curve point colors (two-layer system)  
     fn off_curve_primary_color(&self) -> Color {
-        Color::srgb(0.6, 0.4, 1.0) // Purple/blue
+        Color::srgb(0.6, 0.4, 1.0)
     }
 
     fn off_curve_secondary_color(&self) -> Color {
-        Color::srgb(0.2, 0.15, 0.4) // Dark purple
+        Color::srgb(0.2, 0.15, 0.4)
     }
 
     fn path_line_color(&self) -> Color {
@@ -139,45 +124,40 @@ impl BezyTheme for DarkModeTheme {
         Color::srgba(0.5, 0.5, 0.5, 0.3)
     }
 
-    // =================================================================
-    // INFO COLORS - SEMANTIC COLORS
-    // =================================================================
+    // INFO COLORS - SEMANTIC COLORS -------------------------------------------
 
     fn error_color(&self) -> Color {
-        Color::srgb(1.0, 0.0, 0.0) // Red
+        Color::srgb(1.0, 0.0, 0.0)
     }
 
     fn action_color(&self) -> Color {
-        Color::srgb(1.0, 0.5, 0.0) // Orange
+        Color::srgb(1.0, 0.5, 0.0)
     }
 
     fn selected_color(&self) -> Color {
-        Color::srgb(1.0, 1.0, 0.0) // Yellow
+        Color::srgb(1.0, 1.0, 0.0)
     }
 
     fn active_color(&self) -> Color {
-        Color::srgb(0.0, 1.0, 0.0) // Green
+        Color::srgb(0.0, 1.0, 0.0)
     }
 
     fn helper_color(&self) -> Color {
-        Color::srgb(0.0, 0.5, 1.0) // Blue
+        Color::srgb(0.0, 0.5, 1.0)
     }
 
     fn special_color(&self) -> Color {
-        Color::srgb(0.8, 0.0, 1.0) // Purple
+        Color::srgb(0.8, 0.0, 1.0)
     }
 
-    // =================================================================
-    // SELECTION & INTERACTION
-    // =================================================================
+    // SELECTION & INTERACTION -------------------------------------------------
 
-    /// Selected point colors (two-layer system for crosshairs)
     fn selected_primary_color(&self) -> Color {
-        Color::srgba(1.0, 1.0, 0.0, 1.0) // Bright yellow
+        Color::srgba(1.0, 1.0, 0.0, 1.0)
     }
 
     fn selected_secondary_color(&self) -> Color {
-        Color::srgba(0.4, 0.4, 0.0, 1.0) // Dark yellow
+        Color::srgba(0.4, 0.4, 0.0, 1.0)
     }
 
     fn hover_point_color(&self) -> Color {
@@ -188,9 +168,7 @@ impl BezyTheme for DarkModeTheme {
         Color::srgb(1.0, 0.4, 0.0)
     }
 
-    // =================================================================
-    // EDITING TOOLS
-    // =================================================================
+    // EDITING TOOLS -----------------------------------------------------------
 
     fn knife_line_color(&self) -> Color {
         Color::srgba(1.0, 0.3, 0.3, 0.9)
@@ -232,9 +210,7 @@ impl BezyTheme for DarkModeTheme {
         Color::srgba(0.8, 0.8, 0.8, 0.6)
     }
 
-    // =================================================================
-    // METABALLS
-    // =================================================================
+    // METABALLS ---------------------------------------------------------------
 
     fn metaball_gizmo_color(&self) -> Color {
         Color::srgba(0.3, 0.7, 1.0, 0.6)
@@ -248,9 +224,7 @@ impl BezyTheme for DarkModeTheme {
         Color::srgba(1.0, 0.8, 0.0, 0.8)
     }
 
-    // =================================================================
-    // GUIDES & GRIDS
-    // =================================================================
+    // GUIDES & GRIDS ----------------------------------------------------------
 
     fn metrics_guide_color(&self) -> Color {
         Color::srgba(0.3, 1.0, 0.5, 0.5)
@@ -268,9 +242,7 @@ impl BezyTheme for DarkModeTheme {
         Color::srgba(0.1, 0.1, 0.1, 0.5)
     }
 
-    // =================================================================
-    // SORTING & LAYOUT
-    // =================================================================
+    // SORTING & LAYOUT --------------------------------------------------------
 
     fn sort_active_metrics_color(&self) -> Color {
         Color::srgba(0.3, 1.0, 0.5, 0.5)

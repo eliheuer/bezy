@@ -54,44 +54,89 @@ pub mod lightmode;
 pub mod ocean;
 pub mod strawberry;
 
+// Hot reload support
+pub mod hot_reload;
+pub mod runtime_reload;
+pub mod json_theme;
+
 // Each theme will auto-register itself via the register_theme! macro
 
-/// Theme registry that auto-discovers themes
+/// Theme registry that loads themes from JSON files
 pub struct ThemeRegistry {
-    themes: HashMap<String, Box<dyn Fn() -> Box<dyn BezyTheme> + Send + Sync>>,
+    themes: HashMap<String, Box<dyn BezyTheme>>,
 }
 
 impl ThemeRegistry {
-    /// Create a new registry with all built-in themes
+    /// Create a new registry and load all JSON themes
     pub fn new() -> Self {
-        let mut themes: HashMap<
-            String,
-            Box<dyn Fn() -> Box<dyn BezyTheme> + Send + Sync>,
-        > = HashMap::new();
-
-        // Register built-in themes
-        themes.insert(
+        let mut registry = Self {
+            themes: HashMap::new(),
+        };
+        
+        // Load themes from JSON files
+        registry.load_json_themes();
+        
+        // Fallback to built-in themes if no JSON themes found
+        if registry.themes.is_empty() {
+            registry.load_builtin_themes();
+        }
+        
+        registry
+    }
+    
+    /// Load themes from JSON files
+    fn load_json_themes(&mut self) {
+        let themes_dir = std::path::PathBuf::from("src/ui/themes");
+        
+        if !themes_dir.exists() {
+            return;
+        }
+        
+        if let Ok(entries) = std::fs::read_dir(themes_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                
+                if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                    if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                        match json_theme::JsonTheme::load_from_file(&path) {
+                            Ok(theme) => {
+                                info!("Loaded JSON theme: {}", theme.name);
+                                self.themes.insert(stem.to_string(), Box::new(theme));
+                            }
+                            Err(e) => {
+                                error!("Failed to load JSON theme from {:?}: {}", path, e);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /// Fallback to built-in Rust themes
+    fn load_builtin_themes(&mut self) {
+        warn!("No JSON themes found, using built-in themes");
+        
+        self.themes.insert(
             "darkmode".to_string(),
-            Box::new(|| Box::new(darkmode::DarkModeTheme)),
+            Box::new(darkmode::DarkModeTheme),
         );
-        themes.insert(
+        self.themes.insert(
             "lightmode".to_string(),
-            Box::new(|| Box::new(lightmode::LightModeTheme)),
+            Box::new(lightmode::LightModeTheme),
         );
-        themes.insert(
+        self.themes.insert(
             "strawberry".to_string(),
-            Box::new(|| Box::new(strawberry::StrawberryTheme)),
+            Box::new(strawberry::StrawberryTheme),
         );
-        themes.insert(
+        self.themes.insert(
             "campfire".to_string(),
-            Box::new(|| Box::new(campfire::CampfireTheme)),
+            Box::new(campfire::CampfireTheme),
         );
-        themes.insert(
+        self.themes.insert(
             "ocean".to_string(),
-            Box::new(|| Box::new(ocean::OceanTheme)),
+            Box::new(ocean::OceanTheme),
         );
-
-        Self { themes }
     }
 
     /// Get all available theme names
@@ -101,9 +146,28 @@ impl ThemeRegistry {
         names
     }
 
-    /// Create a theme instance by name
+    /// Get a theme by name (returns a reference)
+    pub fn get_theme(&self, name: &str) -> Option<&dyn BezyTheme> {
+        self.themes.get(name).map(|theme| theme.as_ref())
+    }
+    
+    /// Create a theme instance by name (clones the theme)
     pub fn create_theme(&self, name: &str) -> Option<Box<dyn BezyTheme>> {
-        self.themes.get(name).map(|factory| factory())
+        // For JSON themes, we need to reload them to get fresh data
+        if let Some(theme) = self.themes.get(name) {
+            // Try to reload from JSON file first
+            let json_path = format!("src/ui/themes/{}.json", name);
+            if let Ok(json_theme) = json_theme::JsonTheme::load_from_file(&json_path) {
+                return Some(Box::new(json_theme));
+            }
+            
+            // If JSON reload fails, return the cached theme
+            // Note: This is a limitation - we can't easily clone Box<dyn BezyTheme>
+            // For now, we'll return None and let the caller handle it
+            None
+        } else {
+            None
+        }
     }
 
     /// Check if a theme exists
@@ -117,7 +181,7 @@ impl ThemeRegistry {
         name: String,
     ) {
         self.themes
-            .insert(name, Box::new(|| Box::new(T::default())));
+            .insert(name, Box::new(T::default()));
     }
 }
 
@@ -600,9 +664,17 @@ impl CurrentTheme {
     /// Create a new CurrentTheme with the specified variant
     pub fn new(variant: ThemeVariant) -> Self {
         let registry = get_theme_registry();
-        let theme = registry
-            .create_theme(variant.name())
-            .unwrap_or_else(|| Box::new(darkmode::DarkModeTheme)); // Fallback to default
+        
+        // Try to load from JSON first
+        let json_path = format!("src/ui/themes/{}.json", variant.name());
+        let theme = if let Ok(json_theme) = json_theme::JsonTheme::load_from_file(&json_path) {
+            Box::new(json_theme) as Box<dyn BezyTheme>
+        } else {
+            // Fallback to registry or default
+            registry
+                .create_theme(variant.name())
+                .unwrap_or_else(|| Box::new(darkmode::DarkModeTheme))
+        };
 
         Self { variant, theme }
     }

@@ -21,6 +21,7 @@ use crate::ui::panes::coord_pane::CoordinatePanePlugin;
 use crate::ui::panes::design_space::DesignSpacePlugin;
 use crate::ui::panes::glyph_pane::GlyphPanePlugin;
 use crate::ui::theme::CurrentTheme;
+use crate::ui::themes::runtime_reload::RuntimeThemePlugin;
 use crate::ui::toolbars::EditModeToolbarPlugin;
 use anyhow::Result;
 use bevy::app::{PluginGroup, PluginGroupBuilder};
@@ -169,6 +170,11 @@ fn configure_window_plugins(app: &mut App) {
 fn add_plugin_groups(app: &mut App) {
     info!("Adding plugin groups...");
     app.add_plugins((RenderingPluginGroup, EditorPluginGroup, CorePluginGroup));
+    
+    // Add runtime theme reload plugin for development
+    #[cfg(debug_assertions)]
+    app.add_plugins(RuntimeThemePlugin);
+    
     info!("All plugin groups added successfully");
 }
 
@@ -176,4 +182,5 @@ fn add_plugin_groups(app: &mut App) {
 fn add_lifecycle_systems(app: &mut App) {
     app.add_systems(Startup, load_fontir_font)
         .add_systems(Update, exit_on_esc);
+    
 }
