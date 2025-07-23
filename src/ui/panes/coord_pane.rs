@@ -7,6 +7,7 @@
 use crate::editing::selection::components::Selected;
 use crate::geometry::quadrant::Quadrant;
 use crate::ui::theme::*;
+use crate::ui::themes::{UiBorderRadius, CurrentTheme};
 use bevy::prelude::*;
 use bevy::reflect::Reflect;
 use bevy::ui::UiRect;
@@ -85,6 +86,7 @@ impl Plugin for CoordinatePanePlugin {
 pub fn spawn_coord_pane(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    theme: Res<CurrentTheme>,
 ) {
     // Create the position properties for the coordinate pane (bottom right)
     let position_props = UiRect {
@@ -97,6 +99,7 @@ pub fn spawn_coord_pane(
     commands
         .spawn(create_widget_style(
             &asset_server,
+            &theme,
             PositionType::Absolute,
             position_props,
             CoordPane,
@@ -304,7 +307,8 @@ pub fn spawn_coord_pane(
                                 } else {
                                     NORMAL_BUTTON_OUTLINE_COLOR
                                 }),
-                                BorderRadius::all(Val::Px(12.0)),
+                                BorderRadius::all(Val::Px(theme.theme().ui_border_radius())),
+                                UiBorderRadius,
                                 QuadrantButton(quadrant),
                             ));
                         }

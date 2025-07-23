@@ -290,12 +290,14 @@ pub const MONO_FONT_PATH: &str = "fonts/HasubiMono-Regular.ttf";
 /// Uses the current theme for colors
 pub fn create_widget_style<T: Component + Default>(
     _asset_server: &Res<AssetServer>,
+    theme: &Res<CurrentTheme>,
     position: PositionType,
     position_props: UiRect,
     marker: T,
     name: &str,
 ) -> impl Bundle {
-    // Use default values for now - the widget functions need to be updated to pass theme
+    use super::themes::WidgetBorderRadius;
+    
     (
         Node {
             position_type: position,
@@ -318,9 +320,10 @@ pub fn create_widget_style<T: Component + Default>(
             align_items: AlignItems::FlexStart,
             ..default()
         },
-        BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 1.0)), // Default dark widget background
-        BorderColor(Color::srgba(0.5, 0.5, 0.5, 1.0)),     // Default border
-        BorderRadius::all(Val::Px(0.0)), // WIDGET_BORDER_RADIUS
+        BackgroundColor(theme.theme().widget_background_color()),
+        BorderColor(theme.theme().widget_border_color()),
+        BorderRadius::all(Val::Px(theme.theme().widget_border_radius())),
+        WidgetBorderRadius,
         marker,
         Name::new(name.to_string()),
     )

@@ -59,6 +59,9 @@ pub mod hot_reload;
 pub mod runtime_reload;
 pub mod json_theme;
 
+// Export marker components for border radius hot reloading
+pub use json_theme::{WidgetBorderRadius, ToolbarBorderRadius, UiBorderRadius};
+
 // Each theme will auto-register itself via the register_theme! macro
 
 /// Theme registry that loads themes from JSON files

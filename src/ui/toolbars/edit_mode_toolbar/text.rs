@@ -22,6 +22,7 @@ use crate::rendering::cameras::DesignCamera;
 use crate::rendering::checkerboard::calculate_dynamic_grid_size;
 use crate::ui::theme::SORT_ACTIVE_METRICS_COLOR;
 use crate::ui::theme::*;
+use crate::ui::themes::{ToolbarBorderRadius, CurrentTheme};
 use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
 
 // --------- Resources, Structs, Enums -----------
@@ -187,6 +188,7 @@ fn spawn_text_mode_button(
     parent: &mut ChildSpawnerCommands,
     mode: TextPlacementMode,
     asset_server: &Res<AssetServer>,
+    theme: &Res<CurrentTheme>,
 ) {
     parent
         .spawn(Node {
@@ -206,7 +208,8 @@ fn spawn_text_mode_button(
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(TOOLBAR_BORDER_RADIUS)),
+                    BorderRadius::all(Val::Px(theme.theme().toolbar_border_radius())),
+                    ToolbarBorderRadius,
                     BorderColor(NORMAL_BUTTON_OUTLINE_COLOR),
                     BackgroundColor(NORMAL_BUTTON_COLOR),
                     TextSubMenuButton,
@@ -229,6 +232,7 @@ fn spawn_text_mode_button(
 pub fn spawn_text_submenu(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    theme: Res<CurrentTheme>,
 ) {
     let modes = [
         TextPlacementMode::Text,
@@ -254,7 +258,7 @@ pub fn spawn_text_submenu(
         .spawn((submenu_node, Name::new("TextSubMenu")))
         .with_children(|parent| {
             for mode in modes {
-                spawn_text_mode_button(parent, mode, &asset_server);
+                spawn_text_mode_button(parent, mode, &asset_server, &theme);
             }
         });
 

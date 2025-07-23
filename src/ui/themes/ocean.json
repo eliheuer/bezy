@@ -57,5 +57,8 @@
   "sort_active_metrics": [1.0, 0.5, 0.4, 0.5],
   "sort_inactive_metrics": [0.3, 0.5, 0.7, 0.5],
   "sort_active_outline": [1.0, 0.6, 0.0],
-  "sort_inactive_outline": [0.4, 0.6, 0.8]
+  "sort_inactive_outline": [0.4, 0.6, 0.8],
+  "widget_border_radius": 0.0,
+  "toolbar_border_radius": 0.0,
+  "ui_border_radius": 12.0
 }

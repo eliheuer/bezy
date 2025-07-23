@@ -11,6 +11,16 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+// Marker components for UI elements that need border radius updates
+#[derive(Component)]
+pub struct WidgetBorderRadius;
+
+#[derive(Component)]
+pub struct ToolbarBorderRadius;
+
+#[derive(Component)]
+pub struct UiBorderRadius;
+
 /// Complete theme definition in JSON format
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonTheme {
@@ -97,6 +107,11 @@ pub struct JsonTheme {
     pub sort_inactive_metrics: [f32; 4],
     pub sort_active_outline: [f32; 3],
     pub sort_inactive_outline: [f32; 3],
+    
+    // Border radius properties
+    pub widget_border_radius: f32,
+    pub toolbar_border_radius: f32,
+    pub ui_border_radius: f32,
 }
 
 impl JsonTheme {
@@ -371,6 +386,19 @@ impl BezyTheme for JsonTheme {
     fn sort_inactive_outline_color(&self) -> Color {
         Color::srgb(self.sort_inactive_outline[0], self.sort_inactive_outline[1], self.sort_inactive_outline[2])
     }
+    
+    // Border radius properties
+    fn widget_border_radius(&self) -> f32 {
+        self.widget_border_radius
+    }
+    
+    fn toolbar_border_radius(&self) -> f32 {
+        self.toolbar_border_radius
+    }
+    
+    fn ui_border_radius(&self) -> f32 {
+        self.ui_border_radius
+    }
 }
 
 /// JSON theme manager that watches for file changes
@@ -531,3 +559,30 @@ pub fn check_json_theme_changes(
 }
 
 use super::CurrentTheme;
+
+/// System to update border radius when theme changes
+pub fn update_border_radius_on_theme_change(
+    theme: Res<CurrentTheme>,
+    mut widget_query: Query<&mut BorderRadius, With<WidgetBorderRadius>>,
+    mut toolbar_query: Query<&mut BorderRadius, (With<ToolbarBorderRadius>, Without<WidgetBorderRadius>)>,
+    mut ui_query: Query<&mut BorderRadius, (With<UiBorderRadius>, Without<WidgetBorderRadius>, Without<ToolbarBorderRadius>)>,
+) {
+    if theme.is_changed() {
+        // Update widget border radius
+        for mut border_radius in widget_query.iter_mut() {
+            *border_radius = BorderRadius::all(Val::Px(theme.theme().widget_border_radius()));
+        }
+        
+        // Update toolbar border radius  
+        for mut border_radius in toolbar_query.iter_mut() {
+            *border_radius = BorderRadius::all(Val::Px(theme.theme().toolbar_border_radius()));
+        }
+        
+        // Update UI border radius
+        for mut border_radius in ui_query.iter_mut() {
+            *border_radius = BorderRadius::all(Val::Px(theme.theme().ui_border_radius()));
+        }
+        
+        println!("🎨 Updated border radius for all UI components");
+    }
+}

@@ -14,6 +14,7 @@ use crate::ui::theme::{
     TOOLBAR_BORDER_WIDTH, TOOLBAR_BUTTON_SIZE, TOOLBAR_CONTAINER_MARGIN,
     TOOLBAR_ICON_COLOR, TOOLBAR_ITEM_SPACING, TOOLBAR_PADDING,
 };
+use crate::ui::themes::{CurrentTheme, ToolbarBorderRadius};
 use crate::ui::toolbars::edit_mode_toolbar::*;
 use bevy::prelude::*;
 
@@ -35,6 +36,7 @@ pub struct ToolButtonData {
 pub fn spawn_edit_mode_toolbar(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    theme: Res<CurrentTheme>,
     mut tool_registry: ResMut<ToolRegistry>,
 ) {
     let ordered_tool_ids = tool_registry.get_ordered_tools().to_vec();
@@ -47,7 +49,7 @@ pub fn spawn_edit_mode_toolbar(
         .with_children(|parent| {
             for tool_id in ordered_tool_ids {
                 if let Some(tool) = tool_registry.get_tool(tool_id) {
-                    create_tool_button(parent, tool, &asset_server);
+                    create_tool_button(parent, tool, &asset_server, &theme);
                 } else {
                     warn!("Tool '{}' not found in registry", tool_id);
                 }
@@ -76,6 +78,7 @@ fn create_tool_button(
     parent: &mut ChildSpawnerCommands,
     tool: &dyn EditTool,
     asset_server: &AssetServer,
+    theme: &Res<CurrentTheme>,
 ) {
     parent
         .spawn(Node {
@@ -83,7 +86,7 @@ fn create_tool_button(
             ..default()
         })
         .with_children(|button_container| {
-            create_button_entity(button_container, tool, asset_server);
+            create_button_entity(button_container, tool, asset_server, theme);
         });
 }
 
@@ -92,6 +95,7 @@ fn create_button_entity(
     parent: &mut ChildSpawnerCommands,
     tool: &dyn EditTool,
     asset_server: &AssetServer,
+    theme: &Res<CurrentTheme>,
 ) {
     parent
         .spawn((
@@ -101,6 +105,8 @@ fn create_button_entity(
             create_button_styling(),
             BackgroundColor(NORMAL_BUTTON_COLOR),
             BorderColor(NORMAL_BUTTON_OUTLINE_COLOR),
+            BorderRadius::all(Val::Px(theme.theme().toolbar_border_radius())),
+            ToolbarBorderRadius,
         ))
         .with_children(|button| {
             create_button_text(button, tool, asset_server);

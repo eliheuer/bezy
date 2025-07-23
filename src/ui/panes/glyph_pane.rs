@@ -6,6 +6,7 @@
 use crate::core::state::fontir_app_state::FontIRAppState;
 use crate::core::state::AppState;
 use crate::ui::theme::*;
+use crate::ui::themes::CurrentTheme;
 use bevy::prelude::*;
 use kurbo::{BezPath, PathEl};
 
@@ -213,6 +214,7 @@ fn toggle_glyph_pane_visibility(
 pub fn spawn_glyph_pane(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
+    theme: &Res<CurrentTheme>,
 ) {
     // Create the position properties for the glyph pane (bottom left)
     let position_props = UiRect {
@@ -225,6 +227,7 @@ pub fn spawn_glyph_pane(
     commands
         .spawn(create_widget_style(
             asset_server,
+            theme,
             PositionType::Absolute,
             position_props,
             GlyphPane,
