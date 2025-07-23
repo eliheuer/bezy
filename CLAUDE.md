@@ -157,28 +157,40 @@ FOCUS entirely on the specific issue described by the user.
 DO NOT be ambitious or make sweeping changes - be precise and minimal.
 RESPECT the existing default tool (select) and user workflows.
 
-# camera-zoom-scaling-direction
-CRITICAL: Camera-responsive scaling relationship in src/rendering/camera_responsive.rs:
-⚠️  FINAL CORRECT UNDERSTANDING - COMPLETELY DIFFERENT FROM BEFORE ⚠️
+# camera-zoom-scaling-system
+✅ COMPLETED: Camera-responsive scaling system in src/rendering/camera_responsive.rs
 
-BEVY CAMERA SCALE BEHAVIOR (CONFIRMED):
-- camera_scale < 1.0 = USER ZOOMED IN (camera closer, world objects appear bigger)
-- camera_scale > 1.0 = USER ZOOMED OUT (camera farther, world objects appear smaller)
-- camera_scale = 1.0 = normal zoom level
+## How It Works
+The system automatically adjusts visual element sizes (points, lines, handles, metrics) based on camera zoom level to maintain visibility when zoomed out, similar to how Glyphs app works.
 
-DESIRED VISUAL BEHAVIOR:
-- When ZOOMED IN (scale < 1.0): make visual elements SMALLER to prevent them being huge
-- When ZOOMED OUT (scale > 1.0): make visual elements BIGGER so they remain visible
+## Current Configuration
+- **Zoom In**: Elements keep current size (no change needed)
+- **Default Zoom**: Elements use normal 1px width
+- **Zoom Out**: Elements scale up to 12x bigger for visibility
 
-CORRECT IMPLEMENTATION (direct relationship):
+## Easy Tuning
+Edit these values in `src/rendering/camera_responsive.rs` lines 40-46:
+
 ```rust
-let responsive_factor = if camera_scale < 1.0 {
-    // ZOOMED IN: scale down proportionally 
-    camera_scale  // e.g., 0.5 scale = 0.5x element size
-} else {
-    // ZOOMED OUT: scale up with diminishing returns
-    1.0 + (camera_scale - 1.0).sqrt()  // gentler scaling
-};
+// EASY TO TUNE: Adjust these three scale factors
+zoom_in_max_factor: 1.0,    // Keep current size when zoomed in
+default_factor: 1.0,        // Keep current size at default zoom
+zoom_out_max_factor: 12.0,  // Make 12x bigger when zoomed out
+
+// Camera scale ranges (adjust if needed)
+zoom_in_max_camera_scale: 0.2,   // Maximum zoom in
+default_camera_scale: 1.0,       // Default zoom level
+zoom_out_max_camera_scale: 16.0, // Maximum zoom out
 ```
 
-NOTE: Previous attempts used INVERSE relationship which was backwards!
+## Technical Details
+- Uses PanCam's OrthographicProjection.scale for real zoom detection
+- Interpolates smoothly between three scale points
+- Applies to all mesh-based rendering: points, outlines, handles, metrics
+- No gizmos used - completely mesh-based system
+- Debug output shows current camera scale and responsive factor
+
+## Performance
+- Minimal overhead - only updates when camera scale changes
+- Single system handles all visual elements consistently
+- Zero visual lag during nudging operations

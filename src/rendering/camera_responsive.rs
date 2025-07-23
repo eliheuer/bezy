@@ -17,10 +17,18 @@ pub struct CameraResponsiveScale {
     pub scale_factor: f32,
     /// The base line width in world units at normal zoom (1.0)
     pub base_line_width: f32,
-    /// The minimum scale factor to prevent elements from becoming too small
-    pub min_scale_factor: f32,
-    /// The maximum scale factor to prevent elements from becoming too large
-    pub max_scale_factor: f32,
+    /// Scale factor when zoomed in to maximum
+    pub zoom_in_max_factor: f32,
+    /// Scale factor at default zoom level
+    pub default_factor: f32,
+    /// Scale factor when zoomed out to maximum
+    pub zoom_out_max_factor: f32,
+    /// Camera scale value that represents maximum zoom in
+    pub zoom_in_max_camera_scale: f32,
+    /// Camera scale value that represents default zoom
+    pub default_camera_scale: f32,
+    /// Camera scale value that represents maximum zoom out
+    pub zoom_out_max_camera_scale: f32,
 }
 
 impl CameraResponsiveScale {
@@ -28,8 +36,14 @@ impl CameraResponsiveScale {
         Self {
             scale_factor: 1.0,
             base_line_width: 1.0,
-            min_scale_factor: 1.0,
-            max_scale_factor: 24.0,
+            // EASY TO TUNE: Adjust these three scale factors
+            zoom_in_max_factor: 1.0,    // Keep current size when zoomed in
+            default_factor: 1.0,        // Keep current size at default zoom
+            zoom_out_max_factor: 12.0,  // Make 12x bigger when zoomed out (was 3.0)
+            // Camera scale ranges (you can adjust these if needed)
+            zoom_in_max_camera_scale: 0.2,   // Maximum zoom in
+            default_camera_scale: 1.0,       // Default zoom level
+            zoom_out_max_camera_scale: 16.0,  // Maximum zoom out
         }
     }
     
@@ -52,63 +66,78 @@ impl CameraResponsiveScale {
 /// System that updates the camera-responsive scale based on current camera zoom
 pub fn update_camera_responsive_scale(
     mut scale_resource: ResMut<CameraResponsiveScale>,
-    camera_query: Query<&Transform, With<DesignCamera>>,
+    camera_query: Query<(&Transform, &Projection), With<DesignCamera>>,
 ) {
-    if let Ok(camera_transform) = camera_query.single() {
-        // Get camera scale (smaller scale = zoomed in, larger scale = zoomed out)
-        let camera_scale = camera_transform.scale.x;
+    // Debug: Check if system is running
+    static mut SYSTEM_RUNS: u32 = 0;
+    unsafe {
+        SYSTEM_RUNS += 1;
+        if SYSTEM_RUNS % 60 == 1 { // Every second at 60fps
+            println!("[CAMERA SYSTEM] Running (call #{}) with {} cameras", SYSTEM_RUNS, camera_query.iter().count());
+        }
+    }
+    
+    if let Ok((camera_transform, projection)) = camera_query.single() {
+        // Get camera scale from OrthographicProjection (this is what PanCam modifies for zoom)
+        let projection_scale = match projection {
+            Projection::Orthographic(ortho) => ortho.scale,
+            _ => 1.0, // Default for non-orthographic projections
+        };
+        let transform_scale = camera_transform.scale.x;
+        
+        // Use projection scale for responsive scaling (this is the real zoom level)
+        let camera_scale = projection_scale;
+        
+        // Debug output to see actual values (similar to checkerboard system)
+        static mut LAST_PROJECTION_SCALE: f32 = 1.0;
+        static mut LAST_TRANSFORM_SCALE: f32 = 1.0;
+        unsafe {
+            if (projection_scale - LAST_PROJECTION_SCALE).abs() > 0.01 || (transform_scale - LAST_TRANSFORM_SCALE).abs() > 0.01 {
+                println!("[CAMERA DEBUG] projection_scale={:.3}, transform_scale={:.3}, using={:.3}", 
+                    projection_scale, transform_scale, camera_scale);
+                LAST_PROJECTION_SCALE = projection_scale;
+                LAST_TRANSFORM_SCALE = transform_scale;
+            }
+        }
         
         // Calculate responsive scale factor
         // When camera_scale is large (zoomed in), we want smaller visual elements
         // When camera_scale is small (zoomed out), we want larger visual elements
         // Use inverse relationship to make the effect very obvious
         
-        // Debug output to understand camera behavior
+        // Simple interpolation between three scale factors
+        let responsive_factor = if camera_scale <= scale_resource.default_camera_scale {
+            // Interpolate between zoom_in_max and default
+            let t = (camera_scale - scale_resource.zoom_in_max_camera_scale) / 
+                   (scale_resource.default_camera_scale - scale_resource.zoom_in_max_camera_scale);
+            let t = t.clamp(0.0, 1.0);
+            scale_resource.zoom_in_max_factor * (1.0 - t) + scale_resource.default_factor * t
+        } else {
+            // Interpolate between default and zoom_out_max
+            let t = (camera_scale - scale_resource.default_camera_scale) / 
+                   (scale_resource.zoom_out_max_camera_scale - scale_resource.default_camera_scale);
+            let t = t.clamp(0.0, 1.0);
+            scale_resource.default_factor * (1.0 - t) + scale_resource.zoom_out_max_factor * t
+        };
+        
+        // Debug output to see the interpolation
         static mut LAST_SCALE: f32 = 1.0;
+        static mut FIRST_RUN: bool = true;
         unsafe {
-            if (camera_scale - LAST_SCALE).abs() > 0.01 {
-                println!("[CAMERA DEBUG] camera_scale = {:.3} ({})", 
-                    camera_scale, 
-                    if camera_scale < 1.0 { "ZOOMED IN" } else { "ZOOMED OUT" }
-                );
+            if FIRST_RUN || (camera_scale - LAST_SCALE).abs() > 0.2 {
+                let zoom_state = if camera_scale < 0.5 { "ZOOMED IN" }
+                               else if camera_scale > 2.0 { "ZOOMED OUT" }
+                               else { "DEFAULT" };
+                println!("[CAMERA] scale={:.1} ({}), factor={:.1}x, line_width={:.1}px", 
+                    camera_scale, zoom_state, responsive_factor, responsive_factor * scale_resource.base_line_width);
                 LAST_SCALE = camera_scale;
+                FIRST_RUN = false;
             }
         }
-        
-        // Camera scale relationship in Bevy:
-        // - camera_scale < 1.0 = ZOOMED IN (camera closer, things appear bigger)
-        // - camera_scale > 1.0 = ZOOMED OUT (camera farther, things appear smaller)
-        //
-        // We want:
-        // - When ZOOMED IN (scale < 1.0): smaller visual elements to avoid them being huge
-        // - When ZOOMED OUT (scale > 1.0): bigger visual elements so they remain visible
-        //
-        // This requires a DIRECT relationship: multiply by camera_scale
-        let responsive_factor = if camera_scale < 1.0 {
-            // ZOOMED IN: scale down proportionally (e.g., 0.5 scale = 0.5x size)
-            camera_scale
-        } else {
-            // ZOOMED OUT: scale up but with diminishing returns to avoid huge elements
-            // Use square root for gentler scaling
-            1.0 + (camera_scale - 1.0).sqrt()
-        };
 
 
-        // Clamp to reasonable bounds
-        let clamped_factor = responsive_factor
-            .max(scale_resource.min_scale_factor)
-            .min(scale_resource.max_scale_factor);
-        
-        // Debug output to see if it's working
-        if (clamped_factor - scale_resource.scale_factor).abs() > 0.01 {
-            println!("[CAMERA RESPONSIVE] camera_scale={:.3} ({}), responsive_factor={:.3}, final_line_width={:.3}", 
-                camera_scale, 
-                if camera_scale < 1.0 { "ZOOMED IN" } else { "ZOOMED OUT" },
-                responsive_factor, 
-                clamped_factor * scale_resource.base_line_width);
-        }
-        
-        scale_resource.scale_factor = clamped_factor;
+        // Store the interpolated factor directly (no additional clamping needed)
+        scale_resource.scale_factor = responsive_factor;
     }
 }
 
@@ -154,10 +183,7 @@ pub struct CameraResponsivePlugin;
 impl Plugin for CameraResponsivePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(CameraResponsiveScale::new())
-           .add_systems(Update, (
-               update_camera_responsive_scale,
-               apply_camera_responsive_scaling.after(update_camera_responsive_scale),
-           ));
+           .add_systems(Update, update_camera_responsive_scale);
     }
 }
 
