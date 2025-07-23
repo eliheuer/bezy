@@ -4,14 +4,16 @@
 //! enabling input of any Unicode character including Latin, Arabic, Hebrew,
 //! Chinese, Japanese, Korean, and other global scripts.
 
-use bevy::prelude::*;
+use crate::core::state::fontir_app_state::FontIRAppState;
+use crate::core::state::{AppState, TextEditorState};
+use crate::systems::text_editor_sorts::input_utilities::unicode_to_glyph_name;
+use crate::ui::toolbars::edit_mode_toolbar::text::{
+    CurrentTextPlacementMode, TextPlacementMode,
+};
+use crate::ui::toolbars::edit_mode_toolbar::CurrentTool;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input::ButtonState;
-use crate::core::state::{AppState, TextEditorState};
-use crate::core::state::fontir_app_state::FontIRAppState;
-use crate::ui::toolbars::edit_mode_toolbar::text::{CurrentTextPlacementMode, TextPlacementMode};
-use crate::ui::toolbars::edit_mode_toolbar::CurrentTool;
-use crate::systems::text_editor_sorts::input_utilities::unicode_to_glyph_name;
+use bevy::prelude::*;
 
 /// Handle Unicode character input using Bevy 0.16 keyboard events
 /// This system provides comprehensive Unicode support for global scripts
@@ -44,19 +46,26 @@ pub fn handle_unicode_text_input(
                     if character.is_control() && character != '\n' {
                         continue;
                     }
-                    
+
                     // Handle space character
                     if character == ' ' {
-                        handle_space_character(&mut text_editor_state, &app_state, &fontir_app_state);
+                        handle_space_character(
+                            &mut text_editor_state,
+                            &app_state,
+                            &fontir_app_state,
+                        );
                         continue;
                     }
-                    
+
                     // Handle newline (Enter key)
                     if character == '\n' {
-                        handle_newline_character(&mut text_editor_state, &current_placement_mode);
+                        handle_newline_character(
+                            &mut text_editor_state,
+                            &current_placement_mode,
+                        );
                         continue;
                     }
-                    
+
                     // Handle regular Unicode character
                     handle_unicode_character(
                         character,
@@ -69,16 +78,26 @@ pub fn handle_unicode_text_input(
             }
             // Handle special keys
             Key::Backspace => {
-                handle_backspace(&mut text_editor_state, &current_placement_mode);
+                handle_backspace(
+                    &mut text_editor_state,
+                    &current_placement_mode,
+                );
             }
             Key::Delete => {
                 handle_delete(&mut text_editor_state, &current_placement_mode);
             }
             Key::Enter => {
-                handle_newline_character(&mut text_editor_state, &current_placement_mode);
+                handle_newline_character(
+                    &mut text_editor_state,
+                    &current_placement_mode,
+                );
             }
             Key::Space => {
-                handle_space_character(&mut text_editor_state, &app_state, &fontir_app_state);
+                handle_space_character(
+                    &mut text_editor_state,
+                    &app_state,
+                    &fontir_app_state,
+                );
             }
             _ => {
                 // Ignore other special keys
@@ -105,37 +124,43 @@ fn handle_unicode_character(
 
     if let Some(glyph_name) = glyph_name {
         // Get advance width
-        let advance_width = get_glyph_advance_width(&glyph_name, app_state, fontir_app_state);
-        
+        let advance_width =
+            get_glyph_advance_width(&glyph_name, app_state, fontir_app_state);
+
         // Check if we need to create a text root
         let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
         if !has_text_sorts {
             let center_position = Vec2::new(500.0, 0.0);
             text_editor_state.create_text_root(center_position);
         }
-        
+
         // Insert the character
         match current_placement_mode.0 {
             TextPlacementMode::Insert => {
-                text_editor_state.insert_sort_at_cursor(glyph_name.clone(), advance_width);
+                text_editor_state
+                    .insert_sort_at_cursor(glyph_name.clone(), advance_width);
                 info!("Unicode input: Inserted '{}' (U+{:04X}) as glyph '{}' in Insert mode", 
                       character, character as u32, glyph_name);
             }
             TextPlacementMode::Text => {
-                text_editor_state.insert_sort_at_cursor(glyph_name.clone(), advance_width);
+                text_editor_state
+                    .insert_sort_at_cursor(glyph_name.clone(), advance_width);
                 info!("Unicode input: Inserted '{}' (U+{:04X}) as glyph '{}' in Text mode", 
                       character, character as u32, glyph_name);
             }
             TextPlacementMode::Freeform => {
                 // In freeform mode, characters are placed freely - for now use same logic
-                text_editor_state.insert_sort_at_cursor(glyph_name.clone(), advance_width);
+                text_editor_state
+                    .insert_sort_at_cursor(glyph_name.clone(), advance_width);
                 info!("Unicode input: Inserted '{}' (U+{:04X}) as glyph '{}' in Freeform mode", 
                       character, character as u32, glyph_name);
             }
         }
     } else {
-        warn!("Unicode input: No glyph found for character '{}' (U+{:04X})", 
-              character, character as u32);
+        warn!(
+            "Unicode input: No glyph found for character '{}' (U+{:04X})",
+            character, character as u32
+        );
     }
 }
 
@@ -146,7 +171,7 @@ fn handle_space_character(
     fontir_app_state: &Option<Res<FontIRAppState>>,
 ) {
     let glyph_name = "space".to_string();
-    
+
     // Check if space glyph exists
     let glyph_exists = if let Some(app_state) = app_state.as_ref() {
         app_state.workspace.font.glyphs.contains_key(&glyph_name)
@@ -155,23 +180,25 @@ fn handle_space_character(
     } else {
         false
     };
-    
+
     if glyph_exists {
-        let advance_width = get_glyph_advance_width(&glyph_name, app_state, fontir_app_state);
-        
+        let advance_width =
+            get_glyph_advance_width(&glyph_name, app_state, fontir_app_state);
+
         // Check if we need to create a text root
         let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
         if !has_text_sorts {
             let center_position = Vec2::new(500.0, 0.0);
             text_editor_state.create_text_root(center_position);
         }
-        
+
         text_editor_state.insert_sort_at_cursor(glyph_name, advance_width);
         info!("Unicode input: Inserted space character");
     } else {
         // Fallback: insert a space-width advance without glyph
         let space_width = 250.0; // Default space width
-        text_editor_state.insert_sort_at_cursor("space".to_string(), space_width);
+        text_editor_state
+            .insert_sort_at_cursor("space".to_string(), space_width);
         info!("Unicode input: Inserted space character (fallback)");
     }
 }
@@ -245,7 +272,7 @@ fn unicode_to_glyph_name_fontir(
         if fontir_state.get_glyph(&char_name).is_some() {
             return Some(char_name);
         }
-        
+
         // Try common Unicode to glyph name mappings
         let glyph_name = match character {
             ' ' => "space",
@@ -302,7 +329,7 @@ fn unicode_to_glyph_name_fontir(
             }
             _ => return None,
         };
-        
+
         if fontir_state.get_glyph(glyph_name).is_some() {
             Some(glyph_name.to_string())
         } else {
@@ -320,13 +347,15 @@ fn get_glyph_advance_width(
     fontir_app_state: &Option<Res<FontIRAppState>>,
 ) -> f32 {
     if let Some(app_state) = app_state.as_ref() {
-        if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
+        if let Some(glyph_data) =
+            app_state.workspace.font.glyphs.get(glyph_name)
+        {
             return glyph_data.advance_width as f32;
         }
     } else if let Some(fontir_state) = fontir_app_state.as_ref() {
         return fontir_state.get_glyph_advance_width(glyph_name);
     }
-    
+
     // Fallback default width
     500.0
 }

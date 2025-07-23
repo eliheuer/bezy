@@ -8,8 +8,8 @@ use crate::core::state::fontir_app_state::FontIRMetrics;
 use crate::rendering::camera_responsive::CameraResponsiveScale;
 use crate::ui::theme::METRICS_GUIDE_COLOR;
 use bevy::prelude::*;
-use bevy::sprite::{ColorMaterial, MeshMaterial2d};
 use bevy::render::mesh::Mesh2d;
+use bevy::sprite::{ColorMaterial, MeshMaterial2d};
 
 /// Component to mark entities as metrics line visual elements
 #[derive(Component)]
@@ -52,18 +52,29 @@ fn spawn_metrics_line(
     camera_scale: &CameraResponsiveScale,
 ) -> Entity {
     let line_width = camera_scale.adjusted_line_width(); // Camera-responsive width
-    let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(start, end, line_width);
-    
-    commands.spawn((
-        MetricsLine { sort_entity, line_type },
-        Mesh2d(meshes.add(line_mesh)),
-        MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
-        Transform::from_xyz((start.x + end.x) * 0.5, (start.y + end.y) * 0.5, METRICS_LINE_Z),
-        GlobalTransform::default(),
-        Visibility::Visible,
-        InheritedVisibility::default(),
-        ViewVisibility::default(),
-    )).id()
+    let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
+        start, end, line_width,
+    );
+
+    commands
+        .spawn((
+            MetricsLine {
+                sort_entity,
+                line_type,
+            },
+            Mesh2d(meshes.add(line_mesh)),
+            MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+            Transform::from_xyz(
+                (start.x + end.x) * 0.5,
+                (start.y + end.y) * 0.5,
+                METRICS_LINE_Z,
+            ),
+            GlobalTransform::default(),
+            Visibility::Visible,
+            InheritedVisibility::default(),
+            ViewVisibility::default(),
+        ))
+        .id()
 }
 
 /// System to render mesh-based metrics lines for all active sorts
@@ -72,7 +83,10 @@ pub fn render_mesh_metrics_lines(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut metrics_entities: ResMut<MetricsLineEntities>,
-    sort_query: Query<(Entity, &Transform, &crate::editing::sort::Sort), With<crate::editing::sort::ActiveSort>>,
+    sort_query: Query<
+        (Entity, &Transform, &crate::editing::sort::Sort),
+        With<crate::editing::sort::ActiveSort>,
+    >,
     existing_metrics: Query<Entity, With<MetricsLine>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     camera_scale: Res<CameraResponsiveScale>,
@@ -85,22 +99,23 @@ pub fn render_mesh_metrics_lines(
 
     if let Some(fontir_state) = fontir_app_state {
         let fontir_metrics = fontir_state.get_font_metrics();
-        
+
         for (sort_entity, sort_transform, sort) in sort_query.iter() {
             let position = sort_transform.translation.truncate();
-            let advance_width = fontir_state.get_glyph_advance_width(&sort.glyph_name);
+            let advance_width =
+                fontir_state.get_glyph_advance_width(&sort.glyph_name);
             // Since query filters for ActiveSort, all sorts here are active - use active color
             let color = crate::ui::theme::SORT_ACTIVE_METRICS_COLOR;
-            
+
             let mut line_entities = Vec::new();
-            
+
             // Extract metrics values
             let upm = fontir_metrics.units_per_em;
             let ascender = fontir_metrics.ascender.unwrap_or(upm * 0.8);
             let descender = fontir_metrics.descender.unwrap_or(upm * -0.2);
             let x_height = fontir_metrics.x_height.unwrap_or(upm * 0.5);
             let cap_height = fontir_metrics.cap_height.unwrap_or(upm * 0.7);
-            
+
             // Baseline (most important)
             let baseline_entity = spawn_metrics_line(
                 &mut commands,
@@ -114,7 +129,7 @@ pub fn render_mesh_metrics_lines(
                 &camera_scale,
             );
             line_entities.push(baseline_entity);
-            
+
             // x-height
             let x_height_y = position.y + x_height;
             let x_height_entity = spawn_metrics_line(
@@ -129,7 +144,7 @@ pub fn render_mesh_metrics_lines(
                 &camera_scale,
             );
             line_entities.push(x_height_entity);
-            
+
             // cap-height
             let cap_height_y = position.y + cap_height;
             let cap_height_entity = spawn_metrics_line(
@@ -144,7 +159,7 @@ pub fn render_mesh_metrics_lines(
                 &camera_scale,
             );
             line_entities.push(cap_height_entity);
-            
+
             // ascender
             let ascender_y = position.y + ascender;
             let ascender_entity = spawn_metrics_line(
@@ -159,7 +174,7 @@ pub fn render_mesh_metrics_lines(
                 &camera_scale,
             );
             line_entities.push(ascender_entity);
-            
+
             // descender
             let descender_y = position.y + descender;
             let descender_entity = spawn_metrics_line(
@@ -174,7 +189,7 @@ pub fn render_mesh_metrics_lines(
                 &camera_scale,
             );
             line_entities.push(descender_entity);
-            
+
             // Advance width line (vertical)
             let advance_width_entity = spawn_metrics_line(
                 &mut commands,
@@ -188,11 +203,12 @@ pub fn render_mesh_metrics_lines(
                 &camera_scale,
             );
             line_entities.push(advance_width_entity);
-            
+
             // Draw bounding box lines (4 lines for rectangle)
             let top_left = Vec2::new(position.x, position.y + upm);
-            let bottom_right = Vec2::new(position.x + advance_width, descender_y);
-            
+            let bottom_right =
+                Vec2::new(position.x + advance_width, descender_y);
+
             // Top line
             let top_entity = spawn_metrics_line(
                 &mut commands,
@@ -206,7 +222,7 @@ pub fn render_mesh_metrics_lines(
                 &camera_scale,
             );
             line_entities.push(top_entity);
-            
+
             // Right line
             let right_entity = spawn_metrics_line(
                 &mut commands,
@@ -220,7 +236,7 @@ pub fn render_mesh_metrics_lines(
                 &camera_scale,
             );
             line_entities.push(right_entity);
-            
+
             // Bottom line
             let bottom_entity = spawn_metrics_line(
                 &mut commands,
@@ -234,7 +250,7 @@ pub fn render_mesh_metrics_lines(
                 &camera_scale,
             );
             line_entities.push(bottom_entity);
-            
+
             // Left line
             let left_entity = spawn_metrics_line(
                 &mut commands,
@@ -248,7 +264,7 @@ pub fn render_mesh_metrics_lines(
                 &camera_scale,
             );
             line_entities.push(left_entity);
-            
+
             metrics_entities.lines.insert(sort_entity, line_entities);
         }
     }
@@ -346,7 +362,7 @@ pub fn draw_fontir_metrics_at_position(
     // let descender = metrics.descender.unwrap_or(upm * -0.2);
     // let x_height = metrics.x_height.unwrap_or(upm * 0.5);
     // let cap_height = metrics.cap_height.unwrap_or(upm * 0.7);
-    
+
     // // Baseline (most important)
     // gizmos.line_2d(
     //     position,
@@ -403,6 +419,6 @@ pub struct MetricsRenderingPlugin;
 impl Plugin for MetricsRenderingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MetricsLineEntities>()
-           .add_systems(Update, render_mesh_metrics_lines);
+            .add_systems(Update, render_mesh_metrics_lines);
     }
 }

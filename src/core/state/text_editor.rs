@@ -512,7 +512,7 @@ impl TextEditorState {
 
         let insert_index = self.buffer.len();
         self.buffer.insert(insert_index, new_sort);
-        
+
         // Debug: Verify the sort was added correctly
         if let Some(added_sort) = self.buffer.get(insert_index) {
             info!("Added freeform sort '{}' at buffer index {} with is_active = {}", 

@@ -108,16 +108,22 @@ impl BezyTheme for CampfireTheme {
     // GLYPH RENDERING
     // =================================================================
 
-    fn on_curve_point_color(&self) -> Color {
-        Color::srgb(0.3, 0.8, 0.2)
+    /// On-curve point colors (two-layer system)
+    fn on_curve_primary_color(&self) -> Color {
+        Color::srgb(0.3, 0.8, 0.2) // Bright green
     }
 
-    fn off_curve_point_color(&self) -> Color {
-        Color::srgb(1.0, 0.6, 0.2)
+    fn on_curve_secondary_color(&self) -> Color {
+        Color::srgb(0.15, 0.4, 0.1) // Dark green
     }
 
-    fn off_curve_point_outer_color(&self) -> Color {
-        Color::srgb(0.6, 0.4, 0.3)
+    /// Off-curve point colors (two-layer system)  
+    fn off_curve_primary_color(&self) -> Color {
+        Color::srgb(1.0, 0.6, 0.2) // Bright orange
+    }
+
+    fn off_curve_secondary_color(&self) -> Color {
+        Color::srgb(0.5, 0.3, 0.1) // Dark orange/brown
     }
 
     fn path_line_color(&self) -> Color {
@@ -140,8 +146,13 @@ impl BezyTheme for CampfireTheme {
     // SELECTION & INTERACTION
     // =================================================================
 
-    fn selected_point_color(&self) -> Color {
-        Color::srgba(1.0, 0.9, 0.3, 1.0)
+    /// Selected point colors (two-layer system for crosshairs)
+    fn selected_primary_color(&self) -> Color {
+        Color::srgba(1.0, 0.9, 0.3, 1.0) // Bright golden yellow
+    }
+
+    fn selected_secondary_color(&self) -> Color {
+        Color::srgba(0.5, 0.45, 0.15, 1.0) // Dark golden
     }
 
     fn hover_point_color(&self) -> Color {

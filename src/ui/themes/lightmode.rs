@@ -108,16 +108,22 @@ impl BezyTheme for LightModeTheme {
     // GLYPH RENDERING
     // =================================================================
 
-    fn on_curve_point_color(&self) -> Color {
-        Color::srgb(0.1, 0.7, 0.3)
+    /// On-curve point colors (two-layer system)
+    fn on_curve_primary_color(&self) -> Color {
+        Color::srgb(0.1, 0.7, 0.3) // Bright green
     }
 
-    fn off_curve_point_color(&self) -> Color {
-        Color::srgb(0.4, 0.2, 0.8)
+    fn on_curve_secondary_color(&self) -> Color {
+        Color::srgb(0.05, 0.35, 0.15) // Dark green
     }
 
-    fn off_curve_point_outer_color(&self) -> Color {
-        Color::srgb(0.3, 0.3, 0.3)
+    /// Off-curve point colors (two-layer system)  
+    fn off_curve_primary_color(&self) -> Color {
+        Color::srgb(0.4, 0.2, 0.8) // Bright purple
+    }
+
+    fn off_curve_secondary_color(&self) -> Color {
+        Color::srgb(0.2, 0.1, 0.4) // Dark purple
     }
 
     fn path_line_color(&self) -> Color {
@@ -140,8 +146,13 @@ impl BezyTheme for LightModeTheme {
     // SELECTION & INTERACTION
     // =================================================================
 
-    fn selected_point_color(&self) -> Color {
-        Color::srgba(1.0, 0.6, 0.0, 1.0)
+    /// Selected point colors (two-layer system for crosshairs)
+    fn selected_primary_color(&self) -> Color {
+        Color::srgba(1.0, 0.6, 0.0, 1.0) // Bright orange
+    }
+
+    fn selected_secondary_color(&self) -> Color {
+        Color::srgba(0.5, 0.3, 0.0, 1.0) // Dark orange
     }
 
     fn hover_point_color(&self) -> Color {

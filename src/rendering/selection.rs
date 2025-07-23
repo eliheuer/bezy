@@ -298,47 +298,53 @@ fn render_fontir_control_handles(
     fontir_state: &FontIRAppState,
 ) {
     // Get the active sort to find the glyph data
-    let Some((_active_sort_index, active_sort)) = text_editor_state.get_active_sort() else {
+    let Some((_active_sort_index, active_sort)) =
+        text_editor_state.get_active_sort()
+    else {
         return;
     };
 
     let glyph_name = active_sort.kind.glyph_name();
-    
+
     // Group points by contour
-    let mut contours: std::collections::HashMap<usize, Vec<(Vec2, bool, usize)>> = std::collections::HashMap::new();
-    
+    let mut contours: std::collections::HashMap<
+        usize,
+        Vec<(Vec2, bool, usize)>,
+    > = std::collections::HashMap::new();
+
     for (global_transform, point_type, glyph_ref) in point_entities.iter() {
         if glyph_ref.glyph_name == glyph_name {
             let world_pos = global_transform.translation().truncate();
             let is_on_curve = point_type.is_on_curve;
-            
-            contours
-                .entry(glyph_ref.contour_index)
-                .or_default()
-                .push((world_pos, is_on_curve, glyph_ref.point_index));
+
+            contours.entry(glyph_ref.contour_index).or_default().push((
+                world_pos,
+                is_on_curve,
+                glyph_ref.point_index,
+            ));
         }
     }
-    
+
     // Sort points in each contour by their index
     for (_, contour_points) in contours.iter_mut() {
         contour_points.sort_by_key(|(_, _, idx)| *idx);
     }
-    
+
     // Draw handles for each contour
     let handle_color = HANDLE_LINE_COLOR;
-    
+
     for (_, contour_points) in contours.iter() {
         let len = contour_points.len();
         if len < 2 {
             continue;
         }
-        
+
         // Draw handle lines between consecutive points where one is on-curve and one is off-curve
         for i in 0..len {
             let (curr_pos, curr_on, _) = contour_points[i];
             let next_idx = (i + 1) % len;
             let (next_pos, next_on, _) = contour_points[next_idx];
-            
+
             // Draw handle lines between on-curve and off-curve points
             if (curr_on && !next_on) || (!curr_on && next_on) {
                 gizmos.line_2d(curr_pos, next_pos, handle_color);

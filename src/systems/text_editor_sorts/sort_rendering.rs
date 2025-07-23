@@ -47,7 +47,9 @@ pub fn render_text_editor_cursor(
     {
         // Get font metrics for proper cursor height
         let Some(app_state) = app_state.as_ref() else {
-            warn!("Text cursor skipped - AppState not available (using FontIR)");
+            warn!(
+                "Text cursor skipped - AppState not available (using FontIR)"
+            );
             return;
         };
         let font_metrics = &app_state.workspace.info.metrics;

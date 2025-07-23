@@ -3,8 +3,8 @@
 use crate::core::state::text_editor::TextEditorState;
 use crate::core::state::AppState;
 use crate::core::state::SortLayoutMode;
-use crate::editing::sort::{ActiveSort, InactiveSort, Sort};
 use crate::editing::selection::components::Selected;
+use crate::editing::sort::{ActiveSort, InactiveSort, Sort};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -185,7 +185,7 @@ pub fn spawn_missing_sort_entities(
                     crate::editing::selection::components::Selectable, // Make sorts selectable
                     Name::new(format!("BufferSort[{i}]")),
                 ));
-                
+
                 // Check if this sort should be active based on the text editor state
                 if sort_entry.is_active {
                     entity_commands.insert(ActiveSort);
@@ -196,7 +196,7 @@ pub fn spawn_missing_sort_entities(
                     info!("Spawned INACTIVE sort entity for buffer index {} at position ({:.1}, {:.1}) - glyph '{}'", 
                            i, position.x, position.y, sort_entry.kind.glyph_name());
                 }
-                
+
                 let entity = entity_commands.id();
 
                 // Track the entity
@@ -287,30 +287,38 @@ pub fn auto_activate_selected_sorts(
 ) {
     let selected_count = selected_sorts.iter().count();
     let active_count = active_sorts.iter().count();
-    
+
     // Debug: Log when this system runs and what it finds
     if selected_count > 0 || active_count > 0 {
-        info!("auto_activate_selected_sorts: selected={}, active={}", selected_count, active_count);
+        info!(
+            "auto_activate_selected_sorts: selected={}, active={}",
+            selected_count, active_count
+        );
     }
 
     if selected_count == 1 {
         // Exactly one sort is selected - activate it
         if let Ok(selected_sort) = selected_sorts.single() {
             // Find the buffer index of the selected sort
-            let selected_buffer_index = if let Ok(buffer_index) = buffer_index_query.get(selected_sort) {
+            let selected_buffer_index = if let Ok(buffer_index) =
+                buffer_index_query.get(selected_sort)
+            {
                 Some(buffer_index.0)
             } else {
                 None
             };
-            
+
             // Deactivate all currently active sorts
             for active_entity in active_sorts.iter() {
                 commands.entity(active_entity).remove::<ActiveSort>();
                 commands.entity(active_entity).insert(InactiveSort);
-                
+
                 // Update text editor state to deactivate the sort
-                if let Ok(buffer_index) = buffer_index_query.get(active_entity) {
-                    if let Some(sort) = text_editor_state.buffer.get_mut(buffer_index.0) {
+                if let Ok(buffer_index) = buffer_index_query.get(active_entity)
+                {
+                    if let Some(sort) =
+                        text_editor_state.buffer.get_mut(buffer_index.0)
+                    {
                         sort.is_active = false;
                     }
                 }
@@ -319,7 +327,7 @@ pub fn auto_activate_selected_sorts(
             // Activate the selected sort
             commands.entity(selected_sort).remove::<InactiveSort>();
             commands.entity(selected_sort).insert(ActiveSort);
-            
+
             // Update text editor state to activate the sort
             if let Some(buffer_index) = selected_buffer_index {
                 text_editor_state.activate_sort(buffer_index);

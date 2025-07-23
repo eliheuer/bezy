@@ -120,7 +120,9 @@ fn handle_open_file(
                 }
             }
         } else {
-            warn!("Open file requested but AppState not available (using FontIR)");
+            warn!(
+                "Open file requested but AppState not available (using FontIR)"
+            );
         }
     }
 }
@@ -140,7 +142,9 @@ fn handle_save_file(
                 }
             }
         } else {
-            warn!("Save file requested but AppState not available (using FontIR)");
+            warn!(
+                "Save file requested but AppState not available (using FontIR)"
+            );
         }
     }
 }
@@ -322,7 +326,9 @@ fn handle_create_contour(
         debug!("Handling CreateContourEvent");
 
         // Get the glyph name first
-        if let (Some(state), Some(nav)) = (app_state.as_ref(), glyph_navigation.as_ref()) {
+        if let (Some(state), Some(nav)) =
+            (app_state.as_ref(), glyph_navigation.as_ref())
+        {
             if let Some(glyph_name) = nav.find_glyph(&state) {
                 // Try to add the contour to the glyph
                 // Note: This will need to be implemented when we have the full glyph editing system

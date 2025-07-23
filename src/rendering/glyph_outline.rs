@@ -10,8 +10,8 @@ use crate::core::state::{ContourData, OutlineData, PointData, PointTypeData};
 use crate::editing::selection::components::GlyphPointReference;
 use crate::systems::sort_manager::SortPointEntity;
 use crate::ui::theme::{
-    HANDLE_LINE_COLOR, OFF_CURVE_INNER_CIRCLE_RATIO, OFF_CURVE_POINT_COLOR,
-    OFF_CURVE_POINT_RADIUS, ON_CURVE_INNER_CIRCLE_RATIO, ON_CURVE_POINT_COLOR,
+    HANDLE_LINE_COLOR, OFF_CURVE_INNER_CIRCLE_RATIO, OFF_CURVE_PRIMARY_COLOR,
+    OFF_CURVE_POINT_RADIUS, ON_CURVE_INNER_CIRCLE_RATIO, ON_CURVE_PRIMARY_COLOR,
     ON_CURVE_POINT_RADIUS, ON_CURVE_SQUARE_ADJUSTMENT, PATH_STROKE_COLOR,
     USE_SQUARE_FOR_ON_CURVE,
 };
@@ -52,9 +52,9 @@ pub fn draw_glyph_points_and_handles_at_position(
             let point_pos = Vec2::new(point.x as f32, point.y as f32) + offset;
             let is_on_curve = is_on_curve(point);
             let (size, color) = if is_on_curve {
-                (ON_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR)
+                (ON_CURVE_POINT_RADIUS, ON_CURVE_PRIMARY_COLOR)
             } else {
-                (OFF_CURVE_POINT_RADIUS, OFF_CURVE_POINT_COLOR)
+                (OFF_CURVE_POINT_RADIUS, OFF_CURVE_PRIMARY_COLOR)
             };
             if is_on_curve && USE_SQUARE_FOR_ON_CURVE {
                 let half_size = size / ON_CURVE_SQUARE_ADJUSTMENT;
@@ -86,9 +86,9 @@ pub fn draw_glyph_points_at_position(
             let point_pos = Vec2::new(point.x as f32, point.y as f32) + offset;
             let is_on_curve = is_on_curve(point);
             let (size, color) = if is_on_curve {
-                (ON_CURVE_POINT_RADIUS, ON_CURVE_POINT_COLOR)
+                (ON_CURVE_POINT_RADIUS, ON_CURVE_PRIMARY_COLOR)
             } else {
-                (OFF_CURVE_POINT_RADIUS, OFF_CURVE_POINT_COLOR)
+                (OFF_CURVE_POINT_RADIUS, OFF_CURVE_PRIMARY_COLOR)
             };
             if is_on_curve && USE_SQUARE_FOR_ON_CURVE {
                 let half_size = size / ON_CURVE_SQUARE_ADJUSTMENT;
@@ -531,12 +531,12 @@ pub fn draw_glyph_outline_from_live_transforms(
                 if point_type.is_on_curve {
                     (
                         crate::ui::theme::ON_CURVE_POINT_RADIUS,
-                        crate::ui::theme::ON_CURVE_POINT_COLOR,
+                        crate::ui::theme::ON_CURVE_PRIMARY_COLOR,
                     )
                 } else {
                     (
                         crate::ui::theme::OFF_CURVE_POINT_RADIUS,
-                        crate::ui::theme::OFF_CURVE_POINT_COLOR,
+                        crate::ui::theme::OFF_CURVE_PRIMARY_COLOR,
                     )
                 }
             };
@@ -597,7 +597,10 @@ fn render_live_control_handles(
     >,
     app_state: &crate::core::state::AppState,
 ) {
-    println!("[GIZMO HANDLES] render_live_control_handles called for glyph: {}", glyph_name);
+    println!(
+        "[GIZMO HANDLES] render_live_control_handles called for glyph: {}",
+        glyph_name
+    );
     let Some(glyph_data) = app_state.workspace.font.get_glyph(glyph_name)
     else {
         return;
@@ -659,7 +662,10 @@ fn render_live_contour_handles(
 
         // Draw handle line if one point is on-curve and the other is off-curve
         if current_on_curve != next_on_curve {
-            println!("[GIZMO HANDLES] Drawing handle line from {:?} to {:?}", current_pos, next_pos);
+            println!(
+                "[GIZMO HANDLES] Drawing handle line from {:?} to {:?}",
+                current_pos, next_pos
+            );
             gizmos.line_2d(
                 current_pos,
                 next_pos,

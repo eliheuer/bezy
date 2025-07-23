@@ -146,10 +146,14 @@ pub fn get_theme_dependent_constants(
         checkerboard_max_zoom_visible: t.checkerboard_max_zoom_visible(),
         checkerboard_enabled_by_default: t.checkerboard_enabled_by_default(),
 
-        // Point colors
+        // Point colors (two-layer system)
         handle_line_color: t.handle_line_color(),
-        off_curve_point_color: t.off_curve_point_color(),
-        on_curve_point_color: t.on_curve_point_color(),
+        on_curve_primary_color: t.on_curve_primary_color(),
+        on_curve_secondary_color: t.on_curve_secondary_color(),
+        off_curve_primary_color: t.off_curve_primary_color(),
+        off_curve_secondary_color: t.off_curve_secondary_color(),
+        selected_primary_color: t.selected_primary_color(),
+        selected_secondary_color: t.selected_secondary_color(),
         path_stroke_color: t.path_stroke_color(),
 
         // UI colors
@@ -178,8 +182,12 @@ pub struct ThemeDependentConstants {
     pub checkerboard_enabled_by_default: bool,
 
     pub handle_line_color: Color,
-    pub off_curve_point_color: Color,
-    pub on_curve_point_color: Color,
+    pub on_curve_primary_color: Color,
+    pub on_curve_secondary_color: Color,
+    pub off_curve_primary_color: Color,
+    pub off_curve_secondary_color: Color,
+    pub selected_primary_color: Color,
+    pub selected_secondary_color: Color,
     pub path_stroke_color: Color,
 
     pub metrics_guide_color: Color,
@@ -205,8 +213,15 @@ pub const CHECKERBOARD_MAX_ZOOM_VISIBLE: f32 = 32.0;
 pub const CHECKERBOARD_ENABLED_BY_DEFAULT: bool = true;
 
 pub const HANDLE_LINE_COLOR: Color = Color::srgba(0.5, 0.5, 0.5, 1.0);
-pub const OFF_CURVE_POINT_COLOR: Color = Color::srgb(0.6, 0.4, 1.0);
-pub const ON_CURVE_POINT_COLOR: Color = Color::srgb(0.3, 1.0, 0.5);
+
+// Legacy two-color point constants for compatibility
+pub const ON_CURVE_PRIMARY_COLOR: Color = Color::srgb(0.3, 1.0, 0.5);
+pub const ON_CURVE_SECONDARY_COLOR: Color = Color::srgb(0.1, 0.3, 0.15);
+pub const OFF_CURVE_PRIMARY_COLOR: Color = Color::srgb(0.6, 0.4, 1.0);
+pub const OFF_CURVE_SECONDARY_COLOR: Color = Color::srgb(0.2, 0.15, 0.35);
+pub const SELECTED_PRIMARY_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0);
+pub const SELECTED_SECONDARY_COLOR: Color = Color::srgba(0.5, 0.5, 0.0, 1.0);
+
 pub const PATH_STROKE_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 
 pub const METRICS_GUIDE_COLOR: Color = Color::srgba(0.3, 1.0, 0.5, 0.5);
@@ -231,8 +246,8 @@ pub const PRESSED_BUTTON_ICON_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
 pub const TOOLBAR_BORDER_WIDTH: f32 = 2.0;
 pub const TOOLBAR_BORDER_RADIUS: f32 = 0.0;
 
-// Selection constants
-pub const SELECTED_POINT_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0);
+// Selection constants - using primary color for compatibility
+pub const SELECTED_POINT_COLOR: Color = SELECTED_PRIMARY_COLOR;
 pub const SELECTION_POINT_RADIUS: f32 = 4.0;
 pub const SELECTED_CIRCLE_RADIUS_MULTIPLIER: f32 = 1.0;
 

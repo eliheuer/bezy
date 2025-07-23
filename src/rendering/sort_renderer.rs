@@ -4,10 +4,14 @@
 //! Inactive sorts show as metrics boxes (similar to existing metrics display).
 //! Active sorts show the actual glyph outlines for editing.
 
-use crate::core::state::{AppState, FontMetrics, SortLayoutMode, FontIRAppState};
+use crate::core::state::{
+    AppState, FontIRAppState, FontMetrics, SortLayoutMode,
+};
 use crate::editing::sort::{ActiveSort, InactiveSort, Sort};
 use crate::rendering::cameras::DesignCamera;
-use crate::rendering::sort_visuals::{render_sort_visuals, render_fontir_sort_visuals, SortRenderStyle};
+use crate::rendering::sort_visuals::{
+    render_fontir_sort_visuals, render_sort_visuals, SortRenderStyle,
+};
 use kurbo::BezPath;
 
 use crate::ui::theme::{
@@ -73,7 +77,9 @@ pub fn render_sorts_system(
 ) {
     // Check which state is available and get font metrics
     let fontir_font_metrics;
-    let (font_metrics, app_state_deref) = if let Some(app_state) = app_state.as_ref() {
+    let (font_metrics, app_state_deref) = if let Some(app_state) =
+        app_state.as_ref()
+    {
         (&app_state.workspace.info.metrics, Some(app_state))
     } else if let Some(fontir_state) = fontir_app_state.as_ref() {
         // Using FontIR - create FontMetrics from FontIR data
@@ -89,7 +95,9 @@ pub fn render_sorts_system(
         };
         (&fontir_font_metrics, None)
     } else {
-        error!("Neither AppState nor FontIRAppState available for sort rendering");
+        error!(
+            "Neither AppState nor FontIRAppState available for sort rendering"
+        );
         return;
     };
 
@@ -113,8 +121,9 @@ pub fn render_sorts_system(
         // Try FontIR first, fallback to old system
         if let Some(fontir_state) = &fontir_app_state {
             // Use FontIR rendering
-            let advance_width = fontir_state.get_glyph_advance_width(&sort.glyph_name);
-            
+            let advance_width =
+                fontir_state.get_glyph_advance_width(&sort.glyph_name);
+
             crate::rendering::sort_visuals::render_fontir_sort_visuals_with_live_sync(
                 &mut gizmos,
                 fontir_state,
@@ -132,11 +141,13 @@ pub fn render_sorts_system(
                 Some(&*nudge_state),
             );
         } else if let Some(app_state) = app_state_deref {
-            if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
-            // Fallback to old system
-            let advance_width = glyph_data.advance_width as f32;
+            if let Some(glyph_data) =
+                app_state.workspace.font.glyphs.get(&sort.glyph_name)
+            {
+                // Fallback to old system
+                let advance_width = glyph_data.advance_width as f32;
 
-            crate::rendering::sort_visuals::render_sort_visuals_with_live_sync(
+                crate::rendering::sort_visuals::render_sort_visuals_with_live_sync(
                 &mut gizmos,
                 &glyph_data.outline,
                 advance_width,
@@ -173,8 +184,9 @@ pub fn render_sorts_system(
         // Try FontIR first, fallback to old system
         if let Some(fontir_state) = &fontir_app_state {
             // Use FontIR rendering
-            let advance_width = fontir_state.get_glyph_advance_width(&sort.glyph_name);
-            
+            let advance_width =
+                fontir_state.get_glyph_advance_width(&sort.glyph_name);
+
             crate::rendering::sort_visuals::render_fontir_sort_visuals_with_live_sync(
                 &mut gizmos,
                 fontir_state,
@@ -192,11 +204,13 @@ pub fn render_sorts_system(
                 Some(&*nudge_state),
             );
         } else if let Some(app_state) = app_state_deref {
-            if let Some(glyph_data) = app_state.workspace.font.glyphs.get(&sort.glyph_name) {
-            // Fallback to old system
-            let advance_width = glyph_data.advance_width as f32;
+            if let Some(glyph_data) =
+                app_state.workspace.font.glyphs.get(&sort.glyph_name)
+            {
+                // Fallback to old system
+                let advance_width = glyph_data.advance_width as f32;
 
-            crate::rendering::sort_visuals::render_sort_visuals_with_live_sync(
+                crate::rendering::sort_visuals::render_sort_visuals_with_live_sync(
                 &mut gizmos,
                 &glyph_data.outline,
                 advance_width,
@@ -239,7 +253,7 @@ pub fn manage_sort_labels(
         warn!("Sort labels skipped - AppState not available (using FontIR)");
         return;
     };
-    
+
     // Remove text for sorts that no longer exist
     let existing_sort_entities: HashSet<Entity> =
         all_sorts_query.iter().collect();

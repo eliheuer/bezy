@@ -9,7 +9,8 @@
 
 use crate::core::settings::BezySettings;
 use crate::core::state::{
-    AppState, FontIRAppState, GlyphNavigation, SortLayoutMode, TextEditorState, TextModeConfig,
+    AppState, FontIRAppState, GlyphNavigation, SortLayoutMode, TextEditorState,
+    TextModeConfig,
 };
 use bevy::input::ButtonState;
 use bevy::log::info;
@@ -376,13 +377,20 @@ pub fn handle_text_mode_mouse_clicks(
     mut camera_query: Query<&mut Projection, With<DesignCamera>>,
 ) {
     // Check which state is available
-    let (using_fontir, glyph_names, advance_width) = if let Some(fontir_state) = fontir_app_state.as_ref() {
+    let (using_fontir, glyph_names, advance_width) = if let Some(fontir_state) =
+        fontir_app_state.as_ref()
+    {
         let names = fontir_state.get_glyph_names();
         let advance = fontir_state.get_glyph_advance_width("a"); // Default glyph for advance
         (true, names, advance)
     } else if let Some(app_state) = app_state.as_ref() {
-        let names: Vec<String> = app_state.workspace.font.glyphs.keys().cloned().collect();
-        let advance = app_state.workspace.font.glyphs.get("a")
+        let names: Vec<String> =
+            app_state.workspace.font.glyphs.keys().cloned().collect();
+        let advance = app_state
+            .workspace
+            .font
+            .glyphs
+            .get("a")
             .map(|g| g.advance_width as f32)
             .unwrap_or(600.0);
         (false, names, advance)
@@ -416,7 +424,7 @@ pub fn handle_text_mode_mouse_clicks(
         // First check if we're clicking on a sort handle (regardless of placement mode)
         let world_position = pointer_info.design.to_raw();
         let handle_tolerance = 50.0;
-        
+
         // Get font metrics from appropriate source
         let font_metrics = if using_fontir {
             if let Some(fontir_state) = fontir_app_state.as_ref() {
@@ -438,7 +446,7 @@ pub fn handle_text_mode_mouse_clicks(
         } else {
             None
         };
-        
+
         let font_metrics_ref = font_metrics.as_ref();
 
         if let Some(clicked_sort_index) = text_editor_state
@@ -625,25 +633,28 @@ pub fn render_sort_preview(
 
     if let Some(glyph_name) = &glyph_navigation.current_glyph {
         debug!("[PREVIEW] current_glyph: {}", glyph_name);
-        
+
         // Try FontIR first, then fall back to AppState
         if let Some(fontir_state) = &fontir_app_state {
             debug!("[PREVIEW] Using FontIR for preview");
-            if let Some(glyph_paths) = fontir_state.get_glyph_paths_with_edits(glyph_name) {
+            if let Some(glyph_paths) =
+                fontir_state.get_glyph_paths_with_edits(glyph_name)
+            {
                 debug!(
                     "[PREVIEW] Drawing FontIR preview for glyph '{}' at ({:.1}, {:.1})",
                     glyph_name, snapped_position.x, snapped_position.y
                 );
-                
+
                 // Draw glyph outline using FontIR paths
                 crate::rendering::fontir_glyph_outline::draw_fontir_glyph_outline_at_position(
                     &mut gizmos,
                     &glyph_paths,
                     snapped_position,
                 );
-                
+
                 // Draw metrics using FontIR data
-                let advance_width = fontir_state.get_glyph_advance_width(glyph_name);
+                let advance_width =
+                    fontir_state.get_glyph_advance_width(glyph_name);
                 let font_metrics = fontir_state.get_font_metrics();
                 crate::rendering::metrics::draw_fontir_metrics_at_position(
                     &mut gizmos,
@@ -660,19 +671,21 @@ pub fn render_sort_preview(
             }
         } else if let Some(app_state) = &app_state {
             debug!("[PREVIEW] Using AppState for preview");
-            if let Some(glyph_data) = app_state.workspace.font.glyphs.get(glyph_name) {
+            if let Some(glyph_data) =
+                app_state.workspace.font.glyphs.get(glyph_name)
+            {
                 debug!(
                     "[PREVIEW] Drawing AppState preview for glyph '{}' at ({:.1}, {:.1})",
                     glyph_name, snapped_position.x, snapped_position.y
                 );
-                
+
                 // Draw glyph outline
                 crate::rendering::glyph_outline::draw_glyph_outline_at_position(
                     &mut gizmos,
                     &glyph_data.outline,
                     snapped_position,
                 );
-                
+
                 // Draw metrics if available
                 crate::rendering::metrics::draw_metrics_at_position(
                     &mut gizmos,
@@ -818,7 +831,9 @@ pub fn handle_text_mode_keyboard(
     }
 
     // Get font data from either AppState or FontIR
-    let font_has_glyph: Box<dyn Fn(&str) -> bool> = if let Some(app_state) = app_state.as_ref() {
+    let font_has_glyph: Box<dyn Fn(&str) -> bool> = if let Some(app_state) =
+        app_state.as_ref()
+    {
         Box::new(move |glyph_name: &str| -> bool {
             app_state.workspace.font.glyphs.contains_key(glyph_name)
         })
@@ -971,13 +986,14 @@ pub fn handle_text_mode_keyboard(
     {
         if keyboard_input.just_pressed(*key) {
             // Get available glyphs from either source
-            let glyph_names: Vec<String> = if let Some(app_state) = app_state.as_ref() {
-                app_state.workspace.font.glyphs.keys().cloned().collect()
-            } else if let Some(fontir_state) = fontir_app_state.as_ref() {
-                fontir_state.get_glyph_names()
-            } else {
-                vec![]
-            };
+            let glyph_names: Vec<String> =
+                if let Some(app_state) = app_state.as_ref() {
+                    app_state.workspace.font.glyphs.keys().cloned().collect()
+                } else if let Some(fontir_state) = fontir_app_state.as_ref() {
+                    fontir_state.get_glyph_names()
+                } else {
+                    vec![]
+                };
             if let Some(glyph_name) = glyph_names.get(i) {
                 glyph_navigation.current_glyph = Some(glyph_name.clone());
                 info!(
@@ -1003,14 +1019,16 @@ pub fn handle_text_mode_keyboard(
                 "a".to_string()
             } else {
                 // Get first available glyph
-                let glyph_names: Vec<String> = if let Some(app_state) = app_state.as_ref() {
+                let glyph_names: Vec<String> = if let Some(app_state) =
+                    app_state.as_ref()
+                {
                     app_state.workspace.font.glyphs.keys().cloned().collect()
                 } else if let Some(fontir_state) = fontir_app_state.as_ref() {
                     fontir_state.get_glyph_names()
                 } else {
                     vec![]
                 };
-                
+
                 if let Some(first_glyph) = glyph_names.first() {
                     first_glyph.clone()
                 } else {
@@ -1021,7 +1039,11 @@ pub fn handle_text_mode_keyboard(
     };
 
     let default_advance_width = if let Some(app_state) = app_state.as_ref() {
-        app_state.workspace.font.glyphs.get(&default_glyph_name)
+        app_state
+            .workspace
+            .font
+            .glyphs
+            .get(&default_glyph_name)
             .map(|g| g.advance_width as f32)
             .unwrap_or(600.0)
     } else if let Some(fontir_state) = fontir_app_state.as_ref() {
@@ -1033,7 +1055,7 @@ pub fn handle_text_mode_keyboard(
     // NOTE: Character input (a-z, 0-9, space) is now handled by the Unicode input system
     // in unicode_input.rs. This section is disabled to prevent double input conflicts.
     // Only navigation keys and tool shortcuts are handled in this function now.
-    
+
     // DISABLED: Character input - now handled by Unicode system for global script support
     /*
     let pressed_keys: Vec<KeyCode> =

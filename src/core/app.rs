@@ -8,7 +8,9 @@ use crate::core::settings::{BezySettings, DEFAULT_WINDOW_SIZE, WINDOW_TITLE};
 use crate::core::state::GlyphNavigation;
 use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
 use crate::rendering::{
-    cameras::CameraPlugin, camera_responsive::CameraResponsivePlugin, checkerboard::CheckerboardPlugin, MetricsRenderingPlugin, SortHandleRenderingPlugin, UnifiedGlyphEditingPlugin,
+    camera_responsive::CameraResponsivePlugin, cameras::CameraPlugin,
+    checkerboard::CheckerboardPlugin, MetricsRenderingPlugin,
+    SortHandleRenderingPlugin, UnifiedGlyphEditingPlugin,
 };
 use crate::systems::{
     exit_on_esc, load_fontir_font, load_ufo_font, BezySystems, CommandsPlugin,

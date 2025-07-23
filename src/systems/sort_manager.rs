@@ -88,7 +88,9 @@ pub fn handle_sort_events(
 
                 // Get advance width from the virtual font
                 let advance_width = if let Some(state) = app_state.as_ref() {
-                    if let Some(glyph_data) = state.workspace.font.get_glyph(glyph_name) {
+                    if let Some(glyph_data) =
+                        state.workspace.font.get_glyph(glyph_name)
+                    {
                         glyph_data.advance_width as f32
                     } else {
                         600.0 // Default fallback
@@ -384,7 +386,7 @@ pub fn spawn_sort_point_entities(
         warn!("Sort point spawning skipped - AppState not available (using FontIR)");
         return;
     };
-    
+
     // Spawn point entities for newly active sorts
     for (sort_entity, sort, transform) in added_active_sorts.iter() {
         info!(

@@ -10,13 +10,13 @@ use super::{EditTool, ToolInfo};
 use crate::core::io::input::{helpers, InputEvent, InputMode, InputState};
 use crate::core::io::pointer::PointerInfo;
 use crate::core::state::{AppState, ContourData, PointData, PointTypeData};
-use kurbo::{BezPath, Point};
 use crate::editing::selection::events::AppStateChanged;
 use crate::geometry::design_space::DPoint;
 use crate::systems::ui_interaction::UiHoverState;
 use bevy::input::keyboard::KeyCode;
 use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
+use kurbo::{BezPath, Point};
 
 pub struct PenTool;
 
@@ -290,7 +290,9 @@ fn finalize_pen_path(
     } else if let Some(_app_state) = _app_state.as_mut() {
         finalize_appstate_path(pen_state);
     } else {
-        warn!("Pen tool: No AppState or FontIR available for path finalization");
+        warn!(
+            "Pen tool: No AppState or FontIR available for path finalization"
+        );
     }
 
     // Reset state
@@ -305,24 +307,29 @@ fn finalize_pen_path(
 fn finalize_fontir_path(pen_state: &mut ResMut<PenToolState>) {
     // Create a BezPath from the current path
     let mut bez_path = BezPath::new();
-    
+
     if let Some(&first_point) = pen_state.current_path.first() {
-        bez_path.move_to(Point::new(first_point.x as f64, first_point.y as f64));
-        
+        bez_path
+            .move_to(Point::new(first_point.x as f64, first_point.y as f64));
+
         for &point in pen_state.current_path.iter().skip(1) {
             bez_path.line_to(Point::new(point.x as f64, point.y as f64));
         }
-        
+
         if pen_state.should_close_path {
             bez_path.close_path();
         }
     }
-    
+
     // For now, just log the BezPath creation
     // TODO: Add the BezPath to the FontIR glyph data
-    let path_info = format!("BezPath with {} elements", bez_path.elements().len());
+    let path_info =
+        format!("BezPath with {} elements", bez_path.elements().len());
     info!("Pen tool (FontIR): Created {} for current glyph", path_info);
-    info!("Pen tool (FontIR): Path elements: {:?}", bez_path.elements());
+    info!(
+        "Pen tool (FontIR): Path elements: {:?}",
+        bez_path.elements()
+    );
 }
 
 /// Helper function to finalize path using traditional AppState operations

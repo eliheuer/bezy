@@ -3,20 +3,22 @@
 use crate::core::state::font_data::OutlineData;
 use crate::core::state::font_metrics::FontMetrics;
 use crate::core::state::{FontIRAppState, SortLayoutMode};
-use crate::editing::selection::components::{GlyphPointReference, PointType, Selected};
+use crate::editing::selection::components::{
+    GlyphPointReference, PointType, Selected,
+};
 use crate::editing::selection::nudge::NudgeState;
 use crate::rendering::camera_responsive::CameraResponsiveScale;
-use crate::rendering::glyph_outline::{
-    draw_glyph_outline_at_position, draw_glyph_outline_from_live_transforms,
-};
 use crate::rendering::fontir_glyph_outline::{
     draw_fontir_glyph_outline_at_position, get_fontir_glyph_paths,
+};
+use crate::rendering::glyph_outline::{
+    draw_glyph_outline_at_position, draw_glyph_outline_from_live_transforms,
 };
 use crate::rendering::metrics::draw_metrics_at_position;
 use crate::systems::sort_manager::SortPointEntity;
 use bevy::prelude::*;
-use bevy::sprite::{ColorMaterial, MeshMaterial2d};
 use bevy::render::mesh::Mesh2d;
+use bevy::sprite::{ColorMaterial, MeshMaterial2d};
 use kurbo::BezPath;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -64,81 +66,94 @@ fn spawn_square_handle(
     // Create square outline using 4 line segments with camera-responsive width
     let half_size = camera_scale.adjusted_handle_size(size);
     let line_width = camera_scale.adjusted_line_width();
-    
+
     // Create a container entity for the 4 lines
-    let container = commands.spawn((
-        SortHandle { sort_entity, handle_type },
-        Transform::from_translation(position.extend(SORT_HANDLE_Z)),
-        GlobalTransform::default(),
-        Visibility::Visible,
-        InheritedVisibility::default(),
-        ViewVisibility::default(),
-    )).id();
-    
+    let container = commands
+        .spawn((
+            SortHandle {
+                sort_entity,
+                handle_type,
+            },
+            Transform::from_translation(position.extend(SORT_HANDLE_Z)),
+            GlobalTransform::default(),
+            Visibility::Visible,
+            InheritedVisibility::default(),
+            ViewVisibility::default(),
+        ))
+        .id();
+
     // Top line
     let top_line = crate::rendering::mesh_glyph_outline::create_line_mesh(
         Vec2::new(-half_size, half_size),
         Vec2::new(half_size, half_size),
-        line_width
+        line_width,
     );
-    commands.spawn((
-        Mesh2d(meshes.add(top_line)),
-        MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
-        Transform::from_translation(Vec3::ZERO),
-        GlobalTransform::default(),
-        Visibility::Visible,
-        InheritedVisibility::default(),
-        ViewVisibility::default(),
-    )).insert(ChildOf(container));
-    
+    commands
+        .spawn((
+            Mesh2d(meshes.add(top_line)),
+            MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+            Transform::from_translation(Vec3::ZERO),
+            GlobalTransform::default(),
+            Visibility::Visible,
+            InheritedVisibility::default(),
+            ViewVisibility::default(),
+        ))
+        .insert(ChildOf(container));
+
     // Right line
     let right_line = crate::rendering::mesh_glyph_outline::create_line_mesh(
         Vec2::new(half_size, half_size),
         Vec2::new(half_size, -half_size),
-        line_width
+        line_width,
     );
-    commands.spawn((
-        Mesh2d(meshes.add(right_line)),
-        MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
-        Transform::from_translation(Vec3::ZERO),
-        GlobalTransform::default(),
-        Visibility::Visible,
-        InheritedVisibility::default(),
-        ViewVisibility::default(),
-    )).insert(ChildOf(container));
-    
+    commands
+        .spawn((
+            Mesh2d(meshes.add(right_line)),
+            MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+            Transform::from_translation(Vec3::ZERO),
+            GlobalTransform::default(),
+            Visibility::Visible,
+            InheritedVisibility::default(),
+            ViewVisibility::default(),
+        ))
+        .insert(ChildOf(container));
+
     // Bottom line
     let bottom_line = crate::rendering::mesh_glyph_outline::create_line_mesh(
         Vec2::new(half_size, -half_size),
         Vec2::new(-half_size, -half_size),
-        line_width
+        line_width,
     );
-    commands.spawn((
-        Mesh2d(meshes.add(bottom_line)),
-        MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
-        Transform::from_translation(Vec3::ZERO),
-        GlobalTransform::default(),
-        Visibility::Visible,
-        InheritedVisibility::default(),
-        ViewVisibility::default(),
-    )).insert(ChildOf(container));
-    
+    commands
+        .spawn((
+            Mesh2d(meshes.add(bottom_line)),
+            MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+            Transform::from_translation(Vec3::ZERO),
+            GlobalTransform::default(),
+            Visibility::Visible,
+            InheritedVisibility::default(),
+            ViewVisibility::default(),
+        ))
+        .insert(ChildOf(container));
+
     // Left line
     let left_line = crate::rendering::mesh_glyph_outline::create_line_mesh(
         Vec2::new(-half_size, -half_size),
         Vec2::new(-half_size, half_size),
-        line_width
+        line_width,
     );
-    commands.spawn((
-        Mesh2d(meshes.add(left_line)),
-        MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
-        Transform::from_translation(Vec3::ZERO),
-        GlobalTransform::default(),
-        Visibility::Visible,
-        InheritedVisibility::default(),
-        ViewVisibility::default(),
-    )).insert(ChildOf(container));
-    
+    commands
+        .spawn((
+            Mesh2d(meshes.add(left_line)),
+            MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+            Transform::from_translation(Vec3::ZERO),
+            GlobalTransform::default(),
+            Visibility::Visible,
+            InheritedVisibility::default(),
+            ViewVisibility::default(),
+        ))
+        .insert(ChildOf(container));
+
     container
 }
 
@@ -158,36 +173,53 @@ fn spawn_circle_handle(
     let line_width = camera_scale.adjusted_line_width();
     let adjusted_radius = camera_scale.adjusted_handle_size(radius);
     let segments = 24; // 24 segments for smooth circle
-    
-    let container = commands.spawn((
-        SortHandle { sort_entity, handle_type },
-        Transform::from_translation(position.extend(SORT_HANDLE_Z)),
-        GlobalTransform::default(),
-        Visibility::Visible,
-        InheritedVisibility::default(),
-        ViewVisibility::default(),
-    )).id();
-    
-    // Create circle segments
-    for i in 0..segments {
-        let angle1 = (i as f32 / segments as f32) * 2.0 * std::f32::consts::PI;
-        let angle2 = ((i + 1) as f32 / segments as f32) * 2.0 * std::f32::consts::PI;
-        
-        let start = Vec2::new(angle1.cos() * adjusted_radius, angle1.sin() * adjusted_radius);
-        let end = Vec2::new(angle2.cos() * adjusted_radius, angle2.sin() * adjusted_radius);
-        
-        let segment_line = crate::rendering::mesh_glyph_outline::create_line_mesh(start, end, line_width);
-        commands.spawn((
-            Mesh2d(meshes.add(segment_line)),
-            MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
-            Transform::from_translation(Vec3::ZERO),
+
+    let container = commands
+        .spawn((
+            SortHandle {
+                sort_entity,
+                handle_type,
+            },
+            Transform::from_translation(position.extend(SORT_HANDLE_Z)),
             GlobalTransform::default(),
             Visibility::Visible,
             InheritedVisibility::default(),
             ViewVisibility::default(),
-        )).insert(ChildOf(container));
+        ))
+        .id();
+
+    // Create circle segments
+    for i in 0..segments {
+        let angle1 = (i as f32 / segments as f32) * 2.0 * std::f32::consts::PI;
+        let angle2 =
+            ((i + 1) as f32 / segments as f32) * 2.0 * std::f32::consts::PI;
+
+        let start = Vec2::new(
+            angle1.cos() * adjusted_radius,
+            angle1.sin() * adjusted_radius,
+        );
+        let end = Vec2::new(
+            angle2.cos() * adjusted_radius,
+            angle2.sin() * adjusted_radius,
+        );
+
+        let segment_line =
+            crate::rendering::mesh_glyph_outline::create_line_mesh(
+                start, end, line_width,
+            );
+        commands
+            .spawn((
+                Mesh2d(meshes.add(segment_line)),
+                MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+                Transform::from_translation(Vec3::ZERO),
+                GlobalTransform::default(),
+                Visibility::Visible,
+                InheritedVisibility::default(),
+                ViewVisibility::default(),
+            ))
+            .insert(ChildOf(container));
     }
-    
+
     container
 }
 
@@ -340,19 +372,22 @@ pub fn render_sort_visuals_with_live_sync(
     } else {
         false
     };
-    
-    let use_live_rendering = (nudge_active || has_selected_points || has_any_points)
-        && has_sort_entity
-        && has_sort_transform
-        && has_glyph_name
-        && has_point_query
-        && has_selected_query
-        && has_app_state;
+
+    let use_live_rendering =
+        (nudge_active || has_selected_points || has_any_points)
+            && has_sort_entity
+            && has_sort_transform
+            && has_glyph_name
+            && has_point_query
+            && has_selected_query
+            && has_app_state;
 
     // Debug logging with println for visibility
-    static COUNTER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    static COUNTER: std::sync::atomic::AtomicU32 =
+        std::sync::atomic::AtomicU32::new(0);
     let count = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    if count % 60 == 0 { // Every second
+    if count % 60 == 0 {
+        // Every second
         println!("[LIVE RENDER CHECK] use_live_rendering={}, has_any_points={}, nudge_active={}, has_selected_points={}", 
                use_live_rendering, has_any_points, nudge_active, has_selected_points);
     }
@@ -469,14 +504,15 @@ pub fn render_fontir_sort_visuals(
     style: SortRenderStyle,
 ) {
     // Get FontIR glyph paths (with working copy edits if available)
-    if let Some(paths) = fontir_app_state.get_glyph_paths_with_edits(glyph_name) {
+    if let Some(paths) = fontir_app_state.get_glyph_paths_with_edits(glyph_name)
+    {
         // DISABLED: Draw FontIR outline - now using mesh system
         // draw_fontir_glyph_outline_at_position(gizmos, &paths, position);
     }
-    
+
     // Get real FontIR metrics instead of using converted FontMetrics
     let fontir_metrics = fontir_app_state.get_font_metrics();
-    
+
     // Draw FontIR metrics with real values
     crate::rendering::metrics::draw_fontir_metrics_at_position(
         gizmos,
@@ -520,12 +556,7 @@ pub fn render_fontir_sort_visuals_with_live_sync(
     _sort_transform: Option<&Transform>,
     _point_query: Option<
         &Query<
-            (
-                Entity,
-                &Transform,
-                &GlyphPointReference,
-                &PointType,
-            ),
+            (Entity, &Transform, &GlyphPointReference, &PointType),
             With<SortPointEntity>,
         >,
     >,
@@ -534,14 +565,15 @@ pub fn render_fontir_sort_visuals_with_live_sync(
 ) {
     // SIMPLIFIED: Always use stable FontIR working copy rendering
     // Working copy updates happen immediately during nudging for synchronization
-    if let Some(paths) = fontir_app_state.get_glyph_paths_with_edits(glyph_name) {
+    if let Some(paths) = fontir_app_state.get_glyph_paths_with_edits(glyph_name)
+    {
         // DISABLED: Draw FontIR outline - now using mesh system
         // draw_fontir_glyph_outline_at_position(gizmos, &paths, position);
     }
-    
+
     // Always draw metrics and handles the same way
     let fontir_metrics = fontir_app_state.get_font_metrics();
-    
+
     crate::rendering::metrics::draw_fontir_metrics_at_position(
         gizmos,
         advance_width,
@@ -576,7 +608,10 @@ pub fn render_mesh_sort_handles(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut handle_entities: ResMut<SortHandleEntities>,
-    sort_query: Query<(Entity, &Transform, &crate::editing::sort::Sort), With<crate::editing::sort::ActiveSort>>,
+    sort_query: Query<
+        (Entity, &Transform, &crate::editing::sort::Sort),
+        With<crate::editing::sort::ActiveSort>,
+    >,
     existing_handles: Query<Entity, With<SortHandle>>,
     selected_query: Query<Entity, With<Selected>>,
     fontir_app_state: Option<Res<FontIRAppState>>,
@@ -590,17 +625,18 @@ pub fn render_mesh_sort_handles(
 
     if let Some(fontir_state) = fontir_app_state {
         let fontir_metrics = fontir_state.get_font_metrics();
-        
+
         for (sort_entity, sort_transform, sort) in sort_query.iter() {
             let position = sort_transform.translation.truncate();
-            
+
             // Get advance width from FontIR
-            let advance_width = fontir_state.get_glyph_advance_width(&sort.glyph_name);
-            
+            let advance_width =
+                fontir_state.get_glyph_advance_width(&sort.glyph_name);
+
             // Handle position at descender
             let descender = fontir_metrics.descender.unwrap_or(-200.0);
             let handle_position = position + Vec2::new(0.0, descender);
-            
+
             // Determine handle color
             let is_selected = selected_query.get(sort_entity).is_ok();
             let handle_color = if is_selected {
@@ -608,15 +644,15 @@ pub fn render_mesh_sort_handles(
             } else {
                 crate::ui::theme::SORT_INACTIVE_METRICS_COLOR // Default metrics color
             };
-            
+
             let normal_size = 16.0;
-            
+
             // Create appropriate handle based on sort layout mode
             let style = match sort.layout_mode {
                 SortLayoutMode::Text => SortRenderStyle::TextBuffer,
                 SortLayoutMode::Freeform => SortRenderStyle::Freeform,
             };
-            
+
             let handle_entity = match style {
                 SortRenderStyle::TextBuffer => {
                     spawn_square_handle(
@@ -631,24 +667,24 @@ pub fn render_mesh_sort_handles(
                         &camera_scale,
                     )
                 }
-                SortRenderStyle::Freeform => {
-                    spawn_circle_handle(
-                        &mut commands,
-                        &mut meshes,
-                        &mut materials,
-                        handle_position,
-                        normal_size,
-                        handle_color,
-                        sort_entity,
-                        SortHandleType::Circle,
-                        &camera_scale,
-                    )
-                }
+                SortRenderStyle::Freeform => spawn_circle_handle(
+                    &mut commands,
+                    &mut meshes,
+                    &mut materials,
+                    handle_position,
+                    normal_size,
+                    handle_color,
+                    sort_entity,
+                    SortHandleType::Circle,
+                    &camera_scale,
+                ),
             };
-            
+
             // Store handle entity
-            handle_entities.handles.insert(sort_entity, vec![handle_entity]);
-            
+            handle_entities
+                .handles
+                .insert(sort_entity, vec![handle_entity]);
+
             // Add selection indicator if selected
             if is_selected {
                 let selection_entity = match style {
@@ -665,22 +701,24 @@ pub fn render_mesh_sort_handles(
                             &camera_scale,
                         )
                     }
-                    SortRenderStyle::Freeform => {
-                        spawn_circle_handle(
-                            &mut commands,
-                            &mut meshes,
-                            &mut materials,
-                            handle_position,
-                            normal_size * 1.5,
-                            Color::srgba(1.0, 1.0, 0.0, 0.5),
-                            sort_entity,
-                            SortHandleType::SelectionIndicator,
-                            &camera_scale,
-                        )
-                    }
+                    SortRenderStyle::Freeform => spawn_circle_handle(
+                        &mut commands,
+                        &mut meshes,
+                        &mut materials,
+                        handle_position,
+                        normal_size * 1.5,
+                        Color::srgba(1.0, 1.0, 0.0, 0.5),
+                        sort_entity,
+                        SortHandleType::SelectionIndicator,
+                        &camera_scale,
+                    ),
                 };
-                
-                handle_entities.handles.get_mut(&sort_entity).unwrap().push(selection_entity);
+
+                handle_entities
+                    .handles
+                    .get_mut(&sort_entity)
+                    .unwrap()
+                    .push(selection_entity);
             }
         }
     }
@@ -692,7 +730,7 @@ pub struct SortHandleRenderingPlugin;
 impl Plugin for SortHandleRenderingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SortHandleEntities>()
-           .add_systems(Update, render_mesh_sort_handles);
+            .add_systems(Update, render_mesh_sort_handles);
     }
 }
 

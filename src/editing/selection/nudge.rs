@@ -5,8 +5,8 @@ use crate::editing::edit_type::EditType;
 use crate::editing::selection::components::Selected;
 use crate::editing::sort::ActiveSortState;
 use crate::systems::sort_manager::SortPointEntity;
-use bevy::prelude::*;
 use bevy::log::{debug, info, warn};
+use bevy::prelude::*;
 
 /// Resource to track nudge state for preventing selection loss during nudging
 #[derive(Resource, Debug, Default, Reflect)]
@@ -117,7 +117,7 @@ pub fn handle_nudge_input(
 
             // Collect all point updates first
             let mut point_updates = Vec::new();
-            
+
             for (entity, transform, point_ref, sort_point_entity_opt) in
                 queries.p0().iter()
             {
@@ -129,20 +129,27 @@ pub fn handle_nudge_input(
 
                 // Collect point data for both FontIR and Transform updates
                 if let Some(sort_point_entity) = sort_point_entity_opt {
-                    point_updates.push((entity, point_ref.clone(), sort_point_entity.sort_entity, new_pos));
+                    point_updates.push((
+                        entity,
+                        point_ref.clone(),
+                        sort_point_entity.sort_entity,
+                        new_pos,
+                    ));
                 }
             }
-            
+
             // STEP 1: Update Transform components FIRST (for immediate point rendering)
             for (entity, _point_ref, _sort_entity, new_pos) in &point_updates {
-                if let Ok((_, mut transform, _, _)) = queries.p0().get_mut(*entity) {
+                if let Ok((_, mut transform, _, _)) =
+                    queries.p0().get_mut(*entity)
+                {
                     transform.translation.x = new_pos.x;
                     transform.translation.y = new_pos.y;
                     debug!("[NUDGE] Transform: Updated position for {:?} to ({:.1}, {:.1})", 
                            entity, new_pos.x, new_pos.y);
                 }
             }
-            
+
             // STEP 2: Skip FontIR working copy updates during active nudging
             // Working copy will be updated when nudging completes to avoid timing issues
             debug!("[NUDGE] Skipping FontIR updates during active nudging - will sync on completion");
@@ -222,7 +229,7 @@ pub fn sync_nudged_points_on_completion(
 
             // Try FontIR first, then fallback to UFO AppState (same pattern as drag system)
             let mut handled = false;
-            
+
             if let Some(ref mut fontir_state) = fontir_app_state {
                 match fontir_state.update_point_position(
                     &point_ref.glyph_name,
@@ -244,7 +251,7 @@ pub fn sync_nudged_points_on_completion(
                     }
                 }
             }
-            
+
             // Fallback to UFO AppState if FontIR didn't handle it
             if !handled && app_state.is_some() {
                 if let Some(ref mut state) = app_state {
@@ -271,7 +278,7 @@ pub fn sync_nudged_points_on_completion(
                     }
                 }
             }
-            
+
             // If neither FontIR nor UFO handled it, just track the Transform update
             if !handled {
                 sync_count += 1;

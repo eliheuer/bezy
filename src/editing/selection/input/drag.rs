@@ -8,8 +8,8 @@ use crate::editing::selection::components::{GlyphPointReference, Selected};
 use crate::editing::selection::nudge::{EditEvent, PointCoordinates};
 use crate::editing::selection::DragPointState;
 use bevy::input::ButtonInput;
-use bevy::prelude::*;
 use bevy::log::{debug, warn};
+use bevy::prelude::*;
 
 /// System to handle advanced point dragging with constraints and snapping
 #[allow(clippy::type_complexity)]
@@ -98,7 +98,7 @@ pub fn handle_point_drag(
 
                     // Try FontIR first, then fallback to UFO AppState
                     let mut handled = false;
-                    
+
                     if let Some(ref mut fontir_state) = fontir_app_state {
                         // Try to update FontIR data
                         match fontir_state.update_point_position(
@@ -119,7 +119,7 @@ pub fn handle_point_drag(
                             }
                         }
                     }
-                    
+
                     // Fallback to UFO AppState if FontIR didn't handle it
                     if !handled && app_state.is_some() {
                         if let Some(ref mut app_state) = app_state {
@@ -136,7 +136,7 @@ pub fn handle_point_drag(
                             }
                         }
                     }
-                    
+
                     // If neither FontIR nor UFO handled it, just track the Transform update
                     if !handled {
                         updated_count += 1;

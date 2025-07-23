@@ -108,16 +108,22 @@ impl BezyTheme for StrawberryTheme {
     // GLYPH RENDERING
     // =================================================================
 
-    fn on_curve_point_color(&self) -> Color {
-        Color::srgb(0.2, 0.7, 0.3)
+    /// On-curve point colors (two-layer system)
+    fn on_curve_primary_color(&self) -> Color {
+        Color::srgb(0.2, 0.7, 0.3) // Fresh green
     }
 
-    fn off_curve_point_color(&self) -> Color {
-        Color::srgb(0.8, 0.3, 0.5)
+    fn on_curve_secondary_color(&self) -> Color {
+        Color::srgb(0.1, 0.35, 0.15) // Dark green
     }
 
-    fn off_curve_point_outer_color(&self) -> Color {
-        Color::srgb(0.6, 0.4, 0.4)
+    /// Off-curve point colors (two-layer system)  
+    fn off_curve_primary_color(&self) -> Color {
+        Color::srgb(0.8, 0.3, 0.5) // Strawberry pink
+    }
+
+    fn off_curve_secondary_color(&self) -> Color {
+        Color::srgb(0.4, 0.15, 0.25) // Dark berry
     }
 
     fn path_line_color(&self) -> Color {
@@ -140,8 +146,13 @@ impl BezyTheme for StrawberryTheme {
     // SELECTION & INTERACTION
     // =================================================================
 
-    fn selected_point_color(&self) -> Color {
-        Color::srgba(0.9, 0.8, 0.2, 1.0)
+    /// Selected point colors (two-layer system for crosshairs)
+    fn selected_primary_color(&self) -> Color {
+        Color::srgba(0.9, 0.8, 0.2, 1.0) // Bright yellow
+    }
+
+    fn selected_secondary_color(&self) -> Color {
+        Color::srgba(0.45, 0.4, 0.1, 1.0) // Dark yellow
     }
 
     fn hover_point_color(&self) -> Color {

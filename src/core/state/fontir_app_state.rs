@@ -6,17 +6,17 @@
 
 use anyhow::Result;
 use bevy::prelude::*;
-use tracing::{debug, info, warn};
-use fontdrasil::coords::{NormalizedLocation, NormalizedCoord};
+use fontdrasil::coords::{NormalizedCoord, NormalizedLocation};
 use fontdrasil::types::GlyphName;
 use fontir::ir::{Glyph as FontIRGlyph, GlyphInstance};
-use fontir::source::Source;
 use fontir::orchestration::{Context, Flags, WorkId};
 use fontir::paths::Paths;
+use fontir::source::Source;
 use kurbo::{BezPath, PathEl, Point};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tracing::{debug, info, warn};
 use ufo2fontir::source::DesignSpaceIrSource;
 
 /// Font metrics extracted from FontIR
@@ -58,26 +58,27 @@ impl From<&GlyphInstance> for EditableGlyphInstance {
 pub struct FontIRAppState {
     /// The FontIR source (handles UFO, designspace, etc.)
     pub source: Arc<DesignSpaceIrSource>,
-    
+
     /// FontIR context containing processed font data
     pub context: Option<Arc<Context>>,
-    
+
     /// Cached original glyph data (immutable, for reference)
     /// Maps glyph name to FontIR glyph
     pub glyph_cache: HashMap<String, Arc<FontIRGlyph>>,
-    
+
     /// Working copies of glyphs being edited (mutable, for performance)
     /// Only contains glyphs that have been opened for editing
     /// Maps (glyph_name, location) to editable instance
-    pub working_copies: HashMap<(String, NormalizedLocation), EditableGlyphInstance>,
-    
+    pub working_copies:
+        HashMap<(String, NormalizedLocation), EditableGlyphInstance>,
+
     /// Currently selected glyph name
     pub current_glyph: Option<String>,
-    
+
     /// Currently selected design space location
     /// For variable fonts, this determines which instance we're editing
     pub current_location: NormalizedLocation,
-    
+
     /// Path to the source file
     pub source_path: PathBuf,
 }
@@ -87,12 +88,12 @@ impl FontIRAppState {
     pub fn from_path(path: PathBuf) -> Result<Self> {
         // Load the source (works with .ufo or .designspace)
         let source = Arc::new(DesignSpaceIrSource::new(&path)?);
-        
+
         // Initialize with default location
         // Note: We'll use fallback to first available instance in glyph lookup
         // since exact location matching is complex with variable fonts
         let current_location = NormalizedLocation::default();
-        
+
         let mut app_state = Self {
             source,
             context: None,
@@ -102,72 +103,77 @@ impl FontIRAppState {
             current_location,
             source_path: path,
         };
-        
+
         // Load glyphs into cache
         if let Err(e) = app_state.load_glyphs() {
             warn!("Failed to load glyphs during FontIR initialization: {}", e);
         }
-        
+
         Ok(app_state)
     }
-    
+
     /// Set the current glyph
     pub fn set_current_glyph(&mut self, glyph_name: Option<String>) {
         self.current_glyph = glyph_name;
     }
-    
+
     /// Get a glyph by name
     pub fn get_glyph(&self, name: &str) -> Option<&FontIRGlyph> {
         self.glyph_cache.get(name).map(|g| g.as_ref())
     }
-    
+
     /// Get the current glyph's path at the current location
     pub fn get_current_glyph_paths(&self) -> Option<Vec<BezPath>> {
         let glyph_name = self.current_glyph.as_ref()?;
         self.get_glyph_paths(glyph_name)
     }
-    
+
     /// Get a glyph's path by name at the current location
     pub fn get_glyph_paths(&self, glyph_name: &str) -> Option<Vec<BezPath>> {
         // First try to get from FontIR context using the helper method
         if let Some(ref context) = self.context {
             let glyph_name_typed: GlyphName = glyph_name.into();
             let work_id = WorkId::Glyph(glyph_name_typed);
-            
+
             // Use try_get since we're not sure if the glyph exists
             if let Some(glyph) = context.glyphs.try_get(&work_id) {
                 // Try to get the instance at our current location
-                if let Some(instance) = glyph.sources().get(&self.current_location) {
+                if let Some(instance) =
+                    glyph.sources().get(&self.current_location)
+                {
                     return Some(instance.contours.clone());
                 }
-                
+
                 // Fallback: Use the first available instance if exact location doesn't exist
-                if let Some((_location, instance)) = glyph.sources().iter().next() {
+                if let Some((_location, instance)) =
+                    glyph.sources().iter().next()
+                {
                     info!("get_glyph_paths: Using first available instance for glyph '{}' with {} contours", glyph_name, instance.contours.len());
                     return Some(instance.contours.clone());
                 }
             }
         }
-        
+
         // Fall back to cached glyph data
         if let Some(glyph) = self.get_glyph(glyph_name) {
             // Try to get the instance at our current location
-            if let Some(instance) = glyph.sources().get(&self.current_location) {
+            if let Some(instance) = glyph.sources().get(&self.current_location)
+            {
                 return Some(instance.contours.clone());
             }
-            
+
             // Fallback: Use the first available instance if exact location doesn't exist
             if let Some((_location, instance)) = glyph.sources().iter().next() {
                 info!("get_glyph_paths: Using first available cached instance for glyph '{}' with {} contours", glyph_name, instance.contours.len());
                 return Some(instance.contours.clone());
             }
         }
-        
-        // Final fallback - return test shapes for common glyphs to verify the system works  
+
+        // Final fallback - return test shapes for common glyphs to verify the system works
         warn!("get_glyph_paths: No real glyph data found for '{}', falling back to placeholder shapes", glyph_name);
         self.create_fallback_glyph_path(glyph_name)
     }
-    
+
     /// Get a mutable path element by indices
     /// Returns (path_index, element_index) for the found element
     pub fn find_path_element(
@@ -176,37 +182,45 @@ impl FontIRAppState {
         point_idx: usize,
     ) -> Option<(usize, usize)> {
         let paths = self.get_current_glyph_paths()?;
-        
+
         if contour_idx >= paths.len() {
             return None;
         }
-        
+
         let path = &paths[contour_idx];
         let elements: Vec<_> = path.elements().iter().collect();
-        
+
         if point_idx < elements.len() {
             Some((contour_idx, point_idx))
         } else {
             None
         }
     }
-    
+
     /// Get or create a working copy of a glyph instance for editing
     /// This is optimized for zero-lag performance during editing
-    fn get_or_create_working_copy(&mut self, glyph_name: &str) -> Option<&mut EditableGlyphInstance> {
+    fn get_or_create_working_copy(
+        &mut self,
+        glyph_name: &str,
+    ) -> Option<&mut EditableGlyphInstance> {
         let location = self.current_location.clone();
         let key = (glyph_name.to_string(), location.clone());
-        
+
         // Fast path: working copy already exists
         if self.working_copies.contains_key(&key) {
-            info!("*** FontIR: REUSING existing working copy for glyph '{}'", glyph_name);
+            info!(
+                "*** FontIR: REUSING existing working copy for glyph '{}'",
+                glyph_name
+            );
             return self.working_copies.get_mut(&key);
         }
-        
+
         // Slow path: create working copy from original FontIR data
         if let Some(fontir_glyph) = self.glyph_cache.get(glyph_name) {
             // Get the appropriate instance for our location
-            if let Some((_location, instance)) = fontir_glyph.sources().iter().next() {
+            if let Some((_location, instance)) =
+                fontir_glyph.sources().iter().next()
+            {
                 let working_copy = EditableGlyphInstance::from(instance);
                 info!("FontIR: Created new working copy for glyph '{}' with {} contours", 
                       glyph_name, working_copy.contours.len());
@@ -218,10 +232,10 @@ impl FontIRAppState {
         } else {
             warn!("FontIR: Glyph '{}' not found in cache", glyph_name);
         }
-        
+
         None
     }
-    
+
     /// Update a point position in a FontIR glyph (high-performance implementation)
     pub fn update_point_position(
         &mut self,
@@ -232,46 +246,63 @@ impl FontIRAppState {
         new_y: f64,
     ) -> Result<bool> {
         use bevy::log::{debug, info};
-        
+
         debug!("FontIR: Updating point position for glyph '{}', contour {}, point {} to ({:.1}, {:.1})", 
               glyph_name, contour_idx, point_idx, new_x, new_y);
-        
+
         // Get or create the working copy for this glyph
         if self.get_or_create_working_copy(glyph_name).is_some() {
             let location = self.current_location.clone();
             let key = (glyph_name.to_string(), location);
-            
+
             if let Some(working_copy) = self.working_copies.get_mut(&key) {
                 // Check bounds
                 if contour_idx >= working_copy.contours.len() {
-                    warn!("FontIR: Contour index {} out of bounds for glyph '{}'", contour_idx, glyph_name);
+                    warn!(
+                        "FontIR: Contour index {} out of bounds for glyph '{}'",
+                        contour_idx, glyph_name
+                    );
                     return Ok(false);
                 }
-                
+
                 // Update the point in the working copy BezPath
-                if Self::update_point_in_bezpath_static(&mut working_copy.contours[contour_idx], point_idx, new_x, new_y) {
+                if Self::update_point_in_bezpath_static(
+                    &mut working_copy.contours[contour_idx],
+                    point_idx,
+                    new_x,
+                    new_y,
+                ) {
                     working_copy.is_dirty = true;
-                    debug!("FontIR: Successfully updated point {} in working copy", point_idx);
+                    debug!(
+                        "FontIR: Successfully updated point {} in working copy",
+                        point_idx
+                    );
                     return Ok(true);
                 }
             }
         }
-        
+
         info!("FontIR: Could not update point - glyph '{}' not found or invalid indices", glyph_name);
         Ok(false)
     }
-    
+
     /// Update a specific point in a BezPath (optimized for performance)
-    fn update_point_in_bezpath_static(path: &mut BezPath, point_idx: usize, new_x: f64, new_y: f64) -> bool {
+    fn update_point_in_bezpath_static(
+        path: &mut BezPath,
+        point_idx: usize,
+        new_x: f64,
+        new_y: f64,
+    ) -> bool {
         let elements: Vec<PathEl> = path.elements().iter().cloned().collect();
         let mut current_point_idx = 0;
         let mut new_elements = Vec::new();
-        
+
         for element in elements {
             match element {
                 PathEl::MoveTo(pt) => {
                     if current_point_idx == point_idx {
-                        new_elements.push(PathEl::MoveTo(Point::new(new_x, new_y)));
+                        new_elements
+                            .push(PathEl::MoveTo(Point::new(new_x, new_y)));
                     } else {
                         new_elements.push(element);
                     }
@@ -279,7 +310,8 @@ impl FontIRAppState {
                 }
                 PathEl::LineTo(pt) => {
                     if current_point_idx == point_idx {
-                        new_elements.push(PathEl::LineTo(Point::new(new_x, new_y)));
+                        new_elements
+                            .push(PathEl::LineTo(Point::new(new_x, new_y)));
                     } else {
                         new_elements.push(element);
                     }
@@ -289,7 +321,7 @@ impl FontIRAppState {
                     let mut new_c1 = c1;
                     let mut new_c2 = c2;
                     let mut new_pt = pt;
-                    
+
                     // Check each control point and endpoint
                     if current_point_idx == point_idx {
                         new_c1 = Point::new(new_x, new_y);
@@ -298,20 +330,20 @@ impl FontIRAppState {
                     } else if current_point_idx + 2 == point_idx {
                         new_pt = Point::new(new_x, new_y);
                     }
-                    
+
                     new_elements.push(PathEl::CurveTo(new_c1, new_c2, new_pt));
                     current_point_idx += 3;
                 }
                 PathEl::QuadTo(c, pt) => {
                     let mut new_c = c;
                     let mut new_pt = pt;
-                    
+
                     if current_point_idx == point_idx {
                         new_c = Point::new(new_x, new_y);
                     } else if current_point_idx + 1 == point_idx {
                         new_pt = Point::new(new_x, new_y);
                     }
-                    
+
                     new_elements.push(PathEl::QuadTo(new_c, new_pt));
                     current_point_idx += 2;
                 }
@@ -321,16 +353,16 @@ impl FontIRAppState {
                 }
             }
         }
-        
+
         // Rebuild the BezPath with updated elements
         if current_point_idx > point_idx {
             *path = BezPath::from_vec(new_elements);
             return true;
         }
-        
+
         false
     }
-    
+
     /// Update a path element (for advanced point editing)
     pub fn update_path_element(
         &mut self,
@@ -340,112 +372,121 @@ impl FontIRAppState {
         new_element: PathEl,
     ) -> Result<()> {
         use bevy::log::{info, warn};
-        
+
         info!("FontIR: Update path element for glyph '{}', contour {}, element {}", 
               glyph_name, contour_idx, element_idx);
-        
+
         // Same issue as above - Arc<FontIRGlyph> is not easily mutable
         warn!("FontIR path element mutation not yet implemented");
         warn!("This requires architectural changes to support mutable FontIR data");
-        
+
         // For now, log what we would do:
-        info!("Would update {:?} at contour {}, element {}", new_element, contour_idx, element_idx);
-        
+        info!(
+            "Would update {:?} at contour {}, element {}",
+            new_element, contour_idx, element_idx
+        );
+
         Ok(())
     }
-    
+
     /// Check if this FontIR state can handle mutations
     pub fn supports_mutations(&self) -> bool {
         // Now we support mutations via working copies!
         true
     }
-    
+
     /// Get glyph paths, preferring working copies over original FontIR data
     /// This ensures live rendering shows the edited version
-    pub fn get_glyph_paths_with_edits(&self, glyph_name: &str) -> Option<Vec<BezPath>> {
+    pub fn get_glyph_paths_with_edits(
+        &self,
+        glyph_name: &str,
+    ) -> Option<Vec<BezPath>> {
         let location = &self.current_location;
         let key = (glyph_name.to_string(), location.clone());
-        
+
         // Fast path: return working copy if it exists
         if let Some(working_copy) = self.working_copies.get(&key) {
             info!("*** FontIR: Using WORKING COPY for glyph '{}' (dirty: {}, {} contours)", 
                   glyph_name, working_copy.is_dirty, working_copy.contours.len());
             return Some(working_copy.contours.clone());
         }
-        
+
         // Fallback to original FontIR data
         info!("*** FontIR: Using ORIGINAL DATA for glyph '{}' (no working copy found)", glyph_name);
         self.get_glyph_paths(glyph_name)
     }
-    
+
     /// Load all glyphs into cache
     pub fn load_glyphs(&mut self) -> Result<()> {
         info!("Loading glyphs from FontIR source");
-        
+
         // Create a new context with proper flags and paths
         let flags = Flags::empty(); // For now, use empty flags
         let temp_dir = std::env::temp_dir();
         let paths = Paths::new(&temp_dir);
         let mut context = Context::new_root(flags, paths);
-        
+
         // Execute FontIR work items to populate the context with real glyph data
         if let Err(e) = self.execute_fontir_work(&mut context) {
             warn!("Failed to execute FontIR work: {}. Trying alternative direct access approach.", e);
-            
+
             // Alternative approach: Try direct data extraction from DesignSpaceIrSource
             if let Err(e2) = self.try_direct_glyph_extraction() {
                 warn!("Direct glyph extraction also failed: {}. Using fallback data.", e2);
             }
         }
-        
+
         self.context = Some(Arc::new(context));
-        
+
         Ok(())
     }
-    
+
     /// Execute FontIR work items with proper orchestration and permissions
     fn execute_fontir_work(&mut self, context: &mut Context) -> Result<()> {
         use fontdrasil::orchestration::Work;
-        
+
         info!("Executing FontIR work items to load real glyph data");
-        
+
         // First, create and execute static metadata work
         let static_metadata_work = self.source.create_static_metadata_work()?;
         let static_read_access = static_metadata_work.read_access();
         let static_write_access = static_metadata_work.write_access();
-        let static_context = context.copy_for_work(static_read_access, static_write_access);
-        
+        let static_context =
+            context.copy_for_work(static_read_access, static_write_access);
+
         info!("Executing static metadata work");
         if let Err(e) = static_metadata_work.exec(&static_context) {
             warn!("Static metadata work failed: {}", e);
             return Err(anyhow::anyhow!("Static metadata work failed: {}", e));
         }
-        
+
         // Create and execute preliminary glyph order work
         let glyph_order_work = fontir::glyph::create_glyph_order_work();
         let order_read_access = glyph_order_work.read_access();
         let order_write_access = glyph_order_work.write_access();
-        let order_context = context.copy_for_work(order_read_access, order_write_access);
-        
+        let order_context =
+            context.copy_for_work(order_read_access, order_write_access);
+
         // Execute global metrics work
         let global_metrics_work = self.source.create_global_metric_work()?;
         let metrics_read_access = global_metrics_work.read_access();
         let metrics_write_access = global_metrics_work.write_access();
-        let metrics_context = context.copy_for_work(metrics_read_access, metrics_write_access);
-        
+        let metrics_context =
+            context.copy_for_work(metrics_read_access, metrics_write_access);
+
         info!("Executing global metrics work");
         if let Err(e) = global_metrics_work.exec(&metrics_context) {
             warn!("Global metrics work failed: {}", e);
         }
-        
+
         // Create and execute glyph IR work items
         let glyph_work_items = self.source.create_glyph_ir_work()?;
         info!("Executing {} glyph IR work items", glyph_work_items.len());
-        
+
         // Execute each glyph work item with proper permissions
         // Glyph work items need access to all previously computed data
         use fontdrasil::orchestration::{Access, AccessBuilder};
-        
+
         for (i, work_item) in glyph_work_items.iter().enumerate() {
             // Glyph work needs broader read access than what's specified in the work item
             // It needs to read static metadata, global metrics, and other glyphs for components
@@ -453,69 +494,83 @@ impl FontIRAppState {
                 .variant(WorkId::StaticMetadata)
                 .variant(WorkId::GlobalMetrics)
                 .variant(WorkId::PreliminaryGlyphOrder)
-                .variant(WorkId::ALL_GLYPHS)  // Access to all glyphs for component resolution
+                .variant(WorkId::ALL_GLYPHS) // Access to all glyphs for component resolution
                 .build();
-            
+
             let write_access = work_item.write_access();
-            let work_context = context.copy_for_work(broad_read_access, write_access);
-            
+            let work_context =
+                context.copy_for_work(broad_read_access, write_access);
+
             if let Err(e) = work_item.exec(&work_context) {
                 warn!("Glyph work item {} failed: {}", i, e);
                 // Continue with other work items even if one fails
                 continue;
             }
-            
+
             // Cache the glyph data if it was successfully created
-            if let Ok(glyph_name) = self.extract_glyph_name_from_work_id(&work_item.id()) {
-                if let Some(glyph) = work_context.glyphs.try_get(&work_item.id()) {
+            if let Ok(glyph_name) =
+                self.extract_glyph_name_from_work_id(&work_item.id())
+            {
+                if let Some(glyph) =
+                    work_context.glyphs.try_get(&work_item.id())
+                {
                     self.glyph_cache.insert(glyph_name, glyph);
                 }
             }
         }
-        
+
         // Execute preliminary glyph order after glyphs are loaded
         info!("Executing glyph order work");
         if let Err(e) = glyph_order_work.exec(&order_context) {
             warn!("Glyph order work failed: {}", e);
         }
-        
-        info!("FontIR work execution completed. Loaded {} glyphs into cache", self.glyph_cache.len());
+
+        info!(
+            "FontIR work execution completed. Loaded {} glyphs into cache",
+            self.glyph_cache.len()
+        );
         Ok(())
     }
-    
+
     /// Helper to extract glyph name from WorkId
-    fn extract_glyph_name_from_work_id(&self, work_id: &WorkId) -> Result<String> {
+    fn extract_glyph_name_from_work_id(
+        &self,
+        work_id: &WorkId,
+    ) -> Result<String> {
         match work_id {
             WorkId::Glyph(glyph_name) => Ok(glyph_name.to_string()),
             _ => Err(anyhow::anyhow!("Work ID is not a glyph: {:?}", work_id)),
         }
     }
-    
+
     /// Alternative approach: Try to extract glyph data directly from DesignSpaceIrSource
     /// without complex orchestration. This is simpler but may not handle all edge cases.
     fn try_direct_glyph_extraction(&mut self) -> Result<()> {
         info!("Attempting direct glyph extraction from DesignSpaceIrSource");
-        
+
         // This approach tries to access the underlying UFO data directly
         // Note: This is less robust than full FontIR orchestration but may work for simple cases
-        
+
         // For now, we'll attempt to create a minimal working context
         // and try to access the source data structures directly
-        
+
         // Create work items but use them only to understand what glyphs exist
         match self.source.create_glyph_ir_work() {
             Ok(glyph_work_items) => {
-                info!("Found {} glyph work items to extract", glyph_work_items.len());
-                
+                info!(
+                    "Found {} glyph work items to extract",
+                    glyph_work_items.len()
+                );
+
                 // Try to create a simplified context with full access for testing
                 let flags = Flags::empty();
                 let temp_dir = std::env::temp_dir();
                 let paths = Paths::new(&temp_dir);
                 let context = Context::new_root(flags, paths);
-                
+
                 // Create a context with full access permissions for testing
                 use fontdrasil::orchestration::{Access, AccessBuilder};
-                
+
                 // Create broad access that should cover all necessary data
                 let broad_read_access = AccessBuilder::new()
                     .variant(WorkId::StaticMetadata)
@@ -524,21 +579,32 @@ impl FontIRAppState {
                     .variant(WorkId::ALL_GLYPHS)
                     .variant(WorkId::ALL_ANCHORS)
                     .build();
-                    
-                let full_access_context = context.copy_for_work(broad_read_access, Access::All);
-                
+
+                let full_access_context =
+                    context.copy_for_work(broad_read_access, Access::All);
+
                 // Try to execute just one work item to test the approach
                 if let Some(test_work) = glyph_work_items.first() {
-                    info!("Testing work execution with work item: {:?}", test_work.id());
-                    
+                    info!(
+                        "Testing work execution with work item: {:?}",
+                        test_work.id()
+                    );
+
                     if let Err(e) = test_work.exec(&full_access_context) {
                         warn!("Direct work execution failed: {}", e);
-                        return Err(anyhow::anyhow!("Direct work execution failed: {}", e));
+                        return Err(anyhow::anyhow!(
+                            "Direct work execution failed: {}",
+                            e
+                        ));
                     }
-                    
+
                     // If successful, try to extract the glyph data
-                    if let Ok(glyph_name) = self.extract_glyph_name_from_work_id(&test_work.id()) {
-                        if let Some(glyph) = full_access_context.glyphs.try_get(&test_work.id()) {
+                    if let Ok(glyph_name) =
+                        self.extract_glyph_name_from_work_id(&test_work.id())
+                    {
+                        if let Some(glyph) =
+                            full_access_context.glyphs.try_get(&test_work.id())
+                        {
                             info!("Successfully extracted glyph '{}' with {} sources", glyph_name, glyph.sources().len());
                             self.glyph_cache.insert(glyph_name, glyph);
                             return Ok(());
@@ -548,13 +614,16 @@ impl FontIRAppState {
             }
             Err(e) => {
                 warn!("Failed to create glyph work items: {}", e);
-                return Err(anyhow::anyhow!("Failed to create glyph work items: {}", e));
+                return Err(anyhow::anyhow!(
+                    "Failed to create glyph work items: {}",
+                    e
+                ));
             }
         }
-        
+
         Err(anyhow::anyhow!("Direct glyph extraction did not succeed"))
     }
-    
+
     /// Get font metrics from FontIR source
     pub fn get_font_metrics(&self) -> FontIRMetrics {
         if let Some(ref context) = self.context {
@@ -562,11 +631,11 @@ impl FontIRAppState {
             let static_metadata = context.static_metadata.get();
             let units_per_em = static_metadata.units_per_em as f32;
             let default_location = static_metadata.default_location();
-            
+
             // Get global metrics at default location
             let global_metrics = context.global_metrics.get();
             let metrics = global_metrics.at(default_location);
-            
+
             let fontir_metrics = FontIRMetrics {
                 units_per_em,
                 ascender: Some(metrics.ascender.0 as f32),
@@ -575,14 +644,14 @@ impl FontIRAppState {
                 x_height: Some(metrics.x_height.0 as f32),
                 cap_height: Some(metrics.cap_height.0 as f32),
             };
-            
+
             info!("FontIR metrics extracted: UPM={}, ascender={}, descender={}, x_height={}, cap_height={}", 
                   fontir_metrics.units_per_em,
                   fontir_metrics.ascender.unwrap_or(-1.0),
                   fontir_metrics.descender.unwrap_or(-1.0),
                   fontir_metrics.x_height.unwrap_or(-1.0),
                   fontir_metrics.cap_height.unwrap_or(-1.0));
-            
+
             fontir_metrics
         } else {
             // Fallback to sensible defaults if context not available
@@ -596,13 +665,14 @@ impl FontIRAppState {
             }
         }
     }
-    
+
     /// Get glyph names available in the font
     pub fn get_glyph_names(&self) -> Vec<String> {
         // First try to get from the FontIR context
         if let Some(ref context) = self.context {
             let all_glyphs = context.glyphs.all();
-            let mut names: Vec<String> = all_glyphs.into_iter()
+            let mut names: Vec<String> = all_glyphs
+                .into_iter()
                 .filter_map(|(work_id, _)| {
                     if let WorkId::Glyph(glyph_name) = work_id {
                         Some(glyph_name.to_string())
@@ -611,48 +681,77 @@ impl FontIRAppState {
                     }
                 })
                 .collect();
-            
+
             if !names.is_empty() {
                 names.sort();
                 return names;
             }
         }
-        
+
         // Fall back to cached glyph names if available
         if !self.glyph_cache.is_empty() {
-            let mut names: Vec<String> = self.glyph_cache.keys().cloned().collect();
+            let mut names: Vec<String> =
+                self.glyph_cache.keys().cloned().collect();
             names.sort();
             return names;
         }
-        
+
         // Final fallback - return basic test glyph names
         vec![
-            "a".to_string(), "b".to_string(), "c".to_string(), "d".to_string(), "e".to_string(),
-            "f".to_string(), "g".to_string(), "h".to_string(), "i".to_string(), "j".to_string(),
-            "k".to_string(), "l".to_string(), "m".to_string(), "n".to_string(), "o".to_string(),
-            "p".to_string(), "q".to_string(), "r".to_string(), "s".to_string(), "t".to_string(),
-            "u".to_string(), "v".to_string(), "w".to_string(), "x".to_string(), "y".to_string(), "z".to_string(),
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+            "e".to_string(),
+            "f".to_string(),
+            "g".to_string(),
+            "h".to_string(),
+            "i".to_string(),
+            "j".to_string(),
+            "k".to_string(),
+            "l".to_string(),
+            "m".to_string(),
+            "n".to_string(),
+            "o".to_string(),
+            "p".to_string(),
+            "q".to_string(),
+            "r".to_string(),
+            "s".to_string(),
+            "t".to_string(),
+            "u".to_string(),
+            "v".to_string(),
+            "w".to_string(),
+            "x".to_string(),
+            "y".to_string(),
+            "z".to_string(),
         ]
     }
-    
+
     /// Get advance width for a glyph
     pub fn get_glyph_advance_width(&self, glyph_name: &str) -> f32 {
         // First try to get from FontIR context
         if let Some(ref context) = self.context {
             let glyph_name_typed: GlyphName = glyph_name.into();
             let work_id = WorkId::Glyph(glyph_name_typed);
-            
+
             // Use try_get since we're not sure if the glyph exists
             if let Some(glyph) = context.glyphs.try_get(&work_id) {
-                info!("get_glyph_advance_width: Found glyph '{}' in context", glyph_name);
-                
+                info!(
+                    "get_glyph_advance_width: Found glyph '{}' in context",
+                    glyph_name
+                );
+
                 // Log available locations
                 let sources = glyph.sources();
-                info!("get_glyph_advance_width: Glyph '{}' has {} sources", glyph_name, sources.len());
+                info!(
+                    "get_glyph_advance_width: Glyph '{}' has {} sources",
+                    glyph_name,
+                    sources.len()
+                );
                 for (loc, instance) in sources.iter() {
                     info!("  Location: {:?}, width: {}", loc, instance.width);
                 }
-                
+
                 // Get the instance at our current location
                 if let Some(instance) = sources.get(&self.current_location) {
                     info!("get_glyph_advance_width: Found at current location, width: {}", instance.width);
@@ -666,15 +765,21 @@ impl FontIRAppState {
                     }
                 }
             } else {
-                info!("get_glyph_advance_width: Glyph '{}' not found in context", glyph_name);
+                info!(
+                    "get_glyph_advance_width: Glyph '{}' not found in context",
+                    glyph_name
+                );
             }
         } else {
             info!("get_glyph_advance_width: No context available");
         }
-        
+
         // Fall back to cached glyph data
         if let Some(glyph) = self.get_glyph(glyph_name) {
-            info!("get_glyph_advance_width: Found glyph '{}' in cache", glyph_name);
+            info!(
+                "get_glyph_advance_width: Found glyph '{}' in cache",
+                glyph_name
+            );
             let sources = glyph.sources();
             // Get the instance at our current location
             if let Some(instance) = sources.get(&self.current_location) {
@@ -688,23 +793,32 @@ impl FontIRAppState {
                 }
             }
         } else {
-            info!("get_glyph_advance_width: Glyph '{}' not found in cache", glyph_name);
+            info!(
+                "get_glyph_advance_width: Glyph '{}' not found in cache",
+                glyph_name
+            );
         }
-        
+
         // Final fallback - return reasonable defaults for common glyphs
-        info!("get_glyph_advance_width: Using fallback value for glyph '{}'", glyph_name);
+        info!(
+            "get_glyph_advance_width: Using fallback value for glyph '{}'",
+            glyph_name
+        );
         match glyph_name {
             "a" | "c" | "e" | "o" | "u" => 500.0,
             "b" | "d" | "h" | "k" | "l" | "p" | "q" => 550.0,
             "f" | "i" | "j" | "r" | "t" => 300.0,
             "g" | "n" | "s" | "v" | "x" | "y" | "z" => 450.0,
             "m" | "w" => 750.0,
-            _ => 600.0
+            _ => 600.0,
         }
     }
-    
+
     /// Create fallback glyph paths for testing
-    fn create_fallback_glyph_path(&self, glyph_name: &str) -> Option<Vec<BezPath>> {
+    fn create_fallback_glyph_path(
+        &self,
+        glyph_name: &str,
+    ) -> Option<Vec<BezPath>> {
         match glyph_name {
             "a" => {
                 let mut path = BezPath::new();
@@ -873,7 +987,7 @@ impl FontIRAppState {
                 path.close_path();
                 Some(vec![path])
             }
-            _ => None
+            _ => None,
         }
     }
 }

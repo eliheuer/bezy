@@ -7,10 +7,11 @@ use crate::editing::selection::components::{PointType, Selected};
 use crate::editing::sort::ActiveSort;
 use crate::systems::sort_manager::SortPointEntity;
 use crate::ui::theme::*;
+use crate::ui::themes::CurrentTheme;
 use bevy::prelude::*;
-use bevy::sprite::{ColorMaterial, MeshMaterial2d};
 use bevy::render::mesh::Mesh2d;
 use bevy::render::view::Visibility;
+use bevy::sprite::{ColorMaterial, MeshMaterial2d};
 
 /// Component to mark entities as point visual meshes
 #[derive(Component)]
@@ -35,11 +36,12 @@ pub fn render_points_with_meshes(
     >,
     active_sorts: Query<Entity, With<ActiveSort>>,
     existing_point_meshes: Query<Entity, With<PointMesh>>,
+    theme: Res<CurrentTheme>,
 ) {
     let all_point_count = all_point_entities.iter().count();
     let existing_mesh_count = existing_point_meshes.iter().count();
     let active_sort_count = active_sorts.iter().count();
-    
+
     // Early return if no active sorts
     if active_sort_count == 0 {
         // Clean up existing point meshes when no active sorts
@@ -55,27 +57,44 @@ pub fn render_points_with_meshes(
     }
 
     // Render all points using meshes
-    for (point_entity, transform, point_type, selected) in all_point_entities.iter() {
+    for (point_entity, transform, point_type, selected) in
+        all_point_entities.iter()
+    {
         let position = transform.translation().truncate();
-        
-        // Determine color based on selection state
-        let point_color = if selected.is_some() {
-            SELECTED_POINT_COLOR
+
+        // Determine colors for two-layer system
+        let (primary_color, secondary_color) = if selected.is_some() {
+            (
+                theme.theme().selected_primary_color(),
+                theme.theme().selected_secondary_color(),
+            )
         } else if point_type.is_on_curve {
-            ON_CURVE_POINT_COLOR
+            (
+                theme.theme().on_curve_primary_color(),
+                theme.theme().on_curve_secondary_color(),
+            )
         } else {
-            OFF_CURVE_POINT_COLOR
+            (
+                theme.theme().off_curve_primary_color(),
+                theme.theme().off_curve_secondary_color(),
+            )
         };
-        
-        // Create the main point shape
+
+        // Create the three-layer point shape
         if point_type.is_on_curve && USE_SQUARE_FOR_ON_CURVE {
-            // On-curve points: square
-            let size = ON_CURVE_POINT_RADIUS * ON_CURVE_SQUARE_ADJUSTMENT * 2.0;
+            // On-curve points: square with three layers
+            let base_size =
+                ON_CURVE_POINT_RADIUS * ON_CURVE_SQUARE_ADJUSTMENT * 2.0;
+
+            // Layer 1: Base shape (full width) - primary color
             commands.spawn((
-                PointMesh { point_entity, is_outer: true },
+                PointMesh {
+                    point_entity,
+                    is_outer: true,
+                },
                 Sprite {
-                    color: point_color,
-                    custom_size: Some(Vec2::splat(size)),
+                    color: primary_color,
+                    custom_size: Some(Vec2::splat(base_size)),
                     ..default()
                 },
                 Transform::from_translation(position.extend(10.0)), // Above outlines
@@ -84,91 +103,185 @@ pub fn render_points_with_meshes(
                 InheritedVisibility::default(),
                 ViewVisibility::default(),
             ));
-            
-            // Inner crosshair/dot
-            let inner_size = size * ON_CURVE_INNER_CIRCLE_RATIO;
+
+            // Layer 2: Slightly smaller shape - secondary color
+            let secondary_size = base_size * 0.7;
             commands.spawn((
-                PointMesh { point_entity, is_outer: false },
+                PointMesh {
+                    point_entity,
+                    is_outer: false,
+                },
                 Sprite {
-                    color: point_color,
-                    custom_size: Some(Vec2::splat(inner_size)),
+                    color: secondary_color,
+                    custom_size: Some(Vec2::splat(secondary_size)),
                     ..default()
                 },
-                Transform::from_translation(position.extend(11.0)), // Above outer shape
+                Transform::from_translation(position.extend(11.0)), // Above base
+                GlobalTransform::default(),
+                Visibility::Visible,
+                InheritedVisibility::default(),
+                ViewVisibility::default(),
+            ));
+
+            // Layer 3: Small center shape - primary color
+            let center_size = base_size * ON_CURVE_INNER_CIRCLE_RATIO;
+            commands.spawn((
+                PointMesh {
+                    point_entity,
+                    is_outer: false,
+                },
+                Sprite {
+                    color: primary_color,
+                    custom_size: Some(Vec2::splat(center_size)),
+                    ..default()
+                },
+                Transform::from_translation(position.extend(12.0)), // Above secondary
                 GlobalTransform::default(),
                 Visibility::Visible,
                 InheritedVisibility::default(),
                 ViewVisibility::default(),
             ));
         } else {
-            // Off-curve points and circular on-curve points: circle
-            let radius = if point_type.is_on_curve { 
-                ON_CURVE_POINT_RADIUS 
-            } else { 
-                OFF_CURVE_POINT_RADIUS 
+            // Off-curve points and circular on-curve points: circle with three layers
+            let base_radius = if point_type.is_on_curve {
+                ON_CURVE_POINT_RADIUS
+            } else {
+                OFF_CURVE_POINT_RADIUS
             };
-            
+
+            // Layer 1: Base circle (full size) - primary color
             commands.spawn((
-                PointMesh { point_entity, is_outer: true },
-                Mesh2d(meshes.add(Circle::new(radius))),
-                MeshMaterial2d(materials.add(ColorMaterial::from_color(point_color))),
+                PointMesh {
+                    point_entity,
+                    is_outer: true,
+                },
+                Mesh2d(meshes.add(Circle::new(base_radius))),
+                MeshMaterial2d(
+                    materials.add(ColorMaterial::from_color(primary_color)),
+                ),
                 Transform::from_translation(position.extend(10.0)), // Above outlines
                 GlobalTransform::default(),
                 Visibility::Visible,
                 InheritedVisibility::default(),
                 ViewVisibility::default(),
             ));
-            
-            // Inner circle
-            let inner_radius = radius * if point_type.is_on_curve { 
-                ON_CURVE_INNER_CIRCLE_RATIO 
-            } else { 
-                OFF_CURVE_INNER_CIRCLE_RATIO 
-            };
+
+            // Layer 2: Slightly smaller circle - secondary color
+            let secondary_radius = base_radius * 0.7;
             commands.spawn((
-                PointMesh { point_entity, is_outer: false },
-                Mesh2d(meshes.add(Circle::new(inner_radius))),
-                MeshMaterial2d(materials.add(ColorMaterial::from_color(point_color))),
-                Transform::from_translation(position.extend(11.0)), // Above outer shape
+                PointMesh {
+                    point_entity,
+                    is_outer: false,
+                },
+                Mesh2d(meshes.add(Circle::new(secondary_radius))),
+                MeshMaterial2d(
+                    materials.add(ColorMaterial::from_color(secondary_color)),
+                ),
+                Transform::from_translation(position.extend(11.0)), // Above base
+                GlobalTransform::default(),
+                Visibility::Visible,
+                InheritedVisibility::default(),
+                ViewVisibility::default(),
+            ));
+
+            // Layer 3: Small center circle - primary color
+            let center_radius = base_radius
+                * if point_type.is_on_curve {
+                    ON_CURVE_INNER_CIRCLE_RATIO
+                } else {
+                    OFF_CURVE_INNER_CIRCLE_RATIO
+                };
+            commands.spawn((
+                PointMesh {
+                    point_entity,
+                    is_outer: false,
+                },
+                Mesh2d(meshes.add(Circle::new(center_radius))),
+                MeshMaterial2d(
+                    materials.add(ColorMaterial::from_color(primary_color)),
+                ),
+                Transform::from_translation(position.extend(12.0)), // Above secondary
                 GlobalTransform::default(),
                 Visibility::Visible,
                 InheritedVisibility::default(),
                 ViewVisibility::default(),
             ));
         }
-        
-        // Add crosshairs for selected points
+
+        // Add crosshairs for selected points using two-color system
         if selected.is_some() {
-            let line_size = if point_type.is_on_curve { 
-                ON_CURVE_POINT_RADIUS 
-            } else { 
-                OFF_CURVE_POINT_RADIUS 
+            let line_size = if point_type.is_on_curve {
+                ON_CURVE_POINT_RADIUS
+            } else {
+                OFF_CURVE_POINT_RADIUS
             };
-            
-            // Horizontal line
+
+            // Horizontal line - thicker line with primary color background
             commands.spawn((
-                PointMesh { point_entity, is_outer: false },
+                PointMesh {
+                    point_entity,
+                    is_outer: false,
+                },
                 Sprite {
-                    color: point_color,
-                    custom_size: Some(Vec2::new(line_size * 2.0, 1.0)),
+                    color: primary_color,
+                    custom_size: Some(Vec2::new(line_size * 2.0, 3.0)),
                     ..default()
                 },
-                Transform::from_translation(position.extend(12.0)), // Above everything
+                Transform::from_translation(position.extend(13.0)), // Above everything
                 GlobalTransform::default(),
                 Visibility::Visible,
                 InheritedVisibility::default(),
                 ViewVisibility::default(),
             ));
-            
-            // Vertical line
+
+            // Horizontal line - thinner line with secondary color
             commands.spawn((
-                PointMesh { point_entity, is_outer: false },
+                PointMesh {
+                    point_entity,
+                    is_outer: false,
+                },
                 Sprite {
-                    color: point_color,
+                    color: secondary_color,
+                    custom_size: Some(Vec2::new(line_size * 2.0, 1.0)),
+                    ..default()
+                },
+                Transform::from_translation(position.extend(14.0)), // Above primary line
+                GlobalTransform::default(),
+                Visibility::Visible,
+                InheritedVisibility::default(),
+                ViewVisibility::default(),
+            ));
+
+            // Vertical line - thicker line with primary color background
+            commands.spawn((
+                PointMesh {
+                    point_entity,
+                    is_outer: false,
+                },
+                Sprite {
+                    color: primary_color,
+                    custom_size: Some(Vec2::new(3.0, line_size * 2.0)),
+                    ..default()
+                },
+                Transform::from_translation(position.extend(13.0)), // Above everything
+                GlobalTransform::default(),
+                Visibility::Visible,
+                InheritedVisibility::default(),
+                ViewVisibility::default(),
+            ));
+
+            // Vertical line - thinner line with secondary color
+            commands.spawn((
+                PointMesh {
+                    point_entity,
+                    is_outer: false,
+                },
+                Sprite {
+                    color: secondary_color,
                     custom_size: Some(Vec2::new(1.0, line_size * 2.0)),
                     ..default()
                 },
-                Transform::from_translation(position.extend(12.0)), // Above everything
+                Transform::from_translation(position.extend(14.0)), // Above primary line
                 GlobalTransform::default(),
                 Visibility::Visible,
                 InheritedVisibility::default(),
@@ -178,11 +291,8 @@ pub fn render_points_with_meshes(
     }
 }
 
-
 /// Plugin for mesh-based point rendering
 pub struct PointRenderingPlugin;
-
-
 
 impl Plugin for PointRenderingPlugin {
     fn build(&self, app: &mut App) {

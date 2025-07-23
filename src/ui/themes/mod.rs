@@ -352,9 +352,14 @@ pub trait BezyTheme: Send + Sync + 'static {
     fn off_curve_point_radius(&self) -> f32 {
         4.0
     }
-    fn on_curve_point_color(&self) -> Color;
-    fn off_curve_point_color(&self) -> Color;
-    fn off_curve_point_outer_color(&self) -> Color;
+
+    /// On-curve point colors (two-layer system)
+    fn on_curve_primary_color(&self) -> Color;
+    fn on_curve_secondary_color(&self) -> Color;
+
+    /// Off-curve point colors (two-layer system)  
+    fn off_curve_primary_color(&self) -> Color;
+    fn off_curve_secondary_color(&self) -> Color;
 
     /// Point layout details
     fn on_curve_square_adjustment(&self) -> f32 {
@@ -417,7 +422,9 @@ pub trait BezyTheme: Send + Sync + 'static {
     fn selected_cross_size_multiplier(&self) -> f32 {
         1.0
     }
-    fn selected_point_color(&self) -> Color;
+    /// Selected point colors (two-layer system for crosshairs)
+    fn selected_primary_color(&self) -> Color;
+    fn selected_secondary_color(&self) -> Color;
 
     /// Hover states
     fn hover_circle_radius_multiplier(&self) -> f32 {

@@ -1,7 +1,6 @@
 //! Dark Mode Theme for Bezy
 //!
-//! This is the default theme that preserves the original dark styling of Bezy.
-//! It features a dark background with bright accent colors for editing tools.
+//! This is the default theme for the Bezy font editor.
 
 use super::BezyTheme;
 use bevy::prelude::*;
@@ -20,9 +19,7 @@ impl BezyTheme for DarkModeTheme {
         "Dark Mode"
     }
 
-    // =================================================================
     // TYPOGRAPHY
-    // =================================================================
 
     fn normal_text_color(&self) -> Color {
         Color::srgb(0.9, 0.9, 0.9)
@@ -108,16 +105,22 @@ impl BezyTheme for DarkModeTheme {
     // GLYPH RENDERING
     // =================================================================
 
-    fn on_curve_point_color(&self) -> Color {
-        Color::srgb(0.3, 1.0, 0.5)
+    /// On-curve point colors (two-layer system)
+    fn on_curve_primary_color(&self) -> Color {
+        Color::srgb(0.3, 1.0, 0.5) // Bright green
     }
 
-    fn off_curve_point_color(&self) -> Color {
-        Color::srgb(0.6, 0.4, 1.0)
+    fn on_curve_secondary_color(&self) -> Color {
+        Color::srgb(0.1, 0.4, 0.15) // Dark green
     }
 
-    fn off_curve_point_outer_color(&self) -> Color {
-        Color::srgb(0.5, 0.5, 0.5)
+    /// Off-curve point colors (two-layer system)  
+    fn off_curve_primary_color(&self) -> Color {
+        Color::srgb(0.6, 0.4, 1.0) // Purple/blue
+    }
+
+    fn off_curve_secondary_color(&self) -> Color {
+        Color::srgb(0.2, 0.15, 0.4) // Dark purple
     }
 
     fn path_line_color(&self) -> Color {
@@ -168,8 +171,13 @@ impl BezyTheme for DarkModeTheme {
     // SELECTION & INTERACTION
     // =================================================================
 
-    fn selected_point_color(&self) -> Color {
-        Color::srgba(1.0, 1.0, 0.0, 1.0)
+    /// Selected point colors (two-layer system for crosshairs)
+    fn selected_primary_color(&self) -> Color {
+        Color::srgba(1.0, 1.0, 0.0, 1.0) // Bright yellow
+    }
+
+    fn selected_secondary_color(&self) -> Color {
+        Color::srgba(0.4, 0.4, 0.0, 1.0) // Dark yellow
     }
 
     fn hover_point_color(&self) -> Color {

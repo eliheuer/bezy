@@ -3,16 +3,13 @@
 //! This module contains systems that handle font loading and management
 //! using FontIR instead of the old custom data structures.
 
-use bevy::prelude::*;
-use crate::core::state::FontIRAppState;
 use crate::core::cli::CliArgs;
+use crate::core::state::FontIRAppState;
+use bevy::prelude::*;
 use fontir::source::Source;
 
 /// System to load UFO/designspace font on startup using FontIR
-pub fn load_fontir_font(
-    mut commands: Commands,
-    cli_args: Res<CliArgs>,
-) {
+pub fn load_fontir_font(mut commands: Commands, cli_args: Res<CliArgs>) {
     // clap provides the default value, so ufo_path is guaranteed to be Some
     if let Some(path) = &cli_args.ufo_path {
         match FontIRAppState::from_path(path.clone()) {
@@ -21,15 +18,18 @@ pub fn load_fontir_font(
                 if let Err(e) = app_state.load_glyphs() {
                     warn!("Could not load glyphs: {}", e);
                 }
-                
-                info!("Successfully loaded font with FontIR from: {}", path.display());
+
+                info!(
+                    "Successfully loaded font with FontIR from: {}",
+                    path.display()
+                );
                 commands.insert_resource(app_state);
             }
             Err(e) => {
                 error!("Failed to load font with FontIR: {}", e);
                 error!("Font path: {}", path.display());
                 error!("The application will continue but some features may not work correctly.");
-                
+
                 // Don't insert any FontIR state if loading fails
                 warn!("App will run without FontIR state - some features may not work");
             }

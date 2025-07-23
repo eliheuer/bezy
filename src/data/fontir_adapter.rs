@@ -1,6 +1,6 @@
 //! FontIR adapter for Bevy compatibility
 //!
-//! This module provides a bridge between fontir's data structures and 
+//! This module provides a bridge between fontir's data structures and
 //! Bevy's requirements for thread-safe resources. It wraps FontIR types
 //! to make them Send + Sync and provides conversion utilities.
 
@@ -16,7 +16,7 @@ use crate::core::state::{
 };
 
 /// Thread-safe wrapper around FontIR data
-/// 
+///
 /// This wrapper makes FontIR data compatible with Bevy's ECS system
 /// by ensuring it implements Send + Sync.
 #[derive(Resource, Clone)]
@@ -128,14 +128,12 @@ impl FontIRData {
 
 /// Load a designspace or UFO font using FontIR
 pub fn load_font_with_fontir(path: PathBuf) -> Result<FontIRData> {
-    use ufo2fontir::source::DesignSpaceIrSource;
     use fontir::source::Source;
-    
+    use ufo2fontir::source::DesignSpaceIrSource;
+
     // Try to load as designspace first, then fallback to UFO
-    let extension = path.extension()
-        .and_then(|ext| ext.to_str())
-        .unwrap_or("");
-    
+    let extension = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
+
     match extension {
         "designspace" => {
             info!("Loading designspace file: {:?}", path);

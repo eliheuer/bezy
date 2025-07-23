@@ -114,16 +114,22 @@ impl BezyTheme for OceanTheme {
     // GLYPH RENDERING
     // =================================================================
 
-    fn on_curve_point_color(&self) -> Color {
+    /// On-curve point colors (two-layer system)
+    fn on_curve_primary_color(&self) -> Color {
         Color::srgb(1.0, 0.5, 0.4) // Coral
     }
 
-    fn off_curve_point_color(&self) -> Color {
+    fn on_curve_secondary_color(&self) -> Color {
+        Color::srgb(0.5, 0.25, 0.2) // Dark coral
+    }
+
+    /// Off-curve point colors (two-layer system)  
+    fn off_curve_primary_color(&self) -> Color {
         Color::srgb(0.4, 0.8, 1.0) // Sky blue
     }
 
-    fn off_curve_point_outer_color(&self) -> Color {
-        Color::srgb(0.5, 0.7, 0.8) // Muted blue
+    fn off_curve_secondary_color(&self) -> Color {
+        Color::srgb(0.2, 0.4, 0.5) // Dark ocean blue
     }
 
     fn path_line_color(&self) -> Color {
@@ -146,8 +152,13 @@ impl BezyTheme for OceanTheme {
     // SELECTION & INTERACTION
     // =================================================================
 
-    fn selected_point_color(&self) -> Color {
+    /// Selected point colors (two-layer system for crosshairs)
+    fn selected_primary_color(&self) -> Color {
         Color::srgba(1.0, 0.8, 0.1, 1.0) // Golden yellow (like sun on water)
+    }
+
+    fn selected_secondary_color(&self) -> Color {
+        Color::srgba(0.5, 0.4, 0.05, 1.0) // Dark golden
     }
 
     fn hover_point_color(&self) -> Color {

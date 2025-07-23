@@ -9,8 +9,8 @@
 
 #![allow(unused_imports)]
 
-pub mod cameras;
 pub mod camera_responsive;
+pub mod cameras;
 pub mod checkerboard;
 pub mod debug;
 pub mod draw;
@@ -21,9 +21,9 @@ pub mod metrics;
 pub mod outline_elements;
 pub mod points;
 pub mod selection;
-pub mod unified_glyph_editing;
 pub mod sort_renderer;
 pub mod sort_visuals;
+pub mod unified_glyph_editing;
 
 // Re-export commonly used items
 pub use camera_responsive::{CameraResponsivePlugin, CameraResponsiveScale};
@@ -32,9 +32,9 @@ pub use mesh_glyph_outline::MeshGlyphOutlinePlugin;
 pub use metrics::MetricsRenderingPlugin;
 pub use outline_elements::OutlineElementsPlugin;
 pub use points::PointRenderingPlugin;
-pub use sort_visuals::SortHandleRenderingPlugin;
-pub use unified_glyph_editing::UnifiedGlyphEditingPlugin;
 pub use selection::{
     render_all_point_entities, render_control_handles,
     render_selected_entities, render_selection_marquee,
 };
+pub use sort_visuals::SortHandleRenderingPlugin;
+pub use unified_glyph_editing::UnifiedGlyphEditingPlugin;

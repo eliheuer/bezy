@@ -9,7 +9,7 @@ use crate::editing::sort::{ActiveSort, InactiveSort, Sort};
 use crate::geometry::point::EditPoint;
 use crate::systems::sort_manager::SortPointEntity;
 use bevy::prelude::*;
-use kurbo::{Point, PathEl};
+use kurbo::{PathEl, Point};
 
 /// Component to track which sort entity a point belongs to
 #[derive(Component)]
@@ -54,7 +54,8 @@ pub fn spawn_active_sort_points_optimized(
         // Try FontIR first, then fallback to AppState
         if let Some(fontir_state) = fontir_app_state.as_ref() {
             // Get FontIR BezPaths for this glyph
-            if let Some(paths) = fontir_state.get_glyph_paths(&sort.glyph_name) {
+            if let Some(paths) = fontir_state.get_glyph_paths(&sort.glyph_name)
+            {
                 let mut point_count = 0;
                 info!("FontIR: Spawning points for active sort '{}' with {} paths", sort.glyph_name, paths.len());
 
@@ -62,14 +63,18 @@ pub fn spawn_active_sort_points_optimized(
                 for (contour_index, path) in paths.iter().enumerate() {
                     let elements: Vec<_> = path.elements().iter().collect();
                     let mut element_point_index = 0; // Track actual point index within the contour
-                    
+
                     for element in elements.iter() {
                         // Extract all points (on-curve and off-curve) from PathEl
                         let points = extract_points_from_path_element(element);
-                        
+
                         for (point_pos, point_type) in points {
                             // Calculate world position for this point
-                            let world_pos = position + Vec2::new(point_pos.x as f32, point_pos.y as f32);
+                            let world_pos = position
+                                + Vec2::new(
+                                    point_pos.x as f32,
+                                    point_pos.y as f32,
+                                );
 
                             if point_count < 10 {
                                 info!("FontIR Point {}: type={:?}, raw=({:.1}, {:.1}), sort_pos=({:.1}, {:.1}), world_pos=({:.1}, {:.1})", 
@@ -78,7 +83,10 @@ pub fn spawn_active_sort_points_optimized(
 
                             // Create the EditPoint
                             let edit_point = EditPoint {
-                                position: Point::new(world_pos.x as f64, world_pos.y as f64),
+                                position: Point::new(
+                                    world_pos.x as f64,
+                                    world_pos.y as f64,
+                                ),
                                 point_type,
                             };
 
@@ -86,13 +94,19 @@ pub fn spawn_active_sort_points_optimized(
                             let point_type_component = PointType {
                                 is_on_curve: matches!(
                                     point_type,
-                                    PointTypeData::Move | PointTypeData::Line | PointTypeData::Curve
+                                    PointTypeData::Move
+                                        | PointTypeData::Line
+                                        | PointTypeData::Curve
                                 ),
                             };
 
                             // Spawn the point entity
                             commands.spawn((
-                                Transform::from_xyz(world_pos.x, world_pos.y, 10.0),
+                                Transform::from_xyz(
+                                    world_pos.x,
+                                    world_pos.y,
+                                    10.0,
+                                ),
                                 GlobalTransform::default(),
                                 Visibility::default(),
                                 InheritedVisibility::default(),
@@ -107,8 +121,16 @@ pub fn spawn_active_sort_points_optimized(
                                 Selectable,
                                 SortPointEntity { sort_entity },
                                 PointSortParent(sort_entity),
-                                Name::new(format!("FontIR_Point[{},{},{}]", contour_index, element_point_index, 
-                                    if point_type == PointTypeData::OffCurve { "off" } else { "on" })),
+                                Name::new(format!(
+                                    "FontIR_Point[{},{},{}]",
+                                    contour_index,
+                                    element_point_index,
+                                    if point_type == PointTypeData::OffCurve {
+                                        "off"
+                                    } else {
+                                        "on"
+                                    }
+                                )),
                             ));
 
                             element_point_index += 1;
@@ -121,35 +143,54 @@ pub fn spawn_active_sort_points_optimized(
                         }
                     }
                 }
-                
-                info!("FontIR: Spawned {} points for active sort '{}'", point_count, sort.glyph_name);
+
+                info!(
+                    "FontIR: Spawned {} points for active sort '{}'",
+                    point_count, sort.glyph_name
+                );
             } else {
                 warn!("FontIR: No paths found for glyph '{}'", sort.glyph_name);
             }
         } else if let Some(state) = app_state.as_ref() {
             // Fallback to UFO AppState logic
-            if let Some(glyph_data) = state.workspace.font.get_glyph(&sort.glyph_name) {
+            if let Some(glyph_data) =
+                state.workspace.font.get_glyph(&sort.glyph_name)
+            {
                 if let Some(outline) = &glyph_data.outline {
                     let mut point_count = 0;
 
-                    for (contour_index, contour) in outline.contours.iter().enumerate() {
-                        for (point_index, point) in contour.points.iter().enumerate() {
-                            let world_pos = position + Vec2::new(point.x as f32, point.y as f32);
-                            
+                    for (contour_index, contour) in
+                        outline.contours.iter().enumerate()
+                    {
+                        for (point_index, point) in
+                            contour.points.iter().enumerate()
+                        {
+                            let world_pos = position
+                                + Vec2::new(point.x as f32, point.y as f32);
+
                             let edit_point = EditPoint {
-                                position: Point::new(world_pos.x as f64, world_pos.y as f64),
+                                position: Point::new(
+                                    world_pos.x as f64,
+                                    world_pos.y as f64,
+                                ),
                                 point_type: point.point_type,
                             };
 
                             let point_type_component = PointType {
                                 is_on_curve: matches!(
                                     point.point_type,
-                                    PointTypeData::Move | PointTypeData::Line | PointTypeData::Curve
+                                    PointTypeData::Move
+                                        | PointTypeData::Line
+                                        | PointTypeData::Curve
                                 ),
                             };
 
                             commands.spawn((
-                                Transform::from_xyz(world_pos.x, world_pos.y, 10.0),
+                                Transform::from_xyz(
+                                    world_pos.x,
+                                    world_pos.y,
+                                    10.0,
+                                ),
                                 GlobalTransform::default(),
                                 Visibility::default(),
                                 InheritedVisibility::default(),
@@ -164,22 +205,32 @@ pub fn spawn_active_sort_points_optimized(
                                 Selectable,
                                 SortPointEntity { sort_entity },
                                 PointSortParent(sort_entity),
-                                Name::new(format!("UFO_Point[{contour_index},{point_index}]")),
+                                Name::new(format!(
+                                    "UFO_Point[{contour_index},{point_index}]"
+                                )),
                             ));
 
                             point_count += 1;
                         }
                     }
-                    
-                    info!("UFO: Spawned {} points for active sort '{}'", point_count, sort.glyph_name);
+
+                    info!(
+                        "UFO: Spawned {} points for active sort '{}'",
+                        point_count, sort.glyph_name
+                    );
                 } else {
-                    warn!("UFO: No outline found for glyph '{}'", sort.glyph_name);
+                    warn!(
+                        "UFO: No outline found for glyph '{}'",
+                        sort.glyph_name
+                    );
                 }
             } else {
                 warn!("UFO: No glyph data found for '{}'", sort.glyph_name);
             }
         } else {
-            warn!("Point spawning failed - neither FontIR nor AppState available");
+            warn!(
+                "Point spawning failed - neither FontIR nor AppState available"
+            );
         }
     }
 }
@@ -210,7 +261,9 @@ pub fn despawn_inactive_sort_points_optimized(
 }
 
 /// Extract all points (on-curve and off-curve) from a kurbo PathEl
-fn extract_points_from_path_element(element: &PathEl) -> Vec<(Point, PointTypeData)> {
+fn extract_points_from_path_element(
+    element: &PathEl,
+) -> Vec<(Point, PointTypeData)> {
     match element {
         PathEl::MoveTo(pt) => vec![(*pt, PointTypeData::Move)],
         PathEl::LineTo(pt) => vec![(*pt, PointTypeData::Line)],
@@ -220,8 +273,8 @@ fn extract_points_from_path_element(element: &PathEl) -> Vec<(Point, PointTypeDa
             (*pt, PointTypeData::Curve),    // End point
         ],
         PathEl::QuadTo(c, pt) => vec![
-            (*c, PointTypeData::OffCurve),  // Control point
-            (*pt, PointTypeData::Curve),    // End point
+            (*c, PointTypeData::OffCurve), // Control point
+            (*pt, PointTypeData::Curve),   // End point
         ],
         PathEl::ClosePath => vec![], // ClosePath doesn't have points
     }

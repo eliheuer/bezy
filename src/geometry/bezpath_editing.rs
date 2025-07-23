@@ -26,14 +26,14 @@ pub struct EditablePoint {
 /// Type of point in a path
 #[derive(Debug, Clone, Copy, PartialEq, Reflect)]
 pub enum PathPointType {
-    OnCurve,    // Move, Line, or end point of Curve/Quad
-    OffCurve,   // Control point
+    OnCurve,  // Move, Line, or end point of Curve/Quad
+    OffCurve, // Control point
 }
 
 /// Extract all editable points from a BezPath
 pub fn extract_editable_points(path: &BezPath) -> Vec<EditablePoint> {
     let mut points = Vec::new();
-    
+
     for (elem_idx, element) in path.elements().iter().enumerate() {
         match element {
             PathEl::MoveTo(pt) => {
@@ -109,7 +109,7 @@ pub fn extract_editable_points(path: &BezPath) -> Vec<EditablePoint> {
             }
         }
     }
-    
+
     points
 }
 
@@ -120,25 +120,31 @@ pub fn update_path_point(
     new_position: Point,
 ) -> Result<(), String> {
     let mut elements: Vec<PathEl> = path.elements().to_vec();
-    
+
     if reference.element_index >= elements.len() {
         return Err("Element index out of bounds".to_string());
     }
-    
+
     let old_element = &elements[reference.element_index];
     let new_element = match (old_element, reference.point_index) {
         (PathEl::MoveTo(_), 0) => PathEl::MoveTo(new_position),
         (PathEl::LineTo(_), 0) => PathEl::LineTo(new_position),
-        (PathEl::CurveTo(_, c2, pt), 0) => PathEl::CurveTo(new_position, *c2, *pt),
-        (PathEl::CurveTo(c1, _, pt), 1) => PathEl::CurveTo(*c1, new_position, *pt),
-        (PathEl::CurveTo(c1, c2, _), 2) => PathEl::CurveTo(*c1, *c2, new_position),
+        (PathEl::CurveTo(_, c2, pt), 0) => {
+            PathEl::CurveTo(new_position, *c2, *pt)
+        }
+        (PathEl::CurveTo(c1, _, pt), 1) => {
+            PathEl::CurveTo(*c1, new_position, *pt)
+        }
+        (PathEl::CurveTo(c1, c2, _), 2) => {
+            PathEl::CurveTo(*c1, *c2, new_position)
+        }
         (PathEl::QuadTo(_, pt), 0) => PathEl::QuadTo(new_position, *pt),
         (PathEl::QuadTo(c, _), 1) => PathEl::QuadTo(*c, new_position),
         _ => return Err("Invalid point index for element type".to_string()),
     };
-    
+
     elements[reference.element_index] = new_element;
-    
+
     // Rebuild the path
     *path = BezPath::from_vec(elements);
     Ok(())
@@ -151,13 +157,13 @@ pub fn nudge_path_point(
     delta: Vec2,
 ) -> Result<(), String> {
     let points = extract_editable_points(path);
-    
+
     // Find the point
     let point = points
         .iter()
         .find(|p| p.reference == reference)
         .ok_or("Point not found")?;
-    
+
     let new_position = point.position + delta;
     update_path_point(path, reference, new_position)
 }
@@ -169,10 +175,10 @@ pub fn find_nearest_point(
     max_distance: f64,
 ) -> Option<PathPointRef> {
     let points = extract_editable_points(path);
-    
+
     let mut nearest = None;
     let mut min_dist = max_distance;
-    
+
     for point in points {
         let dist = (point.position - position).hypot();
         if dist < min_dist {
@@ -180,27 +186,27 @@ pub fn find_nearest_point(
             nearest = Some(point.reference);
         }
     }
-    
+
     nearest
 }
 
 /// Convert multiple BezPaths to a single path with multiple contours
 pub fn paths_to_multi_contour(paths: &[BezPath]) -> BezPath {
     let mut result = BezPath::new();
-    
+
     for path in paths {
         for element in path.elements() {
             result.push(element.clone());
         }
     }
-    
+
     result
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_extract_points() {
         let mut path = BezPath::new();
@@ -211,24 +217,25 @@ mod tests {
             Point::new(50.0, 100.0),
             Point::new(0.0, 100.0),
         );
-        
+
         let points = extract_editable_points(&path);
         assert_eq!(points.len(), 5); // move + line + 2 controls + curve end
     }
-    
+
     #[test]
     fn test_update_point() {
         let mut path = BezPath::new();
         path.move_to(Point::new(0.0, 0.0));
         path.line_to(Point::new(100.0, 0.0));
-        
+
         let reference = PathPointRef {
             element_index: 1,
             point_index: 0,
         };
-        
-        update_path_point(&mut path, reference, Point::new(200.0, 50.0)).unwrap();
-        
+
+        update_path_point(&mut path, reference, Point::new(200.0, 50.0))
+            .unwrap();
+
         let points = extract_editable_points(&path);
         assert_eq!(points[1].position, Point::new(200.0, 50.0));
     }
