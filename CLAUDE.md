@@ -159,22 +159,26 @@ RESPECT the existing default tool (select) and user workflows.
 
 # camera-zoom-scaling-direction
 CRITICAL: Camera-responsive scaling relationship in src/rendering/camera_responsive.rs:
-⚠️  I KEEP GETTING THIS WRONG - READ CAREFULLY ⚠️
+⚠️  FINAL CORRECT UNDERSTANDING - COMPLETELY DIFFERENT FROM BEFORE ⚠️
 
-ACTUAL PROVEN RELATIONSHIP (after multiple corrections):
-- When USER ZOOMS OUT: camera_scale < 1.0, visual elements need to be BIGGER  
-- When USER ZOOMS IN: camera_scale > 1.0, visual elements need to be SMALLER
-- Normal zoom: camera_scale = 1.0
+BEVY CAMERA SCALE BEHAVIOR (CONFIRMED):
+- camera_scale < 1.0 = USER ZOOMED IN (camera closer, world objects appear bigger)
+- camera_scale > 1.0 = USER ZOOMED OUT (camera farther, world objects appear smaller)
+- camera_scale = 1.0 = normal zoom level
 
-WORKING CODE PATTERN:
+DESIRED VISUAL BEHAVIOR:
+- When ZOOMED IN (scale < 1.0): make visual elements SMALLER to prevent them being huge
+- When ZOOMED OUT (scale > 1.0): make visual elements BIGGER so they remain visible
+
+CORRECT IMPLEMENTATION (direct relationship):
 ```rust
-if camera_scale < 1.0 {
-    // ZOOMED OUT: make elements BIGGER  
-    base_responsive * 2.0
+let responsive_factor = if camera_scale < 1.0 {
+    // ZOOMED IN: scale down proportionally 
+    camera_scale  // e.g., 0.5 scale = 0.5x element size
 } else {
-    // ZOOMED IN: make elements SMALLER
-    base_responsive * 0.5  
-}
+    // ZOOMED OUT: scale up with diminishing returns
+    1.0 + (camera_scale - 1.0).sqrt()  // gentler scaling
+};
 ```
 
-DO NOT CHANGE THIS AGAIN - I have repeatedly gotten the camera_scale relationship backwards!
+NOTE: Previous attempts used INVERSE relationship which was backwards!

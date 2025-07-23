@@ -28,8 +28,8 @@ impl CameraResponsiveScale {
         Self {
             scale_factor: 1.0,
             base_line_width: 1.0,
-            min_scale_factor: 0.5,
-            max_scale_factor: 20.0, // Increased from 4.0 to make effect more obvious
+            min_scale_factor: 1.0,
+            max_scale_factor: 24.0,
         }
     }
     
@@ -54,7 +54,7 @@ pub fn update_camera_responsive_scale(
     mut scale_resource: ResMut<CameraResponsiveScale>,
     camera_query: Query<&Transform, With<DesignCamera>>,
 ) {
-    if let Ok(camera_transform) = camera_query.get_single() {
+    if let Ok(camera_transform) = camera_query.single() {
         // Get camera scale (smaller scale = zoomed in, larger scale = zoomed out)
         let camera_scale = camera_transform.scale.x;
         
@@ -63,23 +63,34 @@ pub fn update_camera_responsive_scale(
         // When camera_scale is small (zoomed out), we want larger visual elements
         // Use inverse relationship to make the effect very obvious
         
-        // DEBUG: Let me figure out the actual camera scaling relationship
-        // Add more debug output to understand camera_scale values
-        println!("[CAMERA DEBUG] Raw camera_scale = {:.6}", camera_scale);
+        // Debug output to understand camera behavior
+        static mut LAST_SCALE: f32 = 1.0;
+        unsafe {
+            if (camera_scale - LAST_SCALE).abs() > 0.01 {
+                println!("[CAMERA DEBUG] camera_scale = {:.3} ({})", 
+                    camera_scale, 
+                    if camera_scale < 1.0 { "ZOOMED IN" } else { "ZOOMED OUT" }
+                );
+                LAST_SCALE = camera_scale;
+            }
+        }
         
-        // ⚠️  CRITICAL: DO NOT CHANGE THE INVERSE RELATIONSHIP! ⚠️ 
-        // PROVEN WORKING: inverse relationship (constant / camera_scale) is correct
+        // Camera scale relationship in Bevy:
+        // - camera_scale < 1.0 = ZOOMED IN (camera closer, things appear bigger)
+        // - camera_scale > 1.0 = ZOOMED OUT (camera farther, things appear smaller)
         //
-        // USER FEEDBACK: Current 1.5/camera_scale is "too big when zoomed in, too small when zoomed out"
-        // Need: 2x less at zoom-in, 2x more at zoom-out
-        // 
-        // SIMPLIFY: Just use different base constants for each zoom direction
+        // We want:
+        // - When ZOOMED IN (scale < 1.0): smaller visual elements to avoid them being huge
+        // - When ZOOMED OUT (scale > 1.0): bigger visual elements so they remain visible
+        //
+        // This requires a DIRECT relationship: multiply by camera_scale
         let responsive_factor = if camera_scale < 1.0 {
-            // ZOOMED OUT: use bigger base constant for visibility
-            4.0 / camera_scale.max(0.1)
+            // ZOOMED IN: scale down proportionally (e.g., 0.5 scale = 0.5x size)
+            camera_scale
         } else {
-            // ZOOMED IN: use smaller base constant to avoid huge elements
-            1.0 / camera_scale.max(0.1)
+            // ZOOMED OUT: scale up but with diminishing returns to avoid huge elements
+            // Use square root for gentler scaling
+            1.0 + (camera_scale - 1.0).sqrt()
         };
 
 
@@ -90,8 +101,11 @@ pub fn update_camera_responsive_scale(
         
         // Debug output to see if it's working
         if (clamped_factor - scale_resource.scale_factor).abs() > 0.01 {
-            println!("[CAMERA RESPONSIVE] camera_scale={:.3}, responsive_factor={:.3}, clamped_factor={:.3}, line_width={:.3}", 
-                camera_scale, responsive_factor, clamped_factor, clamped_factor * scale_resource.base_line_width);
+            println!("[CAMERA RESPONSIVE] camera_scale={:.3} ({}), responsive_factor={:.3}, final_line_width={:.3}", 
+                camera_scale, 
+                if camera_scale < 1.0 { "ZOOMED IN" } else { "ZOOMED OUT" },
+                responsive_factor, 
+                clamped_factor * scale_resource.base_line_width);
         }
         
         scale_resource.scale_factor = clamped_factor;
