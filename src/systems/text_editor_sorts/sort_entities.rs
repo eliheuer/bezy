@@ -131,11 +131,17 @@ pub fn spawn_missing_sort_entities(
     text_editor_state: ResMut<TextEditorState>,
     mut buffer_entities: ResMut<BufferSortEntities>,
     app_state: Option<Res<AppState>>,
+    fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     _existing_active_sorts: Query<
         Entity,
         With<crate::editing::sort::ActiveSort>,
     >,
 ) {
+    // Debug: Log buffer state
+    if text_editor_state.buffer.len() > 0 {
+        info!("spawn_missing_sort_entities: Processing {} buffer entries", text_editor_state.buffer.len());
+    }
+    
     // Iterate through all sorts in the buffer
     for i in 0..text_editor_state.buffer.len() {
         // Skip if we already have an entity for this buffer index
@@ -144,30 +150,51 @@ pub fn spawn_missing_sort_entities(
         }
 
         if let Some(sort_entry) = text_editor_state.buffer.get(i) {
+            // Get font metrics from either FontIR or AppState
+            let font_metrics = if let Some(fontir_state) = fontir_app_state.as_ref() {
+                let fontir_metrics = fontir_state.get_font_metrics();
+                crate::core::state::FontMetrics {
+                    units_per_em: fontir_metrics.units_per_em as f64,
+                    ascender: fontir_metrics.ascender.map(|a| a as f64),
+                    descender: fontir_metrics.descender.map(|d| d as f64),
+                    line_height: fontir_metrics.line_gap.unwrap_or(0.0) as f64,
+                    x_height: None,
+                    cap_height: None,
+                    italic_angle: None,
+                }
+            } else if let Some(state) = app_state.as_ref() {
+                state.workspace.info.metrics.clone()
+            } else {
+                // Fallback metrics
+                crate::core::state::FontMetrics {
+                    units_per_em: 1024.0,
+                    ascender: Some(832.0),
+                    descender: Some(-256.0),
+                    line_height: 0.0,
+                    x_height: None,
+                    cap_height: None,
+                    italic_angle: None,
+                }
+            };
+
             // Get the visual position for this sort using correct font metrics
-            let position = if let Some(state) = app_state.as_ref() {
-                let font_metrics = &state.workspace.info.metrics;
-                match sort_entry.layout_mode {
-                    crate::core::state::SortLayoutMode::LTRText | crate::core::state::SortLayoutMode::RTLText => {
-                        if sort_entry.is_buffer_root {
-                            // Text roots use their exact stored position
-                            Some(sort_entry.root_position)
-                        } else {
-                            // Non-root text sorts flow from their text root using actual font metrics
-                            text_editor_state.get_text_sort_flow_position(
-                                i,
-                                font_metrics,
-                                0.0,
-                            )
-                        }
-                    }
-                    crate::core::state::SortLayoutMode::Freeform => {
+            let position = match sort_entry.layout_mode {
+                crate::core::state::SortLayoutMode::LTRText | crate::core::state::SortLayoutMode::RTLText => {
+                    if sort_entry.is_buffer_root {
+                        // Text roots use their exact stored position
                         Some(sort_entry.root_position)
+                    } else {
+                        // Non-root text sorts flow from their text root using actual font metrics
+                        text_editor_state.get_text_sort_flow_position(
+                            i,
+                            &font_metrics,
+                            0.0,
+                        )
                     }
                 }
-            } else {
-                // Fallback when AppState not available - use root position
-                Some(sort_entry.root_position)
+                crate::core::state::SortLayoutMode::Freeform => {
+                    Some(sort_entry.root_position)
+                }
             };
 
             if let Some(position) = position {
@@ -181,26 +208,38 @@ pub fn spawn_missing_sort_entities(
                 let mut entity_commands = commands.spawn((
                     sort,
                     Transform::from_translation(position.extend(0.0)),
+                    GlobalTransform::default(),
+                    Visibility::Visible,
+                    InheritedVisibility::default(),
+                    ViewVisibility::default(),
                     BufferSortIndex(i),
                     crate::editing::selection::components::Selectable, // Make sorts selectable
                     Name::new(format!("BufferSort[{i}]")),
                 ));
 
                 // Check if this sort should be active based on the text editor state
-                if sort_entry.is_active {
+                // Text roots should always be active to show they're the origin of the text chain
+                let should_be_active = sort_entry.is_active || sort_entry.is_buffer_root;
+                if should_be_active {
                     entity_commands.insert(ActiveSort);
-                    info!("Spawned ACTIVE sort entity for buffer index {} at position ({:.1}, {:.1}) - glyph '{}'", 
-                           i, position.x, position.y, sort_entry.kind.glyph_name());
+                    info!("🟢 Spawned ACTIVE sort entity for buffer index {} at position ({:.1}, {:.1}) - glyph '{}' (is_active: {}, is_buffer_root: {})", 
+                           i, position.x, position.y, sort_entry.kind.glyph_name(), sort_entry.is_active, sort_entry.is_buffer_root);
                 } else {
                     entity_commands.insert(InactiveSort);
-                    info!("Spawned INACTIVE sort entity for buffer index {} at position ({:.1}, {:.1}) - glyph '{}'", 
-                           i, position.x, position.y, sort_entry.kind.glyph_name());
+                    info!("🔴 Spawned INACTIVE sort entity for buffer index {} at position ({:.1}, {:.1}) - glyph '{}' (is_active: {}, is_buffer_root: {})", 
+                           i, position.x, position.y, sort_entry.kind.glyph_name(), sort_entry.is_active, sort_entry.is_buffer_root);
                 }
 
                 let entity = entity_commands.id();
 
                 // Track the entity
                 buffer_entities.entities.insert(i, entity);
+                
+                // Debug logging
+                info!("✅ Spawned buffer sort entity {} for glyph '{}' at position ({:.1}, {:.1})", 
+                    i, sort_entry.kind.glyph_name(), position.x, position.y);
+            } else {
+                warn!("Failed to get position for buffer sort index {}", i);
             }
         }
     }
@@ -308,19 +347,33 @@ pub fn auto_activate_selected_sorts(
                 None
             };
 
-            // Deactivate all currently active sorts
+            // Deactivate all currently active sorts EXCEPT buffer roots
             for active_entity in active_sorts.iter() {
-                commands.entity(active_entity).remove::<ActiveSort>();
-                commands.entity(active_entity).insert(InactiveSort);
-
-                // Update text editor state to deactivate the sort
-                if let Ok(buffer_index) = buffer_index_query.get(active_entity)
-                {
-                    if let Some(sort) =
-                        text_editor_state.buffer.get_mut(buffer_index.0)
-                    {
-                        sort.is_active = false;
+                // Check if this is a buffer root before deactivating
+                let is_buffer_root = if let Ok(buffer_index) = buffer_index_query.get(active_entity) {
+                    if let Some(sort) = text_editor_state.buffer.get(buffer_index.0) {
+                        sort.is_buffer_root
+                    } else {
+                        false
                     }
+                } else {
+                    false
+                };
+
+                // Don't deactivate buffer roots
+                if !is_buffer_root {
+                    commands.entity(active_entity).remove::<ActiveSort>();
+                    commands.entity(active_entity).insert(InactiveSort);
+
+                    // Update text editor state to deactivate the sort
+                    if let Ok(buffer_index) = buffer_index_query.get(active_entity) {
+                        if let Some(sort) = text_editor_state.buffer.get_mut(buffer_index.0) {
+                            info!("🔻 Deactivating buffer sort {} - glyph '{}' (was_root: {})", buffer_index.0, sort.kind.glyph_name(), sort.is_buffer_root);
+                            sort.is_active = false;
+                        }
+                    }
+                } else {
+                    info!("⚠️ Skipping deactivation of buffer root at entity {:?}", active_entity);
                 }
             }
 
@@ -330,6 +383,7 @@ pub fn auto_activate_selected_sorts(
 
             // Update text editor state to activate the sort
             if let Some(buffer_index) = selected_buffer_index {
+                info!("🔼 Activating buffer sort {} via auto_activate_selected_sorts", buffer_index);
                 text_editor_state.activate_sort(buffer_index);
             }
 

@@ -15,6 +15,7 @@ pub mod lifecycle;
 pub mod plugins;
 pub mod sort_manager;
 pub mod text_editor_sorts;
+pub mod text_shaping;
 pub mod ui_interaction;
 
 // Re-export commonly used items
@@ -23,4 +24,5 @@ pub use fontir_lifecycle::load_fontir_font;
 pub use input_consumer::InputConsumerPlugin;
 pub use lifecycle::{exit_on_esc, load_ufo_font};
 pub use plugins::{configure_default_plugins, BezySystems};
+pub use text_shaping::TextShapingPlugin;
 pub use ui_interaction::UiInteractionPlugin;

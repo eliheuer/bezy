@@ -7,9 +7,13 @@ use crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode;
 use crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode;
 use bevy::prelude::*;
 
-/// Render text editor sorts
+/// Text editor sorts are now rendered by the main mesh glyph outline system
+/// This function exists for compatibility but the actual rendering happens
+/// automatically through the ECS query in render_mesh_glyph_outline()
 pub fn render_text_editor_sorts() {
-    // TODO: Implement text editor sorts rendering
+    // Text editor sorts are rendered automatically by the mesh glyph outline system
+    // since they are regular Sort entities with BufferSortIndex components.
+    // No additional rendering logic needed here.
 }
 
 /// Render the visual cursor for Insert mode
@@ -18,6 +22,7 @@ pub fn render_text_editor_cursor(
     text_editor_state: Option<Res<TextEditorState>>,
     current_placement_mode: Res<CurrentTextPlacementMode>,
     app_state: Option<Res<AppState>>,
+    fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
 ) {
     // Only render cursor when text tool is active and in Insert mode
@@ -43,21 +48,23 @@ pub fn render_text_editor_cursor(
 
     // Calculate cursor visual position
     if let Some(cursor_world_pos) =
-        calculate_cursor_visual_position(&text_editor_state, &app_state)
+        calculate_cursor_visual_position(&text_editor_state, &app_state, &fontir_app_state)
     {
-        // Get font metrics for proper cursor height
-        let Some(app_state) = app_state.as_ref() else {
-            warn!(
-                "Text cursor skipped - AppState not available (using FontIR)"
-            );
+        // Get font metrics for proper cursor height - try FontIR first, then AppState
+        let (upm, descender) = if let Some(fontir_state) = fontir_app_state.as_ref() {
+            let metrics = fontir_state.get_font_metrics();
+            (metrics.units_per_em, metrics.descender.unwrap_or(-256.0))
+        } else if let Some(app_state) = app_state.as_ref() {
+            let font_metrics = &app_state.workspace.info.metrics;
+            (font_metrics.units_per_em as f32, font_metrics.descender.unwrap_or(-256.0) as f32)
+        } else {
+            warn!("Text cursor skipped - Neither FontIR nor AppState available");
             return;
         };
-        let font_metrics = &app_state.workspace.info.metrics;
 
         // Calculate cursor bounds based on font metrics
-        let cursor_top = cursor_world_pos.y + font_metrics.units_per_em as f32; // UPM top
-        let cursor_bottom = cursor_world_pos.y
-            + font_metrics.descender.unwrap_or(-256.0) as f32; // Descender bottom
+        let cursor_top = cursor_world_pos.y + upm; // UPM top
+        let cursor_bottom = cursor_world_pos.y + descender; // Descender bottom
         let cursor_height = cursor_top - cursor_bottom;
 
         // Bright orange cursor color (like pre-refactor)
@@ -122,6 +129,7 @@ pub fn render_text_editor_cursor(
 fn calculate_cursor_visual_position(
     text_editor_state: &TextEditorState,
     app_state: &Option<Res<AppState>>,
+    fontir_app_state: &Option<Res<crate::core::state::FontIRAppState>>,
 ) -> Option<Vec2> {
     // Find the active buffer root
     let mut active_root_index = None;
@@ -168,15 +176,21 @@ fn calculate_cursor_visual_position(
     let mut y_offset = 0.0;
     let mut glyph_count = 0;
 
-    // Get font metrics for line height calculation
-    let Some(app_state) = app_state.as_ref() else {
-        warn!("Text cursor position calculation skipped - AppState not available (using FontIR)");
+    // Get font metrics for line height calculation - try FontIR first, then AppState
+    let (upm, descender, line_height) = if let Some(fontir_state) = fontir_app_state.as_ref() {
+        let metrics = fontir_state.get_font_metrics();
+        let upm = metrics.units_per_em;
+        let descender = metrics.descender.unwrap_or(-256.0);
+        (upm, descender, upm - descender)
+    } else if let Some(app_state) = app_state.as_ref() {
+        let font_metrics = &app_state.workspace.info.metrics;
+        let upm = font_metrics.units_per_em as f32;
+        let descender = font_metrics.descender.unwrap_or(-256.0) as f32;
+        (upm, descender, upm - descender)
+    } else {
+        warn!("Text cursor position calculation skipped - Neither FontIR nor AppState available");
         return Some(root_position); // Fallback to root position
     };
-    let font_metrics = &app_state.workspace.info.metrics;
-    let upm = font_metrics.units_per_em as f32;
-    let descender = font_metrics.descender.unwrap_or(-256.0) as f32;
-    let line_height = upm - descender;
 
     // Start from the root and accumulate advances
     for i in root_index..text_editor_state.buffer.len() {

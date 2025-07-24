@@ -53,6 +53,14 @@ pub fn render_mesh_glyph_outline(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut outline_entities: ResMut<MeshOutlineEntities>,
     active_sort_query: Query<(Entity, &Sort, &Transform), With<ActiveSort>>,
+    // Add query for text buffer sorts (both active and inactive should be visible)
+    buffer_sort_query: Query<
+        (Entity, &Sort, &Transform),
+        (
+            With<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
+            Or<(With<ActiveSort>, With<crate::editing::sort::InactiveSort>)>,
+        ),
+    >,
     app_state: Option<Res<crate::core::state::AppState>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     existing_outlines: Query<Entity, With<GlyphOutlineElement>>,
@@ -79,8 +87,16 @@ pub fn render_mesh_glyph_outline(
     outline_entities.control_handles.clear();
 
     let active_sort_count = active_sort_query.iter().count();
-    if active_sort_count == 0 {
-        return; // No active sorts, nothing to render
+    let buffer_sort_count = buffer_sort_query.iter().count();
+    
+    // Debug logging
+    if buffer_sort_count > 0 {
+        info!("🔍 Found {} buffer sorts in query", buffer_sort_count);
+    }
+    
+    // Don't return early if we have buffer sorts to render
+    if active_sort_count == 0 && buffer_sort_count == 0 {
+        return; // No sorts to render at all
     }
 
     // ENABLED: Mesh glyph outline rendering for proper z-ordering
@@ -167,6 +183,33 @@ pub fn render_mesh_glyph_outline(
                         );
                     }
                 }
+            }
+        }
+    }
+
+    // Also render buffer sorts (text editor sorts) - both active and inactive should be visible
+    let buffer_sort_count = buffer_sort_query.iter().count();
+    if buffer_sort_count > 0 {
+        info!("🎨 Rendering {} buffer sorts", buffer_sort_count);
+    }
+    
+    for (sort_entity, sort, transform) in buffer_sort_query.iter() {
+        let position = transform.translation.truncate();
+
+        // For text buffer sorts, always render from FontIR (no live point editing)
+        if let Some(fontir_state) = fontir_app_state.as_ref() {
+            if let Some(paths) =
+                fontir_state.get_glyph_paths_with_edits(&sort.glyph_name)
+            {
+                render_fontir_outline(
+                    &mut commands,
+                    &mut meshes,
+                    &mut materials,
+                    &mut outline_entities,
+                    sort_entity,
+                    &paths,
+                    position,
+                );
             }
         }
     }

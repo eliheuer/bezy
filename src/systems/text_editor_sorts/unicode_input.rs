@@ -6,7 +6,7 @@
 
 use crate::core::state::fontir_app_state::FontIRAppState;
 use crate::core::state::{AppState, TextEditorState};
-use crate::systems::text_editor_sorts::input_utilities::unicode_to_glyph_name;
+use crate::systems::text_editor_sorts::input_utilities::{unicode_to_glyph_name, unicode_to_glyph_name_fontir};
 use crate::ui::toolbars::edit_mode_toolbar::text::{
     CurrentTextPlacementMode, TextPlacementMode,
 };
@@ -119,9 +119,11 @@ fn handle_unicode_character(
     // Find glyph name for this Unicode character
     let glyph_name = if let Some(app_state) = app_state.as_ref() {
         unicode_to_glyph_name(character, app_state)
+    } else if let Some(fontir_state) = fontir_app_state.as_ref() {
+        // For FontIR, use enhanced Arabic-aware glyph lookup
+        unicode_to_glyph_name_fontir(character, fontir_state)
     } else {
-        // For FontIR, use character as glyph name or try common mappings
-        unicode_to_glyph_name_fontir(character, fontir_app_state)
+        None
     };
 
     if let Some(glyph_name) = glyph_name {
@@ -143,6 +145,7 @@ fn handle_unicode_character(
                     .insert_sort_at_cursor(glyph_name.clone(), advance_width);
                 info!("Unicode input: Inserted '{}' (U+{:04X}) as glyph '{}' in Insert mode", 
                       character, character as u32, glyph_name);
+                info!("Text editor buffer now has {} sorts", text_editor_state.buffer.len());
             }
             TextPlacementMode::LTRText | TextPlacementMode::RTLText => {
                 text_editor_state
@@ -150,6 +153,7 @@ fn handle_unicode_character(
                 let mode_name = if matches!(current_placement_mode.0, TextPlacementMode::LTRText) { "LTR Text" } else { "RTL Text" };
                 info!("Unicode input: Inserted '{}' (U+{:04X}) as glyph '{}' in {} mode", 
                       character, character as u32, glyph_name, mode_name);
+                info!("Text editor buffer now has {} sorts", text_editor_state.buffer.len());
             }
             TextPlacementMode::Freeform => {
                 // In freeform mode, characters are placed freely - for now use same logic
@@ -267,84 +271,6 @@ fn handle_delete(
     info!("Unicode input: Delete key pressed");
 }
 
-/// Convert Unicode character to glyph name for FontIR
-fn unicode_to_glyph_name_fontir(
-    character: char,
-    fontir_app_state: &Option<Res<FontIRAppState>>,
-) -> Option<String> {
-    if let Some(fontir_state) = fontir_app_state.as_ref() {
-        // Try direct character mapping first
-        let char_name = character.to_string();
-        if fontir_state.get_glyph(&char_name).is_some() {
-            return Some(char_name);
-        }
-
-        // Try common Unicode to glyph name mappings
-        let glyph_name = match character {
-            ' ' => "space",
-            '0' => "zero",
-            '1' => "one",
-            '2' => "two",
-            '3' => "three",
-            '4' => "four",
-            '5' => "five",
-            '6' => "six",
-            '7' => "seven",
-            '8' => "eight",
-            '9' => "nine",
-            '!' => "exclam",
-            '?' => "question",
-            '.' => "period",
-            ',' => "comma",
-            ':' => "colon",
-            ';' => "semicolon",
-            '(' => "parenleft",
-            ')' => "parenright",
-            '-' => "hyphen",
-            '_' => "underscore",
-            '+' => "plus",
-            '=' => "equal",
-            '@' => "at",
-            '#' => "numbersign",
-            '$' => "dollar",
-            '%' => "percent",
-            '&' => "ampersand",
-            '*' => "asterisk",
-            '/' => "slash",
-            '\\' => "backslash",
-            '|' => "bar",
-            '<' => "less",
-            '>' => "greater",
-            '[' => "bracketleft",
-            ']' => "bracketright",
-            '{' => "braceleft",
-            '}' => "braceright",
-            '"' => "quotedbl",
-            '\'' => "quotesingle",
-            '`' => "grave",
-            '~' => "asciitilde",
-            '^' => "asciicircum",
-            // For letters, try lowercase first
-            c if c.is_ascii_alphabetic() => {
-                let lower_name = c.to_lowercase().to_string();
-                if fontir_state.get_glyph(&lower_name).is_some() {
-                    return Some(lower_name);
-                } else {
-                    return None;
-                }
-            }
-            _ => return None,
-        };
-
-        if fontir_state.get_glyph(glyph_name).is_some() {
-            Some(glyph_name.to_string())
-        } else {
-            None
-        }
-    } else {
-        None
-    }
-}
 
 /// Get advance width for a glyph from either AppState or FontIR
 fn get_glyph_advance_width(

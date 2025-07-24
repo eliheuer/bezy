@@ -5,7 +5,8 @@
 //! - Key code to character conversion with shift state handling
 //! - Unicode character to glyph name mapping
 
-use crate::core::state::AppState;
+use crate::core::state::{AppState, FontIRAppState};
+use crate::systems::text_shaping::{needs_complex_shaping, get_script_for_text};
 use bevy::prelude::*;
 
 /// Check if a key is used as a tool shortcut
@@ -84,7 +85,7 @@ pub fn key_code_to_char(
     }
 }
 
-/// Convert Unicode character to glyph name using font data
+/// Convert Unicode character to glyph name using font data (AppState version)
 pub fn unicode_to_glyph_name(
     unicode_char: char,
     app_state: &AppState,
@@ -118,7 +119,7 @@ pub fn unicode_to_glyph_name(
         '7' => "seven",
         '8' => "eight",
         '9' => "nine",
-        _ => return None,
+        _ => return unicode_char_to_standard_glyph_name(unicode_char),
     };
 
     if app_state
@@ -129,6 +130,142 @@ pub fn unicode_to_glyph_name(
     {
         Some(fallback_mapping.to_string())
     } else {
-        None
+        // Try Unicode-based naming for Arabic and other scripts
+        unicode_char_to_standard_glyph_name(unicode_char)
+    }
+}
+
+/// Convert Unicode character to glyph name using FontIR font data
+pub fn unicode_to_glyph_name_fontir(
+    unicode_char: char,
+    fontir_state: &FontIRAppState,
+) -> Option<String> {
+    // Get all available glyph names
+    let glyph_names = fontir_state.get_glyph_names();
+    
+    // First, try standard Unicode-based naming
+    if let Some(standard_name) = unicode_char_to_standard_glyph_name(unicode_char) {
+        if glyph_names.contains(&standard_name) {
+            return Some(standard_name);
+        }
+    }
+    
+    // For Arabic characters, try multiple naming conventions
+    if is_arabic_character(unicode_char) {
+        if let Some(arabic_name) = try_arabic_glyph_naming(unicode_char, &glyph_names) {
+            return Some(arabic_name);
+        }
+    }
+    
+    // Try the character itself as glyph name
+    let char_name = unicode_char.to_string();
+    if glyph_names.contains(&char_name) {
+        return Some(char_name);
+    }
+    
+    // Log when we can't find an Arabic character
+    if is_arabic_character(unicode_char) {
+        info!("Arabic character '{}' (U+{:04X}) not found in font", unicode_char, unicode_char as u32);
+        debug!("Available glyph names: {:?}", glyph_names.iter().filter(|name| name.contains("uni") || name.contains("arab")).collect::<Vec<_>>());
+    }
+    
+    None
+}
+
+/// Check if a character is Arabic
+fn is_arabic_character(ch: char) -> bool {
+    let code = ch as u32;
+    // Arabic block: U+0600-U+06FF
+    (code >= 0x0600 && code <= 0x06FF) ||
+    // Arabic Supplement: U+0750-U+077F  
+    (code >= 0x0750 && code <= 0x077F) ||
+    // Arabic Extended-A: U+08A0-U+08FF
+    (code >= 0x08A0 && code <= 0x08FF)
+}
+
+/// Try different Arabic glyph naming conventions
+fn try_arabic_glyph_naming(unicode_char: char, available_glyphs: &[String]) -> Option<String> {
+    let codepoint = unicode_char as u32;
+    
+    // Try various naming conventions for Arabic
+    let string_attempts = vec![
+        format!("uni{:04X}", codepoint),           // uni0627 for Arabic Alef
+        format!("u{:04X}", codepoint),             // u0627 
+        format!("arab{:04X}", codepoint),          // arab0627
+        format!("arabic{:04X}", codepoint),        // arabic0627
+        format!("U+{:04X}", codepoint),            // U+0627
+    ];
+    
+    // Check string-based naming attempts
+    for name in string_attempts {
+        if available_glyphs.contains(&name) {
+            info!("Found Arabic glyph '{}' for character '{}' (U+{:04X})", name, unicode_char, codepoint);
+            return Some(name);
+        }
+    }
+    
+    // Try Arabic character name
+    if let Some(arabic_name) = arabic_character_name(unicode_char) {
+        if available_glyphs.contains(&arabic_name) {
+            info!("Found Arabic glyph '{}' for character '{}' (U+{:04X})", arabic_name, unicode_char, codepoint);
+            return Some(arabic_name);
+        }
+    }
+    
+    None
+}
+
+/// Get standard glyph name for common Unicode characters
+fn unicode_char_to_standard_glyph_name(unicode_char: char) -> Option<String> {
+    match unicode_char {
+        ' ' => Some("space".to_string()),
+        '0' => Some("zero".to_string()),
+        '1' => Some("one".to_string()),
+        '2' => Some("two".to_string()),
+        '3' => Some("three".to_string()),
+        '4' => Some("four".to_string()),
+        '5' => Some("five".to_string()),
+        '6' => Some("six".to_string()),
+        '7' => Some("seven".to_string()),
+        '8' => Some("eight".to_string()),
+        '9' => Some("nine".to_string()),
+        // Standard Unicode naming for non-ASCII characters
+        ch if ch as u32 > 127 => Some(format!("uni{:04X}", ch as u32)),
+        _ => None,
+    }
+}
+
+/// Get Arabic character name for common Arabic letters
+fn arabic_character_name(unicode_char: char) -> Option<String> {
+    match unicode_char as u32 {
+        0x0627 => Some("alef".to_string()),
+        0x0628 => Some("beh".to_string()),
+        0x062A => Some("teh".to_string()),
+        0x062B => Some("theh".to_string()),
+        0x062C => Some("jeem".to_string()),
+        0x062D => Some("hah".to_string()),
+        0x062E => Some("khah".to_string()),
+        0x062F => Some("dal".to_string()),
+        0x0630 => Some("thal".to_string()),
+        0x0631 => Some("reh".to_string()),
+        0x0632 => Some("zain".to_string()),
+        0x0633 => Some("seen".to_string()),
+        0x0634 => Some("sheen".to_string()),
+        0x0635 => Some("sad".to_string()),
+        0x0636 => Some("dad".to_string()),
+        0x0637 => Some("tah".to_string()),
+        0x0638 => Some("zah".to_string()),
+        0x0639 => Some("ain".to_string()),
+        0x063A => Some("ghain".to_string()),
+        0x0641 => Some("feh".to_string()),
+        0x0642 => Some("qaf".to_string()),
+        0x0643 => Some("kaf".to_string()),
+        0x0644 => Some("lam".to_string()),
+        0x0645 => Some("meem".to_string()),
+        0x0646 => Some("noon".to_string()),
+        0x0647 => Some("heh".to_string()),
+        0x0648 => Some("waw".to_string()),
+        0x064A => Some("yeh".to_string()),
+        _ => None,
     }
 }

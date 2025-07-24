@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::rendering::cameras::DesignCamera;
 use crate::rendering::checkerboard::calculate_dynamic_grid_size;
-use crate::ui::theme::SORT_ACTIVE_METRICS_COLOR;
+use crate::ui::theme::{SORT_ACTIVE_METRICS_COLOR, PRESSED_BUTTON_COLOR};
 use crate::ui::theme::*;
 use crate::ui::themes::{ToolbarBorderRadius, CurrentTheme};
 use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
@@ -241,6 +241,7 @@ pub fn spawn_text_submenu(
 ) {
     let modes = [
         TextPlacementMode::LTRText,
+        TextPlacementMode::RTLText,
         TextPlacementMode::Insert,
         TextPlacementMode::Freeform,
     ];
@@ -610,14 +611,17 @@ pub fn render_sort_preview(
     fontir_app_state: Option<Res<FontIRAppState>>,
     pointer_info: Res<crate::core::io::pointer::PointerInfo>,
     camera_query: Query<&Projection, With<DesignCamera>>,
+    mut preview_metrics_state: ResMut<crate::rendering::metrics::PreviewMetricsState>,
 ) {
     debug!("[PREVIEW] Entered render_sort_preview");
     if !text_mode_active.0 {
-        debug!("[PREVIEW] Early return: text_mode_active is false");
+        preview_metrics_state.active = false;
+        debug!("[PREVIEW] Early return: text_mode_active is false - disabled metrics preview");
         return;
     }
     if current_placement_mode.0 == TextPlacementMode::Insert {
-        debug!("[PREVIEW] Early return: placement mode is Insert");
+        preview_metrics_state.active = false;
+        debug!("[PREVIEW] Early return: placement mode is Insert - disabled metrics preview");
         return;
     }
 
@@ -662,20 +666,22 @@ pub fn render_sort_preview(
                     snapped_position,
                 );
 
-                // Draw metrics using FontIR data
-                let advance_width =
-                    fontir_state.get_glyph_advance_width(glyph_name);
-                let font_metrics = fontir_state.get_font_metrics();
-                crate::rendering::metrics::draw_fontir_metrics_at_position(
-                    &mut gizmos,
-                    advance_width,
-                    &font_metrics,
-                    snapped_position,
-                    preview_color,
+                // Update mesh-based preview metrics state for FontIR
+                let advance_width = fontir_state.get_glyph_advance_width(glyph_name);
+                preview_metrics_state.active = true;
+                preview_metrics_state.position = snapped_position;
+                preview_metrics_state.glyph_name = glyph_name.clone();
+                preview_metrics_state.advance_width = advance_width;
+                preview_metrics_state.color = PRESSED_BUTTON_COLOR.with_alpha(0.8);
+                debug!(
+                    "[PREVIEW] Updated mesh-based preview metrics for '{}' at ({:.1}, {:.1})",
+                    glyph_name, snapped_position.x, snapped_position.y
                 );
             } else {
+                // No glyph paths found - disable preview metrics
+                preview_metrics_state.active = false;
                 debug!(
-                    "[PREVIEW] No FontIR glyph_paths found for '{}', cannot draw preview",
+                    "[PREVIEW] No FontIR glyph_paths found for '{}', cannot draw preview - disabled metrics",
                     glyph_name
                 );
             }
@@ -696,25 +702,34 @@ pub fn render_sort_preview(
                     snapped_position,
                 );
 
-                // Draw metrics if available
-                crate::rendering::metrics::draw_metrics_at_position(
-                    &mut gizmos,
-                    glyph_data.advance_width as f32,
-                    &app_state.workspace.info.metrics,
-                    snapped_position,
-                    preview_color,
+                // Update mesh-based preview metrics state for AppState
+                let advance_width = glyph_data.advance_width as f32;
+                preview_metrics_state.active = true;
+                preview_metrics_state.position = snapped_position;
+                preview_metrics_state.glyph_name = glyph_name.clone();
+                preview_metrics_state.advance_width = advance_width;
+                preview_metrics_state.color = PRESSED_BUTTON_COLOR.with_alpha(0.8);
+                debug!(
+                    "[PREVIEW] Updated mesh-based preview metrics for '{}' at ({:.1}, {:.1})",
+                    glyph_name, snapped_position.x, snapped_position.y
                 );
             } else {
+                // No glyph data found - disable preview metrics
+                preview_metrics_state.active = false;
                 debug!(
-                    "[PREVIEW] No AppState glyph_data found for '{}', cannot draw preview",
+                    "[PREVIEW] No AppState glyph_data found for '{}', cannot draw preview - disabled metrics",
                     glyph_name
                 );
             }
         } else {
-            debug!("[PREVIEW] Neither FontIR nor AppState available, cannot draw preview");
+            // No font state available - disable preview metrics
+            preview_metrics_state.active = false;
+            debug!("[PREVIEW] Neither FontIR nor AppState available, cannot draw preview - disabled metrics preview");
         }
     } else {
-        debug!("[PREVIEW] No current_glyph set, cannot draw preview");
+        // No glyph available - disable preview metrics
+        preview_metrics_state.active = false;
+        debug!("[PREVIEW] No current_glyph set, cannot draw preview - disabled metrics preview");
     }
 }
 

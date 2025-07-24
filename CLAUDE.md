@@ -194,3 +194,36 @@ zoom_out_max_camera_scale: 16.0, // Maximum zoom out
 - Minimal overhead - only updates when camera scale changes
 - Single system handles all visual elements consistently
 - Zero visual lag during nudging operations
+
+## IMPORTANT: Mesh-Based Rendering Policy
+**ALWAYS prefer mesh-based camera-responsive rendering for world-space elements.**
+
+### Rule: Mesh vs Gizmos
+- ✅ **USE MESHES**: For any visual element in world-space that is affected by panning and zooming
+  - Sort metrics, points, handles, outlines, guides, previews
+  - These elements need to scale appropriately with camera zoom
+  - Use `CameraResponsiveScale` and `spawn_metrics_line()` functions
+- ❌ **AVOID GIZMOS**: For world-space elements (they don't integrate with camera-responsive scaling)
+  - Gizmos are acceptable only for UI elements or temporary debug visualization
+  - Never use gizmos for preview systems, metrics, or interactive elements
+
+### Implementation Pattern
+```rust
+// ✅ CORRECT: Mesh-based with camera-responsive scaling
+let entity = spawn_metrics_line(
+    &mut commands,
+    &mut meshes, 
+    &mut materials,
+    start_pos,
+    end_pos,
+    color,
+    parent_entity,
+    line_type,
+    &camera_scale, // Always pass camera scale
+);
+
+// ❌ INCORRECT: Gizmo-based (doesn't scale with camera)
+gizmos.line_2d(start_pos, end_pos, color);
+```
+
+This ensures consistent visual scaling and maintains the professional font editor experience at all zoom levels.

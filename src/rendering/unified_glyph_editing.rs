@@ -54,6 +54,7 @@ pub fn render_unified_glyph_editing(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut unified_entities: ResMut<UnifiedGlyphEntities>,
     camera_scale: Res<CameraResponsiveScale>,
+    // Include ALL active sorts (regular sorts and buffer sorts both use ActiveSort component)
     active_sort_query: Query<
         (Entity, &crate::editing::sort::Sort, &Transform),
         With<ActiveSort>,
@@ -73,16 +74,34 @@ pub fn render_unified_glyph_editing(
     existing_elements: Query<Entity, With<UnifiedGlyphElement>>,
     theme: Res<CurrentTheme>,
 ) {
-    // Clear existing unified elements
-    for entity in existing_elements.iter() {
-        commands.entity(entity).despawn();
-    }
-    unified_entities.elements.clear();
-
     let active_sort_count = active_sort_query.iter().count();
     if active_sort_count == 0 {
         return; // No active sorts, nothing to render
     }
+
+    // Check if there are any visible points for ANY active sort
+    let mut has_any_points = false;
+    for (_, sort, _) in active_sort_query.iter() {
+        for (_, _, point_ref, _, _) in point_query.iter() {
+            if point_ref.glyph_name == sort.glyph_name {
+                has_any_points = true;
+                break;
+            }
+        }
+        if has_any_points { break; }
+    }
+
+    // ONLY clear and take over rendering if there are actual points visible
+    // This prevents the unified system from interfering when no points are active
+    if !has_any_points {
+        return; // Let mesh_glyph_outline handle basic outline rendering
+    }
+
+    // Clear existing unified elements only when we're taking over
+    for entity in existing_elements.iter() {
+        commands.entity(entity).despawn();
+    }
+    unified_entities.elements.clear();
 
     // Process each active sort
     for (sort_entity, sort, sort_transform) in active_sort_query.iter() {

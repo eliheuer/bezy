@@ -10,11 +10,11 @@ use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
 use crate::rendering::{
     camera_responsive::CameraResponsivePlugin, cameras::CameraPlugin,
     checkerboard::CheckerboardPlugin, MetricsRenderingPlugin,
-    SortHandleRenderingPlugin, UnifiedGlyphEditingPlugin,
+    MeshGlyphOutlinePlugin, SortHandleRenderingPlugin, UnifiedGlyphEditingPlugin,
 };
 use crate::systems::{
     exit_on_esc, load_fontir_font, load_ufo_font, BezySystems, CommandsPlugin,
-    InputConsumerPlugin, UiInteractionPlugin,
+    InputConsumerPlugin, TextShapingPlugin, UiInteractionPlugin,
 };
 use crate::ui::hud::HudPlugin;
 use crate::ui::panes::coord_pane::CoordinatePanePlugin;
@@ -40,6 +40,7 @@ impl PluginGroup for CorePluginGroup {
             .add(GamepadPlugin)
             .add(InputConsumerPlugin)
             .add(TextEditorPlugin)
+            .add(TextShapingPlugin)
             .add(SelectionPlugin)
             .add(UndoPlugin)
             .add(UiInteractionPlugin)
@@ -59,6 +60,7 @@ impl PluginGroup for RenderingPluginGroup {
             .add(CameraResponsivePlugin)
             .add(CheckerboardPlugin)
             .add(MetricsRenderingPlugin)
+            .add(MeshGlyphOutlinePlugin)
             .add(SortHandleRenderingPlugin)
             .add(UnifiedGlyphEditingPlugin)
     }
