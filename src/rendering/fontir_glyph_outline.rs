@@ -131,8 +131,7 @@ pub fn draw_bezpath_points_and_handles_at_position(
 
             // Original solid shapes
             gizmos.rect_2d(point_pos, square_size, color);
-            let inner_radius = half_size * ON_CURVE_INNER_CIRCLE_RATIO;
-            gizmos.circle_2d(point_pos, inner_radius, color);
+            // Don't draw center dot for squares - they should be hollow
         } else {
             let bg_radius = size * 1.2; // Slightly larger background
 

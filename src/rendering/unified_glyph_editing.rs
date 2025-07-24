@@ -41,9 +41,10 @@ pub struct UnifiedGlyphEntities {
 }
 
 /// Z-levels for proper layering
-const UNIFIED_OUTLINE_Z: f32 = 8.0; // Behind points
-const UNIFIED_HANDLE_Z: f32 = 9.0; // Slightly above outlines
-const UNIFIED_POINT_Z: f32 = 10.0; // Above everything
+const UNIFIED_HANDLE_Z: f32 = 7.0; // Behind outlines  
+const UNIFIED_OUTLINE_Z: f32 = 8.0; // Above handles, behind points
+const UNIFIED_POINT_Z: f32 = 10.0; // Unselected points
+const UNIFIED_SELECTED_POINT_Z: f32 = 15.0; // Selected points - always above unselected
 
 /// Unified system that renders points, outlines, and handles together for zero lag
 #[allow(clippy::type_complexity)]
@@ -277,21 +278,24 @@ fn render_unified_points(
     for (point_entity, position, _point_ref, point_type, is_selected) in
         sort_points
     {
-        // Determine colors for two-layer system
-        let (primary_color, secondary_color) = if *is_selected {
+        // Determine colors and z-depth for two-layer system
+        let (primary_color, secondary_color, base_z) = if *is_selected {
             (
                 theme.theme().selected_primary_color(),
                 theme.theme().selected_secondary_color(),
+                UNIFIED_SELECTED_POINT_Z,
             )
         } else if point_type.is_on_curve {
             (
                 theme.theme().on_curve_primary_color(),
                 theme.theme().on_curve_secondary_color(),
+                UNIFIED_POINT_Z,
             )
         } else {
             (
                 theme.theme().off_curve_primary_color(),
                 theme.theme().off_curve_secondary_color(),
+                UNIFIED_POINT_Z,
             )
         };
 
@@ -318,7 +322,7 @@ fn render_unified_points(
                         ..default()
                     },
                     Transform::from_translation(
-                        position.extend(UNIFIED_POINT_Z),
+                        position.extend(base_z),
                     ),
                     GlobalTransform::default(),
                     Visibility::Visible,
@@ -345,7 +349,7 @@ fn render_unified_points(
                         ..default()
                     },
                     Transform::from_translation(
-                        position.extend(UNIFIED_POINT_Z + 1.0),
+                        position.extend(base_z + 1.0),
                     ),
                     GlobalTransform::default(),
                     Visibility::Visible,
@@ -355,32 +359,34 @@ fn render_unified_points(
                 .id();
             element_entities.push(secondary_entity);
 
-            // Layer 3: Small center shape - primary color
-            let center_size = size * ON_CURVE_INNER_CIRCLE_RATIO;
-            let center_entity = commands
-                .spawn((
-                    UnifiedGlyphElement {
-                        element_type: UnifiedElementType::Point {
-                            point_entity: *point_entity,
-                            is_outer: false,
+            // Layer 3: Small center shape - primary color (only for non-selected points)
+            if !*is_selected {
+                let center_size = size * ON_CURVE_INNER_CIRCLE_RATIO;
+                let center_entity = commands
+                    .spawn((
+                        UnifiedGlyphElement {
+                            element_type: UnifiedElementType::Point {
+                                point_entity: *point_entity,
+                                is_outer: false,
+                            },
+                            sort_entity,
                         },
-                        sort_entity,
-                    },
-                    Sprite {
-                        color: primary_color,
-                        custom_size: Some(Vec2::splat(center_size)),
-                        ..default()
-                    },
-                    Transform::from_translation(
-                        position.extend(UNIFIED_POINT_Z + 2.0),
-                    ),
-                    GlobalTransform::default(),
-                    Visibility::Visible,
-                    InheritedVisibility::default(),
-                    ViewVisibility::default(),
-                ))
-                .id();
-            element_entities.push(center_entity);
+                        Sprite {
+                            color: primary_color,
+                            custom_size: Some(Vec2::splat(center_size)),
+                            ..default()
+                        },
+                        Transform::from_translation(
+                            position.extend(base_z + 2.0),
+                        ),
+                        GlobalTransform::default(),
+                        Visibility::Visible,
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
+                    ))
+                    .id();
+                element_entities.push(center_entity);
+            }
         } else {
             // Off-curve points and circular on-curve points: circle with three layers
             let base_radius = if point_type.is_on_curve {
@@ -405,7 +411,7 @@ fn render_unified_points(
                         materials.add(ColorMaterial::from_color(primary_color)),
                     ),
                     Transform::from_translation(
-                        position.extend(UNIFIED_POINT_Z),
+                        position.extend(base_z),
                     ),
                     GlobalTransform::default(),
                     Visibility::Visible,
@@ -432,7 +438,7 @@ fn render_unified_points(
                             .add(ColorMaterial::from_color(secondary_color)),
                     ),
                     Transform::from_translation(
-                        position.extend(UNIFIED_POINT_Z + 1.0),
+                        position.extend(base_z + 1.0),
                     ),
                     GlobalTransform::default(),
                     Visibility::Visible,
@@ -442,36 +448,38 @@ fn render_unified_points(
                 .id();
             element_entities.push(secondary_entity);
 
-            // Layer 3: Small center circle - primary color
-            let center_radius = radius
-                * if point_type.is_on_curve {
-                    ON_CURVE_INNER_CIRCLE_RATIO
-                } else {
-                    OFF_CURVE_INNER_CIRCLE_RATIO
-                };
-            let center_entity = commands
-                .spawn((
-                    UnifiedGlyphElement {
-                        element_type: UnifiedElementType::Point {
-                            point_entity: *point_entity,
-                            is_outer: false,
+            // Layer 3: Small center circle - primary color (only for non-selected points)
+            if !*is_selected {
+                let center_radius = radius
+                    * if point_type.is_on_curve {
+                        ON_CURVE_INNER_CIRCLE_RATIO
+                    } else {
+                        OFF_CURVE_INNER_CIRCLE_RATIO
+                    };
+                let center_entity = commands
+                    .spawn((
+                        UnifiedGlyphElement {
+                            element_type: UnifiedElementType::Point {
+                                point_entity: *point_entity,
+                                is_outer: false,
+                            },
+                            sort_entity,
                         },
-                        sort_entity,
-                    },
-                    Mesh2d(meshes.add(Circle::new(center_radius))),
-                    MeshMaterial2d(
-                        materials.add(ColorMaterial::from_color(primary_color)),
-                    ),
-                    Transform::from_translation(
-                        position.extend(UNIFIED_POINT_Z + 2.0),
-                    ),
-                    GlobalTransform::default(),
-                    Visibility::Visible,
-                    InheritedVisibility::default(),
-                    ViewVisibility::default(),
-                ))
-                .id();
-            element_entities.push(center_entity);
+                        Mesh2d(meshes.add(Circle::new(center_radius))),
+                        MeshMaterial2d(
+                            materials.add(ColorMaterial::from_color(primary_color)),
+                        ),
+                        Transform::from_translation(
+                            position.extend(base_z + 2.0),
+                        ),
+                        GlobalTransform::default(),
+                        Visibility::Visible,
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
+                    ))
+                    .id();
+                element_entities.push(center_entity);
+            }
         }
 
         // Add crosshairs for selected points using two-color system
@@ -483,8 +491,11 @@ fn render_unified_points(
             };
             let line_size = camera_scale.adjusted_point_size(base_line_size);
             let line_width = camera_scale.adjusted_line_width();
+            
+            // Make crosshair lines slightly shorter to fit within point bounds
+            let crosshair_length = line_size * 1.6;
 
-            // Horizontal line - thicker line with primary color background
+            // Horizontal line - primary color only
             let h_primary_entity = commands
                 .spawn((
                     UnifiedGlyphElement {
@@ -497,13 +508,13 @@ fn render_unified_points(
                     Sprite {
                         color: primary_color,
                         custom_size: Some(Vec2::new(
-                            line_size * 2.0,
-                            line_width * 3.0,
+                            crosshair_length,
+                            line_width,
                         )),
                         ..default()
                     },
                     Transform::from_translation(
-                        position.extend(UNIFIED_POINT_Z + 3.0),
+                        position.extend(base_z + 3.0),
                     ),
                     GlobalTransform::default(),
                     Visibility::Visible,
@@ -513,36 +524,7 @@ fn render_unified_points(
                 .id();
             element_entities.push(h_primary_entity);
 
-            // Horizontal line - thinner line with secondary color
-            let h_secondary_entity = commands
-                .spawn((
-                    UnifiedGlyphElement {
-                        element_type: UnifiedElementType::Point {
-                            point_entity: *point_entity,
-                            is_outer: false,
-                        },
-                        sort_entity,
-                    },
-                    Sprite {
-                        color: secondary_color,
-                        custom_size: Some(Vec2::new(
-                            line_size * 2.0,
-                            line_width,
-                        )),
-                        ..default()
-                    },
-                    Transform::from_translation(
-                        position.extend(UNIFIED_POINT_Z + 4.0),
-                    ),
-                    GlobalTransform::default(),
-                    Visibility::Visible,
-                    InheritedVisibility::default(),
-                    ViewVisibility::default(),
-                ))
-                .id();
-            element_entities.push(h_secondary_entity);
-
-            // Vertical line - thicker line with primary color background
+            // Vertical line - primary color only
             let v_primary_entity = commands
                 .spawn((
                     UnifiedGlyphElement {
@@ -555,13 +537,13 @@ fn render_unified_points(
                     Sprite {
                         color: primary_color,
                         custom_size: Some(Vec2::new(
-                            line_width * 3.0,
-                            line_size * 2.0,
+                            line_width,
+                            crosshair_length,
                         )),
                         ..default()
                     },
                     Transform::from_translation(
-                        position.extend(UNIFIED_POINT_Z + 3.0),
+                        position.extend(base_z + 3.0),
                     ),
                     GlobalTransform::default(),
                     Visibility::Visible,
@@ -570,35 +552,6 @@ fn render_unified_points(
                 ))
                 .id();
             element_entities.push(v_primary_entity);
-
-            // Vertical line - thinner line with secondary color
-            let v_secondary_entity = commands
-                .spawn((
-                    UnifiedGlyphElement {
-                        element_type: UnifiedElementType::Point {
-                            point_entity: *point_entity,
-                            is_outer: false,
-                        },
-                        sort_entity,
-                    },
-                    Sprite {
-                        color: secondary_color,
-                        custom_size: Some(Vec2::new(
-                            line_width,
-                            line_size * 2.0,
-                        )),
-                        ..default()
-                    },
-                    Transform::from_translation(
-                        position.extend(UNIFIED_POINT_Z + 4.0),
-                    ),
-                    GlobalTransform::default(),
-                    Visibility::Visible,
-                    InheritedVisibility::default(),
-                    ViewVisibility::default(),
-                ))
-                .id();
-            element_entities.push(v_secondary_entity);
         }
     }
 }

@@ -8,6 +8,7 @@ use crate::editing::sort::ActiveSort;
 use crate::systems::sort_manager::SortPointEntity;
 use crate::ui::theme::*;
 use crate::ui::themes::CurrentTheme;
+use crate::rendering::camera_responsive::CameraResponsiveScale;
 use bevy::prelude::*;
 use bevy::render::mesh::Mesh2d;
 use bevy::render::view::Visibility;
@@ -37,6 +38,7 @@ pub fn render_points_with_meshes(
     active_sorts: Query<Entity, With<ActiveSort>>,
     existing_point_meshes: Query<Entity, With<PointMesh>>,
     theme: Res<CurrentTheme>,
+    camera_scale: Res<CameraResponsiveScale>,
 ) {
     let all_point_count = all_point_entities.iter().count();
     let existing_mesh_count = existing_point_meshes.iter().count();
@@ -123,24 +125,26 @@ pub fn render_points_with_meshes(
                 ViewVisibility::default(),
             ));
 
-            // Layer 3: Small center shape - primary color
-            let center_size = base_size * ON_CURVE_INNER_CIRCLE_RATIO;
-            commands.spawn((
-                PointMesh {
-                    point_entity,
-                    is_outer: false,
-                },
-                Sprite {
-                    color: primary_color,
-                    custom_size: Some(Vec2::splat(center_size)),
-                    ..default()
-                },
-                Transform::from_translation(position.extend(12.0)), // Above secondary
-                GlobalTransform::default(),
-                Visibility::Visible,
-                InheritedVisibility::default(),
-                ViewVisibility::default(),
-            ));
+            // Layer 3: Small center shape - primary color (only for non-selected points)
+            if selected.is_none() {
+                let center_size = base_size * ON_CURVE_INNER_CIRCLE_RATIO;
+                commands.spawn((
+                    PointMesh {
+                        point_entity,
+                        is_outer: false,
+                    },
+                    Sprite {
+                        color: primary_color,
+                        custom_size: Some(Vec2::splat(center_size)),
+                        ..default()
+                    },
+                    Transform::from_translation(position.extend(12.0)), // Above secondary
+                    GlobalTransform::default(),
+                    Visibility::Visible,
+                    InheritedVisibility::default(),
+                    ViewVisibility::default(),
+                ));
+            }
         } else {
             // Off-curve points and circular on-curve points: circle with three layers
             let base_radius = if point_type.is_on_curve {
@@ -184,39 +188,47 @@ pub fn render_points_with_meshes(
                 ViewVisibility::default(),
             ));
 
-            // Layer 3: Small center circle - primary color
-            let center_radius = base_radius
-                * if point_type.is_on_curve {
-                    ON_CURVE_INNER_CIRCLE_RATIO
-                } else {
-                    OFF_CURVE_INNER_CIRCLE_RATIO
-                };
-            commands.spawn((
-                PointMesh {
-                    point_entity,
-                    is_outer: false,
-                },
-                Mesh2d(meshes.add(Circle::new(center_radius))),
-                MeshMaterial2d(
-                    materials.add(ColorMaterial::from_color(primary_color)),
-                ),
-                Transform::from_translation(position.extend(12.0)), // Above secondary
-                GlobalTransform::default(),
-                Visibility::Visible,
-                InheritedVisibility::default(),
-                ViewVisibility::default(),
-            ));
+            // Layer 3: Small center circle - primary color (only for non-selected points)
+            if selected.is_none() {
+                let center_radius = base_radius
+                    * if point_type.is_on_curve {
+                        ON_CURVE_INNER_CIRCLE_RATIO
+                    } else {
+                        OFF_CURVE_INNER_CIRCLE_RATIO
+                    };
+                commands.spawn((
+                    PointMesh {
+                        point_entity,
+                        is_outer: false,
+                    },
+                    Mesh2d(meshes.add(Circle::new(center_radius))),
+                    MeshMaterial2d(
+                        materials.add(ColorMaterial::from_color(primary_color)),
+                    ),
+                    Transform::from_translation(position.extend(12.0)), // Above secondary
+                    GlobalTransform::default(),
+                    Visibility::Visible,
+                    InheritedVisibility::default(),
+                    ViewVisibility::default(),
+                ));
+            }
         }
 
-        // Add crosshairs for selected points using two-color system
+        // Add crosshairs for selected points using primary color only
         if selected.is_some() {
             let line_size = if point_type.is_on_curve {
                 ON_CURVE_POINT_RADIUS
             } else {
                 OFF_CURVE_POINT_RADIUS
             };
+            
+            // Use camera-responsive line width (1.0 base, same as outlines and handles)
+            let line_width = camera_scale.adjusted_line_width();
+            
+            // Make crosshair lines slightly shorter to fit within point bounds
+            let crosshair_length = line_size * 1.6;
 
-            // Horizontal line - thicker line with primary color background
+            // Horizontal line - primary color only
             commands.spawn((
                 PointMesh {
                     point_entity,
@@ -224,7 +236,7 @@ pub fn render_points_with_meshes(
                 },
                 Sprite {
                     color: primary_color,
-                    custom_size: Some(Vec2::new(line_size * 2.0, 3.0)),
+                    custom_size: Some(Vec2::new(crosshair_length, line_width)),
                     ..default()
                 },
                 Transform::from_translation(position.extend(13.0)), // Above everything
@@ -234,25 +246,7 @@ pub fn render_points_with_meshes(
                 ViewVisibility::default(),
             ));
 
-            // Horizontal line - thinner line with secondary color
-            commands.spawn((
-                PointMesh {
-                    point_entity,
-                    is_outer: false,
-                },
-                Sprite {
-                    color: secondary_color,
-                    custom_size: Some(Vec2::new(line_size * 2.0, 1.0)),
-                    ..default()
-                },
-                Transform::from_translation(position.extend(14.0)), // Above primary line
-                GlobalTransform::default(),
-                Visibility::Visible,
-                InheritedVisibility::default(),
-                ViewVisibility::default(),
-            ));
-
-            // Vertical line - thicker line with primary color background
+            // Vertical line - primary color only
             commands.spawn((
                 PointMesh {
                     point_entity,
@@ -260,28 +254,10 @@ pub fn render_points_with_meshes(
                 },
                 Sprite {
                     color: primary_color,
-                    custom_size: Some(Vec2::new(3.0, line_size * 2.0)),
+                    custom_size: Some(Vec2::new(line_width, crosshair_length)),
                     ..default()
                 },
                 Transform::from_translation(position.extend(13.0)), // Above everything
-                GlobalTransform::default(),
-                Visibility::Visible,
-                InheritedVisibility::default(),
-                ViewVisibility::default(),
-            ));
-
-            // Vertical line - thinner line with secondary color
-            commands.spawn((
-                PointMesh {
-                    point_entity,
-                    is_outer: false,
-                },
-                Sprite {
-                    color: secondary_color,
-                    custom_size: Some(Vec2::new(1.0, line_size * 2.0)),
-                    ..default()
-                },
-                Transform::from_translation(position.extend(14.0)), // Above primary line
                 GlobalTransform::default(),
                 Visibility::Visible,
                 InheritedVisibility::default(),

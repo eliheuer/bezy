@@ -60,8 +60,7 @@ pub fn draw_glyph_points_and_handles_at_position(
                 let half_size = size / ON_CURVE_SQUARE_ADJUSTMENT;
                 let square_size = Vec2::new(size * 2.0, size * 2.0);
                 gizmos.rect_2d(point_pos, square_size, color);
-                let inner_radius = half_size * ON_CURVE_INNER_CIRCLE_RATIO;
-                gizmos.circle_2d(point_pos, inner_radius, color);
+                // Don't draw center dot for squares - they should be hollow
             } else {
                 gizmos.circle_2d(point_pos, size, color);
                 let inner_radius = size * OFF_CURVE_INNER_CIRCLE_RATIO;
@@ -94,8 +93,7 @@ pub fn draw_glyph_points_at_position(
                 let half_size = size / ON_CURVE_SQUARE_ADJUSTMENT;
                 let square_size = Vec2::new(size * 2.0, size * 2.0);
                 gizmos.rect_2d(point_pos, square_size, color);
-                let inner_radius = half_size * ON_CURVE_INNER_CIRCLE_RATIO;
-                gizmos.circle_2d(point_pos, inner_radius, color);
+                // Don't draw center dot for squares - they should be hollow
             } else {
                 gizmos.circle_2d(point_pos, size, color);
                 let inner_radius = size * OFF_CURVE_INNER_CIRCLE_RATIO;
@@ -549,9 +547,7 @@ pub fn draw_glyph_outline_from_live_transforms(
                     size / crate::ui::theme::ON_CURVE_SQUARE_ADJUSTMENT;
                 let square_size = Vec2::new(size * 2.0, size * 2.0);
                 gizmos.rect_2d(position, square_size, color);
-                let inner_radius =
-                    half_size * crate::ui::theme::ON_CURVE_INNER_CIRCLE_RATIO;
-                gizmos.circle_2d(position, inner_radius, color);
+                // Don't draw center dot for squares - they should be hollow
             } else {
                 gizmos.circle_2d(position, size, color);
                 let inner_radius =
