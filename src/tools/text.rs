@@ -25,9 +25,11 @@ pub struct TextModeState {
 /// Text placement modes for the submenu
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Resource)]
 pub enum TextPlacementMode {
-    /// Place sorts in the text mode (grid layout)
+    /// Place sorts in left-to-right text mode
     #[default]
-    Text,
+    LTRText,
+    /// Place sorts in right-to-left text mode (Arabic/Hebrew)
+    RTLText,
     /// Insert and edit text within existing text mode sorts  
     Insert,
     /// Place sorts freely in the design space
@@ -38,7 +40,8 @@ impl TextPlacementMode {
     /// Get the icon for each placement mode
     pub fn get_icon(&self) -> &'static str {
         match self {
-            TextPlacementMode::Text => "\u{E004}",
+            TextPlacementMode::LTRText => "\u{E004}",
+            TextPlacementMode::RTLText => "\u{E005}", // Use a different icon for RTL
             TextPlacementMode::Insert => "\u{F001}",
             TextPlacementMode::Freeform => "\u{E006}",
         }
@@ -47,7 +50,8 @@ impl TextPlacementMode {
     /// Get a human-readable name for this placement mode
     pub fn display_name(&self) -> &'static str {
         match self {
-            TextPlacementMode::Text => "Text",
+            TextPlacementMode::LTRText => "LTR Text",
+            TextPlacementMode::RTLText => "RTL Text",
             TextPlacementMode::Insert => "Insert",
             TextPlacementMode::Freeform => "Freeform",
         }
@@ -56,8 +60,9 @@ impl TextPlacementMode {
     /// Convert to SortLayoutMode
     pub fn to_sort_layout_mode(&self) -> SortLayoutMode {
         match self {
-            TextPlacementMode::Text => SortLayoutMode::Text,
-            TextPlacementMode::Insert => SortLayoutMode::Text,
+            TextPlacementMode::LTRText => SortLayoutMode::LTRText,
+            TextPlacementMode::RTLText => SortLayoutMode::RTLText,
+            TextPlacementMode::Insert => SortLayoutMode::LTRText, // Default to LTR for insert mode
             TextPlacementMode::Freeform => SortLayoutMode::Freeform,
         }
     }
@@ -65,9 +70,10 @@ impl TextPlacementMode {
     /// Cycle to the next mode (for Tab key)
     pub fn cycle_next(&self) -> Self {
         match self {
-            TextPlacementMode::Text => TextPlacementMode::Insert,
+            TextPlacementMode::LTRText => TextPlacementMode::RTLText,
+            TextPlacementMode::RTLText => TextPlacementMode::Insert,
             TextPlacementMode::Insert => TextPlacementMode::Freeform,
-            TextPlacementMode::Freeform => TextPlacementMode::Text,
+            TextPlacementMode::Freeform => TextPlacementMode::LTRText,
         }
     }
 }

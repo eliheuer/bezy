@@ -649,7 +649,7 @@ pub fn render_mesh_sort_handles(
 
             // Create appropriate handle based on sort layout mode
             let style = match sort.layout_mode {
-                SortLayoutMode::Text => SortRenderStyle::TextBuffer,
+                SortLayoutMode::LTRText | SortLayoutMode::RTLText => SortRenderStyle::TextBuffer,
                 SortLayoutMode::Freeform => SortRenderStyle::Freeform,
             };
 

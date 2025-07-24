@@ -53,6 +53,7 @@ pub fn handle_unicode_text_input(
                             &mut text_editor_state,
                             &app_state,
                             &fontir_app_state,
+                            &current_placement_mode,
                         );
                         continue;
                     }
@@ -97,6 +98,7 @@ pub fn handle_unicode_text_input(
                     &mut text_editor_state,
                     &app_state,
                     &fontir_app_state,
+                    &current_placement_mode,
                 );
             }
             _ => {
@@ -131,7 +133,7 @@ fn handle_unicode_character(
         let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
         if !has_text_sorts {
             let center_position = Vec2::new(500.0, 0.0);
-            text_editor_state.create_text_root(center_position);
+            text_editor_state.create_text_root(center_position, current_placement_mode.0.to_sort_layout_mode());
         }
 
         // Insert the character
@@ -142,11 +144,12 @@ fn handle_unicode_character(
                 info!("Unicode input: Inserted '{}' (U+{:04X}) as glyph '{}' in Insert mode", 
                       character, character as u32, glyph_name);
             }
-            TextPlacementMode::Text => {
+            TextPlacementMode::LTRText | TextPlacementMode::RTLText => {
                 text_editor_state
                     .insert_sort_at_cursor(glyph_name.clone(), advance_width);
-                info!("Unicode input: Inserted '{}' (U+{:04X}) as glyph '{}' in Text mode", 
-                      character, character as u32, glyph_name);
+                let mode_name = if matches!(current_placement_mode.0, TextPlacementMode::LTRText) { "LTR Text" } else { "RTL Text" };
+                info!("Unicode input: Inserted '{}' (U+{:04X}) as glyph '{}' in {} mode", 
+                      character, character as u32, glyph_name, mode_name);
             }
             TextPlacementMode::Freeform => {
                 // In freeform mode, characters are placed freely - for now use same logic
@@ -169,6 +172,7 @@ fn handle_space_character(
     text_editor_state: &mut TextEditorState,
     app_state: &Option<Res<AppState>>,
     fontir_app_state: &Option<Res<FontIRAppState>>,
+    current_placement_mode: &CurrentTextPlacementMode,
 ) {
     let glyph_name = "space".to_string();
 
@@ -189,7 +193,7 @@ fn handle_space_character(
         let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
         if !has_text_sorts {
             let center_position = Vec2::new(500.0, 0.0);
-            text_editor_state.create_text_root(center_position);
+            text_editor_state.create_text_root(center_position, current_placement_mode.0.to_sort_layout_mode());
         }
 
         text_editor_state.insert_sort_at_cursor(glyph_name, advance_width);
@@ -213,10 +217,11 @@ fn handle_newline_character(
             text_editor_state.insert_line_break_at_cursor();
             info!("Unicode input: Inserted line break in Insert mode");
         }
-        TextPlacementMode::Text => {
+        TextPlacementMode::LTRText | TextPlacementMode::RTLText => {
             // In Text mode, newlines might move to next line in grid
             text_editor_state.insert_line_break_at_cursor();
-            info!("Unicode input: Inserted line break in Text mode");
+            let mode_name = if matches!(current_placement_mode.0, TextPlacementMode::LTRText) { "LTR Text" } else { "RTL Text" };
+            info!("Unicode input: Inserted line break in {} mode", mode_name);
         }
         TextPlacementMode::Freeform => {
             // In Freeform mode, newlines might not be meaningful
@@ -235,12 +240,13 @@ fn handle_backspace(
             text_editor_state.delete_sort_at_cursor();
             info!("Unicode input: Backspace in Insert mode");
         }
-        TextPlacementMode::Text => {
+        TextPlacementMode::LTRText | TextPlacementMode::RTLText => {
             if text_editor_state.cursor_position > 0 {
                 text_editor_state.move_cursor_left();
                 text_editor_state.delete_sort_at_cursor();
             }
-            info!("Unicode input: Backspace in Text mode");
+            let mode_name = if matches!(current_placement_mode.0, TextPlacementMode::LTRText) { "LTR Text" } else { "RTL Text" };
+            info!("Unicode input: Backspace in {} mode", mode_name);
         }
         TextPlacementMode::Freeform => {
             if text_editor_state.cursor_position > 0 {

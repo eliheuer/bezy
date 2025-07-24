@@ -148,7 +148,7 @@ pub fn spawn_missing_sort_entities(
             let position = if let Some(state) = app_state.as_ref() {
                 let font_metrics = &state.workspace.info.metrics;
                 match sort_entry.layout_mode {
-                    crate::core::state::SortLayoutMode::Text => {
+                    crate::core::state::SortLayoutMode::LTRText | crate::core::state::SortLayoutMode::RTLText => {
                         if sort_entry.is_buffer_root {
                             // Text roots use their exact stored position
                             Some(sort_entry.root_position)
@@ -239,7 +239,7 @@ pub fn update_buffer_sort_positions(
             // Calculate correct position using the font metrics from app state
             if let Some(sort) = text_editor_state.buffer.get(buffer_index) {
                 let new_position = match sort.layout_mode {
-                    crate::core::state::SortLayoutMode::Text => {
+                    crate::core::state::SortLayoutMode::LTRText | crate::core::state::SortLayoutMode::RTLText => {
                         if sort.is_buffer_root {
                             // Text roots use their exact stored position
                             Some(sort.root_position)

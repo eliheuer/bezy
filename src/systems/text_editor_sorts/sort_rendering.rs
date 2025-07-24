@@ -187,7 +187,7 @@ fn calculate_cursor_visual_position(
             }
 
             // Count glyphs in this buffer sequence
-            if i == root_index || sort.layout_mode == SortLayoutMode::Text {
+            if i == root_index || sort.layout_mode == SortLayoutMode::LTRText || sort.layout_mode == SortLayoutMode::RTLText {
                 // If we've reached the cursor position, return
                 if glyph_count == cursor_pos_in_buffer {
                     return Some(Vec2::new(
@@ -208,7 +208,12 @@ fn calculate_cursor_visual_position(
                         advance_width,
                     } => {
                         if glyph_count < cursor_pos_in_buffer {
-                            x_offset += advance_width;
+                            // For RTL, subtract advance width instead of adding
+                            if sort.layout_mode == SortLayoutMode::RTLText {
+                                x_offset -= advance_width;
+                            } else {
+                                x_offset += advance_width;
+                            }
                         }
                     }
                 }

@@ -31,9 +31,11 @@ pub struct ActiveSortEntity {
 /// Layout mode for individual sorts
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum SortLayoutMode {
-    /// Sort flows like text characters in a line
+    /// Sort flows left-to-right like Latin text
     #[default]
-    Text,
+    LTRText,
+    /// Sort flows right-to-left like Arabic/Hebrew text
+    RTLText,
     /// Sort is positioned freely in the design space
     Freeform,
 }
@@ -121,7 +123,7 @@ impl Default for SortEntry {
                 advance_width: 0.0,
             },
             is_active: false,
-            layout_mode: SortLayoutMode::Text,
+            layout_mode: SortLayoutMode::LTRText,
             root_position: Vec2::ZERO,
             buffer_index: None,
             is_buffer_root: false,
@@ -428,7 +430,7 @@ impl TextEditorState {
 
         for i in 0..self.buffer.len() {
             if let Some(sort) = self.buffer.get(i) {
-                if sort.layout_mode == SortLayoutMode::Text {
+                if sort.layout_mode == SortLayoutMode::LTRText || sort.layout_mode == SortLayoutMode::RTLText {
                     text_sorts.push((i, sort));
                 }
             }
@@ -478,7 +480,7 @@ impl TextEditorState {
         new_buffer_index: usize,
     ) -> bool {
         if let Some(sort) = self.buffer.get_mut(buffer_position) {
-            sort.layout_mode = SortLayoutMode::Text;
+            sort.layout_mode = SortLayoutMode::LTRText;
             sort.root_position = Vec2::ZERO;
             sort.buffer_index = Some(new_buffer_index);
             true
@@ -532,7 +534,7 @@ impl TextEditorState {
         _leading: f32,
     ) -> Option<Vec2> {
         if let Some(sort) = self.buffer.get(buffer_position) {
-            if sort.layout_mode == SortLayoutMode::Text {
+            if sort.layout_mode == SortLayoutMode::LTRText || sort.layout_mode == SortLayoutMode::RTLText {
                 // Find the active buffer root
                 let mut active_root_index = None;
                 let mut root_position = Vec2::ZERO;
@@ -541,7 +543,7 @@ impl TextEditorState {
                 for i in (0..=buffer_position).rev() {
                     if let Some(candidate) = self.buffer.get(i) {
                         if candidate.is_buffer_root
-                            && candidate.layout_mode == SortLayoutMode::Text
+                            && (candidate.layout_mode == SortLayoutMode::LTRText || candidate.layout_mode == SortLayoutMode::RTLText)
                         {
                             active_root_index = Some(i);
                             root_position = candidate.root_position;
@@ -576,7 +578,8 @@ impl TextEditorState {
 
                         // Process this position's advance
                         if i == root_index
-                            || sort_entry.layout_mode == SortLayoutMode::Text
+                            || sort_entry.layout_mode == SortLayoutMode::LTRText
+                            || sort_entry.layout_mode == SortLayoutMode::RTLText
                         {
                             match &sort_entry.kind {
                                 SortKind::LineBreak => {
@@ -585,7 +588,12 @@ impl TextEditorState {
                                     y_offset -= line_height;
                                 }
                                 SortKind::Glyph { advance_width, .. } => {
-                                    x_offset += advance_width;
+                                    // For RTL, subtract advance width instead of adding
+                                    if sort_entry.layout_mode == SortLayoutMode::RTLText {
+                                        x_offset -= advance_width;
+                                    } else {
+                                        x_offset += advance_width;
+                                    }
                                 }
                             }
                         }
@@ -606,7 +614,7 @@ impl TextEditorState {
     }
 
     /// Create a new text root at the specified world position
-    pub fn create_text_root(&mut self, world_position: Vec2) {
+    pub fn create_text_root(&mut self, world_position: Vec2, layout_mode: SortLayoutMode) {
         // Clear all states first
         self.clear_all_states();
 
@@ -616,7 +624,7 @@ impl TextEditorState {
                 advance_width: 0.0,
             },
             is_active: true, // Automatically activate the new text root
-            layout_mode: SortLayoutMode::Text,
+            layout_mode,
             root_position: world_position,
             buffer_index: Some(self.buffer.len()),
             is_buffer_root: true,
@@ -637,11 +645,12 @@ impl TextEditorState {
         glyph_name: String,
         world_position: Vec2,
         advance_width: f32,
+        layout_mode: SortLayoutMode,
     ) {
         // Only create a new root if there are no buffer roots yet
         if self.find_active_buffer_root_index().is_none() {
             // FIXED: Use the actual click position for the text root
-            self.create_text_root(world_position);
+            self.create_text_root(world_position, layout_mode);
         }
         // After root is created, insert the glyph at the cursor
         self.insert_sort_at_cursor(glyph_name, advance_width);
@@ -654,7 +663,7 @@ impl TextEditorState {
     ) -> Option<Vec2> {
         if let Some(sort) = self.buffer.get(buffer_position) {
             match sort.layout_mode {
-                SortLayoutMode::Text => {
+                SortLayoutMode::LTRText | SortLayoutMode::RTLText => {
                     // Text sorts now use their stored root_position
                     // But we need to calculate relative positions for text flow
                     if sort.is_buffer_root {
@@ -860,13 +869,18 @@ impl TextEditorState {
             info!("Inserting sort '{}' at cursor position {} in buffer root at index {}", 
                   glyph_name, cursor_pos_in_buffer, root_index);
 
+            // Get the layout mode from the buffer root
+            let root_layout_mode = self.buffer.get(root_index)
+                .map(|sort| sort.layout_mode.clone())
+                .unwrap_or(SortLayoutMode::LTRText);
+
             let new_sort = SortEntry {
                 kind: SortKind::Glyph {
                     glyph_name: glyph_name.clone(),
                     advance_width,
                 },
                 is_active: false, // Don't make new sorts active by default
-                layout_mode: SortLayoutMode::Text,
+                layout_mode: root_layout_mode,
                 root_position: Vec2::ZERO, // Will be calculated by flow
                 buffer_index: None,
                 is_buffer_root: false, // New sorts are not buffer roots
@@ -879,17 +893,19 @@ impl TextEditorState {
                     && root_sort.kind.is_glyph()
                     && root_sort.kind.glyph_name().is_empty()
                 {
-                    // FIXED: Get the original root position before getting mutable reference
+                    // FIXED: Get the original root position and layout mode before getting mutable reference
                     let original_root_position = root_sort.root_position;
+                    let original_layout_mode = root_sort.layout_mode.clone();
                     if let Some(root_sort_mut) = self.buffer.get_mut(root_index)
                     {
-                        // FIXED: Preserve the root position from the original placeholder
+                        // FIXED: Preserve the root position and layout mode from the original placeholder
                         *root_sort_mut = new_sort;
                         root_sort_mut.is_buffer_root = true;
                         root_sort_mut.is_active = true;
                         root_sort_mut.buffer_cursor_position = Some(1);
-                        // FIXED: Set the root position to the original position
+                        // FIXED: Set the root position and layout mode to the original values
                         root_sort_mut.root_position = original_root_position;
+                        root_sort_mut.layout_mode = original_layout_mode;
                     }
                     info!("Replaced empty placeholder with new sort '{}' at position ({:.1}, {:.1})", 
                           glyph_name, original_root_position.x, original_root_position.y);
@@ -1101,7 +1117,7 @@ impl TextEditorState {
             if let Some(sort) = self.buffer.get(i) {
                 // A text sequence ends when we hit another buffer root or a non-text sort.
                 if (i > root_index && sort.is_buffer_root)
-                    || sort.layout_mode != SortLayoutMode::Text
+                    || (sort.layout_mode != SortLayoutMode::LTRText && sort.layout_mode != SortLayoutMode::RTLText)
                 {
                     break;
                 }
@@ -1138,7 +1154,7 @@ impl TextEditorState {
                 advance_width,
             },
             is_active: true,
-            layout_mode: SortLayoutMode::Text,
+            layout_mode: SortLayoutMode::LTRText,
             root_position: world_position,
             buffer_index: None,
             is_buffer_root: true,
@@ -1161,7 +1177,7 @@ impl TextEditorState {
             let new_sort = SortEntry {
                 kind: SortKind::LineBreak,
                 is_active: false,
-                layout_mode: SortLayoutMode::Text,
+                layout_mode: SortLayoutMode::LTRText,
                 root_position: Vec2::ZERO,
                 buffer_index: None,
                 is_buffer_root: false,

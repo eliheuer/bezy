@@ -43,9 +43,11 @@ pub struct TextModeState {
 /// Text placement modes for the submenu
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Resource)]
 pub enum TextPlacementMode {
-    /// Place sorts in the text mode (grid layout)
+    /// Place sorts in left-to-right text mode
     #[default]
-    Text,
+    LTRText,
+    /// Place sorts in right-to-left text mode (Arabic/Hebrew)
+    RTLText,
     /// Insert and edit text within existing text mode sorts  
     Insert,
     /// Place sorts freely in the design space
@@ -56,7 +58,8 @@ impl TextPlacementMode {
     /// Get the icon for each placement mode
     pub fn get_icon(&self) -> &'static str {
         match self {
-            TextPlacementMode::Text => "\u{E004}",
+            TextPlacementMode::LTRText => "\u{E004}",
+            TextPlacementMode::RTLText => "\u{E005}",
             TextPlacementMode::Insert => "\u{F001}",
             TextPlacementMode::Freeform => "\u{E006}",
         }
@@ -66,7 +69,8 @@ impl TextPlacementMode {
     #[allow(dead_code)]
     pub fn display_name(&self) -> &'static str {
         match self {
-            TextPlacementMode::Text => "Text",
+            TextPlacementMode::LTRText => "LTR Text",
+            TextPlacementMode::RTLText => "RTL Text",
             TextPlacementMode::Insert => "Insert",
             TextPlacementMode::Freeform => "Freeform",
         }
@@ -74,8 +78,9 @@ impl TextPlacementMode {
     /// Convert to SortLayoutMode
     pub fn to_sort_layout_mode(&self) -> SortLayoutMode {
         match self {
-            TextPlacementMode::Text => SortLayoutMode::Text,
-            TextPlacementMode::Insert => SortLayoutMode::Text,
+            TextPlacementMode::LTRText => SortLayoutMode::LTRText,
+            TextPlacementMode::RTLText => SortLayoutMode::RTLText,
+            TextPlacementMode::Insert => SortLayoutMode::LTRText, // Default to LTR for insert mode
             TextPlacementMode::Freeform => SortLayoutMode::Freeform,
         }
     }
@@ -235,7 +240,7 @@ pub fn spawn_text_submenu(
     theme: Res<CurrentTheme>,
 ) {
     let modes = [
-        TextPlacementMode::Text,
+        TextPlacementMode::LTRText,
         TextPlacementMode::Insert,
         TextPlacementMode::Freeform,
     ];
@@ -483,7 +488,7 @@ pub fn handle_text_mode_mouse_clicks(
 
         // If we placed a text sort, automatically switch to Insert mode
         if did_place_text_sort
-            && current_placement_mode.0 == TextPlacementMode::Text
+            && (current_placement_mode.0 == TextPlacementMode::LTRText || current_placement_mode.0 == TextPlacementMode::RTLText)
         {
             current_placement_mode.0 = TextPlacementMode::Insert;
             info!("Auto-switched to Insert mode after placing text sort");
@@ -552,12 +557,13 @@ pub fn handle_text_mode_sort_placement(
     );
 
     match current_placement_mode.0 {
-        TextPlacementMode::Text => {
+        TextPlacementMode::LTRText | TextPlacementMode::RTLText => {
             debug!("Placing text sort in Text mode");
             text_editor_state.create_text_sort_at_position(
                 glyph_name.clone(),
                 sort_position,
                 advance_width,
+                current_placement_mode.0.to_sort_layout_mode(),
             );
             info!(
                 "DEBUG: [PLACE] Placed sort at ({:.1}, {:.1})",
@@ -734,9 +740,10 @@ pub fn handle_text_tool_shortcuts(
         && keyboard_input.just_pressed(KeyCode::Tab)
     {
         let new_mode = match current_placement_mode.0 {
-            TextPlacementMode::Text => TextPlacementMode::Insert,
+            TextPlacementMode::LTRText => TextPlacementMode::RTLText,
+            TextPlacementMode::RTLText => TextPlacementMode::Insert,
             TextPlacementMode::Insert => TextPlacementMode::Freeform,
-            TextPlacementMode::Freeform => TextPlacementMode::Text,
+            TextPlacementMode::Freeform => TextPlacementMode::LTRText,
         };
         current_placement_mode.0 = new_mode;
         text_mode_config.default_placement_mode =
@@ -860,7 +867,7 @@ pub fn handle_text_mode_keyboard(
 
     // text_editor_state is now available directly as ResMut
 
-    if current_placement_mode.0 == TextPlacementMode::Text {
+    if current_placement_mode.0 == TextPlacementMode::LTRText || current_placement_mode.0 == TextPlacementMode::RTLText {
         if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
             text_editor_state.move_cursor_left();
             debug!(
@@ -1118,7 +1125,7 @@ pub fn handle_text_mode_keyboard(
                     default_advance_width
                 };
                 match current_placement_mode.0 {
-                    TextPlacementMode::Text => {
+                    TextPlacementMode::LTRText | TextPlacementMode::RTLText => {
                         let position = text_mode_state
                             .cursor_position
                             .unwrap_or(Vec2::ZERO);

@@ -107,7 +107,7 @@ pub fn render_sorts_system(
 
         // Choose render style based on layout mode
         let render_style = match sort.layout_mode {
-            SortLayoutMode::Text => SortRenderStyle::TextBuffer,
+            SortLayoutMode::LTRText | SortLayoutMode::RTLText => SortRenderStyle::TextBuffer,
             SortLayoutMode::Freeform => SortRenderStyle::Freeform,
         };
 
@@ -174,7 +174,7 @@ pub fn render_sorts_system(
 
         // Choose render style based on layout mode
         let render_style = match sort.layout_mode {
-            SortLayoutMode::Text => SortRenderStyle::TextBuffer,
+            SortLayoutMode::LTRText | SortLayoutMode::RTLText => SortRenderStyle::TextBuffer,
             SortLayoutMode::Freeform => SortRenderStyle::Freeform,
         };
 
