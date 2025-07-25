@@ -135,7 +135,11 @@ fn handle_unicode_character(
         let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
         if !has_text_sorts {
             let center_position = Vec2::new(500.0, 0.0);
-            text_editor_state.create_text_root(center_position, current_placement_mode.0.to_sort_layout_mode());
+            text_editor_state.create_text_root_with_fontir(
+                center_position, 
+                current_placement_mode.0.to_sort_layout_mode(),
+                fontir_app_state.as_deref()
+            );
         }
 
         // Insert the character
@@ -197,7 +201,11 @@ fn handle_space_character(
         let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
         if !has_text_sorts {
             let center_position = Vec2::new(500.0, 0.0);
-            text_editor_state.create_text_root(center_position, current_placement_mode.0.to_sort_layout_mode());
+            text_editor_state.create_text_root_with_fontir(
+                center_position, 
+                current_placement_mode.0.to_sort_layout_mode(),
+                fontir_app_state.as_deref()
+            );
         }
 
         text_editor_state.insert_sort_at_cursor(glyph_name, advance_width);

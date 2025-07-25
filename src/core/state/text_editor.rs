@@ -615,13 +615,34 @@ impl TextEditorState {
 
     /// Create a new text root at the specified world position
     pub fn create_text_root(&mut self, world_position: Vec2, layout_mode: SortLayoutMode) {
+        self.create_text_root_with_fontir(world_position, layout_mode, None);
+    }
+
+    /// Create a new text root with FontIR access for proper advance width calculation
+    pub fn create_text_root_with_fontir(
+        &mut self, 
+        world_position: Vec2, 
+        layout_mode: SortLayoutMode,
+        fontir_app_state: Option<&crate::core::state::FontIRAppState>
+    ) {
         // Clear all states first
         self.clear_all_states();
 
+        // Get the actual advance width from FontIR if available
+        let placeholder_glyph = "a".to_string();
+        let advance_width = if let Some(fontir_state) = fontir_app_state {
+            fontir_state.get_glyph_advance_width(&placeholder_glyph)
+        } else {
+            // Fallback to reasonable default if FontIR not available
+            500.0
+        };
+
         let text_root = SortEntry {
             kind: SortKind::Glyph {
-                glyph_name: String::new(), // Empty glyph name for text root placeholder
-                advance_width: 0.0,
+                // Use a visible placeholder glyph instead of empty string
+                // This ensures the root has a visible outline and points for editing
+                glyph_name: placeholder_glyph,
+                advance_width, // Get from FontIR runtime data
             },
             is_active: true, // Automatically activate the new text root
             layout_mode,
@@ -891,47 +912,22 @@ impl TextEditorState {
                 buffer_cursor_position: None,
             };
 
-            // If the buffer root is an empty placeholder, the new sort replaces it.
-            if let Some(root_sort) = self.buffer.get(root_index) {
-                if root_sort.is_buffer_root
-                    && root_sort.kind.is_glyph()
-                    && root_sort.kind.glyph_name().is_empty()
-                {
-                    // FIXED: Get the original root position and layout mode before getting mutable reference
-                    let original_root_position = root_sort.root_position;
-                    let original_layout_mode = root_sort.layout_mode.clone();
-                    if let Some(root_sort_mut) = self.buffer.get_mut(root_index)
-                    {
-                        // FIXED: Preserve the root position and layout mode from the original placeholder
-                        *root_sort_mut = new_sort;
-                        root_sort_mut.is_buffer_root = true;
-                        root_sort_mut.is_active = true;
-                        root_sort_mut.buffer_cursor_position = Some(1);
-                        // FIXED: Set the root position and layout mode to the original values
-                        root_sort_mut.root_position = original_root_position;
-                        root_sort_mut.layout_mode = original_layout_mode;
-                    }
-                    info!("Replaced empty placeholder with new sort '{}' at position ({:.1}, {:.1})", 
-                          glyph_name, original_root_position.x, original_root_position.y);
-                    return;
-                }
-            }
+            // NEVER replace the root entity - always insert as a separate entity
+            // This preserves the root entity for consistent rendering
 
-            // For all other cases, insert at the correct position in the buffer sequence
-            let insert_buffer_index = root_index + cursor_pos_in_buffer;
+            // Insert the new character immediately after the root (preserving root entity)
+            let insert_buffer_index = root_index + cursor_pos_in_buffer + 1;
             self.buffer.insert(insert_buffer_index, new_sort);
-
-            info!("Inserted sort '{}' at buffer index {} (root_index: {}, cursor_pos: {})", 
-                  glyph_name, insert_buffer_index, root_index, cursor_pos_in_buffer);
-
-            // Update the cursor position in the root.
+            info!("🔤 Inserted character '{}' at buffer index {} (root stays at {})", 
+                  glyph_name, insert_buffer_index, root_index);
+            
+            // Update the cursor position in the root to point after the inserted character
             if let Some(root_sort) = self.buffer.get_mut(root_index) {
-                root_sort.buffer_cursor_position =
-                    Some(cursor_pos_in_buffer + 1);
-                info!(
-                    "Updated cursor position to {} in buffer root",
-                    cursor_pos_in_buffer + 1
-                );
+                root_sort.buffer_cursor_position = Some(cursor_pos_in_buffer + 1);
+                info!("📍 Updated root cursor position to {}", cursor_pos_in_buffer + 1);
+                // CRITICAL: Keep the root active so it maintains its outline
+                info!("🔥 Root sort '{}' remains active with is_active={}", 
+                      root_sort.kind.glyph_name(), root_sort.is_active);
             }
         } else {
             // No active text buffer, so create a new one with this character.
@@ -1129,7 +1125,8 @@ impl TextEditorState {
                 // The root placeholder doesn't count towards the string's length.
                 if i == root_index
                     && sort.kind.is_glyph()
-                    && sort.kind.glyph_name().is_empty()
+                    && sort.kind.glyph_name() == "a"
+                    && sort.is_buffer_root
                 {
                     continue;
                 }

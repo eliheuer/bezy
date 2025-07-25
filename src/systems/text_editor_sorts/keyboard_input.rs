@@ -26,6 +26,7 @@ pub fn handle_sort_placement_input(
     current_placement_mode: Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>,
     mut text_editor_state: ResMut<crate::core::state::TextEditorState>,
     ui_hover_state: Res<crate::systems::ui_interaction::UiHoverState>,
+    fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
 ) {
     // Only handle input when text tool is active
     if current_tool.get_current() != Some("text") {
@@ -70,6 +71,10 @@ pub fn handle_sort_placement_input(
     let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
     if !has_text_sorts {
         info!("Creating text root at position ({:.1}, {:.1})", world_position.x, world_position.y);
-        text_editor_state.create_text_root(world_position, current_placement_mode.0.to_sort_layout_mode());
+        text_editor_state.create_text_root_with_fontir(
+            world_position, 
+            current_placement_mode.0.to_sort_layout_mode(),
+            fontir_app_state.as_deref()
+        );
     }
 }
