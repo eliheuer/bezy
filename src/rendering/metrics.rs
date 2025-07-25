@@ -920,7 +920,7 @@ fn spawn_preview_metrics_line(
     entity
 }
 
-/// Create preview glyph outline entities from a kurbo path
+/// Create preview glyph outline entities from a kurbo path with dashed lines
 fn create_preview_glyph_outline(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
@@ -933,6 +933,10 @@ fn create_preview_glyph_outline(
     let mut entities = Vec::new();
     let line_width = camera_scale.adjusted_line_width();
     let preview_z = 6.0; // Between metrics (5.0) and glyph outlines (8.0)
+    
+    // Dashing parameters (same as selection marquee)
+    let dash_length = 8.0;
+    let gap_length = 4.0;
 
     // Convert kurbo path to line segments for mesh rendering
     let mut current_pos: Option<kurbo::Point> = None;
@@ -951,27 +955,13 @@ fn create_preview_glyph_outline(
                     let start_world = Vec2::new(start.x as f32 + position.x, start.y as f32 + position.y);
                     let end_world = Vec2::new(pt.x as f32 + position.x, pt.y as f32 + position.y);
                     
-                    let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
-                        start_world, end_world, line_width,
+                    // Create dashed line segments
+                    let dashed_entities = create_dashed_line_meshes(
+                        commands, meshes, materials,
+                        start_world, end_world, line_width, 
+                        dash_length, gap_length, color, preview_z
                     );
-
-                    let entity = commands
-                        .spawn((
-                            PreviewGlyphOutline,
-                            bevy::render::mesh::Mesh2d(meshes.add(line_mesh)),
-                            bevy::sprite::MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
-                            Transform::from_xyz(
-                                (start_world.x + end_world.x) * 0.5,
-                                (start_world.y + end_world.y) * 0.5,
-                                preview_z,
-                            ),
-                            GlobalTransform::default(),
-                            Visibility::Visible,
-                            InheritedVisibility::default(),
-                            ViewVisibility::default(),
-                        ))
-                        .id();
-                    entities.push(entity);
+                    entities.extend(dashed_entities);
                 }
                 current_pos = Some(pt);
             }
@@ -989,27 +979,13 @@ fn create_preview_glyph_outline(
                         let start_world = Vec2::new(prev_pt.x as f32 + position.x, prev_pt.y as f32 + position.y);
                         let end_world = Vec2::new(curr_pt.x as f32 + position.x, curr_pt.y as f32 + position.y);
                         
-                        let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
-                            start_world, end_world, line_width,
+                        // Create dashed line segments for tessellated curves
+                        let dashed_entities = create_dashed_line_meshes(
+                            commands, meshes, materials,
+                            start_world, end_world, line_width, 
+                            dash_length, gap_length, color, preview_z
                         );
-
-                        let entity = commands
-                            .spawn((
-                                PreviewGlyphOutline,
-                                bevy::render::mesh::Mesh2d(meshes.add(line_mesh)),
-                                bevy::sprite::MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
-                                Transform::from_xyz(
-                                    (start_world.x + end_world.x) * 0.5,
-                                    (start_world.y + end_world.y) * 0.5,
-                                    preview_z,
-                                ),
-                                GlobalTransform::default(),
-                                Visibility::Visible,
-                                InheritedVisibility::default(),
-                                ViewVisibility::default(),
-                            ))
-                            .id();
-                        entities.push(entity);
+                        entities.extend(dashed_entities);
                         prev_pt = curr_pt;
                     }
                 }
@@ -1029,27 +1005,13 @@ fn create_preview_glyph_outline(
                         let start_world = Vec2::new(prev_pt.x as f32 + position.x, prev_pt.y as f32 + position.y);
                         let end_world = Vec2::new(curr_pt.x as f32 + position.x, curr_pt.y as f32 + position.y);
                         
-                        let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
-                            start_world, end_world, line_width,
+                        // Create dashed line segments for tessellated curves
+                        let dashed_entities = create_dashed_line_meshes(
+                            commands, meshes, materials,
+                            start_world, end_world, line_width, 
+                            dash_length, gap_length, color, preview_z
                         );
-
-                        let entity = commands
-                            .spawn((
-                                PreviewGlyphOutline,
-                                bevy::render::mesh::Mesh2d(meshes.add(line_mesh)),
-                                bevy::sprite::MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
-                                Transform::from_xyz(
-                                    (start_world.x + end_world.x) * 0.5,
-                                    (start_world.y + end_world.y) * 0.5,
-                                    preview_z,
-                                ),
-                                GlobalTransform::default(),
-                                Visibility::Visible,
-                                InheritedVisibility::default(),
-                                ViewVisibility::default(),
-                            ))
-                            .id();
-                        entities.push(entity);
+                        entities.extend(dashed_entities);
                         prev_pt = curr_pt;
                     }
                 }
@@ -1061,33 +1023,75 @@ fn create_preview_glyph_outline(
                     let start_world = Vec2::new(current.x as f32 + position.x, current.y as f32 + position.y);
                     let end_world = Vec2::new(start.x as f32 + position.x, start.y as f32 + position.y);
                     
-                    let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
-                        start_world, end_world, line_width,
+                    // Create dashed line segments for closing path
+                    let dashed_entities = create_dashed_line_meshes(
+                        commands, meshes, materials,
+                        start_world, end_world, line_width, 
+                        dash_length, gap_length, color, preview_z
                     );
-
-                    let entity = commands
-                        .spawn((
-                            PreviewGlyphOutline,
-                            bevy::render::mesh::Mesh2d(meshes.add(line_mesh)),
-                            bevy::sprite::MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
-                            Transform::from_xyz(
-                                (start_world.x + end_world.x) * 0.5,
-                                (start_world.y + end_world.y) * 0.5,
-                                preview_z,
-                            ),
-                            GlobalTransform::default(),
-                            Visibility::Visible,
-                            InheritedVisibility::default(),
-                            ViewVisibility::default(),
-                        ))
-                        .id();
-                    entities.push(entity);
+                    entities.extend(dashed_entities);
                 }
                 current_pos = segment_start;
             }
         }
     }
 
+    entities
+}
+
+/// Create dashed line mesh entities between two points
+fn create_dashed_line_meshes(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    start: Vec2,
+    end: Vec2,
+    line_width: f32,
+    dash_length: f32,
+    gap_length: f32,
+    color: Color,
+    z: f32,
+) -> Vec<Entity> {
+    let mut entities = Vec::new();
+    
+    let direction = (end - start).normalize();
+    let total_length = start.distance(end);
+    let segment_length = dash_length + gap_length;
+    
+    let mut current_pos = 0.0;
+    while current_pos < total_length {
+        let dash_start_pos = current_pos;
+        let dash_end_pos = (current_pos + dash_length).min(total_length);
+        
+        let dash_start = start + direction * dash_start_pos;
+        let dash_end = start + direction * dash_end_pos;
+        
+        // Create mesh for this dash segment
+        let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
+            dash_start, dash_end, line_width,
+        );
+
+        let entity = commands
+            .spawn((
+                PreviewGlyphOutline,
+                bevy::render::mesh::Mesh2d(meshes.add(line_mesh)),
+                bevy::sprite::MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+                Transform::from_xyz(
+                    (dash_start.x + dash_end.x) * 0.5,
+                    (dash_start.y + dash_end.y) * 0.5,
+                    z,
+                ),
+                GlobalTransform::default(),
+                Visibility::Visible,
+                InheritedVisibility::default(),
+                ViewVisibility::default(),
+            ))
+            .id();
+        entities.push(entity);
+        
+        current_pos += segment_length;
+    }
+    
     entities
 }
 
