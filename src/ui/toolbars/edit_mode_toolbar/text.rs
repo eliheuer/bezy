@@ -160,7 +160,7 @@ impl Plugin for TextModePlugin {
                     update_text_mode_active,
                     handle_text_tool_shortcuts,
                     handle_text_mode_cursor,
-                    handle_text_mode_mouse_clicks, // Re-enabled for sort placement
+                    // handle_text_mode_mouse_clicks, // DISABLED: Duplicate of handle_sort_placement_input in TextEditorPlugin
                     handle_text_mode_keyboard,
                     render_sort_preview,
                     reset_text_mode_when_inactive,
@@ -499,102 +499,17 @@ pub fn handle_text_mode_mouse_clicks(
 
 #[allow(clippy::too_many_arguments)]
 pub fn handle_text_mode_sort_placement(
-    text_editor_state: &mut ResMut<TextEditorState>,
-    glyph_navigation: &Res<GlyphNavigation>,
-    current_placement_mode: &CurrentTextPlacementMode,
-    pointer_info: &Res<crate::core::io::pointer::PointerInfo>,
-    camera_query: &mut Query<&mut Projection, With<DesignCamera>>,
-    glyph_names: &[String],
-    default_advance_width: f32,
+    _text_editor_state: &mut ResMut<TextEditorState>,
+    _glyph_navigation: &Res<GlyphNavigation>,
+    _current_placement_mode: &CurrentTextPlacementMode,
+    _pointer_info: &Res<crate::core::io::pointer::PointerInfo>,
+    _camera_query: &mut Query<&mut Projection, With<DesignCamera>>,
+    _glyph_names: &[String],
+    _default_advance_width: f32,
 ) -> bool {
-    debug!(
-        "Sort placement function called with mode: {:?}",
-        current_placement_mode.0
-    );
-
-    // Function is only called from text tool, so no need to check current tool
-
-    // Get camera zoom for grid snapping
-    let zoom_scale = camera_query
-        .single_mut()
-        .map(|mut p| {
-            if let Projection::Orthographic(ortho) = p.as_mut() {
-                ortho.scale
-            } else {
-                1.0
-            }
-        })
-        .unwrap_or(1.0);
-    let grid_size = calculate_dynamic_grid_size(zoom_scale);
-    let raw_cursor_world_pos = pointer_info.design.to_raw();
-    let snapped_position =
-        (raw_cursor_world_pos / grid_size).round() * grid_size;
-
-    // Determine which glyph to place
-    let glyph_name = match &glyph_navigation.current_glyph {
-        Some(name) => name.clone(),
-        None => {
-            if glyph_names.contains(&"a".to_string()) {
-                "a".to_string()
-            } else if let Some(first_glyph) = glyph_names.first() {
-                first_glyph.clone()
-            } else {
-                warn!("No glyphs available in font");
-                return false;
-            }
-        }
-    };
-
-    // Use the provided advance width
-    let advance_width = default_advance_width;
-
-    let sort_position = snapped_position; // SIMPLIFIED: no offset
-
-    info!(
-        "DEBUG: pointer_info.design = ({:.2}, {:.2}), snapped_position = ({:.2}, {:.2}), sort_position = ({:.2}, {:.2})",
-        pointer_info.design.x, pointer_info.design.y,
-        snapped_position.x, snapped_position.y,
-        sort_position.x, sort_position.y
-    );
-
-    match current_placement_mode.0 {
-        TextPlacementMode::LTRText | TextPlacementMode::RTLText => {
-            debug!("Placing text sort in Text mode");
-            text_editor_state.create_text_sort_at_position(
-                glyph_name.clone(),
-                sort_position,
-                advance_width,
-                current_placement_mode.0.to_sort_layout_mode(),
-            );
-            info!(
-                "DEBUG: [PLACE] Placed sort at ({:.1}, {:.1})",
-                sort_position.x, sort_position.y
-            );
-            info!(
-                "Placed sort '{}' in text mode at position ({:.1}, {:.1})",
-                glyph_name, sort_position.x, sort_position.y
-            );
-            true // Successfully placed a text sort
-        }
-        TextPlacementMode::Insert => {
-            debug!("In Insert mode: Use keyboard to edit text mode sorts, not mouse clicks");
-            info!("Insert mode: Use keyboard to edit text mode sorts, not mouse clicks");
-            false // No sort placed
-        }
-        TextPlacementMode::Freeform => {
-            debug!("Placing text sort in Freeform mode");
-            text_editor_state.add_freeform_sort(
-                glyph_name.clone(),
-                sort_position,
-                advance_width,
-            );
-            info!(
-                "Placed sort '{}' in freeform mode at position ({:.1}, {:.1})",
-                glyph_name, sort_position.x, sort_position.y
-            );
-            false // Freeform doesn't auto-switch to insert mode
-        }
-    }
+    // DISABLED: This function was creating duplicate sorts
+    // Sort placement is now handled centrally by handle_sort_placement_input in TextEditorPlugin
+    false
 }
 
 // -- Preview Rendering and Keyboard Handling --
@@ -659,12 +574,8 @@ pub fn render_sort_preview(
                     glyph_name, snapped_position.x, snapped_position.y
                 );
 
-                // Draw glyph outline using FontIR paths
-                crate::rendering::fontir_glyph_outline::draw_fontir_glyph_outline_at_position(
-                    &mut gizmos,
-                    &glyph_paths,
-                    snapped_position,
-                );
+                // TODO: Implement mesh-based glyph preview
+                // For now, just show metrics without glyph outline
 
                 // Update mesh-based preview metrics state for FontIR
                 let advance_width = fontir_state.get_glyph_advance_width(glyph_name);
@@ -695,12 +606,8 @@ pub fn render_sort_preview(
                     glyph_name, snapped_position.x, snapped_position.y
                 );
 
-                // Draw glyph outline
-                crate::rendering::glyph_outline::draw_glyph_outline_at_position(
-                    &mut gizmos,
-                    &glyph_data.outline,
-                    snapped_position,
-                );
+                // TODO: Implement mesh-based glyph preview
+                // For now, just show metrics without glyph outline
 
                 // Update mesh-based preview metrics state for AppState
                 let advance_width = glyph_data.advance_width as f32;

@@ -10,6 +10,7 @@ use crate::ui::theme::METRICS_GUIDE_COLOR;
 use bevy::prelude::*;
 use bevy::render::mesh::Mesh2d;
 use bevy::sprite::{ColorMaterial, MeshMaterial2d};
+use kurbo::ParamCurve;
 
 /// Component to mark entities as metrics line visual elements
 #[derive(Component)]
@@ -39,6 +40,10 @@ pub struct MetricsLineEntities {
 /// Component to mark entities as preview metrics (temporary entities)
 #[derive(Component)]
 pub struct PreviewMetricsLine;
+
+/// Component to mark entities as preview glyph outline elements
+#[derive(Component)]
+pub struct PreviewGlyphOutline;
 
 /// Resource to track preview metrics entities that need to be cleaned up
 #[derive(Resource, Default)]
@@ -866,6 +871,22 @@ pub fn manage_preview_metrics(
         &camera_scale,
     );
     preview_entities.entities.push(left_entity);
+
+    // Add glyph outline preview
+    if let Some(glyph_paths) = fontir_state.get_glyph_paths_with_edits(&preview_state.glyph_name) {
+        for path in &glyph_paths {
+            let outline_entities = create_preview_glyph_outline(
+                &mut commands,
+                &mut meshes,
+                &mut materials,
+                path,
+                position,
+                color.with_alpha(0.6), // Slightly transparent for preview
+                &camera_scale,
+            );
+            preview_entities.entities.extend(outline_entities);
+        }
+    }
 }
 
 /// Helper function to spawn preview metrics lines with special component
@@ -897,6 +918,177 @@ fn spawn_preview_metrics_line(
     commands.entity(entity).insert(PreviewMetricsLine);
     
     entity
+}
+
+/// Create preview glyph outline entities from a kurbo path
+fn create_preview_glyph_outline(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    path: &kurbo::BezPath,
+    position: Vec2,
+    color: Color,
+    camera_scale: &CameraResponsiveScale,
+) -> Vec<Entity> {
+    let mut entities = Vec::new();
+    let line_width = camera_scale.adjusted_line_width();
+    let preview_z = 6.0; // Between metrics (5.0) and glyph outlines (8.0)
+
+    // Convert kurbo path to line segments for mesh rendering
+    let mut current_pos: Option<kurbo::Point> = None;
+    let mut segment_start: Option<kurbo::Point> = None;
+
+    // Flatten the path into line segments
+    let tolerance = 0.5; // Tessellation tolerance
+    for element in path.iter() {
+        match element {
+            kurbo::PathEl::MoveTo(pt) => {
+                current_pos = Some(pt);
+                segment_start = Some(pt);
+            }
+            kurbo::PathEl::LineTo(pt) => {
+                if let Some(start) = current_pos {
+                    let start_world = Vec2::new(start.x as f32 + position.x, start.y as f32 + position.y);
+                    let end_world = Vec2::new(pt.x as f32 + position.x, pt.y as f32 + position.y);
+                    
+                    let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
+                        start_world, end_world, line_width,
+                    );
+
+                    let entity = commands
+                        .spawn((
+                            PreviewGlyphOutline,
+                            bevy::render::mesh::Mesh2d(meshes.add(line_mesh)),
+                            bevy::sprite::MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+                            Transform::from_xyz(
+                                (start_world.x + end_world.x) * 0.5,
+                                (start_world.y + end_world.y) * 0.5,
+                                preview_z,
+                            ),
+                            GlobalTransform::default(),
+                            Visibility::Visible,
+                            InheritedVisibility::default(),
+                            ViewVisibility::default(),
+                        ))
+                        .id();
+                    entities.push(entity);
+                }
+                current_pos = Some(pt);
+            }
+            kurbo::PathEl::QuadTo(cp, pt) => {
+                if let Some(start) = current_pos {
+                    // Tessellate quadratic curve into line segments
+                    let quad = kurbo::QuadBez::new(start, cp, pt);
+                    let mut prev_pt = start;
+                    
+                    // Simple tessellation - could be improved
+                    for i in 1..=8 {
+                        let t = i as f64 / 8.0;
+                        let curr_pt = quad.eval(t);
+                        
+                        let start_world = Vec2::new(prev_pt.x as f32 + position.x, prev_pt.y as f32 + position.y);
+                        let end_world = Vec2::new(curr_pt.x as f32 + position.x, curr_pt.y as f32 + position.y);
+                        
+                        let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
+                            start_world, end_world, line_width,
+                        );
+
+                        let entity = commands
+                            .spawn((
+                                PreviewGlyphOutline,
+                                bevy::render::mesh::Mesh2d(meshes.add(line_mesh)),
+                                bevy::sprite::MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+                                Transform::from_xyz(
+                                    (start_world.x + end_world.x) * 0.5,
+                                    (start_world.y + end_world.y) * 0.5,
+                                    preview_z,
+                                ),
+                                GlobalTransform::default(),
+                                Visibility::Visible,
+                                InheritedVisibility::default(),
+                                ViewVisibility::default(),
+                            ))
+                            .id();
+                        entities.push(entity);
+                        prev_pt = curr_pt;
+                    }
+                }
+                current_pos = Some(pt);
+            }
+            kurbo::PathEl::CurveTo(cp1, cp2, pt) => {
+                if let Some(start) = current_pos {
+                    // Tessellate cubic curve into line segments
+                    let cubic = kurbo::CubicBez::new(start, cp1, cp2, pt);
+                    let mut prev_pt = start;
+                    
+                    // Simple tessellation - could be improved
+                    for i in 1..=12 {
+                        let t = i as f64 / 12.0;
+                        let curr_pt = cubic.eval(t);
+                        
+                        let start_world = Vec2::new(prev_pt.x as f32 + position.x, prev_pt.y as f32 + position.y);
+                        let end_world = Vec2::new(curr_pt.x as f32 + position.x, curr_pt.y as f32 + position.y);
+                        
+                        let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
+                            start_world, end_world, line_width,
+                        );
+
+                        let entity = commands
+                            .spawn((
+                                PreviewGlyphOutline,
+                                bevy::render::mesh::Mesh2d(meshes.add(line_mesh)),
+                                bevy::sprite::MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+                                Transform::from_xyz(
+                                    (start_world.x + end_world.x) * 0.5,
+                                    (start_world.y + end_world.y) * 0.5,
+                                    preview_z,
+                                ),
+                                GlobalTransform::default(),
+                                Visibility::Visible,
+                                InheritedVisibility::default(),
+                                ViewVisibility::default(),
+                            ))
+                            .id();
+                        entities.push(entity);
+                        prev_pt = curr_pt;
+                    }
+                }
+                current_pos = Some(pt);
+            }
+            kurbo::PathEl::ClosePath => {
+                if let (Some(current), Some(start)) = (current_pos, segment_start) {
+                    // Close the path by connecting back to the start
+                    let start_world = Vec2::new(current.x as f32 + position.x, current.y as f32 + position.y);
+                    let end_world = Vec2::new(start.x as f32 + position.x, start.y as f32 + position.y);
+                    
+                    let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
+                        start_world, end_world, line_width,
+                    );
+
+                    let entity = commands
+                        .spawn((
+                            PreviewGlyphOutline,
+                            bevy::render::mesh::Mesh2d(meshes.add(line_mesh)),
+                            bevy::sprite::MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+                            Transform::from_xyz(
+                                (start_world.x + end_world.x) * 0.5,
+                                (start_world.y + end_world.y) * 0.5,
+                                preview_z,
+                            ),
+                            GlobalTransform::default(),
+                            Visibility::Visible,
+                            InheritedVisibility::default(),
+                            ViewVisibility::default(),
+                        ))
+                        .id();
+                    entities.push(entity);
+                }
+                current_pos = segment_start;
+            }
+        }
+    }
+
+    entities
 }
 
 /// Plugin for mesh-based metrics line rendering

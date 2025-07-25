@@ -99,6 +99,11 @@ All visual styling constants MUST be declared in `src/ui/theme.rs`. No visual co
 - Modernist "less is more" approach
 - Game-like feel with fast, engaging interactions
 
+#### Rendering Architecture
+- **NEVER use Bevy Gizmos**: All world-space visual elements MUST use mesh-based rendering for proper z-ordering, camera-responsive scaling, and visual consistency
+- **Mesh-based rendering only**: Gizmos cause problems with layering, scaling, and maintainability
+- **Camera-responsive scaling**: All visual elements must work with the zoom-aware scaling system
+
 ### Font Data Model
 
 The application uses FontIR as the primary runtime data structure:

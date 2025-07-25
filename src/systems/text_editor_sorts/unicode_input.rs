@@ -131,16 +131,9 @@ fn handle_unicode_character(
         let advance_width =
             get_glyph_advance_width(&glyph_name, app_state, fontir_app_state);
 
-        // Check if we need to create a text root
-        let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
-        if !has_text_sorts {
-            let center_position = Vec2::new(500.0, 0.0);
-            text_editor_state.create_text_root_with_fontir(
-                center_position, 
-                current_placement_mode.0.to_sort_layout_mode(),
-                fontir_app_state.as_deref()
-            );
-        }
+        // REMOVED: Automatic text root creation
+        // Text roots should only be created by clicking with the text tool
+        // This was causing duplicate sorts - one from clicking, one from typing
 
         // Insert the character
         match current_placement_mode.0 {
@@ -197,16 +190,9 @@ fn handle_space_character(
         let advance_width =
             get_glyph_advance_width(&glyph_name, app_state, fontir_app_state);
 
-        // Check if we need to create a text root
-        let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
-        if !has_text_sorts {
-            let center_position = Vec2::new(500.0, 0.0);
-            text_editor_state.create_text_root_with_fontir(
-                center_position, 
-                current_placement_mode.0.to_sort_layout_mode(),
-                fontir_app_state.as_deref()
-            );
-        }
+        // REMOVED: Automatic text root creation
+        // Text roots should only be created by clicking with the text tool
+        // This was causing duplicate sorts - one from clicking, one from typing
 
         text_editor_state.insert_sort_at_cursor(glyph_name, advance_width);
         info!("Unicode input: Inserted space character");

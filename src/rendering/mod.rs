@@ -14,8 +14,8 @@ pub mod cameras;
 pub mod checkerboard;
 pub mod debug;
 pub mod draw;
-pub mod fontir_glyph_outline;
-pub mod glyph_outline;
+// Removed: gizmo-based outline modules (fontir_glyph_outline, glyph_outline)
+// All outline rendering is now handled by mesh_glyph_outline
 pub mod mesh_glyph_outline;
 pub mod metrics;
 pub mod outline_elements;

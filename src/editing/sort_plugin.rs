@@ -12,7 +12,7 @@ use crate::editing::sort::{
 };
 use crate::rendering::cameras::DesignCamera;
 use crate::rendering::sort_renderer::{
-    manage_sort_labels, render_sorts_system, update_sort_label_colors,
+    manage_sort_labels, update_sort_label_colors,
     update_sort_label_positions,
 };
 use crate::systems::sort_manager::{
@@ -68,17 +68,15 @@ impl Plugin for SortPlugin {
                 )
                     .in_set(SortSystemSet::PointSpawning),
             )
-            // Rendering systems (must run after all data is updated)
-            // Re-enabled: Old sort rendering system for freeform sorts (glyph grid)
+            // Label management systems (text labels for sorts)
             .add_systems(
                 Update,
                 (
-                    render_sorts_system // Re-enabled for freeform sorts (glyph grid)
-                        .after(crate::editing::selection::nudge::handle_nudge_input),
-                                         // manage_sort_unicode_text, // DISABLED: Old system
-                                         // update_sort_unicode_text_positions, // DISABLED: Old system
-                                         // update_sort_unicode_text_colors, // DISABLED: Old system
+                    manage_sort_labels,
+                    update_sort_label_positions,
+                    update_sort_label_colors,
                 )
+                    .chain()
                     .in_set(SortSystemSet::Rendering),
             );
     }
