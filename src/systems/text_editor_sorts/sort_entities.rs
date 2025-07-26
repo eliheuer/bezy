@@ -140,12 +140,21 @@ pub fn spawn_missing_sort_entities(
     // Debug: Log buffer state
     if text_editor_state.buffer.len() > 0 {
         info!("spawn_missing_sort_entities: Processing {} buffer entries", text_editor_state.buffer.len());
+        for i in 0..text_editor_state.buffer.len() {
+            if let Some(sort) = text_editor_state.buffer.get(i) {
+                info!("  Buffer[{}]: glyph='{}', is_buffer_root={}, is_active={}", 
+                      i, sort.kind.glyph_name(), sort.is_buffer_root, sort.is_active);
+            }
+        }
+    } else {
+        debug!("spawn_missing_sort_entities: Buffer is empty, nothing to spawn");
     }
     
     // Iterate through all sorts in the buffer
     for i in 0..text_editor_state.buffer.len() {
         // Skip if we already have an entity for this buffer index
         if buffer_entities.entities.contains_key(&i) {
+            debug!("spawn_missing_sort_entities: Entity already exists for buffer index {}", i);
             continue;
         }
 

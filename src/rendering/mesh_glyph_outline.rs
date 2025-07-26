@@ -92,6 +92,10 @@ pub fn render_mesh_glyph_outline(
     // Debug logging
     if buffer_sort_count > 0 {
         info!("🔍 Found {} buffer sorts in query", buffer_sort_count);
+        for (sort_entity, sort, transform) in buffer_sort_query.iter() {
+            info!("🔍 Buffer sort: entity={:?}, glyph='{}', position=({:.1}, {:.1})", 
+                  sort_entity, sort.glyph_name, transform.translation.x, transform.translation.y);
+        }
     }
     
     // Don't return early if we have buffer sorts to render
@@ -195,12 +199,14 @@ pub fn render_mesh_glyph_outline(
     
     for (sort_entity, sort, transform) in buffer_sort_query.iter() {
         let position = transform.translation.truncate();
+        info!("🎨 Processing buffer sort '{}' at ({:.1}, {:.1})", sort.glyph_name, position.x, position.y);
 
         // For text buffer sorts, always render from FontIR (no live point editing)
         if let Some(fontir_state) = fontir_app_state.as_ref() {
             if let Some(paths) =
                 fontir_state.get_glyph_paths_with_edits(&sort.glyph_name)
             {
+                info!("🎨 Found {} paths for glyph '{}'", paths.len(), sort.glyph_name);
                 render_fontir_outline(
                     &mut commands,
                     &mut meshes,
@@ -210,7 +216,12 @@ pub fn render_mesh_glyph_outline(
                     &paths,
                     position,
                 );
+                info!("🎨 Rendered outline for buffer sort '{}'", sort.glyph_name);
+            } else {
+                warn!("🎨 No paths found for glyph '{}'", sort.glyph_name);
             }
+        } else {
+            warn!("🎨 No FontIR state available for rendering buffer sort '{}'", sort.glyph_name);
         }
     }
 }

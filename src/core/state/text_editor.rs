@@ -625,8 +625,13 @@ impl TextEditorState {
         layout_mode: SortLayoutMode,
         fontir_app_state: Option<&crate::core::state::FontIRAppState>
     ) {
-        // Clear all states first
-        self.clear_all_states();
+        // Only clear states if buffer is empty (first text root)
+        if self.buffer.is_empty() {
+            self.clear_all_states();
+            eprintln!("🟢 CREATING FIRST TEXT ROOT: Cleared states for empty buffer");
+        } else {
+            eprintln!("🟡 TEXT ROOT WITH EXISTING BUFFER: Not clearing {} existing entries", self.buffer.len());
+        }
 
         // Get the actual advance width from FontIR if available
         let placeholder_glyph = "a".to_string();
@@ -672,6 +677,12 @@ impl TextEditorState {
                   SortLayoutMode::Freeform => "Freeform",
               },
               world_position.x, world_position.y, cursor_pos);
+        
+        // Verify it was inserted correctly
+        if let Some(inserted_root) = self.buffer.get(insert_index) {
+            info!("Verified inserted root at index {}: is_active={}, is_buffer_root={}", 
+                  insert_index, inserted_root.is_active, inserted_root.is_buffer_root);
+        }
     }
 
     /// Create a text sort at a specific world position (for text tool)
@@ -838,6 +849,7 @@ impl TextEditorState {
 
     /// Clear both active state and selections from all sorts
     pub fn clear_all_states(&mut self) {
+        eprintln!("🚨 CLEAR_ALL_STATES: Called with buffer length {}", self.buffer.len());
         for i in 0..self.buffer.len() {
             if let Some(sort) = self.buffer.get_mut(i) {
                 sort.is_active = false;
@@ -898,7 +910,11 @@ impl TextEditorState {
         glyph_name: String,
         advance_width: f32,
     ) {
+        eprintln!("🔤 INSERT_AT_CURSOR: Starting insertion of '{}'", glyph_name);
+        info!("insert_sort_at_cursor called with glyph '{}', advance_width {}", glyph_name, advance_width);
+        
         if let Some(root_index) = self.find_active_buffer_root_index() {
+            eprintln!("🔤 INSERT_AT_CURSOR: Found active root at index {}", root_index);
             let cursor_pos_in_buffer = self
                 .buffer
                 .get(root_index)
@@ -929,22 +945,32 @@ impl TextEditorState {
             // NEVER replace the root entity - always insert as a separate entity
             // This preserves the root entity for consistent rendering
 
-            // Insert the new character immediately after the root (preserving root entity)
-            let insert_buffer_index = root_index + cursor_pos_in_buffer + 1;
+            // FIXED: Insert at the end of the buffer instead of using cursor position
+            // The cursor position was getting out of sync with the actual buffer
+            let insert_buffer_index = self.buffer.len();
+            eprintln!("🔤 INSERTING: Before insert - buffer has {} entries", self.buffer.len());
+            eprintln!("🔤 INSERTING: Inserting at index {} (end of buffer)", insert_buffer_index);
+            
             self.buffer.insert(insert_buffer_index, new_sort);
+            eprintln!("🔤 INSERTING: Insert successful - buffer now has {} entries", self.buffer.len());
             info!("🔤 Inserted character '{}' at buffer index {} (root stays at {})", 
                   glyph_name, insert_buffer_index, root_index);
+            info!("🔤 Buffer now has {} entries after insertion", self.buffer.len());
             
             // Update the cursor position in the root to point after the inserted character
+            let new_cursor_pos = self.buffer.len() - 1; // Cursor after the new character
             if let Some(root_sort) = self.buffer.get_mut(root_index) {
-                root_sort.buffer_cursor_position = Some(cursor_pos_in_buffer + 1);
-                info!("📍 Updated root cursor position to {}", cursor_pos_in_buffer + 1);
+                root_sort.buffer_cursor_position = Some(new_cursor_pos);
+                eprintln!("🔤 INSERTING: Updated cursor position to {}", new_cursor_pos);
+                info!("📍 Updated root cursor position to {}", new_cursor_pos);
                 // CRITICAL: Keep the root active so it maintains its outline
                 info!("🔥 Root sort '{}' remains active with is_active={}", 
                       root_sort.kind.glyph_name(), root_sort.is_active);
             }
         } else {
             // No active text buffer, so create a new one with this character.
+            eprintln!("🔤 INSERT_AT_CURSOR: NO ACTIVE ROOT FOUND - will create new text root");
+            eprintln!("🔤 INSERT_AT_CURSOR: Buffer has {} entries but no active root found", self.buffer.len());
             info!("No active buffer root found, creating new text root with glyph '{}'", glyph_name);
             // FIXED: Use a reasonable default position instead of Vec2::ZERO
             let default_position = Vec2::new(500.0, 0.0);
@@ -1095,14 +1121,23 @@ impl TextEditorState {
 
     /// Helper: Find the index of the active buffer root
     fn find_active_buffer_root_index(&self) -> Option<usize> {
+        eprintln!("🔤 FIND_ROOT: Searching for active buffer root in {} buffer entries", self.buffer.len());
         // Use same logic as insert_sort_at_cursor
+        let mut checked_roots = 0;
         for i in 0..self.buffer.len() {
             if let Some(sort) = self.buffer.get(i) {
-                if sort.is_buffer_root && sort.is_active {
-                    return Some(i);
+                if sort.is_buffer_root {
+                    checked_roots += 1;
+                    debug!("Checking buffer root at index {}: is_active={}, glyph='{}'", 
+                          i, sort.is_active, sort.kind.glyph_name());
+                    if sort.is_active {
+                        debug!("Found active buffer root at index {}", i);
+                        return Some(i);
+                    }
                 }
             }
         }
+        debug!("No active buffer root found after checking {} roots", checked_roots);
 
         for i in 0..self.buffer.len() {
             if let Some(sort) = self.buffer.get(i) {
