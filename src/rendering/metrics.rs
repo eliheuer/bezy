@@ -1065,6 +1065,12 @@ impl Plugin for MetricsRenderingPlugin {
         app.init_resource::<MetricsLineEntities>()
             .init_resource::<PreviewMetricsEntities>()
             .init_resource::<PreviewMetricsState>()
-            .add_systems(Update, (render_mesh_metrics_lines, manage_preview_metrics));
+            .add_systems(Update, (
+                render_mesh_metrics_lines
+                    .after(crate::rendering::mesh_glyph_outline::render_mesh_glyph_outline)
+                    .after(crate::systems::text_editor_sorts::sort_entities::update_buffer_sort_positions),
+                manage_preview_metrics
+                    .after(render_mesh_metrics_lines)
+            ));
     }
 }

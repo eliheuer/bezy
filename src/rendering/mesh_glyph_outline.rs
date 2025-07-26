@@ -52,11 +52,23 @@ pub fn render_mesh_glyph_outline(
     mut outline_entities: ResMut<MeshOutlineEntities>,
     // IMPORTANT: Exclude BufferSortIndex from this query to prevent double-rendering
     // Buffer sorts have their own dedicated rendering loops below with proper color support
-    active_sort_query: Query<(Entity, &Sort, &Transform), (With<ActiveSort>, Without<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>)>,
+    // CHANGE DETECTION: Only process sorts when Sort or Transform components have changed
+    active_sort_query: Query<
+        (Entity, &Sort, &Transform), 
+        (
+            With<ActiveSort>, 
+            Without<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
+            Or<(Changed<Sort>, Changed<Transform>)>
+        )
+    >,
     // Buffer sort query for text editor sorts
+    // CHANGE DETECTION: Only process buffer sorts when Sort or Transform components have changed
     buffer_sort_query: Query<
         (Entity, &Sort, &Transform),
-        With<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
+        (
+            With<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
+            Or<(Changed<Sort>, Changed<Transform>)>
+        )
     >,
     // Camera-responsive scaling for proper zoom-aware rendering
     camera_scale: Res<crate::rendering::camera_responsive::CameraResponsiveScale>,
