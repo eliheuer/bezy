@@ -1218,30 +1218,42 @@ impl TextEditorState {
     /// Insert a line break at the cursor position (for Enter key)
     pub fn insert_line_break_at_cursor(&mut self) {
         if let Some(root_index) = self.find_active_buffer_root_index() {
-            let cursor_pos_in_buffer = self
-                .buffer
-                .get(root_index)
-                .and_then(|rs| rs.buffer_cursor_position)
-                .unwrap_or(0);
+            eprintln!("🔤 INSERT_LINE_BREAK: Found active root at index {}", root_index);
+            
+            // Get the layout mode from the buffer root
+            let root_layout_mode = self.buffer.get(root_index)
+                .map(|sort| sort.layout_mode.clone())
+                .unwrap_or(SortLayoutMode::LTRText);
 
             let new_sort = SortEntry {
                 kind: SortKind::LineBreak,
                 is_active: false,
-                layout_mode: SortLayoutMode::LTRText,
+                layout_mode: root_layout_mode,
                 root_position: Vec2::ZERO,
                 buffer_index: None,
                 is_buffer_root: false,
                 buffer_cursor_position: None,
             };
 
-            let insert_buffer_index = root_index + cursor_pos_in_buffer;
+            // FIXED: Insert at the end of the buffer instead of using cursor position
+            // The cursor position was getting out of sync with the actual buffer
+            let insert_buffer_index = self.buffer.len();
+            eprintln!("🔤 INSERT_LINE_BREAK: Inserting at index {} (end of buffer)", insert_buffer_index);
+            
             self.buffer.insert(insert_buffer_index, new_sort);
+            eprintln!("🔤 INSERT_LINE_BREAK: Insert successful - buffer now has {} entries", self.buffer.len());
+            info!("🔤 Inserted line break at buffer index {}", insert_buffer_index);
 
-            // Move cursor to the start of the new line (right after the line break)
+            // Update the cursor position in the root to point after the line break
+            let new_cursor_pos = self.buffer.len() - 1; // Cursor after the line break
             if let Some(root_sort) = self.buffer.get_mut(root_index) {
-                root_sort.buffer_cursor_position =
-                    Some(cursor_pos_in_buffer + 1);
+                root_sort.buffer_cursor_position = Some(new_cursor_pos);
+                eprintln!("🔤 INSERT_LINE_BREAK: Updated cursor position to {}", new_cursor_pos);
+                info!("📍 Updated root cursor position to {} after line break", new_cursor_pos);
             }
+        } else {
+            eprintln!("🔤 INSERT_LINE_BREAK: NO ACTIVE ROOT FOUND");
+            warn!("Cannot insert line break - no active buffer root found");
         }
     }
 

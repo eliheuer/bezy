@@ -892,14 +892,9 @@ pub fn handle_text_mode_keyboard(
             info!("Insert mode: backspace deleted sort to the left of cursor");
             keyboard_input.clear_just_pressed(KeyCode::Backspace);
         }
-        if keyboard_input.just_pressed(KeyCode::Enter) {
-            text_editor_state.insert_line_break_at_cursor();
-            debug!(
-                "Insert mode: inserted line break at cursor position {}",
-                text_editor_state.cursor_position
-            );
-            keyboard_input.clear_just_pressed(KeyCode::Enter);
-        }
+        // NOTE: Enter key handling has been moved to the Unicode input system
+        // to avoid duplicate line break insertion. The Unicode system handles
+        // both Key::Enter and '\n' character input in one place.
     }
 
     let mut glyph_switched = false;

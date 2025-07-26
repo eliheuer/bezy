@@ -159,6 +159,12 @@ pub fn spawn_missing_sort_entities(
         }
 
         if let Some(sort_entry) = text_editor_state.buffer.get(i) {
+            // Skip spawning entities for line breaks - they are invisible
+            if sort_entry.kind.is_line_break() {
+                debug!("Skipping entity spawn for line break at buffer index {}", i);
+                continue;
+            }
+            
             // Get font metrics from either FontIR or AppState
             let font_metrics = if let Some(fontir_state) = fontir_app_state.as_ref() {
                 let fontir_metrics = fontir_state.get_font_metrics();
@@ -287,6 +293,11 @@ pub fn update_buffer_sort_positions(
         if let Ok(mut transform) = sort_query.get_mut(entity) {
             // Calculate correct position using the font metrics from app state
             if let Some(sort) = text_editor_state.buffer.get(buffer_index) {
+                // Skip line breaks - they shouldn't have entities
+                if sort.kind.is_line_break() {
+                    warn!("Unexpected entity for line break at buffer index {}", buffer_index);
+                    continue;
+                }
                 let new_position = match sort.layout_mode {
                     crate::core::state::SortLayoutMode::LTRText | crate::core::state::SortLayoutMode::RTLText => {
                         if sort.is_buffer_root {

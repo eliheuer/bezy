@@ -113,12 +113,10 @@ pub fn handle_unicode_text_input(
                         continue;
                     }
 
-                    // Handle newline (Enter key)
+                    // Skip newline character - handled by Key::Enter instead
+                    // to avoid duplicate line break insertion
                     if character == '\n' {
-                        handle_newline_character(
-                            &mut text_editor_state,
-                            &current_placement_mode,
-                        );
+                        debug!("Unicode input: Skipping '\\n' character - handled by Key::Enter");
                         continue;
                     }
 
