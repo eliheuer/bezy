@@ -13,6 +13,16 @@ use bevy::sprite::{ColorMaterial, MeshMaterial2d};
 #[derive(Component)]
 pub struct TextEditorCursor;
 
+/// Resource to track cursor state for change detection
+#[derive(Resource, Default)]
+pub struct CursorRenderingState {
+    pub last_cursor_position: Option<Vec2>,
+    pub last_tool: Option<String>,
+    pub last_placement_mode: Option<crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode>,
+    pub last_buffer_cursor_position: Option<usize>,
+    pub last_camera_scale: Option<f32>,
+}
+
 /// Text editor sorts are now rendered by the main mesh glyph outline system
 /// This function exists for compatibility but the actual rendering happens
 /// automatically through the ECS query in render_mesh_glyph_outline()
@@ -34,7 +44,61 @@ pub fn render_text_editor_cursor(
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
     camera_scale: Res<crate::rendering::camera_responsive::CameraResponsiveScale>,
     existing_cursors: Query<Entity, With<TextEditorCursor>>,
+    mut cursor_state: ResMut<CursorRenderingState>,
 ) {
+    // CHANGE DETECTION: Check if cursor needs updating
+    let current_tool_name = current_tool.get_current();
+    let current_placement_mode_value = current_placement_mode.0;
+    let current_camera_scale = camera_scale.scale_factor;
+    
+    // Get current buffer cursor position
+    let current_buffer_cursor_position = text_editor_state.as_ref().and_then(|state| {
+        // Find active buffer root and get cursor position
+        for i in 0..state.buffer.len() {
+            if let Some(sort) = state.buffer.get(i) {
+                if sort.is_buffer_root && sort.is_active {
+                    return sort.buffer_cursor_position;
+                }
+            }
+        }
+        // Fallback: look for any buffer root with cursor position
+        for i in 0..state.buffer.len() {
+            if let Some(sort) = state.buffer.get(i) {
+                if sort.is_buffer_root && sort.buffer_cursor_position.is_some() {
+                    return sort.buffer_cursor_position;
+                }
+            }
+        }
+        None
+    });
+
+    // Calculate current cursor position
+    let current_cursor_position = text_editor_state.as_ref().and_then(|state| {
+        calculate_cursor_visual_position(state, &app_state, &fontir_app_state)
+    });
+
+    // Check if anything changed
+    let tool_changed = cursor_state.last_tool.as_ref().map(|s| s.as_str()) != current_tool_name;
+    let placement_mode_changed = cursor_state.last_placement_mode != Some(current_placement_mode_value);
+    let buffer_cursor_changed = cursor_state.last_buffer_cursor_position != current_buffer_cursor_position;
+    let cursor_position_changed = cursor_state.last_cursor_position != current_cursor_position;
+    let camera_scale_changed = cursor_state.last_camera_scale != Some(current_camera_scale);
+
+    if !tool_changed && !placement_mode_changed && !buffer_cursor_changed && !cursor_position_changed && !camera_scale_changed {
+        debug!("Cursor rendering skipped - no changes detected");
+        return;
+    }
+
+    // Update state tracking
+    cursor_state.last_tool = current_tool_name.map(|s| s.to_string());
+    cursor_state.last_placement_mode = Some(current_placement_mode_value);
+    cursor_state.last_buffer_cursor_position = current_buffer_cursor_position;
+    cursor_state.last_cursor_position = current_cursor_position;
+    cursor_state.last_camera_scale = Some(current_camera_scale);
+
+    debug!("Cursor rendering triggered - changes detected: tool={}, placement_mode={}, buffer_cursor={}, cursor_position={}, camera_scale={}", 
+           tool_changed, placement_mode_changed, buffer_cursor_changed, cursor_position_changed, camera_scale_changed);
+
     // Clean up existing cursor entities
     for entity in existing_cursors.iter() {
         commands.entity(entity).despawn();

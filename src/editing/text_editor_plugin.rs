@@ -30,6 +30,7 @@ impl Plugin for TextEditorPlugin {
         app
             // Initialize resources
             .init_resource::<crate::core::state::text_editor::TextEditorState>()
+            .init_resource::<crate::systems::text_editor_sorts::sort_rendering::CursorRenderingState>()
             .init_resource::<crate::core::state::text_editor::ActiveSortEntity>()
             // Initialize text editor state
             .add_systems(Startup, initialize_text_editor_sorts)

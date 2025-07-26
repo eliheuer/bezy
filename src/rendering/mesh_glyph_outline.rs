@@ -90,19 +90,23 @@ pub fn render_mesh_glyph_outline(
         With<crate::editing::selection::components::Selected>,
     >,
 ) {
+    // CHANGE DETECTION: Early return if no sorts have changed
+    let active_sort_count = active_sort_query.iter().count();
+    let buffer_sort_count = buffer_sort_query.iter().count();
+    
+    if active_sort_count == 0 && buffer_sort_count == 0 {
+        debug!("Outline rendering skipped - no changed sorts (active: {}, buffer: {})", active_sort_count, buffer_sort_count);
+        return; // No changed sorts to render - significant performance improvement
+    }
+
+    debug!("Outline rendering proceeding - changed sorts detected (active: {}, buffer: {})", active_sort_count, buffer_sort_count);
+
     // Clear existing outline elements for performance
     for entity in existing_outlines.iter() {
         commands.entity(entity).despawn();
     }
     outline_entities.path_segments.clear();
     outline_entities.control_handles.clear();
-
-    let active_sort_count = active_sort_query.iter().count();
-    let buffer_sort_count = buffer_sort_query.iter().count();
-    
-    if active_sort_count == 0 && buffer_sort_count == 0 {
-        return; // No sorts to render
-    }
 
     // ENABLED: Mesh glyph outline rendering for proper z-ordering
     // Removed return to enable mesh-based outlines

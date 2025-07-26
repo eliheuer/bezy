@@ -25,27 +25,27 @@ pub fn handle_unicode_text_input(
     current_tool: Res<CurrentTool>,
     current_placement_mode: Res<CurrentTextPlacementMode>,
 ) {
+    // EARLY RETURN: Skip all expensive work if no keyboard events
+    if key_evr.is_empty() {
+        debug!("Unicode input skipped - no keyboard events");
+        return;
+    }
+
     // DEBUG: Log system entry for any keyboard input
     let key_count = key_evr.len();
-    if key_count > 0 {
-        eprintln!("🔤 TYPING DEBUG: {} keyboard events detected", key_count);
-        eprintln!("🔤 Current tool: {:?}", current_tool.get_current());
-        eprintln!("🔤 Current placement mode: {:?}", current_placement_mode.0);
-    }
+    eprintln!("🔤 TYPING DEBUG: {} keyboard events detected", key_count);
+    eprintln!("🔤 Current tool: {:?}", current_tool.get_current());
+    eprintln!("🔤 Current placement mode: {:?}", current_placement_mode.0);
 
     // Only handle input when text tool is active
     if current_tool.get_current() != Some("text") {
-        if key_count > 0 {
-            eprintln!("🔤 BLOCKED: Text tool not active");
-        }
+        eprintln!("🔤 BLOCKED: Text tool not active");
         return;
     }
 
     // ONLY handle typing when in Insert mode - placement modes should use mouse clicks only
     if !matches!(current_placement_mode.0, TextPlacementMode::Insert) {
-        if key_count > 0 {
-            eprintln!("🔤 BLOCKED: Not in Insert mode (current: {:?})", current_placement_mode.0);
-        }
+        eprintln!("🔤 BLOCKED: Not in Insert mode (current: {:?})", current_placement_mode.0);
         return;
     }
 

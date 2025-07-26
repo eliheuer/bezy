@@ -108,30 +108,48 @@ pub fn render_mesh_metrics_lines(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut metrics_entities: ResMut<MetricsLineEntities>,
+    // CHANGE DETECTION: Only process sorts when Sort or Transform components have changed
     sort_query: Query<
         (Entity, &Transform, &crate::editing::sort::Sort),
-        With<crate::editing::sort::ActiveSort>,
+        (
+            With<crate::editing::sort::ActiveSort>,
+            Or<(Changed<crate::editing::sort::Sort>, Changed<Transform>)>
+        ),
     >,
     // Add query for ACTIVE text buffer sorts (text roots)
+    // CHANGE DETECTION: Only process active buffer sorts when Sort or Transform components have changed
     active_buffer_sort_query: Query<
         (Entity, &Transform, &crate::editing::sort::Sort),
         (
             With<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
             With<crate::editing::sort::ActiveSort>,
+            Or<(Changed<crate::editing::sort::Sort>, Changed<Transform>)>
         ),
     >,
     // Add query for INACTIVE text buffer sorts (typed characters)
+    // CHANGE DETECTION: Only process inactive buffer sorts when Sort or Transform components have changed
     inactive_buffer_sort_query: Query<
         (Entity, &Transform, &crate::editing::sort::Sort),
         (
             With<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
             With<crate::editing::sort::InactiveSort>,
+            Or<(Changed<crate::editing::sort::Sort>, Changed<Transform>)>
         ),
     >,
     existing_metrics: Query<Entity, With<MetricsLine>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     camera_scale: Res<CameraResponsiveScale>,
 ) {
+    // CHANGE DETECTION: Early return if no sorts have changed
+    let sort_count = sort_query.iter().count();
+    let active_buffer_count = active_buffer_sort_query.iter().count();
+    let inactive_buffer_count = inactive_buffer_sort_query.iter().count();
+    
+    if sort_count == 0 && active_buffer_count == 0 && inactive_buffer_count == 0 {
+        debug!("Metrics rendering skipped - no changed sorts");
+        return;
+    }
+
     // Clear existing metrics lines
     for entity in existing_metrics.iter() {
         commands.entity(entity).despawn();
