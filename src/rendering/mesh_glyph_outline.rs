@@ -42,9 +42,7 @@ pub struct MeshOutlineEntities {
 const GLYPH_OUTLINE_Z: f32 = 8.0; // Behind points (10.0) and point backgrounds (5.0)
 const CONTROL_HANDLE_Z: f32 = 9.0; // Slightly above outlines
 
-/// Line width for path segments and handles
-const PATH_LINE_WIDTH: f32 = 1.0; // Same as handles for visual consistency
-const HANDLE_LINE_WIDTH: f32 = 1.0;
+// HANDLE_LINE_WIDTH removed - now using camera-responsive scaling
 
 /// System to render glyph outlines using meshes instead of gizmos
 pub fn render_mesh_glyph_outline(
@@ -52,22 +50,16 @@ pub fn render_mesh_glyph_outline(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut outline_entities: ResMut<MeshOutlineEntities>,
-    active_sort_query: Query<(Entity, &Sort, &Transform), With<ActiveSort>>,
-    // Add separate queries for active and inactive text buffer sorts
-    active_buffer_sort_query: Query<
+    // IMPORTANT: Exclude BufferSortIndex from this query to prevent double-rendering
+    // Buffer sorts have their own dedicated rendering loops below with proper color support
+    active_sort_query: Query<(Entity, &Sort, &Transform), (With<ActiveSort>, Without<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>)>,
+    // Buffer sort query for text editor sorts
+    buffer_sort_query: Query<
         (Entity, &Sort, &Transform),
-        (
-            With<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
-            With<ActiveSort>,
-        ),
+        With<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
     >,
-    inactive_buffer_sort_query: Query<
-        (Entity, &Sort, &Transform),
-        (
-            With<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
-            With<crate::editing::sort::InactiveSort>,
-        ),
-    >,
+    // Camera-responsive scaling for proper zoom-aware rendering
+    camera_scale: Res<crate::rendering::camera_responsive::CameraResponsiveScale>,
     app_state: Option<Res<crate::core::state::AppState>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     existing_outlines: Query<Entity, With<GlyphOutlineElement>>,
@@ -94,27 +86,10 @@ pub fn render_mesh_glyph_outline(
     outline_entities.control_handles.clear();
 
     let active_sort_count = active_sort_query.iter().count();
-    let active_buffer_sort_count = active_buffer_sort_query.iter().count();
-    let inactive_buffer_sort_count = inactive_buffer_sort_query.iter().count();
-    let total_buffer_sort_count = active_buffer_sort_count + inactive_buffer_sort_count;
+    let buffer_sort_count = buffer_sort_query.iter().count();
     
-    // Debug logging
-    if total_buffer_sort_count > 0 {
-        info!("🔍 Found {} buffer sorts ({} active, {} inactive)", 
-              total_buffer_sort_count, active_buffer_sort_count, inactive_buffer_sort_count);
-        for (sort_entity, sort, transform) in active_buffer_sort_query.iter() {
-            info!("🔍 Active buffer sort: entity={:?}, glyph='{}', position=({:.1}, {:.1})", 
-                  sort_entity, sort.glyph_name, transform.translation.x, transform.translation.y);
-        }
-        for (sort_entity, sort, transform) in inactive_buffer_sort_query.iter() {
-            info!("🔍 Inactive buffer sort: entity={:?}, glyph='{}', position=({:.1}, {:.1})", 
-                  sort_entity, sort.glyph_name, transform.translation.x, transform.translation.y);
-        }
-    }
-    
-    // Don't return early if we have buffer sorts to render
-    if active_sort_count == 0 && total_buffer_sort_count == 0 {
-        return; // No sorts to render at all
+    if active_sort_count == 0 && buffer_sort_count == 0 {
+        return; // No sorts to render
     }
 
     // ENABLED: Mesh glyph outline rendering for proper z-ordering
@@ -148,6 +123,7 @@ pub fn render_mesh_glyph_outline(
                         position,
                         &point_query,
                         fontir_state.as_ref(),
+                        &camera_scale,
                     );
                 }
             } else if let Some(state) = app_state.as_ref() {
@@ -165,6 +141,7 @@ pub fn render_mesh_glyph_outline(
                             position,
                             &point_query,
                             outline,
+                            &camera_scale,
                         );
                     }
                 }
@@ -183,6 +160,7 @@ pub fn render_mesh_glyph_outline(
                         sort_entity,
                         &paths,
                         position,
+                        &camera_scale,
                     );
                 }
             } else if let Some(state) = app_state.as_ref() {
@@ -198,6 +176,7 @@ pub fn render_mesh_glyph_outline(
                             sort_entity,
                             outline,
                             position,
+                            &camera_scale,
                         );
                     }
                 }
@@ -205,25 +184,16 @@ pub fn render_mesh_glyph_outline(
         }
     }
 
-    // Also render buffer sorts (text editor sorts) - both active and inactive should be visible
-    // Using separate variables that were already calculated above
-    if total_buffer_sort_count > 0 {
-        info!("🎨 Rendering {} buffer sorts ({} active, {} inactive)", 
-              total_buffer_sort_count, active_buffer_sort_count, inactive_buffer_sort_count);
-    }
-    
-    // Render ACTIVE buffer sorts with orange outline
-    for (sort_entity, sort, transform) in active_buffer_sort_query.iter() {
+    // Render buffer sorts (text editor sorts) with default outline color
+    for (sort_entity, sort, transform) in buffer_sort_query.iter() {
         let position = transform.translation.truncate();
-        info!("🎨 Processing ACTIVE buffer sort '{}' at ({:.1}, {:.1})", sort.glyph_name, position.x, position.y);
 
         // For text buffer sorts, always render from FontIR (no live point editing)
         if let Some(fontir_state) = fontir_app_state.as_ref() {
             if let Some(paths) =
                 fontir_state.get_glyph_paths_with_edits(&sort.glyph_name)
             {
-                info!("🎨 Found {} paths for active glyph '{}'", paths.len(), sort.glyph_name);
-                render_fontir_outline_with_color(
+                render_fontir_outline(
                     &mut commands,
                     &mut meshes,
                     &mut materials,
@@ -231,46 +201,13 @@ pub fn render_mesh_glyph_outline(
                     sort_entity,
                     &paths,
                     position,
-                    crate::ui::theme::SORT_ACTIVE_OUTLINE_COLOR,
+                    &camera_scale,
                 );
-                info!("🎨 Rendered ACTIVE outline for buffer sort '{}'", sort.glyph_name);
-            } else {
-                warn!("🎨 No paths found for active glyph '{}'", sort.glyph_name);
             }
-        } else {
-            warn!("🎨 No FontIR state available for rendering active buffer sort '{}'", sort.glyph_name);
         }
     }
     
-    // Render INACTIVE buffer sorts with gray outline
-    for (sort_entity, sort, transform) in inactive_buffer_sort_query.iter() {
-        let position = transform.translation.truncate();
-        info!("🎨 Processing INACTIVE buffer sort '{}' at ({:.1}, {:.1})", sort.glyph_name, position.x, position.y);
-
-        // For text buffer sorts, always render from FontIR (no live point editing)
-        if let Some(fontir_state) = fontir_app_state.as_ref() {
-            if let Some(paths) =
-                fontir_state.get_glyph_paths_with_edits(&sort.glyph_name)
-            {
-                info!("🎨 Found {} paths for inactive glyph '{}'", paths.len(), sort.glyph_name);
-                render_fontir_outline_with_color(
-                    &mut commands,
-                    &mut meshes,
-                    &mut materials,
-                    &mut outline_entities,
-                    sort_entity,
-                    &paths,
-                    position,
-                    crate::ui::theme::SORT_INACTIVE_OUTLINE_COLOR,
-                );
-                info!("🎨 Rendered INACTIVE outline for buffer sort '{}'", sort.glyph_name);
-            } else {
-                warn!("🎨 No paths found for inactive glyph '{}'", sort.glyph_name);
-            }
-        } else {
-            warn!("🎨 No FontIR state available for rendering inactive buffer sort '{}'", sort.glyph_name);
-        }
-    }
+    // Buffer sort outlines are now rendered with default colors in the section above
 }
 
 /// Create a line mesh between two points (coordinates relative to midpoint)
@@ -331,6 +268,7 @@ fn render_ufo_outline(
     sort_entity: Entity,
     outline: &OutlineData,
     position: Vec2,
+    camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
 ) {
     let mut path_entities = Vec::new();
     let mut handle_entities = Vec::new();
@@ -349,6 +287,7 @@ fn render_ufo_outline(
             sort_entity,
             contour,
             position,
+            camera_scale,
         );
 
         // Render control handles
@@ -360,6 +299,7 @@ fn render_ufo_outline(
             sort_entity,
             contour,
             position,
+            camera_scale,
         );
     }
 
@@ -380,9 +320,10 @@ fn render_fontir_outline(
     sort_entity: Entity,
     paths: &[kurbo::BezPath],
     position: Vec2,
+    camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
 ) {
     render_fontir_outline_with_color(
-        commands, meshes, materials, outline_entities, sort_entity, paths, position, PATH_STROKE_COLOR
+        commands, meshes, materials, outline_entities, sort_entity, paths, position, PATH_STROKE_COLOR, camera_scale
     );
 }
 
@@ -395,9 +336,11 @@ fn render_fontir_outline_with_color(
     paths: &[kurbo::BezPath],
     position: Vec2,
     color: Color,
+    camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
 ) {
     let path_material = materials.add(ColorMaterial::from(color));
     let mut segment_entities = Vec::new();
+    let line_width = camera_scale.adjusted_line_width();
 
     // Process each path (contour)
     for path in paths {
@@ -420,8 +363,8 @@ fn render_fontir_outline_with_color(
                             materials,
                             start,
                             end,
-                            PATH_LINE_WIDTH,
-                            PATH_STROKE_COLOR,
+                            line_width,
+                            color,
                             GLYPH_OUTLINE_Z,
                             sort_entity,
                             OutlineElementType::PathSegment,
@@ -468,8 +411,8 @@ fn render_fontir_outline_with_color(
                                 materials,
                                 last_pos,
                                 curve_pos,
-                                PATH_LINE_WIDTH,
-                                PATH_STROKE_COLOR,
+                                line_width,
+                                color,
                                 GLYPH_OUTLINE_Z,
                                 sort_entity,
                                 OutlineElementType::PathSegment,
@@ -510,8 +453,8 @@ fn render_fontir_outline_with_color(
                                 materials,
                                 last_pos,
                                 curve_pos,
-                                PATH_LINE_WIDTH,
-                                PATH_STROKE_COLOR,
+                                line_width,
+                                color,
                                 GLYPH_OUTLINE_Z,
                                 sort_entity,
                                 OutlineElementType::PathSegment,
@@ -554,6 +497,7 @@ fn render_fontir_outline_live(
         With<crate::systems::sort_manager::SortPointEntity>,
     >,
     fontir_state: &crate::core::state::FontIRAppState,
+    camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
 ) {
     // Build a map of live positions from Transform components
     let mut live_positions = std::collections::HashMap::new();
@@ -573,6 +517,7 @@ fn render_fontir_outline_live(
         fontir_state.get_glyph_paths_with_edits(glyph_name)
     {
         let mut segment_entities = Vec::new();
+        let line_width = camera_scale.adjusted_line_width();
 
         // Process each contour
         for (contour_idx, original_path) in original_paths.iter().enumerate() {
@@ -617,7 +562,7 @@ fn render_fontir_outline_live(
                                 materials,
                                 start,
                                 end,
-                                PATH_LINE_WIDTH,
+                                line_width,
                                 PATH_STROKE_COLOR,
                                 GLYPH_OUTLINE_Z,
                                 sort_entity,
@@ -704,7 +649,7 @@ fn render_fontir_outline_live(
                                     materials,
                                     last_pos,
                                     curve_pos,
-                                    PATH_LINE_WIDTH,
+                                    line_width,
                                     PATH_STROKE_COLOR,
                                     GLYPH_OUTLINE_Z,
                                     sort_entity,
@@ -769,7 +714,7 @@ fn render_fontir_outline_live(
                                     materials,
                                     last_pos,
                                     curve_pos,
-                                    PATH_LINE_WIDTH,
+                                    line_width,
                                     PATH_STROKE_COLOR,
                                     GLYPH_OUTLINE_Z,
                                     sort_entity,
@@ -815,6 +760,7 @@ fn render_ufo_outline_live(
         With<crate::systems::sort_manager::SortPointEntity>,
     >,
     outline: &crate::core::state::OutlineData,
+    camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
 ) {
     // Build a map of live positions from Transform components
     let mut live_positions = std::collections::HashMap::new();
@@ -848,6 +794,7 @@ fn render_ufo_outline_live(
             sort_position,
             &live_positions,
             contour_idx,
+            camera_scale,
         );
 
         // Render control handles using live positions
@@ -861,6 +808,7 @@ fn render_ufo_outline_live(
             sort_position,
             &live_positions,
             contour_idx,
+            camera_scale,
         );
     }
 
@@ -881,6 +829,7 @@ fn render_contour_path_meshes(
     sort_entity: Entity,
     contour: &ContourData,
     offset: Vec2,
+    camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
 ) {
     let points = &contour.points;
     if points.is_empty() {
@@ -889,6 +838,7 @@ fn render_contour_path_meshes(
 
     // Convert contour to line segments (similar to glyph_outline.rs logic)
     let segments = extract_path_segments(contour);
+    let line_width = camera_scale.adjusted_line_width();
 
     for segment in segments {
         match segment {
@@ -903,7 +853,7 @@ fn render_contour_path_meshes(
                     materials,
                     start_pos,
                     end_pos,
-                    PATH_LINE_WIDTH,
+                    line_width,
                     PATH_STROKE_COLOR,
                     GLYPH_OUTLINE_Z,
                     sort_entity,
@@ -938,7 +888,7 @@ fn render_contour_path_meshes(
                         materials,
                         curve_points[i],
                         curve_points[i + 1],
-                        PATH_LINE_WIDTH,
+                        line_width,
                         PATH_STROKE_COLOR,
                         GLYPH_OUTLINE_Z,
                         sort_entity,
@@ -960,6 +910,7 @@ fn render_contour_handles_meshes(
     sort_entity: Entity,
     contour: &ContourData,
     offset: Vec2,
+    camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
 ) {
     let points = &contour.points;
     if points.is_empty() {
@@ -967,6 +918,7 @@ fn render_contour_handles_meshes(
     }
 
     // Find control handle lines (similar to existing logic)
+    let handle_line_width = camera_scale.adjusted_line_width();
     for (i, point) in points.iter().enumerate() {
         if !is_on_curve(point) {
             // Find nearest on-curve points to draw handles to
@@ -986,7 +938,7 @@ fn render_contour_handles_meshes(
                     materials,
                     prev_pos,
                     handle_pos,
-                    HANDLE_LINE_WIDTH,
+                    handle_line_width,
                     HANDLE_LINE_COLOR,
                     CONTROL_HANDLE_Z,
                     sort_entity,
@@ -1006,7 +958,7 @@ fn render_contour_handles_meshes(
                     materials,
                     handle_pos,
                     next_pos,
-                    HANDLE_LINE_WIDTH,
+                    handle_line_width,
                     HANDLE_LINE_COLOR,
                     CONTROL_HANDLE_Z,
                     sort_entity,
@@ -1171,6 +1123,7 @@ fn render_contour_path_meshes_live(
     sort_position: Vec2,
     live_positions: &std::collections::HashMap<(usize, usize), Vec2>,
     contour_idx: usize,
+    camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
 ) {
     let points = &contour.points;
     if points.is_empty() {
@@ -1180,6 +1133,7 @@ fn render_contour_path_meshes_live(
     // Extract path segments using live positions
     let segments =
         extract_path_segments_live(contour, live_positions, contour_idx);
+    let line_width = camera_scale.adjusted_line_width();
 
     for segment in segments {
         match segment {
@@ -1193,7 +1147,7 @@ fn render_contour_path_meshes_live(
                     materials,
                     start_pos,
                     end_pos,
-                    PATH_LINE_WIDTH,
+                    line_width,
                     PATH_STROKE_COLOR,
                     GLYPH_OUTLINE_Z,
                     sort_entity,
@@ -1225,7 +1179,7 @@ fn render_contour_path_meshes_live(
                         materials,
                         curve_points[i],
                         curve_points[i + 1],
-                        PATH_LINE_WIDTH,
+                        line_width,
                         PATH_STROKE_COLOR,
                         GLYPH_OUTLINE_Z,
                         sort_entity,
@@ -1249,6 +1203,7 @@ fn render_contour_handles_meshes_live(
     sort_position: Vec2,
     live_positions: &std::collections::HashMap<(usize, usize), Vec2>,
     contour_idx: usize,
+    camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
 ) {
     let points = &contour.points;
     if points.is_empty() {
@@ -1256,6 +1211,7 @@ fn render_contour_handles_meshes_live(
     }
 
     // Find control handle lines using live positions
+    let handle_line_width = camera_scale.adjusted_line_width();
     for (i, point) in points.iter().enumerate() {
         if !is_on_curve(point) {
             // Get live position for this off-curve point
@@ -1287,7 +1243,7 @@ fn render_contour_handles_meshes_live(
                     materials,
                     prev_pos,
                     handle_pos,
-                    HANDLE_LINE_WIDTH,
+                    handle_line_width,
                     HANDLE_LINE_COLOR,
                     CONTROL_HANDLE_Z,
                     sort_entity,
@@ -1313,7 +1269,7 @@ fn render_contour_handles_meshes_live(
                     materials,
                     handle_pos,
                     next_pos,
-                    HANDLE_LINE_WIDTH,
+                    handle_line_width,
                     HANDLE_LINE_COLOR,
                     CONTROL_HANDLE_Z,
                     sort_entity,
