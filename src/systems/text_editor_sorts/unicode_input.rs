@@ -30,6 +30,11 @@ pub fn handle_unicode_text_input(
         return;
     }
 
+    // ONLY handle typing when in Insert mode - placement modes should use mouse clicks only
+    if !matches!(current_placement_mode.0, TextPlacementMode::Insert) {
+        return;
+    }
+
     // Handle keyboard input events
     for ev in key_evr.read() {
         // Only process pressed keys

@@ -645,19 +645,33 @@ impl TextEditorState {
                 advance_width, // Get from FontIR runtime data
             },
             is_active: true, // Automatically activate the new text root
-            layout_mode,
+            layout_mode: layout_mode.clone(),
             root_position: world_position,
             buffer_index: Some(self.buffer.len()),
             is_buffer_root: true,
-            buffer_cursor_position: Some(0), // Start with cursor at position 0
+            // For LTR text, cursor goes after the glyph (position 1)
+            // For RTL text, cursor goes before the glyph (position 0)
+            buffer_cursor_position: Some(match &layout_mode {
+                SortLayoutMode::RTLText => 0,
+                _ => 1,
+            }),
         };
 
         // Insert at the end of the buffer
         let insert_index = self.buffer.len();
         self.buffer.insert(insert_index, text_root);
 
-        info!("Created and activated new text root at world position ({:.1}, {:.1}), cursor at position 0", 
-              world_position.x, world_position.y);
+        let cursor_pos = match &layout_mode {
+            SortLayoutMode::RTLText => 0,
+            _ => 1,
+        };
+        info!("Created and activated new {} text root at world position ({:.1}, {:.1}), cursor at position {}", 
+              match layout_mode {
+                  SortLayoutMode::LTRText => "LTR",
+                  SortLayoutMode::RTLText => "RTL",
+                  SortLayoutMode::Freeform => "Freeform",
+              },
+              world_position.x, world_position.y, cursor_pos);
     }
 
     /// Create a text sort at a specific world position (for text tool)
