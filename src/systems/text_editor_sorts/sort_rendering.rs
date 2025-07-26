@@ -251,7 +251,7 @@ fn create_mesh_cursor(
 ) {
     let outline_width = camera_scale.adjusted_line_width();
     let cursor_width = outline_width * 4.0; // 4x the outline width
-    let triangle_size = cursor_width * 1.5; // Triangle size relative to cursor width
+    let circle_size = cursor_width * 4.0;
     
     // Create main vertical line mesh
     let line_mesh = create_cursor_line_mesh(
@@ -260,9 +260,9 @@ fn create_mesh_cursor(
         cursor_width,
     );
     
-    // Create triangle meshes for top and bottom
-    let top_triangle_mesh = create_triangle_mesh(triangle_size, true); // pointing up
-    let bottom_triangle_mesh = create_triangle_mesh(triangle_size, false); // pointing down
+    // Create circle meshes for top and bottom
+    let top_circle_mesh = create_circle_mesh(circle_size);
+    let bottom_circle_mesh = create_circle_mesh(circle_size);
     
     let cursor_material = materials.add(ColorMaterial::from(cursor_color));
     let cursor_z = 15.0; // Above everything else
@@ -283,10 +283,10 @@ fn create_mesh_cursor(
         ViewVisibility::default(),
     ));
     
-    // Spawn top triangle
+    // Spawn top circle
     commands.spawn((
         TextEditorCursor,
-        Mesh2d(meshes.add(top_triangle_mesh)),
+        Mesh2d(meshes.add(top_circle_mesh)),
         MeshMaterial2d(cursor_material.clone()),
         Transform::from_xyz(
             cursor_pos.x,
@@ -299,10 +299,10 @@ fn create_mesh_cursor(
         ViewVisibility::default(),
     ));
     
-    // Spawn bottom triangle  
+    // Spawn bottom circle
     commands.spawn((
         TextEditorCursor,
-        Mesh2d(meshes.add(bottom_triangle_mesh)),
+        Mesh2d(meshes.add(bottom_circle_mesh)),
         MeshMaterial2d(cursor_material),
         Transform::from_xyz(
             cursor_pos.x,
@@ -365,27 +365,36 @@ fn create_cursor_line_mesh(start: Vec2, end: Vec2, width: f32) -> Mesh {
     mesh
 }
 
-/// Create a triangular mesh for cursor ends
-fn create_triangle_mesh(size: f32, pointing_up: bool) -> Mesh {
-    let half_size = size * 0.5;
+/// Create a circular mesh for cursor ends
+fn create_circle_mesh(diameter: f32) -> Mesh {
+    let radius = diameter * 0.5;
+    let segments = 32; // Number of segments for circle smoothness
     
-    let vertices = if pointing_up {
-        vec![
-            [0.0, half_size, 0.0],        // Top point
-            [-half_size, -half_size, 0.0], // Bottom left
-            [half_size, -half_size, 0.0],  // Bottom right
-        ]
-    } else {
-        vec![
-            [0.0, -half_size, 0.0],       // Bottom point
-            [-half_size, half_size, 0.0], // Top left
-            [half_size, half_size, 0.0],  // Top right
-        ]
-    };
+    let mut vertices = vec![[0.0, 0.0, 0.0]]; // Center vertex
+    let mut uvs = vec![[0.5, 0.5]]; // Center UV
+    let mut indices = Vec::new();
     
-    let indices = vec![0, 1, 2]; // Single triangle
-    let uvs = vec![[0.5, 1.0], [0.0, 0.0], [1.0, 0.0]];
-    let normals = vec![[0.0, 0.0, 1.0]; 3];
+    // Create circle vertices around the perimeter
+    for i in 0..segments {
+        let angle = (i as f32 / segments as f32) * 2.0 * std::f32::consts::PI;
+        let x = radius * angle.cos();
+        let y = radius * angle.sin();
+        
+        vertices.push([x, y, 0.0]);
+        
+        // UV coordinates mapped from -1,1 to 0,1
+        let u = (x / radius + 1.0) * 0.5;
+        let v = (y / radius + 1.0) * 0.5;
+        uvs.push([u, v]);
+        
+        // Create triangle indices (center, current, next)
+        let next_i = (i + 1) % segments;
+        indices.push(0); // Center
+        indices.push((i + 1) as u32); // Current vertex
+        indices.push((next_i + 1) as u32); // Next vertex
+    }
+    
+    let normals = vec![[0.0, 0.0, 1.0]; vertices.len()];
     
     let mut mesh = Mesh::new(
         bevy::render::render_resource::PrimitiveTopology::TriangleList,
