@@ -4,8 +4,14 @@ use crate::core::state::text_editor::{SortKind, SortLayoutMode};
 use crate::core::state::{AppState, TextEditorState};
 use crate::ui::theme::*;
 use crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode;
-use crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode;
+// TextPlacementMode import removed - not used in new mesh-based cursor
 use bevy::prelude::*;
+use bevy::render::mesh::Mesh2d;
+use bevy::sprite::{ColorMaterial, MeshMaterial2d};
+
+/// Component to mark text editor cursor entities
+#[derive(Component)]
+pub struct TextEditorCursor;
 
 /// Text editor sorts are now rendered by the main mesh glyph outline system
 /// This function exists for compatibility but the actual rendering happens
@@ -16,15 +22,24 @@ pub fn render_text_editor_sorts() {
     // No additional rendering logic needed here.
 }
 
-/// Render the visual cursor for Insert mode
+/// Render the visual cursor for Insert mode using zoom-aware mesh rendering
 pub fn render_text_editor_cursor(
-    mut gizmos: Gizmos,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
     text_editor_state: Option<Res<TextEditorState>>,
     current_placement_mode: Res<CurrentTextPlacementMode>,
     app_state: Option<Res<AppState>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    camera_scale: Res<crate::rendering::camera_responsive::CameraResponsiveScale>,
+    existing_cursors: Query<Entity, With<TextEditorCursor>>,
 ) {
+    // Clean up existing cursor entities
+    for entity in existing_cursors.iter() {
+        commands.entity(entity).despawn();
+    }
+
     // Only render cursor when text tool is active and in Insert mode
     if current_tool.get_current() != Some("text") {
         debug!(
@@ -70,52 +85,16 @@ pub fn render_text_editor_cursor(
         // Bright orange cursor color (like pre-refactor)
         let cursor_color = Color::srgb(1.0, 0.5, 0.0); // Bright orange
 
-        // Draw thick cursor spanning full sort metrics height
-        for offset in [-2.0, -1.0, 0.0, 1.0, 2.0] {
-            gizmos.line_2d(
-                Vec2::new(cursor_world_pos.x + offset, cursor_bottom),
-                Vec2::new(cursor_world_pos.x + offset, cursor_top),
-                cursor_color,
-            );
-        }
-
-        // Add layered circles at top and bottom of cursor
-        let large_circle_radius = 8.0; // 4x the medium (2.0)
-        let medium_circle_radius = 2.0; // Width of outer vertical lines
-        let small_circle_radius = 0.5; // Width of inner lines
-
-        // Draw circles at top
-        gizmos.circle_2d(
-            Vec2::new(cursor_world_pos.x, cursor_top),
-            large_circle_radius,
+        // Create zoom-aware mesh-based cursor
+        create_mesh_cursor(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            cursor_world_pos,
+            cursor_top,
+            cursor_bottom,
             cursor_color,
-        );
-        gizmos.circle_2d(
-            Vec2::new(cursor_world_pos.x, cursor_top),
-            medium_circle_radius,
-            cursor_color,
-        );
-        gizmos.circle_2d(
-            Vec2::new(cursor_world_pos.x, cursor_top),
-            small_circle_radius,
-            cursor_color,
-        );
-
-        // Draw circles at bottom
-        gizmos.circle_2d(
-            Vec2::new(cursor_world_pos.x, cursor_bottom),
-            large_circle_radius,
-            cursor_color,
-        );
-        gizmos.circle_2d(
-            Vec2::new(cursor_world_pos.x, cursor_bottom),
-            medium_circle_radius,
-            cursor_color,
-        );
-        gizmos.circle_2d(
-            Vec2::new(cursor_world_pos.x, cursor_bottom),
-            small_circle_radius,
-            cursor_color,
+            &camera_scale,
         );
 
         debug!(
@@ -202,17 +181,16 @@ fn calculate_cursor_visual_position(
 
             // Count glyphs in this buffer sequence
             if i == root_index || sort.layout_mode == SortLayoutMode::LTRText || sort.layout_mode == SortLayoutMode::RTLText {
-                // If we've reached the cursor position, return
-                if glyph_count == cursor_pos_in_buffer {
-                    return Some(Vec2::new(
-                        root_position.x + x_offset,
-                        root_position.y + y_offset,
-                    ));
-                }
-
                 // Handle different sort types
                 match &sort.kind {
                     SortKind::LineBreak => {
+                        // If we've reached the cursor position, return before line break
+                        if glyph_count == cursor_pos_in_buffer {
+                            return Some(Vec2::new(
+                                root_position.x + x_offset,
+                                root_position.y + y_offset,
+                            ));
+                        }
                         // Line break: reset x_offset and move down a line
                         x_offset = 0.0;
                         y_offset -= line_height;
@@ -221,13 +199,28 @@ fn calculate_cursor_visual_position(
                         glyph_name: _,
                         advance_width,
                     } => {
-                        if glyph_count < cursor_pos_in_buffer {
-                            // For RTL, subtract advance width instead of adding
+                        // If cursor is at this position, place it at the RIGHT edge of this glyph
+                        if glyph_count == cursor_pos_in_buffer {
+                            // For LTR: cursor goes at right edge (after advance)
+                            // For RTL: cursor goes at left edge (before advance)
                             if sort.layout_mode == SortLayoutMode::RTLText {
-                                x_offset -= advance_width;
+                                return Some(Vec2::new(
+                                    root_position.x + x_offset,
+                                    root_position.y + y_offset,
+                                ));
                             } else {
-                                x_offset += advance_width;
+                                return Some(Vec2::new(
+                                    root_position.x + x_offset + advance_width,
+                                    root_position.y + y_offset,
+                                ));
                             }
+                        }
+                        
+                        // Add advance width for positioning next characters
+                        if sort.layout_mode == SortLayoutMode::RTLText {
+                            x_offset -= advance_width;
+                        } else {
+                            x_offset += advance_width;
                         }
                     }
                 }
@@ -242,4 +235,165 @@ fn calculate_cursor_visual_position(
         root_position.x + x_offset,
         root_position.y + y_offset,
     ))
+}
+
+/// Create a mesh-based cursor with triangular ends
+fn create_mesh_cursor(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    cursor_pos: Vec2,
+    cursor_top: f32,
+    cursor_bottom: f32,
+    cursor_color: Color,
+    camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
+) {
+    let outline_width = camera_scale.adjusted_line_width();
+    let cursor_width = outline_width * 4.0; // 4x the outline width
+    let triangle_size = cursor_width * 1.5; // Triangle size relative to cursor width
+    
+    // Create main vertical line mesh
+    let line_mesh = create_cursor_line_mesh(
+        Vec2::new(cursor_pos.x, cursor_bottom),
+        Vec2::new(cursor_pos.x, cursor_top),
+        cursor_width,
+    );
+    
+    // Create triangle meshes for top and bottom
+    let top_triangle_mesh = create_triangle_mesh(triangle_size, true); // pointing up
+    let bottom_triangle_mesh = create_triangle_mesh(triangle_size, false); // pointing down
+    
+    let cursor_material = materials.add(ColorMaterial::from(cursor_color));
+    let cursor_z = 15.0; // Above everything else
+    
+    // Spawn main cursor line
+    commands.spawn((
+        TextEditorCursor,
+        Mesh2d(meshes.add(line_mesh)),
+        MeshMaterial2d(cursor_material.clone()),
+        Transform::from_xyz(
+            cursor_pos.x,
+            (cursor_top + cursor_bottom) * 0.5,
+            cursor_z,
+        ),
+        GlobalTransform::default(),
+        Visibility::Visible,
+        InheritedVisibility::default(),
+        ViewVisibility::default(),
+    ));
+    
+    // Spawn top triangle
+    commands.spawn((
+        TextEditorCursor,
+        Mesh2d(meshes.add(top_triangle_mesh)),
+        MeshMaterial2d(cursor_material.clone()),
+        Transform::from_xyz(
+            cursor_pos.x,
+            cursor_top,
+            cursor_z,
+        ),
+        GlobalTransform::default(),
+        Visibility::Visible,
+        InheritedVisibility::default(),
+        ViewVisibility::default(),
+    ));
+    
+    // Spawn bottom triangle  
+    commands.spawn((
+        TextEditorCursor,
+        Mesh2d(meshes.add(bottom_triangle_mesh)),
+        MeshMaterial2d(cursor_material),
+        Transform::from_xyz(
+            cursor_pos.x,
+            cursor_bottom,
+            cursor_z,
+        ),
+        GlobalTransform::default(),
+        Visibility::Visible,
+        InheritedVisibility::default(),
+        ViewVisibility::default(),
+    ));
+}
+
+/// Create a vertical line mesh for the cursor
+fn create_cursor_line_mesh(start: Vec2, end: Vec2, width: f32) -> Mesh {
+    let direction = (end - start).normalize();
+    let perpendicular = Vec2::new(-direction.y, direction.x) * width * 0.5;
+    let midpoint = (start + end) * 0.5;
+    
+    // Make coordinates relative to midpoint
+    let start_rel = start - midpoint;
+    let end_rel = end - midpoint;
+    
+    let vertices = vec![
+        [
+            start_rel.x - perpendicular.x,
+            start_rel.y - perpendicular.y,
+            0.0,
+        ], // Bottom left
+        [
+            start_rel.x + perpendicular.x,
+            start_rel.y + perpendicular.y,
+            0.0,
+        ], // Top left
+        [
+            end_rel.x + perpendicular.x,
+            end_rel.y + perpendicular.y,
+            0.0,
+        ], // Top right
+        [
+            end_rel.x - perpendicular.x,
+            end_rel.y - perpendicular.y,
+            0.0,
+        ], // Bottom right
+    ];
+    
+    let indices = vec![0, 1, 2, 0, 2, 3]; // Two triangles forming a rectangle
+    let uvs = vec![[0.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0]];
+    let normals = vec![[0.0, 0.0, 1.0]; 4];
+    
+    let mut mesh = Mesh::new(
+        bevy::render::render_resource::PrimitiveTopology::TriangleList,
+        bevy::render::render_asset::RenderAssetUsages::RENDER_WORLD,
+    );
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
+    
+    mesh
+}
+
+/// Create a triangular mesh for cursor ends
+fn create_triangle_mesh(size: f32, pointing_up: bool) -> Mesh {
+    let half_size = size * 0.5;
+    
+    let vertices = if pointing_up {
+        vec![
+            [0.0, half_size, 0.0],        // Top point
+            [-half_size, -half_size, 0.0], // Bottom left
+            [half_size, -half_size, 0.0],  // Bottom right
+        ]
+    } else {
+        vec![
+            [0.0, -half_size, 0.0],       // Bottom point
+            [-half_size, half_size, 0.0], // Top left
+            [half_size, half_size, 0.0],  // Top right
+        ]
+    };
+    
+    let indices = vec![0, 1, 2]; // Single triangle
+    let uvs = vec![[0.5, 1.0], [0.0, 0.0], [1.0, 0.0]];
+    let normals = vec![[0.0, 0.0, 1.0]; 3];
+    
+    let mut mesh = Mesh::new(
+        bevy::render::render_resource::PrimitiveTopology::TriangleList,
+        bevy::render::render_asset::RenderAssetUsages::RENDER_WORLD,
+    );
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
+    
+    mesh
 }
