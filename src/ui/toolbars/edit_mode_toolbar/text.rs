@@ -838,14 +838,9 @@ pub fn handle_text_mode_keyboard(
             debug!("Text mode: deleted sort at cursor position");
             keyboard_input.clear_just_pressed(KeyCode::Delete);
         }
-        if keyboard_input.just_pressed(KeyCode::Backspace) {
-            if text_editor_state.cursor_position > 0 {
-                text_editor_state.move_cursor_left();
-                text_editor_state.delete_sort_at_cursor();
-                debug!("Text mode: backspace deleted sort");
-            }
-            keyboard_input.clear_just_pressed(KeyCode::Backspace);
-        }
+        // NOTE: Backspace handling moved to Unicode input system to avoid duplicate deletion
+        // The Unicode input system (handle_unicode_text_input) handles Key::Backspace
+        // and should be the single source of truth for text input events
     }
 
     // Handle Insert mode cursor navigation
@@ -885,13 +880,9 @@ pub fn handle_text_mode_keyboard(
             debug!("Insert mode: deleted sort at cursor position");
             keyboard_input.clear_just_pressed(KeyCode::Delete);
         }
-        if keyboard_input.just_pressed(KeyCode::Backspace) {
-            // Backspace should delete the sort to the LEFT of cursor (standard backspace behavior)
-            // delete_sort_at_cursor already handles moving cursor left automatically
-            text_editor_state.delete_sort_at_cursor();
-            info!("Insert mode: backspace deleted sort to the left of cursor");
-            keyboard_input.clear_just_pressed(KeyCode::Backspace);
-        }
+        // NOTE: Backspace handling moved to Unicode input system to avoid duplicate deletion
+        // The Unicode input system (handle_unicode_text_input) handles Key::Backspace
+        // and should be the single source of truth for text input events
         // NOTE: Enter key handling has been moved to the Unicode input system
         // to avoid duplicate line break insertion. The Unicode system handles
         // both Key::Enter and '\n' character input in one place.

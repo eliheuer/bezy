@@ -997,16 +997,21 @@ impl TextEditorState {
                 return;
             }
 
-            // A cursor at text position `k` is to the right of the glyph at `k-1`.
-            // Backspace deletes the glyph to the left, which is at buffer index `root_index + k - 1`.
-            let delete_buffer_index = root_index + cursor_pos_in_buffer - 1;
-
-            self.buffer.delete(delete_buffer_index);
-
-            // Update cursor position in the root
-            if let Some(root_sort) = self.buffer.get_mut(root_index) {
-                root_sort.buffer_cursor_position =
-                    Some(cursor_pos_in_buffer - 1);
+            // Find the actual last character to delete (should be the last non-root entry in the buffer)
+            // Since characters are always inserted at the end, delete the last character
+            let buffer_len = self.buffer.len();
+            if buffer_len > 1 { // Must have more than just the root
+                let delete_buffer_index = buffer_len - 1; // Delete the last character
+                
+                info!("🗑️ Deleting character at buffer index {} (buffer length: {})", delete_buffer_index, buffer_len);
+                self.buffer.delete(delete_buffer_index);
+                
+                // Update cursor position in the root - cursor should point to where next character will be inserted
+                let new_cursor_pos = cursor_pos_in_buffer - 1;
+                if let Some(root_sort) = self.buffer.get_mut(root_index) {
+                    root_sort.buffer_cursor_position = Some(new_cursor_pos);
+                    info!("📍 Updated cursor position to {}", new_cursor_pos);
+                }
             }
         }
     }

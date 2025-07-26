@@ -294,18 +294,14 @@ fn handle_backspace(
             info!("Unicode input: Backspace in Insert mode");
         }
         TextPlacementMode::LTRText | TextPlacementMode::RTLText => {
-            if text_editor_state.cursor_position > 0 {
-                text_editor_state.move_cursor_left();
-                text_editor_state.delete_sort_at_cursor();
-            }
+            // delete_sort_at_cursor already handles deleting to the left of cursor and updating cursor position
+            text_editor_state.delete_sort_at_cursor();
             let mode_name = if matches!(current_placement_mode.0, TextPlacementMode::LTRText) { "LTR Text" } else { "RTL Text" };
             info!("Unicode input: Backspace in {} mode", mode_name);
         }
         TextPlacementMode::Freeform => {
-            if text_editor_state.cursor_position > 0 {
-                text_editor_state.move_cursor_left();
-                text_editor_state.delete_sort_at_cursor();
-            }
+            // delete_sort_at_cursor already handles deleting to the left of cursor and updating cursor position
+            text_editor_state.delete_sort_at_cursor();
             info!("Unicode input: Backspace in Freeform mode");
         }
     }
