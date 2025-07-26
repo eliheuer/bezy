@@ -184,16 +184,17 @@ fn calculate_cursor_visual_position(
                 // Handle different sort types
                 match &sort.kind {
                     SortKind::LineBreak => {
-                        // If we've reached the cursor position, return before line break
+                        // Apply line break first (move to next line)
+                        x_offset = 0.0;
+                        y_offset -= line_height;
+                        
+                        // If cursor is positioned at this line break index, show it at the start of the new line
                         if glyph_count == cursor_pos_in_buffer {
                             return Some(Vec2::new(
                                 root_position.x + x_offset,
                                 root_position.y + y_offset,
                             ));
                         }
-                        // Line break: reset x_offset and move down a line
-                        x_offset = 0.0;
-                        y_offset -= line_height;
                     }
                     SortKind::Glyph {
                         glyph_name: _,

@@ -36,7 +36,7 @@ pub enum SortLayoutMode {
     LTRText,
     /// Sort flows right-to-left like Arabic/Hebrew text
     RTLText,
-    /// Sort is positioned freely in the design space
+    /// Sort is positioned freely in the world space
     Freeform,
 }
 
@@ -1245,10 +1245,10 @@ impl TextEditorState {
             info!("🔤 Inserted line break at buffer index {}", insert_buffer_index);
 
             // Update the cursor position in the root to point after the line break
-            let new_cursor_pos = self.buffer.len() - 1; // Cursor after the line break
+            let new_cursor_pos = self.buffer.len(); // Cursor AFTER the line break (at the position where next character will be inserted)
             if let Some(root_sort) = self.buffer.get_mut(root_index) {
                 root_sort.buffer_cursor_position = Some(new_cursor_pos);
-                eprintln!("🔤 INSERT_LINE_BREAK: Updated cursor position to {}", new_cursor_pos);
+                eprintln!("🔤 INSERT_LINE_BREAK: Updated cursor position to {} (after line break)", new_cursor_pos);
                 info!("📍 Updated root cursor position to {} after line break", new_cursor_pos);
             }
         } else {
