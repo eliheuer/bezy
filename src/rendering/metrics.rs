@@ -6,6 +6,7 @@
 use crate::core::state::font_metrics::FontMetrics;
 use crate::core::state::fontir_app_state::FontIRMetrics;
 use crate::rendering::camera_responsive::CameraResponsiveScale;
+use crate::rendering::entity_pools::{EntityPools, update_metrics_entity};
 use crate::ui::theme::METRICS_GUIDE_COLOR;
 use bevy::prelude::*;
 use bevy::render::mesh::Mesh2d;
@@ -102,12 +103,63 @@ fn spawn_metrics_line(
         .id()
 }
 
+/// ENTITY POOLING: Get or update a metrics line entity from the pool
+fn get_or_update_metrics_line(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    entity_pools: &mut ResMut<EntityPools>,
+    start: Vec2,
+    end: Vec2,
+    color: Color,
+    sort_entity: Entity,
+    line_type: MetricsLineType,
+    camera_scale: &CameraResponsiveScale,
+) -> Entity {
+    // Get an entity from the pool
+    let entity = entity_pools.get_metrics_entity(commands, sort_entity);
+    
+    // Create the mesh and material
+    let line_width = camera_scale.adjusted_line_width();
+    let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
+        start, end, line_width,
+    );
+    let mesh_handle = meshes.add(line_mesh);
+    let material_handle = materials.add(ColorMaterial::from_color(color));
+    
+    // Calculate transform
+    let transform = Transform::from_xyz(
+        (start.x + end.x) * 0.5,
+        (start.y + end.y) * 0.5,
+        METRICS_LINE_Z,
+    );
+    
+    // Update the entity using the helper function
+    let metrics_component = MetricsLine {
+        sort_entity,
+        line_type,
+    };
+    
+    update_metrics_entity(
+        commands,
+        entity,
+        mesh_handle,
+        material_handle,
+        transform,
+        metrics_component,
+    );
+    
+    debug!("Updated pooled metrics entity {:?} for sort {:?}", entity, sort_entity);
+    entity
+}
+
 /// System to render mesh-based metrics lines for all active sorts
 pub fn render_mesh_metrics_lines(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut metrics_entities: ResMut<MetricsLineEntities>,
+    mut entity_pools: ResMut<EntityPools>,
     // CHANGE DETECTION: Only process sorts when Sort or Transform components have changed
     sort_query: Query<
         (Entity, &Transform, &crate::editing::sort::Sort),
@@ -150,11 +202,23 @@ pub fn render_mesh_metrics_lines(
         return;
     }
 
-    // Clear existing metrics lines
-    for entity in existing_metrics.iter() {
-        commands.entity(entity).despawn();
+    // ENTITY POOLING: Collect changed sort entities and return only their entities
+    let mut changed_sort_entities = Vec::new();
+    for (sort_entity, _, _) in sort_query.iter() {
+        changed_sort_entities.push(sort_entity);
     }
+    for (sort_entity, _, _) in active_buffer_sort_query.iter() {
+        changed_sort_entities.push(sort_entity);
+    }
+    for (sort_entity, _, _) in inactive_buffer_sort_query.iter() {
+        changed_sort_entities.push(sort_entity);
+    }
+    
+    // Only return entities for changed sorts (more efficient than return_all_entities)
+    entity_pools.return_entities_for_changed_sorts(&changed_sort_entities);
     metrics_entities.lines.clear();
+    
+    debug!("Returned metrics entities for {} changed sorts", changed_sort_entities.len());
 
     if let Some(fontir_state) = fontir_app_state {
         let fontir_metrics = fontir_state.get_font_metrics();

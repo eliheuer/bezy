@@ -38,7 +38,8 @@ impl Plugin for TextEditorPlugin {
             .add_systems(Update, (
                 // manage_sort_activation, // DISABLED: Use selection system instead
                 spawn_missing_sort_entities,
-                crate::systems::text_editor_sorts::sort_entities::update_buffer_sort_positions, // NEW: Update existing sort positions
+                crate::systems::text_editor_sorts::sort_entities::update_buffer_sort_positions
+                    .run_if(resource_changed::<crate::core::state::TextEditorState>), // PERFORMANCE: Only run when buffer changes
                 // crate::systems::text_editor_sorts::sort_entities::auto_activate_selected_sorts, // TEMPORARILY DISABLED: May be interfering with text root activation
                 crate::systems::text_editor_sorts::despawn_missing_buffer_sort_entities, // NEW: Despawn deleted buffer sorts
             ).chain().after(handle_unicode_text_input))

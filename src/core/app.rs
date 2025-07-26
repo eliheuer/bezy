@@ -9,7 +9,7 @@ use crate::core::state::GlyphNavigation;
 use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
 use crate::rendering::{
     camera_responsive::CameraResponsivePlugin, cameras::CameraPlugin,
-    checkerboard::CheckerboardPlugin, MetricsRenderingPlugin,
+    checkerboard::CheckerboardPlugin, EntityPoolingPlugin, MetricsRenderingPlugin,
     MeshGlyphOutlinePlugin, SortHandleRenderingPlugin, UnifiedGlyphEditingPlugin,
 };
 use crate::systems::{
@@ -59,6 +59,7 @@ impl PluginGroup for RenderingPluginGroup {
             .add(CameraPlugin)
             .add(CameraResponsivePlugin)
             .add(CheckerboardPlugin)
+            .add(EntityPoolingPlugin)
             .add(MetricsRenderingPlugin)
             .add(MeshGlyphOutlinePlugin)
             .add(SortHandleRenderingPlugin)

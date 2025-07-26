@@ -628,9 +628,9 @@ impl TextEditorState {
         // Only clear states if buffer is empty (first text root)
         if self.buffer.is_empty() {
             self.clear_all_states();
-            eprintln!("🟢 CREATING FIRST TEXT ROOT: Cleared states for empty buffer");
+            debug!("Creating first text root: Cleared states for empty buffer");
         } else {
-            eprintln!("🟡 TEXT ROOT WITH EXISTING BUFFER: Not clearing {} existing entries", self.buffer.len());
+            debug!("Text root with existing buffer: Not clearing {} existing entries", self.buffer.len());
         }
 
         // Get the actual advance width from FontIR if available
@@ -849,7 +849,7 @@ impl TextEditorState {
 
     /// Clear both active state and selections from all sorts
     pub fn clear_all_states(&mut self) {
-        eprintln!("🚨 CLEAR_ALL_STATES: Called with buffer length {}", self.buffer.len());
+        debug!("Clear all states: Called with buffer length {}", self.buffer.len());
         for i in 0..self.buffer.len() {
             if let Some(sort) = self.buffer.get_mut(i) {
                 sort.is_active = false;
@@ -910,11 +910,11 @@ impl TextEditorState {
         glyph_name: String,
         advance_width: f32,
     ) {
-        eprintln!("🔤 INSERT_AT_CURSOR: Starting insertion of '{}'", glyph_name);
+        debug!("Insert at cursor: Starting insertion of '{}'", glyph_name);
         info!("insert_sort_at_cursor called with glyph '{}', advance_width {}", glyph_name, advance_width);
         
         if let Some(root_index) = self.find_active_buffer_root_index() {
-            eprintln!("🔤 INSERT_AT_CURSOR: Found active root at index {}", root_index);
+            debug!("Insert at cursor: Found active root at index {}", root_index);
             let cursor_pos_in_buffer = self
                 .buffer
                 .get(root_index)
@@ -948,11 +948,11 @@ impl TextEditorState {
             // FIXED: Insert at the end of the buffer instead of using cursor position
             // The cursor position was getting out of sync with the actual buffer
             let insert_buffer_index = self.buffer.len();
-            eprintln!("🔤 INSERTING: Before insert - buffer has {} entries", self.buffer.len());
-            eprintln!("🔤 INSERTING: Inserting at index {} (end of buffer)", insert_buffer_index);
+            debug!("Inserting: Before insert - buffer has {} entries", self.buffer.len());
+            debug!("Inserting: Inserting at index {} (end of buffer)", insert_buffer_index);
             
             self.buffer.insert(insert_buffer_index, new_sort);
-            eprintln!("🔤 INSERTING: Insert successful - buffer now has {} entries", self.buffer.len());
+            debug!("Inserting: Insert successful - buffer now has {} entries", self.buffer.len());
             info!("🔤 Inserted character '{}' at buffer index {} (root stays at {})", 
                   glyph_name, insert_buffer_index, root_index);
             info!("🔤 Buffer now has {} entries after insertion", self.buffer.len());
@@ -961,7 +961,7 @@ impl TextEditorState {
             let new_cursor_pos = self.buffer.len() - 1; // Cursor after the new character
             if let Some(root_sort) = self.buffer.get_mut(root_index) {
                 root_sort.buffer_cursor_position = Some(new_cursor_pos);
-                eprintln!("🔤 INSERTING: Updated cursor position to {}", new_cursor_pos);
+                debug!("Inserting: Updated cursor position to {}", new_cursor_pos);
                 info!("📍 Updated root cursor position to {}", new_cursor_pos);
                 // CRITICAL: Keep the root active so it maintains its outline
                 info!("🔥 Root sort '{}' remains active with is_active={}", 
@@ -969,8 +969,8 @@ impl TextEditorState {
             }
         } else {
             // No active text buffer, so create a new one with this character.
-            eprintln!("🔤 INSERT_AT_CURSOR: NO ACTIVE ROOT FOUND - will create new text root");
-            eprintln!("🔤 INSERT_AT_CURSOR: Buffer has {} entries but no active root found", self.buffer.len());
+            debug!("Insert at cursor: NO ACTIVE ROOT FOUND - will create new text root");
+            debug!("Insert at cursor: Buffer has {} entries but no active root found", self.buffer.len());
             info!("No active buffer root found, creating new text root with glyph '{}'", glyph_name);
             // FIXED: Use a reasonable default position instead of Vec2::ZERO
             let default_position = Vec2::new(500.0, 0.0);
@@ -1126,7 +1126,7 @@ impl TextEditorState {
 
     /// Helper: Find the index of the active buffer root
     fn find_active_buffer_root_index(&self) -> Option<usize> {
-        eprintln!("🔤 FIND_ROOT: Searching for active buffer root in {} buffer entries", self.buffer.len());
+        debug!("Find root: Searching for active buffer root in {} buffer entries", self.buffer.len());
         // Use same logic as insert_sort_at_cursor
         let mut checked_roots = 0;
         for i in 0..self.buffer.len() {
@@ -1223,7 +1223,7 @@ impl TextEditorState {
     /// Insert a line break at the cursor position (for Enter key)
     pub fn insert_line_break_at_cursor(&mut self) {
         if let Some(root_index) = self.find_active_buffer_root_index() {
-            eprintln!("🔤 INSERT_LINE_BREAK: Found active root at index {}", root_index);
+            debug!("Insert line break: Found active root at index {}", root_index);
             
             // Get the layout mode from the buffer root
             let root_layout_mode = self.buffer.get(root_index)
@@ -1243,21 +1243,21 @@ impl TextEditorState {
             // FIXED: Insert at the end of the buffer instead of using cursor position
             // The cursor position was getting out of sync with the actual buffer
             let insert_buffer_index = self.buffer.len();
-            eprintln!("🔤 INSERT_LINE_BREAK: Inserting at index {} (end of buffer)", insert_buffer_index);
+            debug!("Insert line break: Inserting at index {} (end of buffer)", insert_buffer_index);
             
             self.buffer.insert(insert_buffer_index, new_sort);
-            eprintln!("🔤 INSERT_LINE_BREAK: Insert successful - buffer now has {} entries", self.buffer.len());
+            debug!("Insert line break: Insert successful - buffer now has {} entries", self.buffer.len());
             info!("🔤 Inserted line break at buffer index {}", insert_buffer_index);
 
             // Update the cursor position in the root to point after the line break
             let new_cursor_pos = self.buffer.len(); // Cursor AFTER the line break (at the position where next character will be inserted)
             if let Some(root_sort) = self.buffer.get_mut(root_index) {
                 root_sort.buffer_cursor_position = Some(new_cursor_pos);
-                eprintln!("🔤 INSERT_LINE_BREAK: Updated cursor position to {} (after line break)", new_cursor_pos);
+                debug!("Insert line break: Updated cursor position to {} (after line break)", new_cursor_pos);
                 info!("📍 Updated root cursor position to {} after line break", new_cursor_pos);
             }
         } else {
-            eprintln!("🔤 INSERT_LINE_BREAK: NO ACTIVE ROOT FOUND");
+            debug!("Insert line break: NO ACTIVE ROOT FOUND");
             warn!("Cannot insert line break - no active buffer root found");
         }
     }

@@ -14,6 +14,7 @@ pub mod cameras;
 pub mod checkerboard;
 pub mod debug;
 pub mod draw;
+pub mod entity_pools;
 // Removed: gizmo-based outline modules (fontir_glyph_outline, glyph_outline)
 // All outline rendering is now handled by mesh_glyph_outline
 pub mod mesh_glyph_outline;
@@ -28,6 +29,7 @@ pub mod unified_glyph_editing;
 // Re-export commonly used items
 pub use camera_responsive::{CameraResponsivePlugin, CameraResponsiveScale};
 pub use checkerboard::{CheckerboardEnabled, CheckerboardPlugin};
+pub use entity_pools::EntityPoolingPlugin;
 pub use mesh_glyph_outline::MeshGlyphOutlinePlugin;
 pub use metrics::MetricsRenderingPlugin;
 pub use outline_elements::OutlineElementsPlugin;

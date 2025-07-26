@@ -2,6 +2,7 @@
 
 use crate::core::state::text_editor::{SortKind, SortLayoutMode};
 use crate::core::state::{AppState, TextEditorState};
+use crate::rendering::entity_pools::{EntityPools, PooledEntityType, update_cursor_entity};
 use crate::ui::theme::*;
 use crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode;
 // TextPlacementMode import removed - not used in new mesh-based cursor
@@ -45,6 +46,7 @@ pub fn render_text_editor_cursor(
     camera_scale: Res<crate::rendering::camera_responsive::CameraResponsiveScale>,
     existing_cursors: Query<Entity, With<TextEditorCursor>>,
     mut cursor_state: ResMut<CursorRenderingState>,
+    mut entity_pools: ResMut<EntityPools>,
 ) {
     // CHANGE DETECTION: Check if cursor needs updating
     let current_tool_name = current_tool.get_current();
@@ -99,10 +101,10 @@ pub fn render_text_editor_cursor(
     debug!("Cursor rendering triggered - changes detected: tool={}, placement_mode={}, buffer_cursor={}, cursor_position={}, camera_scale={}", 
            tool_changed, placement_mode_changed, buffer_cursor_changed, cursor_position_changed, camera_scale_changed);
 
-    // Clean up existing cursor entities
-    for entity in existing_cursors.iter() {
-        commands.entity(entity).despawn();
-    }
+    // ENTITY POOLING: Return cursor entities to pool instead of despawning
+    entity_pools.return_cursor_entities();
+    
+    debug!("Returned cursor entities to pool");
 
     // Only render cursor when text tool is active and in Insert mode
     if current_tool.get_current() != Some("text") {
@@ -154,6 +156,7 @@ pub fn render_text_editor_cursor(
             &mut commands,
             &mut meshes,
             &mut materials,
+            &mut entity_pools,
             cursor_world_pos,
             cursor_top,
             cursor_bottom,
@@ -307,6 +310,7 @@ fn create_mesh_cursor(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<ColorMaterial>>,
+    entity_pools: &mut ResMut<EntityPools>,
     cursor_pos: Vec2,
     cursor_top: f32,
     cursor_bottom: f32,
@@ -331,53 +335,59 @@ fn create_mesh_cursor(
     let cursor_material = materials.add(ColorMaterial::from(cursor_color));
     let cursor_z = 15.0; // Above everything else
     
-    // Spawn main cursor line
-    commands.spawn((
-        TextEditorCursor,
-        Mesh2d(meshes.add(line_mesh)),
-        MeshMaterial2d(cursor_material.clone()),
+    // Get cursor line entity from pool
+    let line_entity = entity_pools.get_cursor_entity(commands, PooledEntityType::Cursor);
+    
+    update_cursor_entity(
+        commands,
+        line_entity,
+        meshes.add(line_mesh),
+        cursor_material.clone(),
         Transform::from_xyz(
             cursor_pos.x,
             (cursor_top + cursor_bottom) * 0.5,
             cursor_z,
         ),
-        GlobalTransform::default(),
-        Visibility::Visible,
-        InheritedVisibility::default(),
-        ViewVisibility::default(),
-    ));
-    
-    // Spawn top circle
-    commands.spawn((
         TextEditorCursor,
-        Mesh2d(meshes.add(top_circle_mesh)),
-        MeshMaterial2d(cursor_material.clone()),
+    );
+    
+    debug!("Updated pooled cursor line entity: {:?}", line_entity);
+    
+    // Get top circle entity from pool
+    let top_circle_entity = entity_pools.get_cursor_entity(commands, PooledEntityType::Cursor);
+    
+    update_cursor_entity(
+        commands,
+        top_circle_entity,
+        meshes.add(top_circle_mesh),
+        cursor_material.clone(),
         Transform::from_xyz(
             cursor_pos.x,
             cursor_top,
             cursor_z,
         ),
-        GlobalTransform::default(),
-        Visibility::Visible,
-        InheritedVisibility::default(),
-        ViewVisibility::default(),
-    ));
-    
-    // Spawn bottom circle
-    commands.spawn((
         TextEditorCursor,
-        Mesh2d(meshes.add(bottom_circle_mesh)),
-        MeshMaterial2d(cursor_material),
+    );
+    
+    debug!("Updated pooled cursor top circle entity: {:?}", top_circle_entity);
+    
+    // Get bottom circle entity from pool
+    let bottom_circle_entity = entity_pools.get_cursor_entity(commands, PooledEntityType::Cursor);
+    
+    update_cursor_entity(
+        commands,
+        bottom_circle_entity,
+        meshes.add(bottom_circle_mesh),
+        cursor_material,
         Transform::from_xyz(
             cursor_pos.x,
             cursor_bottom,
             cursor_z,
         ),
-        GlobalTransform::default(),
-        Visibility::Visible,
-        InheritedVisibility::default(),
-        ViewVisibility::default(),
-    ));
+        TextEditorCursor,
+    );
+    
+    debug!("Updated pooled cursor bottom circle entity: {:?}", bottom_circle_entity);
 }
 
 /// Create a vertical line mesh for the cursor

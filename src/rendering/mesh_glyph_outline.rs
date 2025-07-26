@@ -10,6 +10,7 @@
 
 use crate::core::state::{ContourData, OutlineData, PointData, PointTypeData};
 use crate::editing::sort::{ActiveSort, Sort};
+use crate::rendering::entity_pools::{EntityPools, PooledEntityType, update_outline_entity};
 use crate::systems::sort_manager::SortPointEntity;
 use crate::ui::theme::*;
 use bevy::prelude::*;
@@ -50,6 +51,7 @@ pub fn render_mesh_glyph_outline(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut outline_entities: ResMut<MeshOutlineEntities>,
+    mut entity_pools: ResMut<EntityPools>,
     // IMPORTANT: Exclude BufferSortIndex from this query to prevent double-rendering
     // Buffer sorts have their own dedicated rendering loops below with proper color support
     // CHANGE DETECTION: Only process sorts when Sort or Transform components have changed
@@ -101,12 +103,21 @@ pub fn render_mesh_glyph_outline(
 
     debug!("Outline rendering proceeding - changed sorts detected (active: {}, buffer: {})", active_sort_count, buffer_sort_count);
 
-    // Clear existing outline elements for performance
-    for entity in existing_outlines.iter() {
-        commands.entity(entity).despawn();
+    // ENTITY POOLING: Collect changed sort entities and return only their entities
+    let mut changed_sort_entities = Vec::new();
+    for (sort_entity, _, _) in active_sort_query.iter() {
+        changed_sort_entities.push(sort_entity);
     }
+    for (sort_entity, _, _) in buffer_sort_query.iter() {
+        changed_sort_entities.push(sort_entity);
+    }
+    
+    // Only return entities for changed sorts (more efficient than return_all_entities)
+    entity_pools.return_entities_for_changed_sorts(&changed_sort_entities);
     outline_entities.path_segments.clear();
     outline_entities.control_handles.clear();
+    
+    debug!("Returned outline entities for {} changed sorts", changed_sort_entities.len());
 
     // ENABLED: Mesh glyph outline rendering for proper z-ordering
     // Removed return to enable mesh-based outlines
@@ -173,6 +184,7 @@ pub fn render_mesh_glyph_outline(
                         &mut meshes,
                         &mut materials,
                         &mut outline_entities,
+                        &mut entity_pools,
                         sort_entity,
                         &paths,
                         position,
@@ -214,6 +226,7 @@ pub fn render_mesh_glyph_outline(
                     &mut meshes,
                     &mut materials,
                     &mut outline_entities,
+                    &mut entity_pools,
                     sort_entity,
                     &paths,
                     position,
@@ -333,13 +346,14 @@ fn render_fontir_outline(
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<ColorMaterial>>,
     outline_entities: &mut ResMut<MeshOutlineEntities>,
+    entity_pools: &mut ResMut<EntityPools>,
     sort_entity: Entity,
     paths: &[kurbo::BezPath],
     position: Vec2,
     camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
 ) {
-    render_fontir_outline_with_color(
-        commands, meshes, materials, outline_entities, sort_entity, paths, position, PATH_STROKE_COLOR, camera_scale
+    render_fontir_outline_with_color_and_quality(
+        commands, meshes, materials, outline_entities, entity_pools, sort_entity, paths, position, PATH_STROKE_COLOR, camera_scale, false // inactive/buffer sorts use lower quality
     );
 }
 
@@ -348,11 +362,30 @@ fn render_fontir_outline_with_color(
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<ColorMaterial>>,
     outline_entities: &mut ResMut<MeshOutlineEntities>,
+    entity_pools: &mut ResMut<EntityPools>,
     sort_entity: Entity,
     paths: &[kurbo::BezPath],
     position: Vec2,
     color: Color,
     camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
+) {
+    render_fontir_outline_with_color_and_quality(
+        commands, meshes, materials, outline_entities, entity_pools, sort_entity, paths, position, color, camera_scale, true // active sorts use high quality
+    );
+}
+
+fn render_fontir_outline_with_color_and_quality(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    outline_entities: &mut ResMut<MeshOutlineEntities>,
+    entity_pools: &mut ResMut<EntityPools>,
+    sort_entity: Entity,
+    paths: &[kurbo::BezPath],
+    position: Vec2,
+    color: Color,
+    camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
+    high_quality: bool,
 ) {
     let path_material = materials.add(ColorMaterial::from(color));
     let mut segment_entities = Vec::new();
@@ -373,10 +406,11 @@ fn render_fontir_outline_with_color(
                     if let Some(start) = current_pos {
                         let end =
                             Vec2::new(pt.x as f32, pt.y as f32) + position;
-                        let entity = spawn_line_mesh(
+                        let entity = get_or_update_line_mesh(
                             commands,
                             meshes,
                             materials,
+                            entity_pools,
                             start,
                             end,
                             line_width,
@@ -394,7 +428,8 @@ fn render_fontir_outline_with_color(
                         let end =
                             Vec2::new(pt.x as f32, pt.y as f32) + position;
                         // Approximate cubic curve with multiple line segments for smooth appearance
-                        let segments = 32; // Increased for smoother curves
+                        // PERFORMANCE: Use lower quality for inactive sorts
+                        let segments = if high_quality { 32 } else { 8 };
                         let mut last_pos = start;
 
                         for i in 1..=segments {
@@ -1020,6 +1055,54 @@ fn spawn_line_mesh(
             ViewVisibility::default(),
         ))
         .id()
+}
+
+/// ENTITY POOLING: Get or update a line mesh entity from the pool
+fn get_or_update_line_mesh(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    entity_pools: &mut ResMut<EntityPools>,
+    start: Vec2,
+    end: Vec2,
+    width: f32,
+    color: Color,
+    z: f32,
+    sort_entity: Entity,
+    element_type: OutlineElementType,
+) -> Entity {
+    // Get an entity from the pool
+    let entity = entity_pools.get_outline_entity(commands, sort_entity);
+    
+    // Create the mesh and material
+    let line_mesh = create_line_mesh(start, end, width);
+    let mesh_handle = meshes.add(line_mesh);
+    let material_handle = materials.add(ColorMaterial::from_color(color));
+    
+    // Calculate transform
+    let transform = Transform::from_xyz(
+        (start.x + end.x) * 0.5,
+        (start.y + end.y) * 0.5,
+        z,
+    );
+    
+    // Update the entity using the helper function
+    let outline_component = GlyphOutlineElement {
+        element_type,
+        sort_entity,
+    };
+    
+    update_outline_entity(
+        commands,
+        entity,
+        mesh_handle,
+        material_handle,
+        transform,
+        outline_component,
+    );
+    
+    debug!("Updated pooled outline entity {:?} for sort {:?}", entity, sort_entity);
+    entity
 }
 
 /// Tessellate a cubic bezier curve into line segments with adaptive subdivision

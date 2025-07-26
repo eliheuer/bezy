@@ -33,45 +33,27 @@ pub fn handle_unicode_text_input(
 
     // DEBUG: Log system entry for any keyboard input
     let key_count = key_evr.len();
-    eprintln!("🔤 TYPING DEBUG: {} keyboard events detected", key_count);
-    eprintln!("🔤 Current tool: {:?}", current_tool.get_current());
-    eprintln!("🔤 Current placement mode: {:?}", current_placement_mode.0);
+    debug!("Unicode input: {} keyboard events detected", key_count);
+    debug!("Current tool: {:?}", current_tool.get_current());
+    debug!("Current placement mode: {:?}", current_placement_mode.0);
 
     // Only handle input when text tool is active
     if current_tool.get_current() != Some("text") {
-        eprintln!("🔤 BLOCKED: Text tool not active");
+        debug!("Unicode input blocked: Text tool not active");
         return;
     }
 
     // ONLY handle typing when in Insert mode - placement modes should use mouse clicks only
     if !matches!(current_placement_mode.0, TextPlacementMode::Insert) {
-        eprintln!("🔤 BLOCKED: Not in Insert mode (current: {:?})", current_placement_mode.0);
+        debug!("Unicode input blocked: Not in Insert mode (current: {:?})", current_placement_mode.0);
         return;
     }
 
     if key_count > 0 {
-        eprintln!("🔤 PASSED: Processing {} keyboard events in Insert mode", key_count);
+        debug!("Unicode input: Processing {} keyboard events in Insert mode", key_count);
     }
     
-    info!("Unicode input: Processing in Insert mode - checking for active buffer root");
-
-    // Debug: Check if we have any active buffer roots
-    let mut active_roots = 0;
-    let mut total_roots = 0;
-    for i in 0..text_editor_state.buffer.len() {
-        if let Some(sort) = text_editor_state.buffer.get(i) {
-            if sort.is_buffer_root {
-                total_roots += 1;
-                if sort.is_active {
-                    active_roots += 1;
-                    info!("Found active buffer root at index {} with glyph '{}', cursor at {:?}", 
-                          i, sort.kind.glyph_name(), sort.buffer_cursor_position);
-                }
-            }
-        }
-    }
-    info!("Unicode input system: {} active roots out of {} total roots in buffer (total sorts: {})", 
-          active_roots, total_roots, text_editor_state.buffer.len());
+    debug!("Unicode input: Processing in Insert mode");
 
     // Handle keyboard input events
     let event_count = key_evr.len();
@@ -121,7 +103,7 @@ pub fn handle_unicode_text_input(
                     }
 
                     // Handle regular Unicode character
-                    eprintln!("🔤 CALLING handle_unicode_character for '{}'", character);
+                    debug!("Unicode input: Handling character '{}'", character);
                     handle_unicode_character(
                         character,
                         &mut text_editor_state,
@@ -129,7 +111,7 @@ pub fn handle_unicode_text_input(
                         &fontir_app_state,
                         &current_placement_mode,
                     );
-                    eprintln!("🔤 COMPLETED handle_unicode_character for '{}'", character);
+                    debug!("Unicode input: Completed character '{}'", character);
                 }
             }
             // Handle special keys

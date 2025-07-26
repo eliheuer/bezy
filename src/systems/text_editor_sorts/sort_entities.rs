@@ -269,6 +269,14 @@ pub fn update_buffer_sort_positions(
     buffer_entities: Res<BufferSortEntities>,
     mut sort_query: Query<&mut Transform, With<BufferSortIndex>>,
 ) {
+    // CRITICAL PERFORMANCE FIX: Early return if TextEditorState hasn't changed
+    // Prevents O(N²) position calculations every frame
+    if !text_editor_state.is_changed() {
+        return;
+    }
+    
+    debug!("Buffer position update triggered - TextEditorState changed");
+    
     // Get font metrics from either AppState or FontIR
     let font_metrics = if let Some(fontir_state) = fontir_app_state.as_ref() {
         let fontir_metrics = fontir_state.get_font_metrics();
