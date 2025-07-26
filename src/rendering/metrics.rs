@@ -482,7 +482,7 @@ pub fn render_mesh_metrics_lines(
             let position = sort_transform.translation.truncate();
             let advance_width =
                 fontir_state.get_glyph_advance_width(&sort.glyph_name);
-            let color = crate::ui::theme::METRICS_GUIDE_COLOR; // Gray for inactive buffer sorts (typed characters)
+            let color = crate::ui::theme::SORT_INACTIVE_METRICS_COLOR; // Gray for inactive buffer sorts (typed characters)
 
             let mut line_entities = Vec::new();
 

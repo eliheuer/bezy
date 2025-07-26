@@ -239,6 +239,7 @@ pub const TOOLBAR_ICON_COLOR: Color = Color::srgb(0.75, 0.75, 0.75);
 
 // Additional missing constants
 pub const SORT_ACTIVE_OUTLINE_COLOR: Color = Color::srgb(1.0, 0.4, 0.0);
+pub const SORT_INACTIVE_OUTLINE_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 pub const METABALL_GIZMO_COLOR: Color = Color::srgba(0.3, 0.7, 1.0, 0.6);
 pub const METABALL_SELECTED_COLOR: Color = Color::srgba(1.0, 0.8, 0.0, 0.8);
 pub const METABALL_OUTLINE_COLOR: Color = Color::srgba(1.0, 1.0, 1.0, 1.0);

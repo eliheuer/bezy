@@ -53,12 +53,19 @@ pub fn render_mesh_glyph_outline(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut outline_entities: ResMut<MeshOutlineEntities>,
     active_sort_query: Query<(Entity, &Sort, &Transform), With<ActiveSort>>,
-    // Add query for text buffer sorts (both active and inactive should be visible)
-    buffer_sort_query: Query<
+    // Add separate queries for active and inactive text buffer sorts
+    active_buffer_sort_query: Query<
         (Entity, &Sort, &Transform),
         (
             With<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
-            Or<(With<ActiveSort>, With<crate::editing::sort::InactiveSort>)>,
+            With<ActiveSort>,
+        ),
+    >,
+    inactive_buffer_sort_query: Query<
+        (Entity, &Sort, &Transform),
+        (
+            With<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
+            With<crate::editing::sort::InactiveSort>,
         ),
     >,
     app_state: Option<Res<crate::core::state::AppState>>,
@@ -87,19 +94,26 @@ pub fn render_mesh_glyph_outline(
     outline_entities.control_handles.clear();
 
     let active_sort_count = active_sort_query.iter().count();
-    let buffer_sort_count = buffer_sort_query.iter().count();
+    let active_buffer_sort_count = active_buffer_sort_query.iter().count();
+    let inactive_buffer_sort_count = inactive_buffer_sort_query.iter().count();
+    let total_buffer_sort_count = active_buffer_sort_count + inactive_buffer_sort_count;
     
     // Debug logging
-    if buffer_sort_count > 0 {
-        info!("🔍 Found {} buffer sorts in query", buffer_sort_count);
-        for (sort_entity, sort, transform) in buffer_sort_query.iter() {
-            info!("🔍 Buffer sort: entity={:?}, glyph='{}', position=({:.1}, {:.1})", 
+    if total_buffer_sort_count > 0 {
+        info!("🔍 Found {} buffer sorts ({} active, {} inactive)", 
+              total_buffer_sort_count, active_buffer_sort_count, inactive_buffer_sort_count);
+        for (sort_entity, sort, transform) in active_buffer_sort_query.iter() {
+            info!("🔍 Active buffer sort: entity={:?}, glyph='{}', position=({:.1}, {:.1})", 
+                  sort_entity, sort.glyph_name, transform.translation.x, transform.translation.y);
+        }
+        for (sort_entity, sort, transform) in inactive_buffer_sort_query.iter() {
+            info!("🔍 Inactive buffer sort: entity={:?}, glyph='{}', position=({:.1}, {:.1})", 
                   sort_entity, sort.glyph_name, transform.translation.x, transform.translation.y);
         }
     }
     
     // Don't return early if we have buffer sorts to render
-    if active_sort_count == 0 && buffer_sort_count == 0 {
+    if active_sort_count == 0 && total_buffer_sort_count == 0 {
         return; // No sorts to render at all
     }
 
@@ -192,22 +206,24 @@ pub fn render_mesh_glyph_outline(
     }
 
     // Also render buffer sorts (text editor sorts) - both active and inactive should be visible
-    let buffer_sort_count = buffer_sort_query.iter().count();
-    if buffer_sort_count > 0 {
-        info!("🎨 Rendering {} buffer sorts", buffer_sort_count);
+    // Using separate variables that were already calculated above
+    if total_buffer_sort_count > 0 {
+        info!("🎨 Rendering {} buffer sorts ({} active, {} inactive)", 
+              total_buffer_sort_count, active_buffer_sort_count, inactive_buffer_sort_count);
     }
     
-    for (sort_entity, sort, transform) in buffer_sort_query.iter() {
+    // Render ACTIVE buffer sorts with orange outline
+    for (sort_entity, sort, transform) in active_buffer_sort_query.iter() {
         let position = transform.translation.truncate();
-        info!("🎨 Processing buffer sort '{}' at ({:.1}, {:.1})", sort.glyph_name, position.x, position.y);
+        info!("🎨 Processing ACTIVE buffer sort '{}' at ({:.1}, {:.1})", sort.glyph_name, position.x, position.y);
 
         // For text buffer sorts, always render from FontIR (no live point editing)
         if let Some(fontir_state) = fontir_app_state.as_ref() {
             if let Some(paths) =
                 fontir_state.get_glyph_paths_with_edits(&sort.glyph_name)
             {
-                info!("🎨 Found {} paths for glyph '{}'", paths.len(), sort.glyph_name);
-                render_fontir_outline(
+                info!("🎨 Found {} paths for active glyph '{}'", paths.len(), sort.glyph_name);
+                render_fontir_outline_with_color(
                     &mut commands,
                     &mut meshes,
                     &mut materials,
@@ -215,13 +231,44 @@ pub fn render_mesh_glyph_outline(
                     sort_entity,
                     &paths,
                     position,
+                    crate::ui::theme::SORT_ACTIVE_OUTLINE_COLOR,
                 );
-                info!("🎨 Rendered outline for buffer sort '{}'", sort.glyph_name);
+                info!("🎨 Rendered ACTIVE outline for buffer sort '{}'", sort.glyph_name);
             } else {
-                warn!("🎨 No paths found for glyph '{}'", sort.glyph_name);
+                warn!("🎨 No paths found for active glyph '{}'", sort.glyph_name);
             }
         } else {
-            warn!("🎨 No FontIR state available for rendering buffer sort '{}'", sort.glyph_name);
+            warn!("🎨 No FontIR state available for rendering active buffer sort '{}'", sort.glyph_name);
+        }
+    }
+    
+    // Render INACTIVE buffer sorts with gray outline
+    for (sort_entity, sort, transform) in inactive_buffer_sort_query.iter() {
+        let position = transform.translation.truncate();
+        info!("🎨 Processing INACTIVE buffer sort '{}' at ({:.1}, {:.1})", sort.glyph_name, position.x, position.y);
+
+        // For text buffer sorts, always render from FontIR (no live point editing)
+        if let Some(fontir_state) = fontir_app_state.as_ref() {
+            if let Some(paths) =
+                fontir_state.get_glyph_paths_with_edits(&sort.glyph_name)
+            {
+                info!("🎨 Found {} paths for inactive glyph '{}'", paths.len(), sort.glyph_name);
+                render_fontir_outline_with_color(
+                    &mut commands,
+                    &mut meshes,
+                    &mut materials,
+                    &mut outline_entities,
+                    sort_entity,
+                    &paths,
+                    position,
+                    crate::ui::theme::SORT_INACTIVE_OUTLINE_COLOR,
+                );
+                info!("🎨 Rendered INACTIVE outline for buffer sort '{}'", sort.glyph_name);
+            } else {
+                warn!("🎨 No paths found for inactive glyph '{}'", sort.glyph_name);
+            }
+        } else {
+            warn!("🎨 No FontIR state available for rendering inactive buffer sort '{}'", sort.glyph_name);
         }
     }
 }
@@ -334,7 +381,22 @@ fn render_fontir_outline(
     paths: &[kurbo::BezPath],
     position: Vec2,
 ) {
-    let path_material = materials.add(ColorMaterial::from(PATH_STROKE_COLOR));
+    render_fontir_outline_with_color(
+        commands, meshes, materials, outline_entities, sort_entity, paths, position, PATH_STROKE_COLOR
+    );
+}
+
+fn render_fontir_outline_with_color(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    outline_entities: &mut ResMut<MeshOutlineEntities>,
+    sort_entity: Entity,
+    paths: &[kurbo::BezPath],
+    position: Vec2,
+    color: Color,
+) {
+    let path_material = materials.add(ColorMaterial::from(color));
     let mut segment_entities = Vec::new();
 
     // Process each path (contour)

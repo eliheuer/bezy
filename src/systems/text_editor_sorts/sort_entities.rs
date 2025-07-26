@@ -227,8 +227,9 @@ pub fn spawn_missing_sort_entities(
                 ));
 
                 // Check if this sort should be active based on the text editor state
-                // Text roots should always be active to show they're the origin of the text chain
-                let should_be_active = sort_entry.is_active || sort_entry.is_buffer_root;
+                // Only make sorts active if they are explicitly marked as active
+                // Buffer roots are not automatically active anymore - only one sort should be active at a time
+                let should_be_active = sort_entry.is_active;
                 if should_be_active {
                     entity_commands.insert(ActiveSort);
                     info!("🟢 Spawned ACTIVE sort entity for buffer index {} at position ({:.1}, {:.1}) - glyph '{}' (is_active: {}, is_buffer_root: {})", 
