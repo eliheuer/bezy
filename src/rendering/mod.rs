@@ -33,7 +33,7 @@ pub use metrics::MetricsRenderingPlugin;
 pub use outline_elements::OutlineElementsPlugin;
 pub use points::PointRenderingPlugin;
 pub use selection::{
-    render_all_point_entities, render_control_handles,
+    render_all_point_entities,
     render_selected_entities, render_selection_marquee,
 };
 pub use sort_visuals::SortHandleRenderingPlugin;

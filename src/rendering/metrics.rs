@@ -647,46 +647,8 @@ pub fn render_mesh_metrics_lines(
     }
 }
 
-/// Draw complete font metrics for a glyph at a specific design-space position
-/// DISABLED: Gizmo-based metrics rendering - now using mesh system
-pub fn draw_metrics_at_position(
-    _gizmos: &mut Gizmos,
-    _advance_width: f32,
-    _metrics: &FontMetrics,
-    _position: Vec2,
-    _color: Color,
-) {
-    // DISABLED: Use mesh-based preview system instead for camera-responsive scaling
-}
 
-/// Draw a rectangle outline in design space, This is the sort bounding box
-/// DISABLED: Gizmo-based rectangle drawing - now using mesh system
-fn draw_rect(
-    _gizmos: &mut Gizmos,
-    _top_left: Vec2,
-    _bottom_right: (f32, f32),
-    _color: Color,
-) {
-    // DISABLED: Gizmo-based rectangle drawing - now using mesh system
-    // let br: Vec2 = bottom_right.into();
-    // gizmos.line_2d(top_left, Vec2::new(br.x, top_left.y), color);
-    // gizmos.line_2d(Vec2::new(br.x, top_left.y), br, color);
-    // gizmos.line_2d(br, Vec2::new(top_left.x, br.y), color);
-    // gizmos.line_2d(Vec2::new(top_left.x, br.y), top_left, color);
-}
 
-/// Draw FontIR metrics for a glyph at a specific design-space position
-/// DISABLED: Gizmo-based metrics rendering - now using mesh system for consistency
-/// For preview, use the mesh-based system to ensure camera-responsive scaling
-pub fn draw_fontir_metrics_at_position(
-    _gizmos: &mut Gizmos,
-    _advance_width: f32,
-    _metrics: &FontIRMetrics,
-    _position: Vec2,
-    _color: Color,
-) {
-    // DISABLED: Use mesh-based preview system instead for camera-responsive scaling
-}
 
 /// System to manage mesh-based preview metrics
 pub fn manage_preview_metrics(
