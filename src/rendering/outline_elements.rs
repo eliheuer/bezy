@@ -5,14 +5,6 @@ use crate::systems::sort_manager::SortPointEntity;
 use crate::ui::theme::HANDLE_LINE_COLOR;
 use bevy::prelude::*;
 
-// Module-level debug to verify loading
-static INIT: std::sync::Once = std::sync::Once::new();
-
-fn ensure_init() {
-    INIT.call_once(|| {
-        println!("[HANDLES] outline_elements.rs module loaded");
-    });
-}
 
 /// Component to mark handle line entities
 #[derive(Component)]
@@ -26,16 +18,11 @@ pub struct OutlineElementsPlugin;
 
 impl Plugin for OutlineElementsPlugin {
     fn build(&self, app: &mut App) {
-        ensure_init();
-        println!("[HANDLES] OutlineElementsPlugin: Registering handle systems");
         app.add_systems(
             Update,
             (update_handle_lines, cleanup_orphaned_handles)
                 .chain()
                 .after(crate::editing::selection::nudge::handle_nudge_input),
-        );
-        println!(
-            "[HANDLES] OutlineElementsPlugin: Systems registered successfully"
         );
     }
 }
@@ -53,15 +40,7 @@ fn update_handle_lines(
     >,
     existing_handles: Query<(Entity, &HandleLine)>,
 ) {
-    // Add a periodic debug message to confirm system is running
-    use std::sync::atomic::{AtomicU32, Ordering};
-    static COUNTER: AtomicU32 = AtomicU32::new(0);
-    let count = COUNTER.fetch_add(1, Ordering::Relaxed);
     let point_count = point_query.iter().count();
-    println!(
-        "[HANDLES] System called - update #{}, found {} points",
-        count, point_count
-    );
 
     // Early exit if no points
     if point_count == 0 {
@@ -82,29 +61,16 @@ fn update_handle_lines(
     let first_point = point_query.iter().next().unwrap();
     let glyph_name = &first_point.2.glyph_name;
 
-    // Only log if we're creating handles
-    if count % 120 == 0 {
-        println!(
-            "[HANDLES] Processing glyph: {} with {} points",
-            glyph_name,
-            point_query.iter().count()
-        );
-    }
 
     // Use FontIR as the primary runtime data structure
     let Some(fontir_state) = fontir_app_state else {
-        println!("[HANDLES] No FontIRAppState available");
         return;
     };
 
     let Some(paths) = fontir_state.get_glyph_paths(glyph_name) else {
-        println!("[HANDLES] No FontIR glyph data found for: {}", glyph_name);
         return;
     };
 
-    if count % 120 == 0 {
-        println!("[HANDLES] Found FontIR paths: {} contours", paths.len());
-    }
     create_handles_from_fontir_paths(
         &mut commands,
         &mut meshes,
@@ -127,10 +93,6 @@ fn create_handles_from_fontir_paths(
     >,
     glyph_name: &str,
 ) {
-    println!(
-        "[HANDLES] Creating handles from FontIR paths for glyph: {}",
-        glyph_name
-    );
 
     // Create material for handles
     let handle_material = materials.add(ColorMaterial::from(HANDLE_LINE_COLOR));
@@ -153,11 +115,6 @@ fn create_handles_from_fontir_paths(
         }
     }
 
-    println!(
-        "[HANDLES] Found {} point entities for glyph {}",
-        point_entities.len(),
-        glyph_name
-    );
 
     // Create handles based on point connectivity (adjacent on/off-curve points)
     // Use the same logic as UFO system - connect consecutive points where one is on-curve and other is off-curve
@@ -188,7 +145,6 @@ fn create_handles_from_fontir_paths(
                         let angle = direction.y.atan2(direction.x);
                         let midpoint = (current_pos + *next_pos) / 2.0;
 
-                        println!("[HANDLES] Creating FontIR handle line from {:?} to {:?}", current_pos, next_pos);
 
                         // Create a rectangle mesh for the line
                         let line_thickness = 1.0; // 1px width for subtle handles
@@ -213,10 +169,6 @@ fn create_handles_from_fontir_paths(
         }
     }
 
-    println!(
-        "[HANDLES] Created {} handles from FontIR paths",
-        handles_created
-    );
 }
 
 /// Cleans up handle lines when their connected points are removed

@@ -1414,7 +1414,6 @@ mod tests {
             &marquee_start,
             &marquee_end,
         );
-        println!("[test_point_selection_matches_render_position] point={:?}, marquee=({:?}, {:?}), in_rect={}", point_pos, marquee_start, marquee_end, in_rect);
         assert!(in_rect, "Point should be inside the marquee rectangle");
     }
 
@@ -1431,7 +1430,6 @@ mod tests {
             &marquee_start,
             &marquee_end,
         );
-        println!("[test_parented_transform_selection] world_point={:?}, marquee=({:?}, {:?}), in_rect={}", world_point, marquee_start, marquee_end, in_rect);
         assert!(
             in_rect,
             "Parented point should be inside the marquee rectangle"
@@ -1449,7 +1447,6 @@ mod tests {
             &marquee_start,
             &marquee_end,
         );
-        println!("[test_off_curve_point_selection] off_curve_pos={:?}, marquee=({:?}, {:?}), in_rect={}", off_curve_pos, marquee_start, marquee_end, in_rect);
         assert!(
             in_rect,
             "Off-curve point should be inside the marquee rectangle"
@@ -1474,11 +1471,6 @@ mod tests {
             &marquee_end,
         );
 
-        println!("[test_text_editor_sort_coordinate_system]");
-        println!("  sort_point_pos={:?}", sort_point_pos);
-        println!("  marquee_start={:?}", marquee_start);
-        println!("  marquee_end={:?}", marquee_end);
-        println!("  in_rect={}", in_rect);
 
         // Calculate distances for debugging
         let rect_start_vec = marquee_start.to_raw();
@@ -1504,11 +1496,6 @@ mod tests {
             0.0
         };
 
-        println!(
-            "  rect_bounds: X({:.1} to {:.1}), Y({:.1} to {:.1})",
-            min_x, max_x, min_y, max_y
-        );
-        println!("  distances: X={:.1}, Y={:.1}", distance_x, distance_y);
 
         // This should fail because the coordinate systems don't match
         // The test documents the expected behavior
@@ -1528,10 +1515,6 @@ mod tests {
                 &entity_coords,
             );
 
-        println!("[test_coordinate_system_conversion]");
-        println!("  design_point={:?}", design_point);
-        println!("  entity_coords={:?}", entity_coords);
-        println!("  back_to_design={:?}", back_to_design);
 
         assert_eq!(
             design_point.to_raw(),
@@ -1559,11 +1542,6 @@ mod tests {
             &marquee_end,
         );
 
-        println!("[test_marquee_selection_edge_cases]");
-        println!(
-            "  point_on_edge={:?}, marquee=({:?}, {:?}), on_edge={}",
-            point_on_edge, marquee_edge, marquee_end, on_edge
-        );
 
         // Case 2: Point just outside rectangle
         let point_outside = Vec2::new(99.9, 200.0);
@@ -1573,10 +1551,6 @@ mod tests {
             &marquee_end,
         );
 
-        println!(
-            "  point_outside={:?}, just_outside={}",
-            point_outside, just_outside
-        );
 
         // Case 3: Inverted rectangle (end before start)
         let inverted_start = DPoint::from_raw(Vec2::new(200.0, 300.0));
@@ -1589,10 +1563,6 @@ mod tests {
             &inverted_end,
         );
 
-        println!(
-            "  point_inside={:?}, in_inverted={}",
-            point_inside, in_inverted
-        );
 
         // Assertions
         assert!(on_edge, "Point on edge should be considered inside");
@@ -1617,8 +1587,6 @@ mod tests {
         let marquee_start = DPoint::from_raw(Vec2::new(481.9, 249.1));
         let marquee_end = DPoint::from_raw(Vec2::new(233.0, 398.5));
 
-        println!("[test_real_world_coordinate_mismatch]");
-        println!("  marquee: ({:?}, {:?})", marquee_start, marquee_end);
 
         for (i, pos) in entity_positions.iter().enumerate() {
             let in_rect = SelectionCoordinateSystem::is_point_in_rectangle(
@@ -1627,7 +1595,6 @@ mod tests {
                 &marquee_end,
             );
 
-            println!("  entity[{}]={:?}, in_rect={}", i, pos, in_rect);
 
             // All should fail due to Y coordinate mismatch
             assert!(!in_rect, "Entity {} should not be in marquee due to Y coordinate mismatch", i);
@@ -1639,18 +1606,6 @@ mod tests {
         let marquee_y_min = 233.0;
         let marquee_y_max = 398.5;
 
-        println!(
-            "  entity Y range: {:.1} to {:.1}",
-            entity_y_min, entity_y_max
-        );
-        println!(
-            "  marquee Y range: {:.1} to {:.1}",
-            marquee_y_min, marquee_y_max
-        );
-        println!(
-            "  Y coordinate gap: {:.1} units",
-            marquee_y_min - entity_y_max
-        );
     }
 
     #[test]
@@ -1734,7 +1689,6 @@ mod tests {
                 &marquee_start,
                 &marquee_end,
             );
-            println!("  Point {} at {:?}: in_rect = {}", i, point_pos, in_rect);
             if in_rect {
                 points_in_rect += 1;
             }

@@ -1445,6 +1445,7 @@ mod tests {
             "b".to_string(),
             Vec2::new(300.0, 400.0),
             600.0,
+            SortLayoutMode::LTRText,
         );
 
         // Verify the new sort was created and activated, and the old one was deactivated
@@ -1465,7 +1466,7 @@ mod tests {
         }
 
         // Test 3: Text root should be activated when created
-        text_editor.create_text_root(Vec2::new(500.0, 600.0));
+        text_editor.create_text_root(Vec2::new(500.0, 600.0), SortLayoutMode::LTRText);
 
         // Verify the new text root was created and activated, and others were deactivated
         assert_eq!(text_editor.buffer.len(), 3);
@@ -1492,7 +1493,7 @@ mod tests {
         let mut text_editor = TextEditorState::default();
 
         // Create a text root at position (100, 200)
-        text_editor.create_text_root(Vec2::new(100.0, 200.0));
+        text_editor.create_text_root(Vec2::new(100.0, 200.0), SortLayoutMode::LTRText);
         println!(
             "After create_text_root: buffer length = {}",
             text_editor.buffer.len()

@@ -68,19 +68,6 @@ pub fn update_camera_responsive_scale(
     mut scale_resource: ResMut<CameraResponsiveScale>,
     camera_query: Query<(&Transform, &Projection), With<DesignCamera>>,
 ) {
-    // Debug: Check if system is running
-    static mut SYSTEM_RUNS: u32 = 0;
-    unsafe {
-        SYSTEM_RUNS += 1;
-        if SYSTEM_RUNS % 60 == 1 {
-            // Every second at 60fps
-            println!(
-                "[CAMERA SYSTEM] Running (call #{}) with {} cameras",
-                SYSTEM_RUNS,
-                camera_query.iter().count()
-            );
-        }
-    }
 
     if let Ok((camera_transform, projection)) = camera_query.single() {
         // Get camera scale from OrthographicProjection (this is what PanCam modifies for zoom)
@@ -93,19 +80,6 @@ pub fn update_camera_responsive_scale(
         // Use projection scale for responsive scaling (this is the real zoom level)
         let camera_scale = projection_scale;
 
-        // Debug output to see actual values (similar to checkerboard system)
-        static mut LAST_PROJECTION_SCALE: f32 = 1.0;
-        static mut LAST_TRANSFORM_SCALE: f32 = 1.0;
-        unsafe {
-            if (projection_scale - LAST_PROJECTION_SCALE).abs() > 0.01
-                || (transform_scale - LAST_TRANSFORM_SCALE).abs() > 0.01
-            {
-                println!("[CAMERA DEBUG] projection_scale={:.3}, transform_scale={:.3}, using={:.3}", 
-                    projection_scale, transform_scale, camera_scale);
-                LAST_PROJECTION_SCALE = projection_scale;
-                LAST_TRANSFORM_SCALE = transform_scale;
-            }
-        }
 
         // Calculate responsive scale factor
         // When camera_scale is large (zoomed in), we want smaller visual elements
@@ -133,24 +107,6 @@ pub fn update_camera_responsive_scale(
                 + scale_resource.zoom_out_max_factor * t
         };
 
-        // Debug output to see the interpolation
-        static mut LAST_SCALE: f32 = 1.0;
-        static mut FIRST_RUN: bool = true;
-        unsafe {
-            if FIRST_RUN || (camera_scale - LAST_SCALE).abs() > 0.2 {
-                let zoom_state = if camera_scale < 0.5 {
-                    "ZOOMED IN"
-                } else if camera_scale > 2.0 {
-                    "ZOOMED OUT"
-                } else {
-                    "DEFAULT"
-                };
-                println!("[CAMERA] scale={:.1} ({}), factor={:.1}x, line_width={:.1}px", 
-                    camera_scale, zoom_state, responsive_factor, responsive_factor * scale_resource.base_line_width);
-                LAST_SCALE = camera_scale;
-                FIRST_RUN = false;
-            }
-        }
 
         // Store the interpolated factor directly (no additional clamping needed)
         scale_resource.scale_factor = responsive_factor;

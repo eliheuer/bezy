@@ -459,7 +459,6 @@ impl JsonThemeManager {
         let mut changed_themes = Vec::new();
         
         if !self.themes_dir.exists() {
-            println!("⚠️  Themes directory doesn't exist: {:?}", self.themes_dir);
             return changed_themes;
         }
         
@@ -475,12 +474,10 @@ impl JsonThemeManager {
                                     Some(&last_modified) => {
                                         let is_newer = modified > last_modified;
                                         if is_newer {
-                                            println!("📝 File {} changed: old={:?}, new={:?}", stem, last_modified, modified);
                                         }
                                         is_newer
                                     }
                                     None => {
-                                        println!("📝 File {} not in cache, loading for first time", stem);
                                         true
                                     }
                                 };
@@ -488,7 +485,6 @@ impl JsonThemeManager {
                                 if should_reload {
                                     match JsonTheme::load_from_file(&path) {
                                         Ok(theme) => {
-                                            println!("📥 Reloaded theme: {}", theme.name);
                                             self.loaded_themes.insert(stem.to_string(), theme);
                                             self.file_timestamps.insert(stem.to_string(), modified);
                                             changed_themes.push(stem.to_string());
@@ -527,17 +523,14 @@ pub fn check_json_theme_changes(
     time: Res<Time>,
 ) {
     let Some(mut theme_manager) = theme_manager else {
-        println!("❌ JsonThemeManager resource not found!");
         return;
     };
     theme_manager.check_timer.tick(time.delta());
     
     if theme_manager.check_timer.just_finished() {
-        println!("🔍 Checking for theme file changes...");
         let changed_themes = theme_manager.check_for_changes();
         
         if !changed_themes.is_empty() {
-            println!("📁 Found changed themes: {:?}", changed_themes);
         }
         
         // If the current theme was changed, reload it
@@ -545,14 +538,12 @@ pub fn check_json_theme_changes(
         if changed_themes.contains(&current_name) {
             // Force reload from JSON file
             let json_path = format!("src/ui/themes/{}.json", current_name);
-            println!("🔄 Reloading theme from: {}", json_path);
             if let Ok(json_theme) = JsonTheme::load_from_file(&json_path) {
                 current_theme.theme = Box::new(json_theme);
                 
                 // Update the background color immediately 
                 clear_color.0 = current_theme.theme.background_color();
                 
-                println!("✨ Applied live changes to theme: {} (including background color)", current_name);
             }
         }
     }
@@ -583,6 +574,5 @@ pub fn update_border_radius_on_theme_change(
             *border_radius = BorderRadius::all(Val::Px(theme.theme().ui_border_radius()));
         }
         
-        println!("🎨 Updated border radius for all UI components");
     }
 }
