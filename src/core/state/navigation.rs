@@ -15,10 +15,6 @@ pub struct GlyphNavigation {
     pub codepoint_found: bool,
     /// Legacy fields for compatibility
     pub current_glyph: Option<String>,
-    #[allow(dead_code)]
-    pub glyph_list: Vec<String>,
-    #[allow(dead_code)]
-    pub current_index: usize,
 }
 
 impl Default for GlyphNavigation {
@@ -27,8 +23,6 @@ impl Default for GlyphNavigation {
             current_codepoint: None,
             codepoint_found: false,
             current_glyph: Some("a".to_string()),
-            glyph_list: Vec::new(),
-            current_index: 0,
         }
     }
 }
@@ -41,22 +35,6 @@ pub enum CycleDirection {
 }
 
 impl GlyphNavigation {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Create a new navigation state with a starting codepoint
-    #[allow(dead_code)]
-    pub fn with_codepoint(initial_codepoint: Option<String>) -> Self {
-        Self {
-            current_codepoint: initial_codepoint,
-            codepoint_found: false,
-            current_glyph: None,
-            glyph_list: Vec::new(),
-            current_index: 0,
-        }
-    }
 
     /// Change to a different codepoint
     pub fn set_codepoint(&mut self, new_codepoint: String) {
@@ -76,16 +54,6 @@ impl GlyphNavigation {
         })
     }
 
-    /// Legacy methods for compatibility
-    #[allow(dead_code)]
-    pub fn set_current_glyph(&mut self, glyph_name: String) {
-        self.current_glyph = Some(glyph_name);
-    }
-
-    #[allow(dead_code)]
-    pub fn get_current_glyph(&self) -> Option<&String> {
-        self.current_glyph.as_ref()
-    }
 }
 
 /// Find a glyph by Unicode codepoint in the app state

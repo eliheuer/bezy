@@ -6,7 +6,7 @@
 
 use anyhow::Result;
 use bevy::prelude::*;
-use fontdrasil::coords::{NormalizedCoord, NormalizedLocation};
+use fontdrasil::coords::NormalizedLocation;
 use fontdrasil::types::GlyphName;
 use fontir::ir::{Glyph as FontIRGlyph, GlyphInstance};
 use fontir::orchestration::{Context, Flags, WorkId};
@@ -443,7 +443,6 @@ impl FontIRAppState {
 
     /// Execute FontIR work items with proper orchestration and permissions
     fn execute_fontir_work(&mut self, context: &mut Context) -> Result<()> {
-        use fontdrasil::orchestration::Work;
 
         info!("Executing FontIR work items to load real glyph data");
 

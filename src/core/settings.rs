@@ -43,61 +43,6 @@ impl Default for GridSettings {
     }
 }
 
-// KEYBOARD CONTROLS
-
-/// Configuration for keyboard-based editing
-#[derive(Debug, Clone, Copy)]
-pub struct KeyboardSettings {
-    /// Small nudge amount (arrow keys)
-    #[allow(dead_code)]
-    pub nudge_small: f32,
-    /// Medium nudge amount (Shift + arrow keys)
-    #[allow(dead_code)]
-    pub nudge_medium: f32,
-    /// Large nudge amount (Cmd/Ctrl + arrow keys)
-    #[allow(dead_code)]
-    pub nudge_large: f32,
-    /// Zoom step for keyboard zoom in/out
-    #[allow(dead_code)]
-    pub zoom_step: f32,
-}
-
-impl Default for KeyboardSettings {
-    fn default() -> Self {
-        Self {
-            nudge_small: 2.0,
-            nudge_medium: 8.0,
-            nudge_large: 64.0,
-            zoom_step: 0.8,
-        }
-    }
-}
-
-// CAMERA AND VIEWPORT
-
-/// Configuration for camera behavior
-#[derive(Debug, Clone, Copy)]
-pub struct CameraSettings {
-    /// Minimum allowed zoom level (higher = more zoomed out)
-    #[allow(dead_code)]
-    pub min_zoom_scale: f32,
-    /// Maximum allowed zoom level (lower = more zoomed in)
-    #[allow(dead_code)]
-    pub max_zoom_scale: f32,
-    /// Default zoom level
-    #[allow(dead_code)]
-    pub default_zoom_scale: f32,
-}
-
-impl Default for CameraSettings {
-    fn default() -> Self {
-        Self {
-            min_zoom_scale: 0.01,
-            max_zoom_scale: 10.0,
-            default_zoom_scale: 1.0,
-        }
-    }
-}
 
 // GLOBAL SETTINGS RESOURCE
 
@@ -108,10 +53,6 @@ impl Default for CameraSettings {
 #[derive(Resource, Debug, Clone, Default)]
 pub struct BezySettings {
     pub grid: GridSettings,
-    #[allow(dead_code)]
-    pub keyboard: KeyboardSettings,
-    #[allow(dead_code)]
-    pub camera: CameraSettings,
     /// Current theme variant
     pub theme: ThemeVariant,
 }
@@ -155,30 +96,6 @@ impl BezySettings {
         }
     }
 
-    /// Get the nudge amount based on modifier keys
-    ///
-    /// Returns the appropriate nudge distance based on which modifier
-    /// keys are currently pressed.
-    #[allow(dead_code)]
-    pub fn get_nudge_amount(
-        &self,
-        shift_pressed: bool,
-        cmd_pressed: bool,
-    ) -> f32 {
-        if cmd_pressed {
-            self.keyboard.nudge_large
-        } else if shift_pressed {
-            self.keyboard.nudge_medium
-        } else {
-            self.keyboard.nudge_small
-        }
-    }
-
-    /// Clamp zoom scale to allowed range
-    #[allow(dead_code)]
-    pub fn clamp_zoom_scale(&self, scale: f32) -> f32 {
-        scale.clamp(self.camera.min_zoom_scale, self.camera.max_zoom_scale)
-    }
 
     /// Set the theme variant
     pub fn set_theme(&mut self, theme: ThemeVariant) {
@@ -198,31 +115,7 @@ impl BezySettings {
 
 pub const SNAP_TO_GRID_ENABLED: bool = true;
 pub const SNAP_TO_GRID_VALUE: f32 = 2.0;
-#[allow(dead_code)]
-pub const SORT_SNAP_MULTIPLIER: f32 = 8.0;
 pub const NUDGE_AMOUNT: f32 = 2.0;
 pub const SHIFT_NUDGE_AMOUNT: f32 = 8.0;
 pub const CMD_NUDGE_AMOUNT: f32 = 32.0;
-#[allow(dead_code)]
-pub const KEYBOARD_ZOOM_STEP: f32 = 0.8;
-#[allow(dead_code)]
-pub const MIN_ALLOWED_ZOOM_SCALE: f32 = 0.01;
-#[allow(dead_code)]
-pub const MAX_ALLOWED_ZOOM_SCALE: f32 = 10.0;
 
-/// Legacy function for backward compatibility
-///
-/// New code should use BezySettings::apply_sort_grid_snap instead
-#[deprecated(note = "Use BezySettings::apply_sort_grid_snap instead")]
-#[allow(dead_code)]
-pub fn apply_sort_grid_snap(position: Vec2) -> Vec2 {
-    if SNAP_TO_GRID_ENABLED {
-        let sort_grid_value = SNAP_TO_GRID_VALUE * SORT_SNAP_MULTIPLIER;
-        Vec2::new(
-            (position.x / sort_grid_value).round() * sort_grid_value,
-            (position.y / sort_grid_value).round() * sort_grid_value,
-        )
-    } else {
-        position
-    }
-}

@@ -14,7 +14,7 @@ use crate::rendering::{
     UnifiedGlyphEditingPlugin,
 };
 use crate::systems::{
-    exit_on_esc, load_fontir_font, load_ufo_font, BezySystems, CommandsPlugin,
+    exit_on_esc, load_fontir_font, BezySystems, CommandsPlugin,
     InputConsumerPlugin, TextShapingPlugin, UiInteractionPlugin,
 };
 use crate::ui::hud::HudPlugin;

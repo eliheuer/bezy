@@ -35,28 +35,10 @@ pub struct FontMetrics {
     pub x_height: Option<f64>,
     pub cap_height: Option<f64>,
     pub ascender: Option<f64>,
-    #[allow(dead_code)]
     pub italic_angle: Option<f64>,
-    #[allow(dead_code)]
     pub line_height: f64,
 }
 
-/// Create resource-compatible FontMetrics for rendering
-#[derive(Resource, Debug, Clone)]
-pub struct FontMetricsResource {
-    #[allow(dead_code)]
-    pub units_per_em: f64,
-    #[allow(dead_code)]
-    pub ascender: f64,
-    #[allow(dead_code)]
-    pub descender: f64,
-    #[allow(dead_code)]
-    pub line_height: f64,
-    #[allow(dead_code)]
-    pub x_height: Option<f64>,
-    #[allow(dead_code)]
-    pub cap_height: Option<f64>,
-}
 
 impl FontInfo {
     /// Extract font info from norad Font
@@ -149,11 +131,6 @@ impl FontInfo {
         info
     }
 
-    /// Get metrics for rendering
-    #[allow(dead_code)]
-    pub fn get_metrics(&self) -> &FontMetrics {
-        &self.metrics
-    }
 }
 
 impl FontMetrics {
@@ -188,16 +165,3 @@ impl FontMetrics {
     }
 }
 
-impl From<&FontInfo> for FontMetricsResource {
-    fn from(info: &FontInfo) -> Self {
-        Self {
-            units_per_em: info.units_per_em,
-            ascender: info.ascender.unwrap_or(800.0),
-            descender: info.descender.unwrap_or(-200.0),
-            line_height: info.ascender.unwrap_or(800.0)
-                - info.descender.unwrap_or(-200.0),
-            x_height: info.x_height,
-            cap_height: info.cap_height,
-        }
-    }
-}
