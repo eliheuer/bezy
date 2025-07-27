@@ -122,7 +122,7 @@ pub fn render_mesh_glyph_outline(
     }
     
     // Only return entities for changed sorts (more efficient than return_all_entities)
-    entity_pools.return_entities_for_changed_sorts(&changed_sort_entities);
+    entity_pools.return_entities_for_changed_sorts(&mut commands, &changed_sort_entities);
     outline_entities.path_segments.clear();
     outline_entities.control_handles.clear();
     

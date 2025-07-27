@@ -165,13 +165,13 @@ impl EntityPools {
     }
 
     /// Return cursor entities to the available pool (called at start of frame)
-    pub fn return_cursor_entities(&mut self) {
+    pub fn return_cursor_entities(&mut self, _commands: &mut Commands) {
         debug!("Returning {} cursor entities to pool", self.cursor_pool.in_use.len());
         self.cursor_pool.available.append(&mut self.cursor_pool.in_use);
     }
 
     /// Return outline entities for a specific sort to the available pool
-    pub fn return_outline_entities(&mut self, sort_entity: Entity) {
+    pub fn return_outline_entities(&mut self, _commands: &mut Commands, sort_entity: Entity) {
         if let Some(pool) = self.outline_pools.get_mut(&sort_entity) {
             debug!("Returning {} outline entities to pool for sort {:?}", pool.in_use.len(), sort_entity);
             pool.available.append(&mut pool.in_use);
@@ -179,7 +179,7 @@ impl EntityPools {
     }
 
     /// Return metrics entities for a specific sort to the available pool
-    pub fn return_metrics_entities(&mut self, sort_entity: Entity) {
+    pub fn return_metrics_entities(&mut self, _commands: &mut Commands, sort_entity: Entity) {
         if let Some(pool) = self.metrics_pools.get_mut(&sort_entity) {
             debug!("Returning {} metrics entities to pool for sort {:?}", pool.in_use.len(), sort_entity);
             pool.available.append(&mut pool.in_use);
@@ -188,27 +188,27 @@ impl EntityPools {
 
     /// Return all entities to pools (useful for cleanup)
     /// NOTE: This is expensive - prefer selective returns when possible
-    pub fn return_all_entities(&mut self) {
+    pub fn return_all_entities(&mut self, commands: &mut Commands) {
         debug!("Returning all entities to pools");
         
         // Return cursor entities
-        self.return_cursor_entities();
+        self.return_cursor_entities(commands);
         
         // Return outline entities for all sorts
         let sort_entities: Vec<Entity> = self.outline_pools.keys().copied().collect();
         for sort_entity in sort_entities {
-            self.return_outline_entities(sort_entity);
+            self.return_outline_entities(commands, sort_entity);
         }
         
         // Return metrics entities for all sorts
         let sort_entities: Vec<Entity> = self.metrics_pools.keys().copied().collect();
         for sort_entity in sort_entities {
-            self.return_metrics_entities(sort_entity);
+            self.return_metrics_entities(commands, sort_entity);
         }
     }
 
     /// Return entities for specific sorts that have changed (more efficient)
-    pub fn return_entities_for_changed_sorts(&mut self, changed_sort_entities: &[Entity]) {
+    pub fn return_entities_for_changed_sorts(&mut self, commands: &mut Commands, changed_sort_entities: &[Entity]) {
         if changed_sort_entities.is_empty() {
             return;
         }
@@ -217,8 +217,8 @@ impl EntityPools {
         
         // Return outline and metrics entities only for changed sorts
         for &sort_entity in changed_sort_entities {
-            self.return_outline_entities(sort_entity);
-            self.return_metrics_entities(sort_entity);
+            self.return_outline_entities(commands, sort_entity);
+            self.return_metrics_entities(commands, sort_entity);
         }
     }
 

@@ -102,7 +102,7 @@ pub fn render_text_editor_cursor(
            tool_changed, placement_mode_changed, buffer_cursor_changed, cursor_position_changed, camera_scale_changed);
 
     // ENTITY POOLING: Return cursor entities to pool instead of despawning
-    entity_pools.return_cursor_entities();
+    entity_pools.return_cursor_entities(&mut commands);
     
     debug!("Returned cursor entities to pool");
 
