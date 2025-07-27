@@ -38,6 +38,52 @@ pub struct MetricsLineEntities {
     pub lines: std::collections::HashMap<Entity, Vec<Entity>>, // sort_entity -> line entities
 }
 
+/// Cache for expensive glyph metrics calculations
+#[derive(Resource, Default)]
+pub struct GlyphMetricsCache {
+    /// Cache glyph advance widths to avoid repeated FontIR lookups
+    pub advance_widths: std::collections::HashMap<String, f32>,
+    /// Cache font metrics to avoid repeated extraction
+    pub font_metrics: Option<FontIRMetrics>,
+    /// Track when font changed to invalidate cache
+    pub last_font_generation: u64,
+}
+
+impl GlyphMetricsCache {
+    /// Get cached advance width or calculate and cache it
+    pub fn get_advance_width(&mut self, glyph_name: &str, fontir_state: &crate::core::state::FontIRAppState) -> f32 {
+        if let Some(&width) = self.advance_widths.get(glyph_name) {
+            return width;
+        }
+        
+        let width = fontir_state.get_glyph_advance_width(glyph_name);
+        self.advance_widths.insert(glyph_name.to_string(), width);
+        debug!("Cached advance width for glyph '{}': {}", glyph_name, width);
+        width
+    }
+    
+    /// Get cached font metrics or extract and cache them
+    pub fn get_font_metrics(&mut self, fontir_state: &crate::core::state::FontIRAppState) -> &FontIRMetrics {
+        // For now, skip generation tracking since FontIRAppState doesn't expose it
+        // TODO: Add generation tracking when FontIRAppState API supports it
+        
+        if self.font_metrics.is_none() {
+            self.font_metrics = Some(fontir_state.get_font_metrics());
+            debug!("Cached font metrics: UPM={}", self.font_metrics.as_ref().unwrap().units_per_em);
+        }
+        
+        self.font_metrics.as_ref().unwrap()
+    }
+    
+    /// Clear all cached data (useful for debugging)
+    pub fn clear(&mut self) {
+        self.advance_widths.clear();
+        self.font_metrics = None;
+        self.last_font_generation = 0;
+        debug!("Cleared all glyph metrics cache");
+    }
+}
+
 /// Component to mark entities as preview metrics (temporary entities)
 #[derive(Component)]
 pub struct PreviewMetricsLine;
@@ -160,6 +206,7 @@ pub fn render_mesh_metrics_lines(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut metrics_entities: ResMut<MetricsLineEntities>,
     mut entity_pools: ResMut<EntityPools>,
+    mut metrics_cache: ResMut<GlyphMetricsCache>,
     // CHANGE DETECTION: Only process sorts when Sort or Transform components have changed
     sort_query: Query<
         (Entity, &Transform, &crate::editing::sort::Sort),
@@ -216,17 +263,25 @@ pub fn render_mesh_metrics_lines(
     
     // Only return entities for changed sorts (more efficient than return_all_entities)
     entity_pools.return_entities_for_changed_sorts(&mut commands, &changed_sort_entities);
-    metrics_entities.lines.clear();
+    
+    // SELECTIVE CLEAR: Only remove metrics entities for changed sorts instead of clearing all
+    for &sort_entity in &changed_sort_entities {
+        metrics_entities.lines.remove(&sort_entity);
+    }
     
     debug!("Returned metrics entities for {} changed sorts", changed_sort_entities.len());
 
     if let Some(fontir_state) = fontir_app_state {
-        let fontir_metrics = fontir_state.get_font_metrics();
+        // Cache font metrics once for the entire frame
+        let fontir_metrics = {
+            let cached_metrics = metrics_cache.get_font_metrics(&fontir_state);
+            cached_metrics.clone() // Clone the metrics to avoid borrow conflicts
+        };
 
         for (sort_entity, sort_transform, sort) in sort_query.iter() {
             let position = sort_transform.translation.truncate();
-            let advance_width =
-                fontir_state.get_glyph_advance_width(&sort.glyph_name);
+            // Use cached advance width lookup instead of expensive FontIR call
+            let advance_width = metrics_cache.get_advance_width(&sort.glyph_name, &fontir_state);
             // Since query filters for ActiveSort, all sorts here are active - use active color
             let color = crate::ui::theme::SORT_ACTIVE_METRICS_COLOR;
 
@@ -394,8 +449,8 @@ pub fn render_mesh_metrics_lines(
         // Render metrics for ACTIVE buffer sorts (text roots) with green color
         for (sort_entity, sort_transform, sort) in active_buffer_sort_query.iter() {
             let position = sort_transform.translation.truncate();
-            let advance_width =
-                fontir_state.get_glyph_advance_width(&sort.glyph_name);
+            // Use cached advance width lookup for active buffer sorts
+            let advance_width = metrics_cache.get_advance_width(&sort.glyph_name, &fontir_state);
             let color = crate::ui::theme::SORT_ACTIVE_METRICS_COLOR; // Green for active buffer sorts (text roots)
 
             let mut line_entities = Vec::new();
@@ -562,8 +617,8 @@ pub fn render_mesh_metrics_lines(
         // Render metrics for INACTIVE buffer sorts (gray metrics for typed characters)
         for (sort_entity, sort_transform, sort) in inactive_buffer_sort_query.iter() {
             let position = sort_transform.translation.truncate();
-            let advance_width =
-                fontir_state.get_glyph_advance_width(&sort.glyph_name);
+            // Use cached advance width lookup for inactive buffer sorts
+            let advance_width = metrics_cache.get_advance_width(&sort.glyph_name, &fontir_state);
             let color = crate::ui::theme::SORT_INACTIVE_METRICS_COLOR; // Gray for inactive buffer sorts (typed characters)
 
             let mut line_entities = Vec::new();
@@ -1147,6 +1202,7 @@ impl Plugin for MetricsRenderingPlugin {
         app.init_resource::<MetricsLineEntities>()
             .init_resource::<PreviewMetricsEntities>()
             .init_resource::<PreviewMetricsState>()
+            .init_resource::<GlyphMetricsCache>()
             .add_systems(Update, (
                 render_mesh_metrics_lines
                     .after(crate::rendering::mesh_glyph_outline::render_mesh_glyph_outline)

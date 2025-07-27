@@ -81,7 +81,8 @@ impl EntityPools {
     ) -> Entity {
         // Try to reuse an available entity
         if let Some(entity) = self.cursor_pool.available.pop() {
-            debug!("Reusing cursor entity: {:?}", entity);
+            // Only log at trace level to reduce debug noise in hot paths
+            trace!("Reusing cursor entity: {:?}", entity);
             self.cursor_pool.in_use.push(entity);
             entity
         } else {
@@ -112,7 +113,8 @@ impl EntityPools {
         
         // Try to reuse an available entity
         if let Some(entity) = pool.available.pop() {
-            debug!("Reusing outline entity for sort {:?}: {:?}", sort_entity, entity);
+            // Only log at trace level to reduce debug noise in hot paths
+            trace!("Reusing outline entity for sort {:?}: {:?}", sort_entity, entity);
             pool.in_use.push(entity);
             entity
         } else {
@@ -143,7 +145,8 @@ impl EntityPools {
         
         // Try to reuse an available entity
         if let Some(entity) = pool.available.pop() {
-            debug!("Reusing metrics entity for sort {:?}: {:?}", sort_entity, entity);
+            // Only log at trace level to reduce debug noise in hot paths
+            trace!("Reusing metrics entity for sort {:?}: {:?}", sort_entity, entity);
             pool.in_use.push(entity);
             entity
         } else {
@@ -173,7 +176,10 @@ impl EntityPools {
     /// Return outline entities for a specific sort to the available pool
     pub fn return_outline_entities(&mut self, _commands: &mut Commands, sort_entity: Entity) {
         if let Some(pool) = self.outline_pools.get_mut(&sort_entity) {
-            debug!("Returning {} outline entities to pool for sort {:?}", pool.in_use.len(), sort_entity);
+            // Only log if returning significant number of entities to avoid debug noise
+            if pool.in_use.len() > 5 {
+                debug!("Returning {} outline entities to pool for sort {:?}", pool.in_use.len(), sort_entity);
+            }
             pool.available.append(&mut pool.in_use);
         }
     }
@@ -181,7 +187,10 @@ impl EntityPools {
     /// Return metrics entities for a specific sort to the available pool
     pub fn return_metrics_entities(&mut self, _commands: &mut Commands, sort_entity: Entity) {
         if let Some(pool) = self.metrics_pools.get_mut(&sort_entity) {
-            debug!("Returning {} metrics entities to pool for sort {:?}", pool.in_use.len(), sort_entity);
+            // Only log if returning significant number of entities to avoid debug noise
+            if pool.in_use.len() > 10 {
+                debug!("Returning {} metrics entities to pool for sort {:?}", pool.in_use.len(), sort_entity);
+            }
             pool.available.append(&mut pool.in_use);
         }
     }
