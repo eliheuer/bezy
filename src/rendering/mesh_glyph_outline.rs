@@ -13,6 +13,14 @@ use crate::editing::sort::{ActiveSort, Sort};
 use crate::rendering::entity_pools::{EntityPools, PooledEntityType, update_outline_entity};
 use crate::systems::sort_manager::SortPointEntity;
 use crate::ui::theme::*;
+
+// Lyon imports for filled glyph tessellation
+use lyon::tessellation::{
+    FillTessellator, FillOptions, VertexBuffers, 
+    BuffersBuilder, FillVertex
+};
+use lyon::path::Path;
+use lyon::geom::point;
 use bevy::prelude::*;
 use bevy::render::mesh::Mesh2d;
 use bevy::sprite::{ColorMaterial, MeshMaterial2d};
@@ -30,6 +38,7 @@ pub struct GlyphOutlineElement {
 pub enum OutlineElementType {
     PathSegment,
     ControlHandle,
+    FilledShape, // For filled glyph rendering (inactive sorts)
 }
 
 /// Resource to track mesh outline entities for performance (entity pooling)
@@ -212,16 +221,16 @@ pub fn render_mesh_glyph_outline(
         }
     }
 
-    // Render buffer sorts (text editor sorts) with default outline color
+    // Render buffer sorts (text editor sorts) with FILLED rendering for performance
     for (sort_entity, sort, transform) in buffer_sort_query.iter() {
         let position = transform.translation.truncate();
 
-        // For text buffer sorts, always render from FontIR (no live point editing)
+        // For text buffer sorts, use filled rendering (like text editors)
         if let Some(fontir_state) = fontir_app_state.as_ref() {
             if let Some(paths) =
                 fontir_state.get_glyph_paths_with_edits(&sort.glyph_name)
             {
-                render_fontir_outline(
+                render_fontir_filled_outline(
                     &mut commands,
                     &mut meshes,
                     &mut materials,
@@ -285,6 +294,84 @@ pub fn create_line_mesh(start: Vec2, end: Vec2, width: f32) -> Mesh {
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
 
+    mesh
+}
+
+/// Convert kurbo::BezPath to filled mesh using Lyon tessellation
+/// This creates a single filled mesh for the entire glyph path
+pub fn create_filled_mesh_from_bezpath(bez_path: &kurbo::BezPath) -> Mesh {
+    // Convert kurbo::BezPath to lyon::Path
+    let mut lyon_path_builder = Path::builder();
+    
+    for element in bez_path.elements() {
+        match element {
+            kurbo::PathEl::MoveTo(pt) => {
+                lyon_path_builder.begin(point(pt.x as f32, pt.y as f32));
+            }
+            kurbo::PathEl::LineTo(pt) => {
+                lyon_path_builder.line_to(point(pt.x as f32, pt.y as f32));
+            }
+            kurbo::PathEl::CurveTo(c1, c2, pt) => {
+                lyon_path_builder.cubic_bezier_to(
+                    point(c1.x as f32, c1.y as f32),
+                    point(c2.x as f32, c2.y as f32),
+                    point(pt.x as f32, pt.y as f32),
+                );
+            }
+            kurbo::PathEl::QuadTo(c, pt) => {
+                lyon_path_builder.quadratic_bezier_to(
+                    point(c.x as f32, c.y as f32),
+                    point(pt.x as f32, pt.y as f32),
+                );
+            }
+            kurbo::PathEl::ClosePath => {
+                lyon_path_builder.close();
+            }
+        }
+    }
+    
+    let lyon_path = lyon_path_builder.build();
+    
+    // Tessellate to triangles
+    let mut tessellator = FillTessellator::new();
+    let mut buffers: VertexBuffers<[f32; 3], u32> = VertexBuffers::new();
+    
+    let result = tessellator.tessellate_path(
+        &lyon_path,
+        &FillOptions::default(),
+        &mut BuffersBuilder::new(&mut buffers, |vertex: FillVertex| {
+            [vertex.position().x, vertex.position().y, 0.0]
+        }),
+    );
+    
+    if result.is_err() {
+        warn!("Failed to tessellate path for filled glyph rendering");
+        // Return empty mesh on tessellation failure
+        return Mesh::new(
+            bevy::render::render_resource::PrimitiveTopology::TriangleList,
+            bevy::render::render_asset::RenderAssetUsages::RENDER_WORLD,
+        );
+    }
+    
+    // Convert to Bevy mesh
+    let mut mesh = Mesh::new(
+        bevy::render::render_resource::PrimitiveTopology::TriangleList,
+        bevy::render::render_asset::RenderAssetUsages::RENDER_WORLD,
+    );
+    
+    // Get vertex count and create UVs before moving buffers.vertices
+    let vertex_count = buffers.vertices.len();
+    let uvs = buffers.vertices.iter().map(|v| [v[0], v[1]]).collect::<Vec<_>>();
+    
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, buffers.vertices);
+    mesh.insert_indices(bevy::render::mesh::Indices::U32(buffers.indices));
+    
+    // Generate normals
+    let normals = vec![[0.0, 0.0, 1.0]; vertex_count];
+    
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    
     mesh
 }
 
@@ -790,6 +877,57 @@ fn render_fontir_outline_live(
             .path_segments
             .insert(sort_entity, segment_entities);
     }
+}
+
+/// Render FontIR outline as filled shapes (for inactive text sorts)
+/// This provides text editor performance for displaying inactive characters
+fn render_fontir_filled_outline(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    outline_entities: &mut ResMut<MeshOutlineEntities>,
+    entity_pools: &mut ResMut<EntityPools>,
+    sort_entity: Entity,
+    paths: &[kurbo::BezPath],
+    position: Vec2,
+    camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
+) {
+    let fill_material = materials.add(ColorMaterial::from(FILLED_GLYPH_COLOR));
+    let mut filled_entities = Vec::new();
+    
+    // Process each contour as a separate filled mesh
+    for path in paths {
+        if path.elements().len() == 0 {
+            continue;
+        }
+        
+        // Create filled mesh using Lyon tessellation
+        let filled_mesh = create_filled_mesh_from_bezpath(path);
+        
+        // Get filled entity from pool instead of spawning
+        let entity = entity_pools.get_outline_entity(commands, sort_entity);
+        
+        // Update the pooled entity with filled mesh components
+        commands.entity(entity).insert((
+            GlyphOutlineElement {
+                element_type: OutlineElementType::FilledShape,
+                sort_entity,
+            },
+            Mesh2d(meshes.add(filled_mesh)),
+            MeshMaterial2d(fill_material.clone()),
+            Transform::from_xyz(position.x, position.y, FILLED_GLYPH_Z),
+            GlobalTransform::default(),
+            Visibility::Visible,
+            InheritedVisibility::default(),
+            ViewVisibility::default(),
+        ));
+        
+        filled_entities.push(entity);
+        debug!("Created filled glyph entity {:?} for sort {:?}", entity, sort_entity);
+    }
+    
+    // Store entities for cleanup
+    outline_entities.path_segments.insert(sort_entity, filled_entities);
 }
 
 /// Render UFO outline using live Transform positions during nudging

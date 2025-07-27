@@ -195,7 +195,8 @@ pub fn render_mesh_metrics_lines(
     // CHANGE DETECTION: Early return if no sorts have changed
     let sort_count = sort_query.iter().count();
     let active_buffer_count = active_buffer_sort_query.iter().count();
-    let inactive_buffer_count = inactive_buffer_sort_query.iter().count();
+    // PERFORMANCE: Skip metrics for inactive buffer sorts (they now use filled rendering)
+    let inactive_buffer_count = 0; // inactive_buffer_sort_query.iter().count();
     
     if sort_count == 0 && active_buffer_count == 0 && inactive_buffer_count == 0 {
         debug!("Metrics rendering skipped - no changed sorts");
@@ -210,9 +211,10 @@ pub fn render_mesh_metrics_lines(
     for (sort_entity, _, _) in active_buffer_sort_query.iter() {
         changed_sort_entities.push(sort_entity);
     }
-    for (sort_entity, _, _) in inactive_buffer_sort_query.iter() {
-        changed_sort_entities.push(sort_entity);
-    }
+    // PERFORMANCE: Skip metrics for inactive buffer sorts (they now use filled rendering)
+    // for (sort_entity, _, _) in inactive_buffer_sort_query.iter() {
+    //     changed_sort_entities.push(sort_entity);
+    // }
     
     // Only return entities for changed sorts (more efficient than return_all_entities)
     entity_pools.return_entities_for_changed_sorts(&changed_sort_entities);
@@ -559,7 +561,8 @@ pub fn render_mesh_metrics_lines(
             metrics_entities.lines.insert(sort_entity, line_entities);
         }
 
-        // Render metrics for INACTIVE buffer sorts (typed characters) with gray color
+        // PERFORMANCE: Skip metrics for INACTIVE buffer sorts (they now use filled rendering for text editor performance)
+        /*
         for (sort_entity, sort_transform, sort) in inactive_buffer_sort_query.iter() {
             let position = sort_transform.translation.truncate();
             let advance_width =
@@ -726,6 +729,7 @@ pub fn render_mesh_metrics_lines(
 
             metrics_entities.lines.insert(sort_entity, line_entities);
         }
+        */
     }
 }
 
