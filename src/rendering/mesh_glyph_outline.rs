@@ -61,23 +61,23 @@ pub fn render_mesh_glyph_outline(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut outline_entities: ResMut<MeshOutlineEntities>,
     mut entity_pools: ResMut<EntityPools>,
-    // IMPORTANT: Exclude BufferSortIndex from this query to prevent double-rendering
-    // Buffer sorts have their own dedicated rendering loops below with proper color support
+    // Active sort query for outline rendering (includes ALL active sorts)
+    // This now includes both regular sorts and active text editor sorts
     // CHANGE DETECTION: Only process sorts when Sort or Transform components have changed
     active_sort_query: Query<
         (Entity, &Sort, &Transform), 
         (
             With<ActiveSort>, 
-            Without<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
             Or<(Changed<Sort>, Changed<Transform>)>
         )
     >,
-    // Buffer sort query for text editor sorts
+    // Buffer sort query for text editor sorts (INACTIVE only - filled rendering)
     // CHANGE DETECTION: Only process buffer sorts when Sort or Transform components have changed
     buffer_sort_query: Query<
         (Entity, &Sort, &Transform),
         (
             With<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
+            Without<ActiveSort>, // Exclude active buffer sorts - they should use outline rendering
             Or<(Changed<Sort>, Changed<Transform>)>
         )
     >,
