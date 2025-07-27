@@ -11,6 +11,7 @@
 use crate::core::state::{ContourData, OutlineData, PointData, PointTypeData};
 use crate::editing::sort::{ActiveSort, Sort};
 use crate::rendering::entity_pools::{EntityPools, PooledEntityType, update_outline_entity};
+use crate::rendering::mesh_cache::GlyphMeshCache;
 use crate::systems::sort_manager::SortPointEntity;
 use crate::ui::theme::*;
 
@@ -61,6 +62,7 @@ pub fn render_mesh_glyph_outline(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut outline_entities: ResMut<MeshOutlineEntities>,
     mut entity_pools: ResMut<EntityPools>,
+    mut mesh_cache: ResMut<GlyphMeshCache>,
     // Active sort query for outline rendering (includes ALL active sorts)
     // This now includes both regular sorts and active text editor sorts
     // CHANGE DETECTION: Only process sorts when Sort or Transform components have changed
@@ -112,13 +114,18 @@ pub fn render_mesh_glyph_outline(
 
     debug!("Outline rendering proceeding - changed sorts detected (active: {}, buffer: {})", active_sort_count, buffer_sort_count);
 
-    // ENTITY POOLING: Collect changed sort entities and return only their entities
+    // SELECTIVE PROCESSING: Collect changed sorts by type for selective rendering
     let mut changed_sort_entities = Vec::new();
-    for (sort_entity, _, _) in active_sort_query.iter() {
-        changed_sort_entities.push(sort_entity);
+    let mut changed_active_sorts = Vec::new();
+    let mut changed_buffer_sorts = Vec::new();
+    
+    for sort_data in active_sort_query.iter() {
+        changed_sort_entities.push(sort_data.0);
+        changed_active_sorts.push(sort_data);
     }
-    for (sort_entity, _, _) in buffer_sort_query.iter() {
-        changed_sort_entities.push(sort_entity);
+    for sort_data in buffer_sort_query.iter() {
+        changed_sort_entities.push(sort_data.0);
+        changed_buffer_sorts.push(sort_data);
     }
     
     // Only return entities for changed sorts (more efficient than return_all_entities)
@@ -131,8 +138,8 @@ pub fn render_mesh_glyph_outline(
     // ENABLED: Mesh glyph outline rendering for proper z-ordering
     // Removed return to enable mesh-based outlines
 
-    // Render outlines for each active sort
-    for (sort_entity, sort, transform) in active_sort_query.iter() {
+    // SELECTIVE RENDERING: Only render changed active sorts
+    for (sort_entity, sort, transform) in changed_active_sorts {
         let position = transform.translation.truncate();
 
         // Check if there are any points visible for this sort (indicating active editing mode)
@@ -236,7 +243,9 @@ pub fn render_mesh_glyph_outline(
                     &mut materials,
                     &mut outline_entities,
                     &mut entity_pools,
+                    &mut mesh_cache,
                     sort_entity,
+                    &sort.glyph_name,
                     &paths,
                     position,
                     &camera_scale,
@@ -893,7 +902,9 @@ fn render_fontir_filled_outline(
     materials: &mut ResMut<Assets<ColorMaterial>>,
     outline_entities: &mut ResMut<MeshOutlineEntities>,
     entity_pools: &mut ResMut<EntityPools>,
+    mesh_cache: &mut ResMut<GlyphMeshCache>,
     sort_entity: Entity,
+    glyph_name: &str,
     paths: &[kurbo::BezPath],
     position: Vec2,
     _camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
@@ -904,9 +915,20 @@ fn render_fontir_filled_outline(
     
     let fill_material = materials.add(ColorMaterial::from(FILLED_GLYPH_COLOR));
     
-    // Create single filled mesh for entire glyph (all contours combined)
-    // This allows proper winding rule application for counters/holes
-    let filled_mesh = create_filled_mesh_from_glyph_paths(paths);
+    // PERFORMANCE OPTIMIZATION: Try to get cached mesh first
+    let mesh_handle = if let Some(cached_mesh) = mesh_cache.get_filled_mesh(glyph_name) {
+        // Use cached mesh - avoid expensive tessellation
+        cached_mesh
+    } else {
+        // Create single filled mesh for entire glyph (all contours combined)
+        // This allows proper winding rule application for counters/holes
+        let filled_mesh = create_filled_mesh_from_glyph_paths(paths);
+        let mesh_handle = meshes.add(filled_mesh);
+        
+        // Cache the mesh for future use
+        mesh_cache.cache_filled_mesh(glyph_name.to_string(), mesh_handle.clone());
+        mesh_handle
+    };
     
     // Get filled entity from pool instead of spawning
     let entity = entity_pools.get_outline_entity(commands, sort_entity);
@@ -917,7 +939,7 @@ fn render_fontir_filled_outline(
             element_type: OutlineElementType::FilledShape,
             sort_entity,
         },
-        Mesh2d(meshes.add(filled_mesh)),
+        Mesh2d(mesh_handle),
         MeshMaterial2d(fill_material),
         Transform::from_xyz(position.x, position.y, FILLED_GLYPH_Z),
         GlobalTransform::default(),

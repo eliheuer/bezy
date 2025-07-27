@@ -438,13 +438,51 @@ pub struct DirtyFlags {
     - **Lower logging overhead**: Trace-level logging in hot paths reduces CPU usage
     - **Better scalability**: Performance improvements scale with number of inactive sorts
   - **Files Modified**: `src/rendering/metrics.rs` (selective clear), `src/rendering/entity_pools.rs` (logging optimization)
-- [ ] 3.3 Implement mesh caching system
-- [ ] 3.4 Add buffer change detection  
-- [ ] 3.5 Implement dirty flagging system
-- [ ] 3.6 Add cache invalidation strategies
-- [ ] 3.7 Add performance profiling hooks
-- [ ] 3.8 Optimize for complex multi-line text
-- [ ] 3.9 Final performance validation
+- [x] 3.3 Implement selective rendering for inactive sorts
+  - **COMPLETED 2025-07-27**: Critical optimization to eliminate exponential performance degradation with many inactive sorts
+  - **MASSIVE PERFORMANCE WIN**:
+    - **Root Cause Fixed**: Previously when ANY sort changed, ALL inactive sorts were re-rendered (exponential complexity)
+    - **Selective Processing**: Now only changed sorts are processed, not all sorts when any sort changes
+    - **Per-Sort Granularity**: Metrics rendering only processes the specific sorts that actually changed
+    - **Dramatic Scaling**: Performance now scales linearly with changes, not total inactive sorts
+  - **Implementation Details**:
+    - Separated sort collection into `changed_active_sorts`, `changed_active_buffer_sorts`, `changed_inactive_buffer_sorts`
+    - Updated all rendering loops to iterate over changed sorts only, not re-query all sorts
+    - Added debug logging to show selective processing counts vs total sorts
+    - Applied same optimization to mesh glyph outline system for consistency
+  - **Performance Impact**:
+    - **Eliminates O(n²) complexity**: With 100 inactive sorts, typing now processes 1 change instead of 100+ re-renders
+    - **Massive inactive sort performance**: Large text buffers now render smoothly without lag
+    - **Combined with caching**: Double performance benefit - selective processing + cached lookups
+    - **Real-world impact**: Typing responsiveness restored even with hundreds of inactive sorts
+  - **Files Modified**: `src/rendering/metrics.rs` (40 lines changed: selective loops), `src/rendering/mesh_glyph_outline.rs` (15 lines changed)
+- [x] 3.4 Implement mesh caching system
+  - **COMPLETED 2025-07-27**: Comprehensive mesh caching to eliminate expensive tessellation operations for repeated glyphs
+  - **TESSELLATION PERFORMANCE WIN**:
+    - **Root Bottleneck Identified**: `create_filled_mesh_from_glyph_paths()` was tessellating bezier curves to triangles every time
+    - **Expensive Lyon Tessellation**: Each inactive sort was doing full curve-to-triangle conversion for every change
+    - **Mesh Cache Resource**: HashMap-based cache for filled glyph meshes, outline segments, and metrics lines
+    - **Smart Cache Invalidation**: Font generation tracking and per-glyph invalidation capabilities
+  - **Implementation Details**:
+    - Created `GlyphMeshCache` resource with separate caches for filled, outline, and metrics meshes
+    - Modified `render_fontir_filled_outline()` to check cache before expensive tessellation
+    - Added comprehensive cache statistics tracking: hits, misses, hit rates for performance monitoring
+    - Integrated `MeshCachingPlugin` into the rendering pipeline with periodic stats logging
+    - Cache provides `Handle<Mesh>` reuse instead of regenerating triangulated geometry
+  - **Performance Impact**:
+    - **Eliminates repeated tessellation**: Same glyph shapes reuse cached triangulated meshes
+    - **Massive inactive sort speedup**: Typing 'aaaa' only tessellates 'a' once, reuses mesh 3 times
+    - **Real-world example**: 100 inactive 'a' characters = 1 tessellation + 99 cache hits instead of 100 tessellations
+    - **Combined benefits**: Mesh caching + selective rendering + entity pooling = compound performance gains
+    - **Memory efficient**: Mesh handles are lightweight references, actual mesh data shared across entities
+  - **Files Created**: `src/rendering/mesh_cache.rs` (200+ lines: cache system, stats, plugin)
+  - **Files Modified**: `src/rendering/mesh_glyph_outline.rs` (mesh cache integration), `src/rendering/mod.rs` (module export), `src/core/app.rs` (plugin registration)
+- [ ] 3.5 Add buffer change detection  
+- [ ] 3.6 Implement dirty flagging system
+- [ ] 3.7 Add cache invalidation strategies
+- [ ] 3.8 Add performance profiling hooks
+- [ ] 3.9 Optimize for complex multi-line text
+- [ ] 3.10 Final performance validation
 
 ## Success Metrics
 

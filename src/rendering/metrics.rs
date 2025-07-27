@@ -249,16 +249,24 @@ pub fn render_mesh_metrics_lines(
         return;
     }
 
-    // ENTITY POOLING: Collect changed sort entities and return only their entities
+    // SELECTIVE PROCESSING: Collect only the sorts that actually changed
     let mut changed_sort_entities = Vec::new();
-    for (sort_entity, _, _) in sort_query.iter() {
+    let mut changed_active_sorts = Vec::new();
+    let mut changed_active_buffer_sorts = Vec::new();
+    let mut changed_inactive_buffer_sorts = Vec::new();
+    
+    // Collect changed sorts by type for selective processing
+    for (sort_entity, sort_transform, sort) in sort_query.iter() {
         changed_sort_entities.push(sort_entity);
+        changed_active_sorts.push((sort_entity, sort_transform, sort));
     }
-    for (sort_entity, _, _) in active_buffer_sort_query.iter() {
+    for (sort_entity, sort_transform, sort) in active_buffer_sort_query.iter() {
         changed_sort_entities.push(sort_entity);
+        changed_active_buffer_sorts.push((sort_entity, sort_transform, sort));
     }
-    for (sort_entity, _, _) in inactive_buffer_sort_query.iter() {
+    for (sort_entity, sort_transform, sort) in inactive_buffer_sort_query.iter() {
         changed_sort_entities.push(sort_entity);
+        changed_inactive_buffer_sorts.push((sort_entity, sort_transform, sort));
     }
     
     // Only return entities for changed sorts (more efficient than return_all_entities)
@@ -269,7 +277,9 @@ pub fn render_mesh_metrics_lines(
         metrics_entities.lines.remove(&sort_entity);
     }
     
-    debug!("Returned metrics entities for {} changed sorts", changed_sort_entities.len());
+    debug!("Selective metrics rendering: {} active, {} active_buffer, {} inactive_buffer (total changed: {})", 
+           changed_active_sorts.len(), changed_active_buffer_sorts.len(), 
+           changed_inactive_buffer_sorts.len(), changed_sort_entities.len());
 
     if let Some(fontir_state) = fontir_app_state {
         // Cache font metrics once for the entire frame
@@ -278,7 +288,8 @@ pub fn render_mesh_metrics_lines(
             cached_metrics.clone() // Clone the metrics to avoid borrow conflicts
         };
 
-        for (sort_entity, sort_transform, sort) in sort_query.iter() {
+        // SELECTIVE RENDERING: Only process changed active sorts
+        for (sort_entity, sort_transform, sort) in changed_active_sorts {
             let position = sort_transform.translation.truncate();
             // Use cached advance width lookup instead of expensive FontIR call
             let advance_width = metrics_cache.get_advance_width(&sort.glyph_name, &fontir_state);
@@ -446,8 +457,8 @@ pub fn render_mesh_metrics_lines(
             metrics_entities.lines.insert(sort_entity, line_entities);
         }
 
-        // Render metrics for ACTIVE buffer sorts (text roots) with green color
-        for (sort_entity, sort_transform, sort) in active_buffer_sort_query.iter() {
+        // SELECTIVE RENDERING: Only process changed active buffer sorts
+        for (sort_entity, sort_transform, sort) in changed_active_buffer_sorts {
             let position = sort_transform.translation.truncate();
             // Use cached advance width lookup for active buffer sorts
             let advance_width = metrics_cache.get_advance_width(&sort.glyph_name, &fontir_state);
@@ -614,8 +625,8 @@ pub fn render_mesh_metrics_lines(
             metrics_entities.lines.insert(sort_entity, line_entities);
         }
 
-        // Render metrics for INACTIVE buffer sorts (gray metrics for typed characters)
-        for (sort_entity, sort_transform, sort) in inactive_buffer_sort_query.iter() {
+        // SELECTIVE RENDERING: Only process changed inactive buffer sorts (HUGE PERFORMANCE WIN)
+        for (sort_entity, sort_transform, sort) in changed_inactive_buffer_sorts {
             let position = sort_transform.translation.truncate();
             // Use cached advance width lookup for inactive buffer sorts
             let advance_width = metrics_cache.get_advance_width(&sort.glyph_name, &fontir_state);
