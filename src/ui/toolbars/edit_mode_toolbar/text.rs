@@ -7,6 +7,8 @@
 //! - Freeform mode: Sorts are positioned freely in the design space
 //! - Vim mode: Sorts are edited with vim-like keybindings
 
+#![allow(clippy::manual_map)]
+
 use crate::core::settings::BezySettings;
 use crate::core::state::{
     AppState, FontIRAppState, GlyphNavigation, SortLayoutMode, TextEditorState,
@@ -516,7 +518,7 @@ pub fn handle_text_mode_sort_placement(
 
 #[allow(clippy::too_many_arguments)]
 pub fn render_sort_preview(
-    mut gizmos: Gizmos,
+    _gizmos: Gizmos,
     text_mode_active: Res<TextModeActive>,
     _text_mode_state: Res<TextModeState>,
     _text_editor_state: Option<Res<TextEditorState>>,
@@ -558,7 +560,7 @@ pub fn render_sort_preview(
         current_placement_mode.0, snapped_position.x, snapped_position.y
     );
 
-    let preview_color = Color::srgb(1.0, 0.5, 0.0).with_alpha(0.8);
+    let _preview_color = Color::srgb(1.0, 0.5, 0.0).with_alpha(0.8);
 
     if let Some(glyph_name) = &glyph_navigation.current_glyph {
         debug!("[PREVIEW] current_glyph: {}", glyph_name);
@@ -566,7 +568,7 @@ pub fn render_sort_preview(
         // Try FontIR first, then fall back to AppState
         if let Some(fontir_state) = &fontir_app_state {
             debug!("[PREVIEW] Using FontIR for preview");
-            if let Some(glyph_paths) =
+            if let Some(_glyph_paths) =
                 fontir_state.get_glyph_paths_with_edits(glyph_name)
             {
                 debug!(
@@ -751,7 +753,7 @@ pub fn handle_text_mode_keyboard(
     app_state: Option<Res<AppState>>,
     fontir_app_state: Option<Res<FontIRAppState>>,
     mut glyph_navigation: ResMut<GlyphNavigation>,
-    text_mode_state: Res<TextModeState>,
+    _text_mode_state: Res<TextModeState>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
     // Add query to check for selected points
     selected_points: Query<
@@ -957,7 +959,7 @@ pub fn handle_text_mode_keyboard(
         }
     };
 
-    let default_advance_width = if let Some(app_state) = app_state.as_ref() {
+    let _default_advance_width = if let Some(app_state) = app_state.as_ref() {
         app_state
             .workspace
             .font

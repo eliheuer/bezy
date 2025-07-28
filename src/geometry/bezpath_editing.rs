@@ -38,7 +38,7 @@ pub fn extract_editable_points(path: &BezPath) -> Vec<EditablePoint> {
         match element {
             PathEl::MoveTo(pt) => {
                 points.push(EditablePoint {
-                    position: pt.clone(),
+                    position: *pt,
                     point_type: PathPointType::OnCurve,
                     reference: PathPointRef {
                         element_index: elem_idx,
@@ -48,7 +48,7 @@ pub fn extract_editable_points(path: &BezPath) -> Vec<EditablePoint> {
             }
             PathEl::LineTo(pt) => {
                 points.push(EditablePoint {
-                    position: pt.clone(),
+                    position: *pt,
                     point_type: PathPointType::OnCurve,
                     reference: PathPointRef {
                         element_index: elem_idx,
@@ -59,7 +59,7 @@ pub fn extract_editable_points(path: &BezPath) -> Vec<EditablePoint> {
             PathEl::CurveTo(c1, c2, pt) => {
                 // Control points
                 points.push(EditablePoint {
-                    position: c1.clone(),
+                    position: *c1,
                     point_type: PathPointType::OffCurve,
                     reference: PathPointRef {
                         element_index: elem_idx,
@@ -67,7 +67,7 @@ pub fn extract_editable_points(path: &BezPath) -> Vec<EditablePoint> {
                     },
                 });
                 points.push(EditablePoint {
-                    position: c2.clone(),
+                    position: *c2,
                     point_type: PathPointType::OffCurve,
                     reference: PathPointRef {
                         element_index: elem_idx,
@@ -76,7 +76,7 @@ pub fn extract_editable_points(path: &BezPath) -> Vec<EditablePoint> {
                 });
                 // End point
                 points.push(EditablePoint {
-                    position: pt.clone(),
+                    position: *pt,
                     point_type: PathPointType::OnCurve,
                     reference: PathPointRef {
                         element_index: elem_idx,
@@ -87,7 +87,7 @@ pub fn extract_editable_points(path: &BezPath) -> Vec<EditablePoint> {
             PathEl::QuadTo(c, pt) => {
                 // Control point
                 points.push(EditablePoint {
-                    position: c.clone(),
+                    position: *c,
                     point_type: PathPointType::OffCurve,
                     reference: PathPointRef {
                         element_index: elem_idx,
@@ -96,7 +96,7 @@ pub fn extract_editable_points(path: &BezPath) -> Vec<EditablePoint> {
                 });
                 // End point
                 points.push(EditablePoint {
-                    position: pt.clone(),
+                    position: *pt,
                     point_type: PathPointType::OnCurve,
                     reference: PathPointRef {
                         element_index: elem_idx,
@@ -196,7 +196,7 @@ pub fn paths_to_multi_contour(paths: &[BezPath]) -> BezPath {
 
     for path in paths {
         for element in path.elements() {
-            result.push(element.clone());
+            result.push(*element);
         }
     }
 

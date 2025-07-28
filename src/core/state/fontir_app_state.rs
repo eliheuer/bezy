@@ -7,6 +7,7 @@
 use anyhow::Result;
 use bevy::prelude::*;
 use fontdrasil::coords::NormalizedLocation;
+use fontdrasil::orchestration::Access;
 use fontdrasil::types::GlyphName;
 use fontir::ir::{Glyph as FontIRGlyph, GlyphInstance};
 use fontir::orchestration::{Context, Flags, WorkId};
@@ -293,13 +294,13 @@ impl FontIRAppState {
         new_x: f64,
         new_y: f64,
     ) -> bool {
-        let elements: Vec<PathEl> = path.elements().iter().cloned().collect();
+        let elements: Vec<PathEl> = path.elements().to_vec();
         let mut current_point_idx = 0;
         let mut new_elements = Vec::new();
 
         for element in elements {
             match element {
-                PathEl::MoveTo(pt) => {
+                PathEl::MoveTo(_pt) => {
                     if current_point_idx == point_idx {
                         new_elements
                             .push(PathEl::MoveTo(Point::new(new_x, new_y)));
@@ -308,7 +309,7 @@ impl FontIRAppState {
                     }
                     current_point_idx += 1;
                 }
-                PathEl::LineTo(pt) => {
+                PathEl::LineTo(_pt) => {
                     if current_point_idx == point_idx {
                         new_elements
                             .push(PathEl::LineTo(Point::new(new_x, new_y)));
@@ -484,7 +485,7 @@ impl FontIRAppState {
 
         // Execute each glyph work item with proper permissions
         // Glyph work items need access to all previously computed data
-        use fontdrasil::orchestration::{Access, AccessBuilder};
+        use fontdrasil::orchestration::AccessBuilder;
 
         for (i, work_item) in glyph_work_items.iter().enumerate() {
             // Glyph work needs broader read access than what's specified in the work item
@@ -568,7 +569,7 @@ impl FontIRAppState {
                 let context = Context::new_root(flags, paths);
 
                 // Create a context with full access permissions for testing
-                use fontdrasil::orchestration::{Access, AccessBuilder};
+                use fontdrasil::orchestration::AccessBuilder;
 
                 // Create broad access that should cover all necessary data
                 let broad_read_access = AccessBuilder::new()

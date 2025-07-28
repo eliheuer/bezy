@@ -187,7 +187,7 @@ pub fn render_selected_entities(
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::type_complexity)]
 pub fn render_all_point_entities(
-    mut gizmos: Gizmos,
+    _gizmos: Gizmos,
     point_entities: Query<
         (Entity, &GlobalTransform, &PointType),
         (With<SortPointEntity>, Without<Selected>),

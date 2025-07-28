@@ -2,6 +2,8 @@
 //!
 //! This module provides a complete theming system that centralizes ALL visual
 //! styling constants. Themes can be easily created, shared, and switched at runtime.
+
+#![allow(clippy::uninlined_format_args)]
 //!
 //! ## Creating a Custom Theme - Super Easy! 🎨
 //!
@@ -157,7 +159,7 @@ impl ThemeRegistry {
     /// Create a theme instance by name (clones the theme)
     pub fn create_theme(&self, name: &str) -> Option<Box<dyn BezyTheme>> {
         // For JSON themes, we need to reload them to get fresh data
-        if let Some(theme) = self.themes.get(name) {
+        if let Some(_theme) = self.themes.get(name) {
             // Try to reload from JSON file first
             let json_path = format!("src/ui/themes/{}.json", name);
             if let Ok(json_theme) = json_theme::JsonTheme::load_from_file(&json_path) {

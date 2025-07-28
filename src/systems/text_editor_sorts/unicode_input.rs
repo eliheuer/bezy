@@ -210,7 +210,7 @@ fn handle_space_character(
     text_editor_state: &mut TextEditorState,
     app_state: &Option<Res<AppState>>,
     fontir_app_state: &Option<Res<FontIRAppState>>,
-    current_placement_mode: &CurrentTextPlacementMode,
+    _current_placement_mode: &CurrentTextPlacementMode,
 ) {
     let glyph_name = "space".to_string();
 

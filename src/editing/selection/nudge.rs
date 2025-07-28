@@ -37,7 +37,7 @@ pub fn handle_nudge_input(
         Query<(&crate::editing::sort::Sort, &Transform)>,
     )>,
     _app_state: Option<ResMut<crate::core::state::AppState>>,
-    mut fontir_app_state: Option<ResMut<crate::core::state::FontIRAppState>>,
+    _fontir_app_state: Option<ResMut<crate::core::state::FontIRAppState>>,
     mut event_writer: EventWriter<EditEvent>,
     mut nudge_state: ResMut<NudgeState>,
     time: Res<Time>,

@@ -6,6 +6,8 @@
 //!
 //! The tool converts placed points into UFO contours that are saved to the font file.
 
+#![allow(clippy::too_many_arguments)]
+
 use super::{EditTool, ToolInfo};
 use crate::core::io::input::{helpers, InputEvent, InputMode, InputState};
 use crate::core::io::pointer::PointerInfo;

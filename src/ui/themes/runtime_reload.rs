@@ -3,7 +3,7 @@
 //! This system allows live editing of theme colors by watching JSON files
 //! in the src/ui/themes directory and reloading them without recompilation.
 
-use super::{CurrentTheme, json_theme::JsonThemeManager};
+use super::json_theme::JsonThemeManager;
 use bevy::prelude::*;
 
 use super::json_theme::{check_json_theme_changes, update_border_radius_on_theme_change};

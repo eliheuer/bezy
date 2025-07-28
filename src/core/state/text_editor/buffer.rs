@@ -154,6 +154,11 @@ impl SortBuffer {
         self.buffer.len() - (self.gap_end - self.gap_start)
     }
 
+    /// Check if the buffer is empty
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
 
     /// Get sort at logical position
     pub fn get(&self, index: usize) -> Option<&SortEntry> {

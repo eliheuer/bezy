@@ -176,11 +176,11 @@ pub fn unicode_to_glyph_name_fontir(
 fn is_arabic_character(ch: char) -> bool {
     let code = ch as u32;
     // Arabic block: U+0600-U+06FF
-    (code >= 0x0600 && code <= 0x06FF) ||
+    (0x0600..=0x06FF).contains(&code) ||
     // Arabic Supplement: U+0750-U+077F  
-    (code >= 0x0750 && code <= 0x077F) ||
+    (0x0750..=0x077F).contains(&code) ||
     // Arabic Extended-A: U+08A0-U+08FF
-    (code >= 0x08A0 && code <= 0x08FF)
+    (0x08A0..=0x08FF).contains(&code)
 }
 
 /// Try different Arabic glyph naming conventions

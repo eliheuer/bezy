@@ -33,7 +33,7 @@ fn update_handle_lines(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     fontir_app_state: Option<Res<FontIRAppState>>,
-    active_sort_query: Query<&Sort, With<ActiveSort>>,
+    _active_sort_query: Query<&Sort, With<ActiveSort>>,
     point_query: Query<
         (Entity, &Transform, &GlyphPointReference, &PointType),
         With<SortPointEntity>,
@@ -86,7 +86,7 @@ fn create_handles_from_fontir_paths(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<ColorMaterial>>,
-    paths: &[kurbo::BezPath],
+    _paths: &[kurbo::BezPath],
     point_query: &Query<
         (Entity, &Transform, &GlyphPointReference, &PointType),
         With<SortPointEntity>,
@@ -96,7 +96,7 @@ fn create_handles_from_fontir_paths(
 
     // Create material for handles
     let handle_material = materials.add(ColorMaterial::from(HANDLE_LINE_COLOR));
-    let mut handles_created = 0;
+    let mut _handles_created = 0;
 
     // Group existing point entities by contour and index for mapping
     let mut point_entities: std::collections::HashMap<(usize, usize), Entity> =
@@ -162,7 +162,7 @@ fn create_handles_from_fontir_paths(
                             },
                         ));
 
-                        handles_created += 1;
+                        _handles_created += 1;
                     }
                 }
             }

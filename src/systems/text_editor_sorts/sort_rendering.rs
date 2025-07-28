@@ -1,5 +1,7 @@
 //! Sort rendering for text editor sorts
 
+#![allow(clippy::too_many_arguments)]
+
 use crate::core::state::text_editor::{SortKind, SortLayoutMode};
 use crate::core::state::{AppState, TextEditorState};
 use crate::rendering::entity_pools::{EntityPools, PooledEntityType, update_cursor_entity};
@@ -44,7 +46,7 @@ pub fn render_text_editor_cursor(
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
     camera_scale: Res<crate::rendering::camera_responsive::CameraResponsiveScale>,
-    existing_cursors: Query<Entity, With<TextEditorCursor>>,
+    _existing_cursors: Query<Entity, With<TextEditorCursor>>,
     mut cursor_state: ResMut<CursorRenderingState>,
     mut entity_pools: ResMut<EntityPools>,
 ) {
@@ -80,7 +82,7 @@ pub fn render_text_editor_cursor(
     });
 
     // Check if anything changed
-    let tool_changed = cursor_state.last_tool.as_ref().map(|s| s.as_str()) != current_tool_name;
+    let tool_changed = cursor_state.last_tool.as_deref() != current_tool_name;
     let placement_mode_changed = cursor_state.last_placement_mode != Some(current_placement_mode_value);
     let buffer_cursor_changed = cursor_state.last_buffer_cursor_position != current_buffer_cursor_position;
     let cursor_position_changed = cursor_state.last_cursor_position != current_cursor_position;
@@ -223,7 +225,7 @@ fn calculate_cursor_visual_position(
     let mut glyph_count = 0;
 
     // Get font metrics for line height calculation - try FontIR first, then AppState
-    let (upm, descender, line_height) = if let Some(fontir_state) = fontir_app_state.as_ref() {
+    let (_upm, _descender, line_height) = if let Some(fontir_state) = fontir_app_state.as_ref() {
         let metrics = fontir_state.get_font_metrics();
         let upm = metrics.units_per_em;
         let descender = metrics.descender.unwrap_or(-256.0);

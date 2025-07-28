@@ -138,7 +138,7 @@ pub fn spawn_missing_sort_entities(
     >,
 ) {
     // Debug: Log buffer state
-    if text_editor_state.buffer.len() > 0 {
+    if !text_editor_state.buffer.is_empty() {
         info!("spawn_missing_sort_entities: Processing {} buffer entries", text_editor_state.buffer.len());
         for i in 0..text_editor_state.buffer.len() {
             if let Some(sort) = text_editor_state.buffer.get(i) {
@@ -342,7 +342,7 @@ pub fn update_buffer_sort_positions(
 pub fn auto_activate_selected_sorts(
     mut commands: Commands,
     mut text_editor_state: ResMut<TextEditorState>,
-    buffer_entities: Res<BufferSortEntities>,
+    _buffer_entities: Res<BufferSortEntities>,
     selected_sorts: Query<
         Entity,
         (

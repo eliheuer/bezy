@@ -159,7 +159,7 @@ impl TextEditorState {
         fontir_app_state: Option<&crate::core::state::FontIRAppState>
     ) {
         // Only clear states if buffer is empty (first text root)
-        if self.buffer.len() == 0 {
+        if self.buffer.is_empty() {
             self.clear_all_states();
             debug!("Creating first text root: Cleared states for empty buffer");
         } else {

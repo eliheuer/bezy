@@ -1,3 +1,5 @@
+#![allow(clippy::assertions_on_constants)]
+
 #[cfg(test)]
 mod ufo_tests {
     use crate::data::ufo;
@@ -74,7 +76,6 @@ mod nudge_tests {
         CMD_NUDGE_AMOUNT, NUDGE_AMOUNT, SHIFT_NUDGE_AMOUNT,
     };
     use crate::editing::selection::nudge::{EditEvent, NudgeState};
-    use bevy::prelude::*;
 
     #[test]
     fn test_nudge_amounts() {

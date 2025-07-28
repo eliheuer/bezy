@@ -3,6 +3,9 @@
 //! This module contains shared functions for rendering font metrics that can be used
 //! by both the main metrics system and individual sorts.
 
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::type_complexity)]
+
 use crate::core::state::font_metrics::FontMetrics;
 use crate::core::state::fontir_app_state::FontIRMetrics;
 use crate::rendering::camera_responsive::CameraResponsiveScale;
@@ -150,6 +153,7 @@ fn spawn_metrics_line(
 }
 
 /// ENTITY POOLING: Get or update a metrics line entity from the pool
+#[allow(dead_code)]
 fn get_or_update_metrics_line(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
@@ -235,7 +239,7 @@ pub fn render_mesh_metrics_lines(
             Or<(Changed<crate::editing::sort::Sort>, Changed<Transform>)>
         ),
     >,
-    existing_metrics: Query<Entity, With<MetricsLine>>,
+    _existing_metrics: Query<Entity, With<MetricsLine>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     camera_scale: Res<CameraResponsiveScale>,
 ) {
@@ -1053,7 +1057,7 @@ fn create_preview_glyph_outline(
     let mut segment_start: Option<kurbo::Point> = None;
 
     // Flatten the path into line segments
-    let tolerance = 0.5; // Tessellation tolerance
+    let _tolerance = 0.5; // Tessellation tolerance
     for element in path.iter() {
         match element {
             kurbo::PathEl::MoveTo(pt) => {

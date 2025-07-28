@@ -287,7 +287,6 @@ pub struct PoolStats {
 }
 
 /// Helper functions for updating pooled entities
-
 /// Update an outline entity with new mesh and material
 pub fn update_outline_entity(
     commands: &mut Commands,

@@ -3,6 +3,8 @@
 //! This module combines all glyph editing rendering (points, outlines, handles) into a single
 //! system to eliminate any visual lag between components during nudging operations.
 
+#![allow(clippy::too_many_arguments)]
+
 use crate::editing::selection::components::{
     GlyphPointReference, PointType, Selected,
 };
@@ -136,8 +138,8 @@ pub fn render_unified_glyph_editing(
                 sort_entity,
                 &sort_points,
                 sort_position,
-                fontir_app_state.as_ref().map(|v| &**v),
-                app_state.as_ref().map(|v| &**v),
+                fontir_app_state.as_deref(),
+                app_state.as_deref(),
                 &camera_scale,
             );
 
@@ -173,8 +175,8 @@ pub fn render_unified_glyph_editing(
                 sort_entity,
                 &sort.glyph_name,
                 sort_position,
-                fontir_app_state.as_ref().map(|v| &**v),
-                app_state.as_ref().map(|v| &**v),
+                fontir_app_state.as_deref(),
+                app_state.as_deref(),
                 &camera_scale,
             );
         }

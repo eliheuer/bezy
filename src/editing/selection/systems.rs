@@ -1,3 +1,7 @@
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::unused_enumerate_index)]
+#![allow(clippy::useless_vec)]
+
 use super::components::*;
 use super::coordinate_system::SelectionCoordinateSystem;
 use super::DragPointState;
@@ -1480,7 +1484,7 @@ mod tests {
         let min_y = rect_start_vec.y.min(rect_end_vec.y);
         let max_y = rect_start_vec.y.max(rect_end_vec.y);
 
-        let distance_x = if sort_point_pos.x < min_x {
+        let _distance_x = if sort_point_pos.x < min_x {
             min_x - sort_point_pos.x
         } else if sort_point_pos.x > max_x {
             sort_point_pos.x - max_x
@@ -1488,7 +1492,7 @@ mod tests {
             0.0
         };
 
-        let distance_y = if sort_point_pos.y < min_y {
+        let _distance_y = if sort_point_pos.y < min_y {
             min_y - sort_point_pos.y
         } else if sort_point_pos.y > max_y {
             sort_point_pos.y - max_y
@@ -1601,10 +1605,10 @@ mod tests {
         }
 
         // Test what Y coordinate the marquee would need to be at to select these entities
-        let entity_y_min = -1104.0;
-        let entity_y_max = -496.0;
-        let marquee_y_min = 233.0;
-        let marquee_y_max = 398.5;
+        let _entity_y_min = -1104.0;
+        let _entity_y_max = -496.0;
+        let _marquee_y_min = 233.0;
+        let _marquee_y_max = 398.5;
 
     }
 
@@ -1683,7 +1687,7 @@ mod tests {
         println!("Outline points Y range: {:.1} to {:.1}", 150.0, 550.0);
 
         let mut points_in_rect = 0;
-        for (i, point_pos) in test_points.iter().enumerate() {
+        for (_i, point_pos) in test_points.iter().enumerate() {
             let in_rect = SelectionCoordinateSystem::is_point_in_rectangle(
                 point_pos,
                 &marquee_start,

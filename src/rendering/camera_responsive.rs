@@ -75,7 +75,7 @@ pub fn update_camera_responsive_scale(
             Projection::Orthographic(ortho) => ortho.scale,
             _ => 1.0, // Default for non-orthographic projections
         };
-        let transform_scale = camera_transform.scale.x;
+        let _transform_scale = camera_transform.scale.x;
 
         // Use projection scale for responsive scaling (this is the real zoom level)
         let camera_scale = projection_scale;

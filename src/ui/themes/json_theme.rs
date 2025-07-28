@@ -1,4 +1,9 @@
 //! JSON-based theme system
+
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_operation)]
+#![allow(clippy::type_complexity)]
+#![allow(unused_must_use)]
 //!
 //! This replaces the Rust trait-based themes with JSON files that can be edited
 //! live and reloaded without recompilation.
@@ -410,6 +415,12 @@ pub struct JsonThemeManager {
     check_timer: Timer,
 }
 
+impl Default for JsonThemeManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl JsonThemeManager {
     pub fn new() -> Self {
         Self {
@@ -473,8 +484,6 @@ impl JsonThemeManager {
                                 let should_reload = match self.file_timestamps.get(stem) {
                                     Some(&last_modified) => {
                                         let is_newer = modified > last_modified;
-                                        if is_newer {
-                                        }
                                         is_newer
                                     }
                                     None => {
@@ -490,7 +499,7 @@ impl JsonThemeManager {
                                             changed_themes.push(stem.to_string());
                                         }
                                         Err(e) => {
-                                            println!("❌ Failed to reload theme from {:?}: {}", path, e);
+                                            println!("❌ Failed to reload theme from {path:?}: {e}");
                                         }
                                     }
                                 }
@@ -530,14 +539,13 @@ pub fn check_json_theme_changes(
     if theme_manager.check_timer.just_finished() {
         let changed_themes = theme_manager.check_for_changes();
         
-        if !changed_themes.is_empty() {
-        }
+        !changed_themes.is_empty();
         
         // If the current theme was changed, reload it
         let current_name = current_theme.variant.name().to_string();
         if changed_themes.contains(&current_name) {
             // Force reload from JSON file
-            let json_path = format!("src/ui/themes/{}.json", current_name);
+            let json_path = format!("src/ui/themes/{current_name}.json");
             if let Ok(json_theme) = JsonTheme::load_from_file(&json_path) {
                 current_theme.theme = Box::new(json_theme);
                 

@@ -8,6 +8,9 @@
 //! - Batched mesh creation
 //! - Efficient curve tessellation
 
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::type_complexity)]
+
 use crate::core::state::{ContourData, OutlineData, PointData, PointTypeData};
 use crate::editing::sort::{ActiveSort, Sort};
 use crate::rendering::entity_pools::{EntityPools, PooledEntityType, update_outline_entity};
@@ -87,7 +90,7 @@ pub fn render_mesh_glyph_outline(
     camera_scale: Res<crate::rendering::camera_responsive::CameraResponsiveScale>,
     app_state: Option<Res<crate::core::state::AppState>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
-    existing_outlines: Query<Entity, With<GlyphOutlineElement>>,
+    _existing_outlines: Query<Entity, With<GlyphOutlineElement>>,
     // Add point query for live rendering
     point_query: Query<
         (
@@ -98,7 +101,7 @@ pub fn render_mesh_glyph_outline(
         ),
         With<crate::systems::sort_manager::SortPointEntity>,
     >,
-    selected_query: Query<
+    _selected_query: Query<
         Entity,
         With<crate::editing::selection::components::Selected>,
     >,
@@ -153,7 +156,7 @@ pub fn render_mesh_glyph_outline(
         if has_visible_points {
             // Use live Transform positions for outline rendering
             if let Some(fontir_state) = fontir_app_state.as_ref() {
-                if let Some(paths) =
+                if let Some(_paths) =
                     fontir_state.get_glyph_paths_with_edits(&sort.glyph_name)
                 {
                     render_fontir_outline_live(
@@ -459,6 +462,7 @@ fn render_fontir_outline(
     );
 }
 
+#[allow(dead_code)]
 fn render_fontir_outline_with_color(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
@@ -489,7 +493,7 @@ fn render_fontir_outline_with_color_and_quality(
     camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
     high_quality: bool,
 ) {
-    let path_material = materials.add(ColorMaterial::from(color));
+    let _path_material = materials.add(ColorMaterial::from(color));
     let mut segment_entities = Vec::new();
     let line_width = camera_scale.adjusted_line_width();
 
@@ -1300,6 +1304,7 @@ pub fn tessellate_cubic_bezier(
 
 /// Path segment types for efficient rendering
 #[derive(Debug)]
+#[allow(dead_code)]
 enum PathSegment {
     Line {
         start: PointData,
@@ -1544,6 +1549,7 @@ fn render_contour_handles_meshes_live(
 
 /// Path segment types for live rendering with Vec2 positions
 #[derive(Debug)]
+#[allow(dead_code)]
 enum PathSegmentLive {
     Line {
         start: Vec2,

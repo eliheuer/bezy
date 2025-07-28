@@ -3,6 +3,9 @@
 //! This module provides mesh-based handle rendering for sorts.
 //! All gizmo-based rendering has been removed in favor of camera-responsive mesh rendering.
 
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::uninlined_format_args)]
+
 use crate::core::state::FontIRAppState;
 use crate::editing::selection::components::Selected;
 use crate::rendering::camera_responsive::CameraResponsiveScale;

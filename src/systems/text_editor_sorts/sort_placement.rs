@@ -2,6 +2,8 @@
 //!
 //! This module handles mouse-based sort placement when using text tools.
 
+#![allow(clippy::too_many_arguments)]
+
 use bevy::prelude::*;
 use crate::rendering::checkerboard::calculate_dynamic_grid_size;
 

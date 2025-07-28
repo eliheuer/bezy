@@ -3,6 +3,8 @@
 //! This module handles the mesh-based rendering of points (both on-curve and off-curve)
 //! replacing the previous gizmo-based point rendering.
 
+#![allow(clippy::too_many_arguments)]
+
 use crate::editing::selection::components::{PointType, Selected};
 use crate::editing::sort::ActiveSort;
 use crate::systems::sort_manager::SortPointEntity;
@@ -27,7 +29,7 @@ pub fn render_points_with_meshes(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    point_entities: Query<
+    _point_entities: Query<
         (Entity, &GlobalTransform, &PointType),
         (With<SortPointEntity>, Without<Selected>),
     >,
@@ -40,8 +42,8 @@ pub fn render_points_with_meshes(
     theme: Res<CurrentTheme>,
     camera_scale: Res<CameraResponsiveScale>,
 ) {
-    let all_point_count = all_point_entities.iter().count();
-    let existing_mesh_count = existing_point_meshes.iter().count();
+    let _all_point_count = all_point_entities.iter().count();
+    let _existing_mesh_count = existing_point_meshes.iter().count();
     let active_sort_count = active_sorts.iter().count();
 
     // Early return if no active sorts

@@ -1,5 +1,7 @@
 //! Camera system for the Bezy font editor
 
+#![allow(clippy::uninlined_format_args)]
+
 use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::prelude::*;
 use bevy_pancam::{PanCam, PanCamPlugin};

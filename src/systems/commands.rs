@@ -222,7 +222,7 @@ fn handle_cycle_codepoint(
 
         // Check if we have any codepoints available
         let available_codepoints = if let Some(state) = app_state.as_ref() {
-            crate::core::state::get_all_codepoints(&state)
+            crate::core::state::get_all_codepoints(state)
         } else {
             warn!("Codepoint cycling requested but AppState not available (using FontIR)");
             return;
@@ -239,14 +239,14 @@ fn handle_cycle_codepoint(
             CodepointDirection::Next => {
                 crate::core::state::cycle_codepoint_in_list(
                     Some(current_codepoint),
-                    &app_state.as_ref().unwrap(),
+                    app_state.as_ref().unwrap(),
                     crate::core::state::CycleDirection::Next,
                 )
             }
             CodepointDirection::Previous => {
                 crate::core::state::cycle_codepoint_in_list(
                     Some(current_codepoint),
-                    &app_state.as_ref().unwrap(),
+                    app_state.as_ref().unwrap(),
                     crate::core::state::CycleDirection::Previous,
                 )
             }
@@ -329,7 +329,7 @@ fn handle_create_contour(
         if let (Some(state), Some(nav)) =
             (app_state.as_ref(), glyph_navigation.as_ref())
         {
-            if let Some(glyph_name) = nav.find_glyph(&state) {
+            if let Some(glyph_name) = nav.find_glyph(state) {
                 // Try to add the contour to the glyph
                 // Note: This will need to be implemented when we have the full glyph editing system
                 debug!("Would add contour to glyph: {}", glyph_name);

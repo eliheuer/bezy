@@ -3,7 +3,7 @@
 //! This module allows live updating of theme colors while the application is running.
 //! Simply edit a theme file and save it to see changes immediately.
 
-use super::{BezyTheme, CurrentTheme, ThemeVariant};
+use super::CurrentTheme;
 use bevy::prelude::*;
 use std::fs;
 use std::path::PathBuf;
@@ -43,7 +43,7 @@ pub fn hot_reload_themes(
     }
 
     let current_theme_name = current_theme.variant.name();
-    let theme_file = format!("{}.rs", current_theme_name);
+    let theme_file = format!("{current_theme_name}.rs");
     let theme_path = hot_reload.theme_dir.join(&theme_file);
 
     // Check if the current theme file has been modified
@@ -52,7 +52,7 @@ pub fn hot_reload_themes(
             let last_check = hot_reload.last_modified.get(&theme_file).copied();
             
             // If file was modified since last check, reload the theme
-            if last_check.map_or(true, |last| modified > last) {
+            if last_check.is_none_or(|last| modified > last) {
                 info!("Theme file {} was modified, reloading...", theme_file);
                 hot_reload.last_modified.insert(theme_file.clone(), modified);
                 

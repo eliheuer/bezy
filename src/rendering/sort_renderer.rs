@@ -3,6 +3,8 @@
 //! Manages text labels (glyph names and unicode values) for sorts.
 //! The actual sort rendering is handled by the mesh-based system in mesh_glyph_outline.rs
 
+#![allow(clippy::type_complexity)]
+
 use crate::core::state::{AppState, FontIRAppState, SortLayoutMode};
 use crate::editing::sort::{ActiveSort, InactiveSort, Sort};
 use crate::ui::theme::{
@@ -84,12 +86,12 @@ pub fn manage_sort_labels(
             calculate_glyph_name_transform(position, &app_state, &sort.glyph_name);
 
         // Check if name text already exists
-        let mut name_text_exists = false;
+        let mut _name_text_exists = false;
         for (text_entity, sort_name_text) in existing_name_text_query.iter() {
             if sort_name_text.sort_entity == sort_entity {
                 // Update existing text
                 commands.entity(text_entity).despawn();
-                name_text_exists = true;
+                _name_text_exists = true;
                 break;
             }
         }
@@ -114,14 +116,14 @@ pub fn manage_sort_labels(
             get_unicode_for_glyph(&sort.glyph_name, &app_state)
         {
             // Check if unicode text already exists
-            let mut unicode_text_exists = false;
+            let mut _unicode_text_exists = false;
             for (text_entity, sort_unicode_text) in
                 existing_unicode_text_query.iter()
             {
                 if sort_unicode_text.sort_entity == sort_entity {
                     // Update existing text
                     commands.entity(text_entity).despawn();
-                    unicode_text_exists = true;
+                    _unicode_text_exists = true;
                     break;
                 }
             }

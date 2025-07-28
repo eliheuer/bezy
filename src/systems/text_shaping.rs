@@ -86,12 +86,12 @@ impl From<TextDirection> for Direction {
 
 /// System to perform text shaping for Arabic and complex scripts
 pub fn shape_arabic_text_system(
-    mut shaping_cache: ResMut<TextShapingCache>,
+    _shaping_cache: ResMut<TextShapingCache>,
     text_editor_state: Res<TextEditorState>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
 ) {
     // Only process if we have FontIR state for accessing font data
-    let Some(fontir_state) = fontir_app_state.as_ref() else {
+    let Some(_fontir_state) = fontir_app_state.as_ref() else {
         return;
     };
 
@@ -148,7 +148,7 @@ pub fn shape_text_with_harfbuzz(
     }
 
     // Check if we have this text already shaped in cache
-    let cache_key = format!("{}_{:?}_{}", text, direction, font_path);
+    let cache_key = format!("{text}_{direction:?}_{font_path}");
     if let Some(cached_result) = shaping_cache.shaped_texts.get(&cache_key) {
         return Ok(cached_result.clone());
     }
@@ -182,15 +182,15 @@ pub fn needs_complex_shaping(text: &str) -> bool {
     text.chars().any(|ch| {
         let code = ch as u32;
         // Arabic block: U+0600-U+06FF
-        (code >= 0x0600 && code <= 0x06FF) ||
+        (0x0600..=0x06FF).contains(&code) ||
         // Arabic Supplement: U+0750-U+077F  
-        (code >= 0x0750 && code <= 0x077F) ||
+        (0x0750..=0x077F).contains(&code) ||
         // Arabic Extended-A: U+08A0-U+08FF
-        (code >= 0x08A0 && code <= 0x08FF) ||
+        (0x08A0..=0x08FF).contains(&code) ||
         // Arabic Presentation Forms-A: U+FB50-U+FDFF
-        (code >= 0xFB50 && code <= 0xFDFF) ||
+        (0xFB50..=0xFDFF).contains(&code) ||
         // Arabic Presentation Forms-B: U+FE70-U+FEFF
-        (code >= 0xFE70 && code <= 0xFEFF)
+        (0xFE70..=0xFEFF).contains(&code)
     })
 }
 
@@ -200,12 +200,12 @@ pub fn get_script_for_text(text: &str) -> Option<Script> {
     
     if text.chars().any(|ch| {
         let code = ch as u32;
-        code >= 0x0600 && code <= 0x06FF // Basic Arabic block
+        (0x0600..=0x06FF).contains(&code) // Basic Arabic block
     }) {
         Script::from_iso15924_tag(Tag::new(b"arab")) // Arabic script tag
     } else if text.chars().any(|ch| {
         let code = ch as u32;
-        code >= 0x0590 && code <= 0x05FF // Hebrew block
+        (0x0590..=0x05FF).contains(&code) // Hebrew block
     }) {
         Script::from_iso15924_tag(Tag::new(b"hebr")) // Hebrew script tag
     } else {
