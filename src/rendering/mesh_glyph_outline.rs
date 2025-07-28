@@ -217,6 +217,7 @@ pub fn render_mesh_glyph_outline(
                         &paths,
                         position,
                         &camera_scale,
+                        &unified_rendering_sorts,
                     );
                 }
             } else if let Some(state) = app_state.as_ref() {
@@ -465,9 +466,11 @@ fn render_fontir_outline(
     paths: &[kurbo::BezPath],
     position: Vec2,
     camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
+    unified_rendering_sorts: &crate::rendering::outline_coordination::UnifiedRenderingSorts,
 ) {
     render_fontir_outline_with_color_and_quality(
-        commands, meshes, materials, outline_entities, entity_pools, sort_entity, paths, position, PATH_STROKE_COLOR, camera_scale, false // inactive/buffer sorts use lower quality
+        commands, meshes, materials, outline_entities, entity_pools, sort_entity, paths, position, PATH_STROKE_COLOR, camera_scale, false, // inactive/buffer sorts use lower quality
+        unified_rendering_sorts
     );
 }
 
@@ -483,9 +486,11 @@ fn render_fontir_outline_with_color(
     position: Vec2,
     color: Color,
     camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
+    unified_rendering_sorts: &crate::rendering::outline_coordination::UnifiedRenderingSorts,
 ) {
     render_fontir_outline_with_color_and_quality(
-        commands, meshes, materials, outline_entities, entity_pools, sort_entity, paths, position, color, camera_scale, true // active sorts use high quality
+        commands, meshes, materials, outline_entities, entity_pools, sort_entity, paths, position, color, camera_scale, true, // active sorts use high quality
+        unified_rendering_sorts
     );
 }
 
@@ -501,6 +506,7 @@ fn render_fontir_outline_with_color_and_quality(
     color: Color,
     camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
     high_quality: bool,
+    unified_rendering_sorts: &crate::rendering::outline_coordination::UnifiedRenderingSorts,
 ) {
     let _path_material = materials.add(ColorMaterial::from(color));
     let mut segment_entities = Vec::new();
@@ -539,12 +545,22 @@ fn render_fontir_outline_with_color_and_quality(
                     }
                 }
                 kurbo::PathEl::CurveTo(c1, c2, pt) => {
+                    // CRITICAL: Check coordination resource before rendering curves
+                    if unified_rendering_sorts.contains(sort_entity) {
+                        debug!("Mesh system: Skipping CurveTo for sort {:?} - handled by unified system", sort_entity);
+                        if let kurbo::PathEl::CurveTo(_, _, pt) = element {
+                            current_pos = Some(Vec2::new(pt.x as f32, pt.y as f32) + position);
+                        }
+                        continue;
+                    }
+                    
                     if let Some(start) = current_pos {
                         let end =
                             Vec2::new(pt.x as f32, pt.y as f32) + position;
                         // Approximate cubic curve with multiple line segments for smooth appearance
                         // PERFORMANCE: Use lower quality for inactive sorts
                         let segments = if high_quality { 32 } else { 8 };
+                        debug!("Mesh system: Rendering CurveTo for sort {:?} with {} segments", sort_entity, segments);
                         let mut last_pos = start;
 
                         for i in 1..=segments {
@@ -590,6 +606,15 @@ fn render_fontir_outline_with_color_and_quality(
                     }
                 }
                 kurbo::PathEl::QuadTo(c, pt) => {
+                    // CRITICAL: Check coordination resource before rendering curves
+                    if unified_rendering_sorts.contains(sort_entity) {
+                        debug!("Mesh system: Skipping QuadTo for sort {:?} - handled by unified system", sort_entity);
+                        if let kurbo::PathEl::QuadTo(_, pt) = element {
+                            current_pos = Some(Vec2::new(pt.x as f32, pt.y as f32) + position);
+                        }
+                        continue;
+                    }
+                    
                     if let Some(start) = current_pos {
                         let end =
                             Vec2::new(pt.x as f32, pt.y as f32) + position;

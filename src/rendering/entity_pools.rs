@@ -174,22 +174,30 @@ impl EntityPools {
     }
 
     /// Return outline entities for a specific sort to the available pool
-    pub fn return_outline_entities(&mut self, _commands: &mut Commands, sort_entity: Entity) {
+    pub fn return_outline_entities(&mut self, commands: &mut Commands, sort_entity: Entity) {
         if let Some(pool) = self.outline_pools.get_mut(&sort_entity) {
             // Only log if returning significant number of entities to avoid debug noise
             if pool.in_use.len() > 5 {
                 debug!("Returning {} outline entities to pool for sort {:?}", pool.in_use.len(), sort_entity);
+            }
+            // CRITICAL: Hide entities when returning them to pool to prevent double rendering
+            for &entity in &pool.in_use {
+                commands.entity(entity).insert(Visibility::Hidden);
             }
             pool.available.append(&mut pool.in_use);
         }
     }
 
     /// Return metrics entities for a specific sort to the available pool
-    pub fn return_metrics_entities(&mut self, _commands: &mut Commands, sort_entity: Entity) {
+    pub fn return_metrics_entities(&mut self, commands: &mut Commands, sort_entity: Entity) {
         if let Some(pool) = self.metrics_pools.get_mut(&sort_entity) {
             // Only log if returning significant number of entities to avoid debug noise
             if pool.in_use.len() > 10 {
                 debug!("Returning {} metrics entities to pool for sort {:?}", pool.in_use.len(), sort_entity);
+            }
+            // CRITICAL: Hide entities when returning them to pool to prevent double rendering
+            for &entity in &pool.in_use {
+                commands.entity(entity).insert(Visibility::Hidden);
             }
             pool.available.append(&mut pool.in_use);
         }

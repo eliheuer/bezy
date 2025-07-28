@@ -122,13 +122,21 @@ pub fn render_unified_glyph_editing(
         if let Some(entities) = mesh_outline_entities.path_segments.remove(sort_entity) {
             debug!("Unified system: Despawning {} path segment entities for sort {:?}", entities.len(), sort_entity);
             for entity in entities {
-                commands.entity(entity).despawn();
+                if let Ok(mut entity_commands) = commands.get_entity(entity) {
+                    entity_commands.despawn();
+                } else {
+                    debug!("Unified system: Entity {:?} already despawned", entity);
+                }
             }
         }
         if let Some(entities) = mesh_outline_entities.control_handles.remove(sort_entity) {
             debug!("Unified system: Despawning {} control handle entities for sort {:?}", entities.len(), sort_entity);
             for entity in entities {
-                commands.entity(entity).despawn();
+                if let Ok(mut entity_commands) = commands.get_entity(entity) {
+                    entity_commands.despawn();
+                } else {
+                    debug!("Unified system: Entity {:?} already despawned", entity);
+                }
             }
         }
     }
@@ -665,6 +673,7 @@ fn render_static_outline(
 
                                 // Tessellate curve
                                 let segments = 32;
+                                debug!("Unified system: Rendering CurveTo for sort {:?} with {} segments", sort_entity, segments);
                                 let mut last_pos = start;
 
                                 for i in 1..=segments {
