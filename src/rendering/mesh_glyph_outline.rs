@@ -88,6 +88,8 @@ pub fn render_mesh_glyph_outline(
     >,
     // Camera-responsive scaling for proper zoom-aware rendering
     camera_scale: Res<crate::rendering::camera_responsive::CameraResponsiveScale>,
+    // Coordination with unified rendering system
+    unified_rendering_sorts: Res<crate::rendering::outline_coordination::UnifiedRenderingSorts>,
     app_state: Option<Res<crate::core::state::AppState>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     _existing_outlines: Query<Entity, With<GlyphOutlineElement>>,
@@ -141,8 +143,15 @@ pub fn render_mesh_glyph_outline(
     // ENABLED: Mesh glyph outline rendering for proper z-ordering
     // Removed return to enable mesh-based outlines
 
-    // SELECTIVE RENDERING: Only render changed active sorts
+    // SELECTIVE RENDERING: Only render changed active sorts not handled by unified system
     for (sort_entity, sort, transform) in changed_active_sorts {
+        // Skip if this sort is being handled by the unified rendering system
+        if unified_rendering_sorts.contains(sort_entity) {
+            debug!("Mesh system: Skipping sort {:?} - handled by unified rendering system", sort_entity);
+            continue;
+        }
+        debug!("Mesh system: Rendering sort {:?} - not in unified system", sort_entity);
+        
         let position = transform.translation.truncate();
 
         // Check if there are any points visible for this sort (indicating active editing mode)

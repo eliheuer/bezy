@@ -74,6 +74,9 @@ pub fn render_unified_glyph_editing(
     app_state: Option<Res<crate::core::state::AppState>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     existing_elements: Query<Entity, With<UnifiedGlyphElement>>,
+    _mesh_outline_elements: Query<Entity, With<crate::rendering::mesh_glyph_outline::GlyphOutlineElement>>,
+    mut mesh_outline_entities: ResMut<crate::rendering::mesh_glyph_outline::MeshOutlineEntities>,
+    mut unified_rendering_sorts: ResMut<crate::rendering::outline_coordination::UnifiedRenderingSorts>,
     theme: Res<CurrentTheme>,
 ) {
     let active_sort_count = active_sort_query.iter().count();
@@ -81,21 +84,28 @@ pub fn render_unified_glyph_editing(
         return; // No active sorts, nothing to render
     }
 
-    // Check if there are any visible points for ANY active sort
-    let mut has_any_points = false;
-    for (_, sort, _) in active_sort_query.iter() {
-        for (_, _, point_ref, _, _) in point_query.iter() {
-            if point_ref.glyph_name == sort.glyph_name {
-                has_any_points = true;
-                break;
-            }
+    // Check which sorts have visible points and should use unified rendering
+    let mut sorts_with_points = Vec::new();
+    for (sort_entity, sort, _) in active_sort_query.iter() {
+        let has_points = point_query.iter().any(|(_, _, point_ref, _, _)| {
+            point_ref.glyph_name == sort.glyph_name
+        });
+        
+        if has_points {
+            sorts_with_points.push(sort_entity);
         }
-        if has_any_points { break; }
+    }
+
+    // Update the coordination resource
+    unified_rendering_sorts.clear();
+    for sort_entity in &sorts_with_points {
+        unified_rendering_sorts.insert(*sort_entity);
+        debug!("Unified system: Marking sort {:?} for unified rendering", sort_entity);
     }
 
     // ONLY clear and take over rendering if there are actual points visible
     // This prevents the unified system from interfering when no points are active
-    if !has_any_points {
+    if sorts_with_points.is_empty() {
         return; // Let mesh_glyph_outline handle basic outline rendering
     }
 
@@ -104,6 +114,24 @@ pub fn render_unified_glyph_editing(
         commands.entity(entity).despawn();
     }
     unified_entities.elements.clear();
+    
+    // CRITICAL: Clear mesh outline entities for sorts we're taking over
+    // This prevents double rendering by removing the base outline
+    for sort_entity in &sorts_with_points {
+        // Remove from mesh outline tracking
+        if let Some(entities) = mesh_outline_entities.path_segments.remove(sort_entity) {
+            debug!("Unified system: Despawning {} path segment entities for sort {:?}", entities.len(), sort_entity);
+            for entity in entities {
+                commands.entity(entity).despawn();
+            }
+        }
+        if let Some(entities) = mesh_outline_entities.control_handles.remove(sort_entity) {
+            debug!("Unified system: Despawning {} control handle entities for sort {:?}", entities.len(), sort_entity);
+            for entity in entities {
+                commands.entity(entity).despawn();
+            }
+        }
+    }
 
     // Process each active sort
     for (sort_entity, sort, sort_transform) in active_sort_query.iter() {

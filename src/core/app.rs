@@ -10,8 +10,8 @@ use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
 use crate::rendering::{
     camera_responsive::CameraResponsivePlugin, cameras::CameraPlugin,
     checkerboard::CheckerboardPlugin, EntityPoolingPlugin, MeshCachingPlugin, 
-    MetricsRenderingPlugin, MeshGlyphOutlinePlugin, SortHandleRenderingPlugin, 
-    UnifiedGlyphEditingPlugin,
+    MetricsRenderingPlugin, MeshGlyphOutlinePlugin, OutlineCoordinationPlugin,
+    SortHandleRenderingPlugin, UnifiedGlyphEditingPlugin,
 };
 use crate::systems::{
     exit_on_esc, load_fontir_font, BezySystems, CommandsPlugin,
@@ -63,6 +63,7 @@ impl PluginGroup for RenderingPluginGroup {
             .add(EntityPoolingPlugin)
             .add(MeshCachingPlugin)
             .add(MetricsRenderingPlugin)
+            .add(OutlineCoordinationPlugin)
             .add(MeshGlyphOutlinePlugin)
             .add(SortHandleRenderingPlugin)
             .add(UnifiedGlyphEditingPlugin)
