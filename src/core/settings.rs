@@ -10,7 +10,7 @@ use bevy::prelude::*;
 // FILE PATHS
 
 /// Default UFO file to load if none is specified
-pub const DEFAULT_UFO_PATH: &str = "assets/fonts/BezyGrotesk.designspace";
+pub const DEFAULT_UFO_PATH: &str = "assets/fonts/bezy-grotesk.designspace";
 
 // WINDOW SETTINGS
 

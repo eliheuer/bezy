@@ -241,6 +241,7 @@ pub fn spawn_glyph_pane(
                     align_items: AlignItems::Center,
                     width: Val::Auto,
                     height: Val::Auto,
+                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_GAP)),
                     ..default()
                 },))
                 .with_children(|row| {
@@ -280,6 +281,7 @@ pub fn spawn_glyph_pane(
                     align_items: AlignItems::Center,
                     width: Val::Auto,
                     height: Val::Auto,
+                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_GAP)),
                     ..default()
                 },))
                 .with_children(|row| {
@@ -317,6 +319,7 @@ pub fn spawn_glyph_pane(
                 .spawn((Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
+                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_GAP)),
                     width: Val::Auto,
                     height: Val::Auto,
                     ..default()
@@ -356,6 +359,7 @@ pub fn spawn_glyph_pane(
                 .spawn((Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
+                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_GAP)),
                     width: Val::Auto,
                     height: Val::Auto,
                     ..default()
@@ -395,6 +399,7 @@ pub fn spawn_glyph_pane(
                 .spawn((Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
+                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_GAP)),
                     width: Val::Auto,
                     height: Val::Auto,
                     ..default()
@@ -434,6 +439,7 @@ pub fn spawn_glyph_pane(
                 .spawn((Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
+                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_GAP)),
                     width: Val::Auto,
                     height: Val::Auto,
                     ..default()
@@ -468,7 +474,7 @@ pub fn spawn_glyph_pane(
                     ));
                 });
 
-            // Right kerning group row
+            // Right kerning group row (no bottom margin on last row)
             parent
                 .spawn((Node {
                     flex_direction: FlexDirection::Row,

@@ -1,45 +1,41 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <glyph name="X" format="2">
-	<unicode hex="0058"/>
-	<advance width="648"/>
-	<outline>
-		<contour>
-			<point x="32" y="0" type="line"/>
-			<point x="72" y="0" type="line"/>
-			<point x="96" y="16" type="line"/>
-			<point x="316" y="320" type="line"/>
-			<point x="332" y="320" type="line"/>
-			<point x="552" y="16" type="line"/>
-			<point x="576" y="0" type="line"/>
-			<point x="616" y="0" type="line"/>
-			<point x="632" y="16" type="line"/>
-			<point x="632" y="92" type="line"/>
-			<point x="400" y="400" type="line"/>
-			<point x="400" y="420" type="line"/>
-			<point x="624" y="708" type="line"/>
-			<point x="624" y="784" type="line"/>
-			<point x="608" y="800" type="line"/>
-			<point x="564" y="800" type="line"/>
-			<point x="540" y="784" type="line"/>
-			<point x="332" y="492" type="line"/>
-			<point x="316" y="492" type="line"/>
-			<point x="104" y="784" type="line"/>
-			<point x="80" y="800" type="line"/>
-			<point x="40" y="800" type="line"/>
-			<point x="24" y="784" type="line"/>
-			<point x="24" y="708" type="line"/>
-			<point x="248" y="420" type="line"/>
-			<point x="248" y="400" type="line"/>
-			<point x="16" y="92" type="line"/>
-			<point x="16" y="16" type="line"/>
-		</contour>
-	</outline>
-	<lib>
-		<dict>
-			<key>com.schriftgestaltung.Glyphs.lastChange</key>
-			<string>2024-08-15 18:09:52 +0000</string>
-			<key>public.markColor</key>
-			<string>0.04,0.57,0.04,1</string>
-		</dict>
-	</lib>
+  <advance width="608"/>
+  <unicode hex="0058"/>
+  <outline>
+    <contour>
+      <point x="40" y="0" type="line"/>
+      <point x="100" y="0" type="line"/>
+      <point x="300" y="302" type="line"/>
+      <point x="308" y="302" type="line"/>
+      <point x="500" y="0" type="line"/>
+      <point x="568" y="0" type="line"/>
+      <point x="584" y="16" type="line"/>
+      <point x="584" y="64" type="line"/>
+      <point x="374" y="394" type="line"/>
+      <point x="374" y="402" type="line"/>
+      <point x="576" y="704" type="line"/>
+      <point x="576" y="752" type="line"/>
+      <point x="560" y="768" type="line"/>
+      <point x="502" y="768" type="line"/>
+      <point x="316" y="476" type="line"/>
+      <point x="308" y="476" type="line"/>
+      <point x="124" y="768" type="line"/>
+      <point x="60" y="768" type="line"/>
+      <point x="44" y="752" type="line"/>
+      <point x="44" y="704" type="line"/>
+      <point x="242" y="394" type="line"/>
+      <point x="242" y="386" type="line"/>
+      <point x="24" y="64" type="line"/>
+      <point x="24" y="16" type="line"/>
+    </contour>
+  </outline>
+  <lib>
+    <dict>
+      <key>com.schriftgestaltung.Glyphs.lastChange</key>
+      <string>2025-07-20 00:42:27 +0000</string>
+      <key>public.markColor</key>
+      <string>0.04,0.57,0.04,1</string>
+    </dict>
+  </lib>
 </glyph>

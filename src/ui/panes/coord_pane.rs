@@ -38,8 +38,8 @@ const BUTTON_POSITIONS: [f32; 3] = [12.0, 44.0, 76.0];
 /// Spacing between coordinate label and value
 const LABEL_VALUE_SPACING: f32 = 8.0;
 
-/// Spacing between coordinate rows
-const ROW_SPACING: f32 = 4.0;
+/// Spacing between coordinate rows (use theme constant)
+const ROW_SPACING: f32 = WIDGET_ROW_GAP;
 
 /// Extra spacing before quadrant selector
 const QUADRANT_SELECTOR_MARGIN: f32 = 16.0;
@@ -112,7 +112,7 @@ impl Plugin for CoordinatePanePlugin {
 }
 
 // ============================================================================
-// UI CREATION
+// UI CREATION - Clean builder pattern approach
 // ============================================================================
 
 /// Spawns the coordinate pane in the bottom-right corner
@@ -138,6 +138,8 @@ pub fn spawn_coord_pane(
             "CoordPane",
         ))
         .with_children(|parent| {
+            // ============ COORDINATE ROWS ============
+            
             // X coordinate row
             parent
                 .spawn(Node {
@@ -147,7 +149,7 @@ pub fn spawn_coord_pane(
                     ..default()
                 })
                 .with_children(|row| {
-                    // Label
+                    // X label
                     row.spawn((
                         Node {
                             margin: UiRect::right(Val::Px(LABEL_VALUE_SPACING)),
@@ -161,8 +163,7 @@ pub fn spawn_coord_pane(
                         },
                         TextColor(SECONDARY_TEXT_COLOR),
                     ));
-
-                    // Value
+                    // X value
                     row.spawn((
                         Text::new("0"),
                         TextFont {
@@ -184,7 +185,7 @@ pub fn spawn_coord_pane(
                     ..default()
                 })
                 .with_children(|row| {
-                    // Label
+                    // Y label
                     row.spawn((
                         Node {
                             margin: UiRect::right(Val::Px(LABEL_VALUE_SPACING)),
@@ -198,8 +199,7 @@ pub fn spawn_coord_pane(
                         },
                         TextColor(SECONDARY_TEXT_COLOR),
                     ));
-
-                    // Value
+                    // Y value
                     row.spawn((
                         Text::new("0"),
                         TextFont {
@@ -212,7 +212,7 @@ pub fn spawn_coord_pane(
                     ));
                 });
 
-            // Width row
+            // Width coordinate row
             parent
                 .spawn(Node {
                     flex_direction: FlexDirection::Row,
@@ -221,7 +221,7 @@ pub fn spawn_coord_pane(
                     ..default()
                 })
                 .with_children(|row| {
-                    // Label
+                    // Width label
                     row.spawn((
                         Node {
                             margin: UiRect::right(Val::Px(LABEL_VALUE_SPACING)),
@@ -235,8 +235,7 @@ pub fn spawn_coord_pane(
                         },
                         TextColor(SECONDARY_TEXT_COLOR),
                     ));
-
-                    // Value
+                    // Width value
                     row.spawn((
                         Text::new("0"),
                         TextFont {
@@ -249,7 +248,7 @@ pub fn spawn_coord_pane(
                     ));
                 });
 
-            // Height row
+            // Height coordinate row
             parent
                 .spawn(Node {
                     flex_direction: FlexDirection::Row,
@@ -258,7 +257,7 @@ pub fn spawn_coord_pane(
                     ..default()
                 })
                 .with_children(|row| {
-                    // Label
+                    // Height label
                     row.spawn((
                         Node {
                             margin: UiRect::right(Val::Px(LABEL_VALUE_SPACING)),
@@ -272,8 +271,7 @@ pub fn spawn_coord_pane(
                         },
                         TextColor(SECONDARY_TEXT_COLOR),
                     ));
-
-                    // Value
+                    // Height value
                     row.spawn((
                         Text::new("0"),
                         TextFont {
@@ -286,6 +284,8 @@ pub fn spawn_coord_pane(
                     ));
                 });
 
+            // ============ QUADRANT SELECTOR ============
+            
             parent
                 .spawn(Node {
                     position_type: PositionType::Relative,
@@ -294,7 +294,7 @@ pub fn spawn_coord_pane(
                     ..default()
                 })
                 .with_children(|container| {
-                    // Grid lines (background layer)
+                    // Grid lines background
                     container
                         .spawn(Node {
                             position_type: PositionType::Absolute,
@@ -303,14 +303,12 @@ pub fn spawn_coord_pane(
                             ..default()
                         })
                         .with_children(|lines| {
-                            // Horizontal lines
+                            // Horizontal grid lines
                             for &y_pos in BUTTON_POSITIONS.iter() {
                                 lines.spawn((
                                     Node {
                                         position_type: PositionType::Absolute,
-                                        width: Val::Px(
-                                            BUTTON_POSITIONS[2] - BUTTON_POSITIONS[0]
-                                        ),
+                                        width: Val::Px(BUTTON_POSITIONS[2] - BUTTON_POSITIONS[0]),
                                         height: Val::Px(GRID_LINE_WIDTH),
                                         top: Val::Px(y_pos - GRID_LINE_WIDTH / 2.0),
                                         left: Val::Px(BUTTON_POSITIONS[0]),
@@ -319,16 +317,13 @@ pub fn spawn_coord_pane(
                                     BackgroundColor(NORMAL_BUTTON_OUTLINE_COLOR),
                                 ));
                             }
-
-                            // Vertical lines
+                            // Vertical grid lines
                             for &x_pos in BUTTON_POSITIONS.iter() {
                                 lines.spawn((
                                     Node {
                                         position_type: PositionType::Absolute,
                                         width: Val::Px(GRID_LINE_WIDTH),
-                                        height: Val::Px(
-                                            BUTTON_POSITIONS[2] - BUTTON_POSITIONS[0]
-                                        ),
+                                        height: Val::Px(BUTTON_POSITIONS[2] - BUTTON_POSITIONS[0]),
                                         left: Val::Px(x_pos - GRID_LINE_WIDTH / 2.0),
                                         top: Val::Px(BUTTON_POSITIONS[0]),
                                         ..default()
@@ -338,7 +333,7 @@ pub fn spawn_coord_pane(
                             }
                         });
 
-                    // Quadrant buttons grid (foreground layer)
+                    // Quadrant buttons (3x3 grid)
                     container
                         .spawn(Node {
                             position_type: PositionType::Absolute,
@@ -361,21 +356,9 @@ pub fn spawn_coord_pane(
                         })
                         .with_children(|grid| {
                             let quadrants = [
-                                [
-                                    Quadrant::TopLeft,
-                                    Quadrant::Top,
-                                    Quadrant::TopRight,
-                                ],
-                                [
-                                    Quadrant::Left,
-                                    Quadrant::Center,
-                                    Quadrant::Right,
-                                ],
-                                [
-                                    Quadrant::BottomLeft,
-                                    Quadrant::Bottom,
-                                    Quadrant::BottomRight,
-                                ],
+                                [Quadrant::TopLeft, Quadrant::Top, Quadrant::TopRight],
+                                [Quadrant::Left, Quadrant::Center, Quadrant::Right],
+                                [Quadrant::BottomLeft, Quadrant::Bottom, Quadrant::BottomRight],
                             ];
 
                             for row in quadrants.iter() {
@@ -400,9 +383,7 @@ pub fn spawn_coord_pane(
                                         } else {
                                             NORMAL_BUTTON_OUTLINE_COLOR
                                         }),
-                                        BorderRadius::all(Val::Px(
-                                            theme.theme().ui_border_radius()
-                                        )),
+                                        BorderRadius::all(Val::Px(theme.theme().ui_border_radius())),
                                         UiBorderRadius,
                                         QuadrantButton(quadrant),
                                     ));
@@ -412,6 +393,7 @@ pub fn spawn_coord_pane(
                 });
         });
 }
+
 
 // ============================================================================
 // SYSTEMS

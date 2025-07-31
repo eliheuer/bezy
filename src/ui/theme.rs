@@ -263,7 +263,7 @@ pub const WIDGET_MARGIN: f32 = 24.0;
 pub const WIDGET_PADDING: f32 = 16.0;
 pub const WIDGET_BORDER_WIDTH: f32 = 2.0;
 pub const WIDGET_BORDER_RADIUS: f32 = 0.0;
-pub const WIDGET_ROW_GAP: f32 = 0.0;
+pub const WIDGET_ROW_GAP: f32 = 2.0; // Consistent spacing between rows in panes
 
 // Widget colors
 pub const WIDGET_BACKGROUND_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 1.0);
@@ -312,7 +312,7 @@ pub fn create_widget_style<T: Component + Default>(
             padding: UiRect::all(Val::Px(16.0)), // WIDGET_PADDING
             margin: UiRect::all(Val::Px(0.0)),
             flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(0.0), // WIDGET_ROW_GAP
+            row_gap: Val::Px(WIDGET_ROW_GAP), // Use theme constant
             border: UiRect::all(Val::Px(2.0)), // WIDGET_BORDER_WIDTH
             width: Val::Auto,
             height: Val::Auto,
