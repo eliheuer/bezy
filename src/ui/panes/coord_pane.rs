@@ -1,30 +1,62 @@
 //! Coordinate Pane Module
 //!
-//! This module implements a floating panel that displays coordinates and dimensions of selected elements.
+//! This module implements a floating panel that displays coordinates 
+//! and dimensions of selected elements.
 
 #![allow(unused_mut)]
+#![allow(unused_variables)]
 
 use crate::editing::selection::components::Selected;
 use crate::geometry::quadrant::Quadrant;
 use crate::ui::theme::*;
-use crate::ui::themes::{UiBorderRadius, CurrentTheme};
+use crate::ui::themes::{CurrentTheme, UiBorderRadius};
+use bevy::ecs::system::ParamSet;
 use bevy::prelude::*;
 use bevy::reflect::Reflect;
 use bevy::ui::UiRect;
 
-// ===============================================================================
-// COMPONENTS & RESOURCES
-// ===============================================================================
+// ============================================================================
+// DESIGN CONSTANTS - Easy to tweak for designers
+// ============================================================================
 
-/// Resource that tracks the current state of coordinate selection and display
+/// Size of the quadrant selector widget
+const QUADRANT_SELECTOR_SIZE: f32 = 96.0;
+
+/// Size of each quadrant button
+const QUADRANT_BUTTON_SIZE: f32 = 24.0;
+
+/// Gap between quadrant buttons
+const QUADRANT_BUTTON_GAP: f32 = 4.0;
+
+/// Width of grid lines
+const GRID_LINE_WIDTH: f32 = 2.0;
+
+/// Positions where buttons are placed in the grid
+/// Adjust these if the grid lines don't align with button centers
+const BUTTON_POSITIONS: [f32; 3] = [12.0, 44.0, 76.0];
+
+/// Spacing between coordinate label and value
+const LABEL_VALUE_SPACING: f32 = 8.0;
+
+/// Spacing between coordinate rows
+const ROW_SPACING: f32 = 4.0;
+
+/// Extra spacing before quadrant selector
+const QUADRANT_SELECTOR_MARGIN: f32 = 16.0;
+
+// ============================================================================
+// COMPONENTS & RESOURCES
+// ============================================================================
+
+/// Resource that tracks the current state of coordinate selection
 #[derive(Resource, Reflect, Default)]
 #[reflect(Resource)]
 pub struct CoordinateSelection {
     /// Number of elements currently selected
     pub count: usize,
-    /// Currently active quadrant that determines which reference point to use
+    /// Currently active quadrant for reference point
     pub quadrant: Quadrant,
-    /// Bounding rectangle that encompasses all selected elements
+    /// Bounding rectangle of all selected elements
     pub frame: Rect,
 }
 
@@ -32,7 +64,7 @@ pub struct CoordinateSelection {
 #[derive(Component, Default)]
 pub struct CoordPane;
 
-/// Component marker for coordinate value text elements
+/// Component markers for coordinate value text
 #[derive(Component, Default)]
 pub struct XValue;
 
@@ -45,8 +77,6 @@ pub struct WidthValue;
 #[derive(Component, Default)]
 pub struct HeightValue;
 
-// Remove the CoordinateRows component since we're hiding the entire pane
-
 /// Component for quadrant buttons
 #[derive(Component)]
 pub struct QuadrantButton(pub Quadrant);
@@ -57,11 +87,10 @@ impl Default for QuadrantButton {
     }
 }
 
-// ===============================================================================
-// PLUGIN IMPLEMENTATION
-// ===============================================================================
+// ============================================================================
+// PLUGIN
+// ============================================================================
 
-/// Plugin that adds coordinate pane functionality to the application
 pub struct CoordinatePanePlugin;
 
 impl Plugin for CoordinatePanePlugin {
@@ -76,11 +105,15 @@ impl Plugin for CoordinatePanePlugin {
                     update_coordinate_selection,
                     update_coordinate_display,
                     handle_quadrant_buttons,
-                    toggle_coordinate_rows_visibility,
+                    toggle_pane_visibility,
                 ),
             );
     }
 }
+
+// ============================================================================
+// UI CREATION
+// ============================================================================
 
 /// Spawns the coordinate pane in the bottom-right corner
 pub fn spawn_coord_pane(
@@ -88,8 +121,7 @@ pub fn spawn_coord_pane(
     asset_server: Res<AssetServer>,
     theme: Res<CurrentTheme>,
 ) {
-    // Create the position properties for the coordinate pane (bottom right)
-    let position_props = UiRect {
+    let position = UiRect {
         right: Val::Px(WIDGET_MARGIN),
         bottom: Val::Px(WIDGET_MARGIN),
         top: Val::Auto,
@@ -101,24 +133,24 @@ pub fn spawn_coord_pane(
             &asset_server,
             &theme,
             PositionType::Absolute,
-            position_props,
+            position,
             CoordPane,
             "CoordPane",
         ))
         .with_children(|parent| {
             // X coordinate row
             parent
-                .spawn((Node {
+                .spawn(Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(4.0)),
+                    margin: UiRect::bottom(Val::Px(ROW_SPACING)),
                     ..default()
-                },))
+                })
                 .with_children(|row| {
                     // Label
                     row.spawn((
                         Node {
-                            margin: UiRect::right(Val::Px(8.0)),
+                            margin: UiRect::right(Val::Px(LABEL_VALUE_SPACING)),
                             ..default()
                         },
                         Text::new("X:"),
@@ -145,17 +177,17 @@ pub fn spawn_coord_pane(
 
             // Y coordinate row
             parent
-                .spawn((Node {
+                .spawn(Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(4.0)),
+                    margin: UiRect::bottom(Val::Px(ROW_SPACING)),
                     ..default()
-                },))
+                })
                 .with_children(|row| {
                     // Label
                     row.spawn((
                         Node {
-                            margin: UiRect::right(Val::Px(8.0)),
+                            margin: UiRect::right(Val::Px(LABEL_VALUE_SPACING)),
                             ..default()
                         },
                         Text::new("Y:"),
@@ -182,17 +214,17 @@ pub fn spawn_coord_pane(
 
             // Width row
             parent
-                .spawn((Node {
+                .spawn(Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(4.0)),
+                    margin: UiRect::bottom(Val::Px(ROW_SPACING)),
                     ..default()
-                },))
+                })
                 .with_children(|row| {
                     // Label
                     row.spawn((
                         Node {
-                            margin: UiRect::right(Val::Px(8.0)),
+                            margin: UiRect::right(Val::Px(LABEL_VALUE_SPACING)),
                             ..default()
                         },
                         Text::new("W:"),
@@ -219,17 +251,17 @@ pub fn spawn_coord_pane(
 
             // Height row
             parent
-                .spawn((Node {
+                .spawn(Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(16.0)),
+                    margin: UiRect::bottom(Val::Px(QUADRANT_SELECTOR_MARGIN)),
                     ..default()
-                },))
+                })
                 .with_children(|row| {
                     // Label
                     row.spawn((
                         Node {
-                            margin: UiRect::right(Val::Px(8.0)),
+                            margin: UiRect::right(Val::Px(LABEL_VALUE_SPACING)),
                             ..default()
                         },
                         Text::new("H:"),
@@ -254,73 +286,147 @@ pub fn spawn_coord_pane(
                     ));
                 });
 
-            // Quadrant selector (3x3 grid of buttons)
             parent
-                .spawn((Node {
-                    display: Display::Grid,
-                    grid_template_columns: vec![
-                        RepeatedGridTrack::fr(1, 1.0),
-                        RepeatedGridTrack::fr(1, 1.0),
-                        RepeatedGridTrack::fr(1, 1.0),
-                    ],
-                    grid_template_rows: vec![
-                        RepeatedGridTrack::fr(1, 1.0),
-                        RepeatedGridTrack::fr(1, 1.0),
-                        RepeatedGridTrack::fr(1, 1.0),
-                    ],
-                    width: Val::Px(96.0),
-                    height: Val::Px(96.0),
-                    column_gap: Val::Px(4.0),
-                    row_gap: Val::Px(4.0),
+                .spawn(Node {
+                    position_type: PositionType::Relative,
+                    width: Val::Px(QUADRANT_SELECTOR_SIZE),
+                    height: Val::Px(QUADRANT_SELECTOR_SIZE),
                     ..default()
-                },))
-                .with_children(|grid| {
-                    // Create 3x3 grid of quadrant buttons
-                    let quadrants = [
-                        [Quadrant::TopLeft, Quadrant::Top, Quadrant::TopRight],
-                        [Quadrant::Left, Quadrant::Center, Quadrant::Right],
-                        [
-                            Quadrant::BottomLeft,
-                            Quadrant::Bottom,
-                            Quadrant::BottomRight,
-                        ],
-                    ];
+                })
+                .with_children(|container| {
+                    // Grid lines (background layer)
+                    container
+                        .spawn(Node {
+                            position_type: PositionType::Absolute,
+                            width: Val::Percent(100.0),
+                            height: Val::Percent(100.0),
+                            ..default()
+                        })
+                        .with_children(|lines| {
+                            // Horizontal lines
+                            for &y_pos in BUTTON_POSITIONS.iter() {
+                                lines.spawn((
+                                    Node {
+                                        position_type: PositionType::Absolute,
+                                        width: Val::Px(
+                                            BUTTON_POSITIONS[2] - BUTTON_POSITIONS[0]
+                                        ),
+                                        height: Val::Px(GRID_LINE_WIDTH),
+                                        top: Val::Px(y_pos - GRID_LINE_WIDTH / 2.0),
+                                        left: Val::Px(BUTTON_POSITIONS[0]),
+                                        ..default()
+                                    },
+                                    BackgroundColor(NORMAL_BUTTON_OUTLINE_COLOR),
+                                ));
+                            }
 
-                    for row in quadrants.iter() {
-                        for &quadrant in row.iter() {
-                            let is_selected = quadrant == Quadrant::Center;
-                            grid.spawn((
-                                Button,
-                                Node {
-                                    width: Val::Px(24.0),
-                                    height: Val::Px(24.0),
-                                    border: UiRect::all(Val::Px(2.0)),
-                                    ..default()
-                                },
-                                BackgroundColor(if is_selected {
-                                    PRESSED_BUTTON_COLOR
-                                } else {
-                                    NORMAL_BUTTON_COLOR
-                                }),
-                                BorderColor(if is_selected {
-                                    PRESSED_BUTTON_OUTLINE_COLOR
-                                } else {
-                                    NORMAL_BUTTON_OUTLINE_COLOR
-                                }),
-                                BorderRadius::all(Val::Px(theme.theme().ui_border_radius())),
-                                UiBorderRadius,
-                                QuadrantButton(quadrant),
-                            ));
-                        }
-                    }
+                            // Vertical lines
+                            for &x_pos in BUTTON_POSITIONS.iter() {
+                                lines.spawn((
+                                    Node {
+                                        position_type: PositionType::Absolute,
+                                        width: Val::Px(GRID_LINE_WIDTH),
+                                        height: Val::Px(
+                                            BUTTON_POSITIONS[2] - BUTTON_POSITIONS[0]
+                                        ),
+                                        left: Val::Px(x_pos - GRID_LINE_WIDTH / 2.0),
+                                        top: Val::Px(BUTTON_POSITIONS[0]),
+                                        ..default()
+                                    },
+                                    BackgroundColor(NORMAL_BUTTON_OUTLINE_COLOR),
+                                ));
+                            }
+                        });
+
+                    // Quadrant buttons grid (foreground layer)
+                    container
+                        .spawn(Node {
+                            position_type: PositionType::Absolute,
+                            display: Display::Grid,
+                            grid_template_columns: vec![
+                                RepeatedGridTrack::fr(1, 1.0),
+                                RepeatedGridTrack::fr(1, 1.0),
+                                RepeatedGridTrack::fr(1, 1.0),
+                            ],
+                            grid_template_rows: vec![
+                                RepeatedGridTrack::fr(1, 1.0),
+                                RepeatedGridTrack::fr(1, 1.0),
+                                RepeatedGridTrack::fr(1, 1.0),
+                            ],
+                            width: Val::Percent(100.0),
+                            height: Val::Percent(100.0),
+                            column_gap: Val::Px(QUADRANT_BUTTON_GAP),
+                            row_gap: Val::Px(QUADRANT_BUTTON_GAP),
+                            ..default()
+                        })
+                        .with_children(|grid| {
+                            let quadrants = [
+                                [
+                                    Quadrant::TopLeft,
+                                    Quadrant::Top,
+                                    Quadrant::TopRight,
+                                ],
+                                [
+                                    Quadrant::Left,
+                                    Quadrant::Center,
+                                    Quadrant::Right,
+                                ],
+                                [
+                                    Quadrant::BottomLeft,
+                                    Quadrant::Bottom,
+                                    Quadrant::BottomRight,
+                                ],
+                            ];
+
+                            for row in quadrants.iter() {
+                                for &quadrant in row.iter() {
+                                    let is_selected = quadrant == Quadrant::Center;
+                                    
+                                    grid.spawn((
+                                        Button,
+                                        Node {
+                                            width: Val::Px(QUADRANT_BUTTON_SIZE),
+                                            height: Val::Px(QUADRANT_BUTTON_SIZE),
+                                            border: UiRect::all(Val::Px(2.0)),
+                                            ..default()
+                                        },
+                                        BackgroundColor(if is_selected {
+                                            PRESSED_BUTTON_COLOR
+                                        } else {
+                                            NORMAL_BUTTON_COLOR
+                                        }),
+                                        BorderColor(if is_selected {
+                                            PRESSED_BUTTON_OUTLINE_COLOR
+                                        } else {
+                                            NORMAL_BUTTON_OUTLINE_COLOR
+                                        }),
+                                        BorderRadius::all(Val::Px(
+                                            theme.theme().ui_border_radius()
+                                        )),
+                                        UiBorderRadius,
+                                        QuadrantButton(quadrant),
+                                    ));
+                                }
+                            }
+                        });
                 });
         });
 }
 
-/// System to update coordinate selection based on current selection state
+// ============================================================================
+// SYSTEMS
+// ============================================================================
+
+/// Updates coordinate selection based on selected entities
 fn update_coordinate_selection(
     mut coord_selection: ResMut<CoordinateSelection>,
-    selected_query: Query<(&GlobalTransform, Option<&crate::systems::sort_manager::SortPointEntity>), With<Selected>>,
+    selected_query: Query<
+        (
+            &GlobalTransform,
+            Option<&crate::systems::sort_manager::SortPointEntity>,
+        ),
+        With<Selected>,
+    >,
     sort_transforms: Query<&GlobalTransform, With<crate::editing::sort::Sort>>,
 ) {
     let selected_count = selected_query.iter().count();
@@ -331,105 +437,80 @@ fn update_coordinate_selection(
         return;
     }
 
-    // Find the sort that owns these points (if any)
+    // Find the baseline (sort position) for coordinate calculation
     let mut sort_baseline = Vec2::ZERO;
     for (_, sort_point) in selected_query.iter() {
         if let Some(sort_point) = sort_point {
-            if let Ok(sort_transform) = sort_transforms.get(sort_point.sort_entity) {
-                // Use the sort's position as the baseline origin
+            if let Ok(sort_transform) = 
+                sort_transforms.get(sort_point.sort_entity) 
+            {
                 sort_baseline = sort_transform.translation().truncate();
                 break;
             }
         }
     }
 
-    // Calculate bounding rectangle of all selected points relative to baseline
-    let mut min_x = f32::INFINITY;
-    let mut min_y = f32::INFINITY;
-    let mut max_x = f32::NEG_INFINITY;
-    let mut max_y = f32::NEG_INFINITY;
+    // Calculate bounding box relative to baseline
+    let mut min = Vec2::new(f32::INFINITY, f32::INFINITY);
+    let mut max = Vec2::new(f32::NEG_INFINITY, f32::NEG_INFINITY);
 
     for (transform, _) in selected_query.iter() {
-        let world_position = transform.translation().truncate();
-        // Convert to font design space coordinates (relative to baseline)
-        let position = world_position - sort_baseline;
-        min_x = min_x.min(position.x);
-        min_y = min_y.min(position.y);
-        max_x = max_x.max(position.x);
-        max_y = max_y.max(position.y);
+        let world_pos = transform.translation().truncate();
+        let relative_pos = world_pos - sort_baseline;
+        min = min.min(relative_pos);
+        max = max.max(relative_pos);
     }
 
-    coord_selection.frame =
-        Rect::from_corners(Vec2::new(min_x, min_y), Vec2::new(max_x, max_y));
+    coord_selection.frame = Rect::from_corners(min, max);
 }
 
-/// System to update the coordinate display text
-#[allow(clippy::type_complexity)]
+/// Updates the displayed coordinate values
 fn update_coordinate_display(
     coord_selection: Res<CoordinateSelection>,
-    mut x_query: Query<
-        &mut Text,
-        (
-            With<XValue>,
-            Without<YValue>,
-            Without<WidthValue>,
-            Without<HeightValue>,
-        ),
-    >,
-    mut y_query: Query<
-        &mut Text,
-        (
-            With<YValue>,
-            Without<XValue>,
-            Without<WidthValue>,
-            Without<HeightValue>,
-        ),
-    >,
-    mut w_query: Query<
-        &mut Text,
-        (
-            With<WidthValue>,
-            Without<XValue>,
-            Without<YValue>,
-            Without<HeightValue>,
-        ),
-    >,
-    mut h_query: Query<
-        &mut Text,
-        (
-            With<HeightValue>,
-            Without<XValue>,
-            Without<YValue>,
-            Without<WidthValue>,
-        ),
-    >,
+    mut queries: ParamSet<(
+        Query<&mut Text, With<XValue>>,
+        Query<&mut Text, With<YValue>>,
+        Query<&mut Text, With<WidthValue>>,
+        Query<&mut Text, With<HeightValue>>,
+    )>,
 ) {
-    if coord_selection.count > 0 {
-        let reference_point = get_quadrant_point(
-            &coord_selection.frame,
-            coord_selection.quadrant,
-        );
-
-        // Update coordinate values
-        if let Ok(mut text) = x_query.single_mut() {
-            *text = Text::new(format!("{}", reference_point.x as i32));
-        }
-        if let Ok(mut text) = y_query.single_mut() {
-            *text = Text::new(format!("{}", reference_point.y as i32));
-        }
-        if let Ok(mut text) = w_query.single_mut() {
-            *text =
-                Text::new(format!("{}", coord_selection.frame.width() as i32));
-        }
-        if let Ok(mut text) = h_query.single_mut() {
-            *text =
-                Text::new(format!("{}", coord_selection.frame.height() as i32));
-        }
+    if coord_selection.count == 0 {
+        return;
     }
-    // When no points are selected, the coordinate rows are hidden, so no need to update text
+
+    let reference_point = get_quadrant_point(
+        &coord_selection.frame,
+        coord_selection.quadrant,
+    );
+
+    // Update X
+    if let Ok(mut text) = queries.p0().single_mut() {
+        *text = Text::new(format!("{}", reference_point.x as i32));
+    }
+
+    // Update Y
+    if let Ok(mut text) = queries.p1().single_mut() {
+        *text = Text::new(format!("{}", reference_point.y as i32));
+    }
+
+    // Update Width
+    if let Ok(mut text) = queries.p2().single_mut() {
+        *text = Text::new(format!(
+            "{}",
+            coord_selection.frame.width() as i32
+        ));
+    }
+
+    // Update Height
+    if let Ok(mut text) = queries.p3().single_mut() {
+        *text = Text::new(format!(
+            "{}",
+            coord_selection.frame.height() as i32
+        ));
+    }
 }
 
-/// System to handle quadrant button clicks
+/// Handles quadrant button interactions
 fn handle_quadrant_buttons(
     mut interaction_query: Query<
         (&Interaction, &QuadrantButton),
@@ -443,91 +524,58 @@ fn handle_quadrant_buttons(
     )>,
 ) {
     for (interaction, button) in interaction_query.iter() {
-        match *interaction {
-            Interaction::Pressed => {
-                // Update the selected quadrant
-                coord_selection.quadrant = button.0;
-
-                // Update all button appearances
-                for (other_button, mut other_bg, mut other_border) in
-                    all_buttons.iter_mut()
-                {
-                    if other_button.0 == button.0 {
-                        // This is the selected button
-                        *other_bg = BackgroundColor(PRESSED_BUTTON_COLOR);
-                        *other_border =
-                            BorderColor(PRESSED_BUTTON_OUTLINE_COLOR);
-                    } else {
-                        // This is an unselected button
-                        *other_bg = BackgroundColor(NORMAL_BUTTON_COLOR);
-                        *other_border =
-                            BorderColor(NORMAL_BUTTON_OUTLINE_COLOR);
-                    }
-                }
-            }
-            Interaction::Hovered => {
-                if coord_selection.quadrant != button.0 {
-                    // Update this specific button's appearance
-                    for (other_button, mut other_bg, mut other_border) in
-                        all_buttons.iter_mut()
-                    {
-                        if other_button.0 == button.0 {
-                            *other_bg = BackgroundColor(HOVERED_BUTTON_COLOR);
-                            *other_border =
-                                BorderColor(HOVERED_BUTTON_OUTLINE_COLOR);
-                            break;
-                        }
-                    }
-                }
-            }
-            Interaction::None => {
-                if coord_selection.quadrant != button.0 {
-                    // Update this specific button's appearance
-                    for (other_button, mut other_bg, mut other_border) in
-                        all_buttons.iter_mut()
-                    {
-                        if other_button.0 == button.0 {
-                            *other_bg = BackgroundColor(NORMAL_BUTTON_COLOR);
-                            *other_border =
-                                BorderColor(NORMAL_BUTTON_OUTLINE_COLOR);
-                            break;
-                        }
-                    }
-                }
+        if *interaction == Interaction::Pressed {
+            coord_selection.quadrant = button.0;
+            
+            // Update all button states
+            for (other_button, mut bg, mut border) in all_buttons.iter_mut() {
+                let is_selected = other_button.0 == button.0;
+                *bg = BackgroundColor(if is_selected {
+                    PRESSED_BUTTON_COLOR
+                } else {
+                    NORMAL_BUTTON_COLOR
+                });
+                *border = BorderColor(if is_selected {
+                    PRESSED_BUTTON_OUTLINE_COLOR
+                } else {
+                    NORMAL_BUTTON_OUTLINE_COLOR
+                });
             }
         }
     }
 }
 
-/// System to toggle the visibility of the entire coordinate pane based on selection
-fn toggle_coordinate_rows_visibility(
+/// Shows/hides the coordinate pane based on selection
+fn toggle_pane_visibility(
     coord_selection: Res<CoordinateSelection>,
     mut coord_pane: Query<&mut Visibility, With<CoordPane>>,
 ) {
-    let visibility = if coord_selection.count > 0 {
-        // If there are selected points, show the pane
-        Visibility::Visible
-    } else {
-        // If no points are selected, hide the entire pane
-        Visibility::Hidden
-    };
-
-    for mut vis in coord_pane.iter_mut() {
-        *vis = visibility;
+    let should_show = coord_selection.count > 0;
+    
+    for mut visibility in coord_pane.iter_mut() {
+        *visibility = if should_show {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
     }
 }
 
 /// Gets the reference point for a quadrant
 fn get_quadrant_point(frame: &Rect, quadrant: Quadrant) -> Vec2 {
+    let min = frame.min;
+    let max = frame.max;
+    let center = frame.center();
+
     match quadrant {
-        Quadrant::TopLeft => Vec2::new(frame.min.x, frame.max.y),
-        Quadrant::Top => Vec2::new(frame.center().x, frame.max.y),
-        Quadrant::TopRight => Vec2::new(frame.max.x, frame.max.y),
-        Quadrant::Left => Vec2::new(frame.min.x, frame.center().y),
-        Quadrant::Center => frame.center(),
-        Quadrant::Right => Vec2::new(frame.max.x, frame.center().y),
-        Quadrant::BottomLeft => Vec2::new(frame.min.x, frame.min.y),
-        Quadrant::Bottom => Vec2::new(frame.center().x, frame.min.y),
-        Quadrant::BottomRight => Vec2::new(frame.max.x, frame.min.y),
+        Quadrant::TopLeft => Vec2::new(min.x, max.y),
+        Quadrant::Top => Vec2::new(center.x, max.y),
+        Quadrant::TopRight => Vec2::new(max.x, max.y),
+        Quadrant::Left => Vec2::new(min.x, center.y),
+        Quadrant::Center => center,
+        Quadrant::Right => Vec2::new(max.x, center.y),
+        Quadrant::BottomLeft => Vec2::new(min.x, min.y),
+        Quadrant::Bottom => Vec2::new(center.x, min.y),
+        Quadrant::BottomRight => Vec2::new(max.x, min.y),
     }
 }
