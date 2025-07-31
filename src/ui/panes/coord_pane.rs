@@ -320,7 +320,8 @@ pub fn spawn_coord_pane(
 /// System to update coordinate selection based on current selection state
 fn update_coordinate_selection(
     mut coord_selection: ResMut<CoordinateSelection>,
-    selected_query: Query<&GlobalTransform, With<Selected>>,
+    selected_query: Query<(&GlobalTransform, Option<&crate::systems::sort_manager::SortPointEntity>), With<Selected>>,
+    sort_transforms: Query<&GlobalTransform, With<crate::editing::sort::Sort>>,
 ) {
     let selected_count = selected_query.iter().count();
     coord_selection.count = selected_count;
@@ -330,14 +331,28 @@ fn update_coordinate_selection(
         return;
     }
 
-    // Calculate bounding rectangle of all selected points
+    // Find the sort that owns these points (if any)
+    let mut sort_baseline = Vec2::ZERO;
+    for (_, sort_point) in selected_query.iter() {
+        if let Some(sort_point) = sort_point {
+            if let Ok(sort_transform) = sort_transforms.get(sort_point.sort_entity) {
+                // Use the sort's position as the baseline origin
+                sort_baseline = sort_transform.translation().truncate();
+                break;
+            }
+        }
+    }
+
+    // Calculate bounding rectangle of all selected points relative to baseline
     let mut min_x = f32::INFINITY;
     let mut min_y = f32::INFINITY;
     let mut max_x = f32::NEG_INFINITY;
     let mut max_y = f32::NEG_INFINITY;
 
-    for transform in selected_query.iter() {
-        let position = transform.translation().truncate();
+    for (transform, _) in selected_query.iter() {
+        let world_position = transform.translation().truncate();
+        // Convert to font design space coordinates (relative to baseline)
+        let position = world_position - sort_baseline;
         min_x = min_x.min(position.x);
         min_y = min_y.min(position.y);
         max_x = max_x.max(position.x);
