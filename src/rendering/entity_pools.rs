@@ -168,8 +168,14 @@ impl EntityPools {
     }
 
     /// Return cursor entities to the available pool (called at start of frame)
-    pub fn return_cursor_entities(&mut self, _commands: &mut Commands) {
+    pub fn return_cursor_entities(&mut self, commands: &mut Commands) {
         debug!("Returning {} cursor entities to pool", self.cursor_pool.in_use.len());
+        
+        // Hide all cursor entities when returning them to pool
+        for entity in &self.cursor_pool.in_use {
+            commands.entity(*entity).insert(Visibility::Hidden);
+        }
+        
         self.cursor_pool.available.append(&mut self.cursor_pool.in_use);
     }
 

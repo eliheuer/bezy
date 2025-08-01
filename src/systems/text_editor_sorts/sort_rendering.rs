@@ -35,6 +35,7 @@ pub fn render_text_editor_sorts() {
     // No additional rendering logic needed here.
 }
 
+
 /// Render the visual cursor for Insert mode using zoom-aware mesh rendering
 pub fn render_text_editor_cursor(
     mut commands: Commands,
@@ -50,6 +51,32 @@ pub fn render_text_editor_cursor(
     mut cursor_state: ResMut<CursorRenderingState>,
     mut entity_pools: ResMut<EntityPools>,
 ) {
+    info!("CURSOR: System called - tool: {:?}, mode: {:?}", current_tool.get_current(), current_placement_mode.0);
+
+    // Only render cursor when text tool is active and in Insert mode
+    if current_tool.get_current() != Some("text") {
+        info!(
+            "CURSOR: Not rendering - text tool not active (current: {:?})",
+            current_tool.get_current()
+        );
+        // Clear cursor entities when tool is not text
+        entity_pools.return_cursor_entities(&mut commands);
+        return;
+    }
+
+    // Only show cursor when in Insert mode
+    if current_placement_mode.0 != crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Insert {
+        info!(
+            "CURSOR: Not rendering - not in Insert mode (current mode: {:?})",
+            current_placement_mode.0
+        );
+        // Clear cursor entities when not in insert mode
+        entity_pools.return_cursor_entities(&mut commands);
+        return;
+    }
+    
+    info!("CURSOR: Proceeding to render cursor (all checks passed)");
+
     // CHANGE DETECTION: Check if cursor needs updating
     let current_tool_name = current_tool.get_current();
     let current_placement_mode_value = current_placement_mode.0;
@@ -93,6 +120,10 @@ pub fn render_text_editor_cursor(
         return;
     }
 
+    // ENTITY POOLING: Clear cursor entities before re-rendering
+    entity_pools.return_cursor_entities(&mut commands);
+    info!("CURSOR: Returned cursor entities to pool");
+
     // Update state tracking
     cursor_state.last_tool = current_tool_name.map(|s| s.to_string());
     cursor_state.last_placement_mode = Some(current_placement_mode_value);
@@ -103,21 +134,6 @@ pub fn render_text_editor_cursor(
     debug!("Cursor rendering triggered - changes detected: tool={}, placement_mode={}, buffer_cursor={}, cursor_position={}, camera_scale={}", 
            tool_changed, placement_mode_changed, buffer_cursor_changed, cursor_position_changed, camera_scale_changed);
 
-    // ENTITY POOLING: Return cursor entities to pool instead of despawning
-    entity_pools.return_cursor_entities(&mut commands);
-    
-    debug!("Returned cursor entities to pool");
-
-    // Only render cursor when text tool is active and in Insert mode
-    if current_tool.get_current() != Some("text") {
-        debug!(
-            "Cursor not rendered: text tool not active (current: {:?})",
-            current_tool.get_current()
-        );
-        return;
-    }
-
-    // Show cursor in all text modes for better UX
     debug!("Cursor mode: {:?}", current_placement_mode.0);
 
     debug!(

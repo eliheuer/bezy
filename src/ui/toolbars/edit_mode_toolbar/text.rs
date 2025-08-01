@@ -530,7 +530,7 @@ pub fn render_sort_preview(
     camera_query: Query<&Projection, With<DesignCamera>>,
     mut preview_metrics_state: ResMut<crate::rendering::metrics::PreviewMetricsState>,
 ) {
-    debug!("[PREVIEW] Entered render_sort_preview");
+    info!("[PREVIEW] Entered render_sort_preview - text_mode_active: {}, placement_mode: {:?}", text_mode_active.0, current_placement_mode.0);
     if !text_mode_active.0 {
         preview_metrics_state.active = false;
         debug!("[PREVIEW] Early return: text_mode_active is false - disabled metrics preview");
@@ -538,7 +538,7 @@ pub fn render_sort_preview(
     }
     if current_placement_mode.0 == TextPlacementMode::Insert {
         preview_metrics_state.active = false;
-        debug!("[PREVIEW] Early return: placement mode is Insert - disabled metrics preview");
+        info!("[PREVIEW] DISABLING preview: placement mode is Insert");
         return;
     }
 
