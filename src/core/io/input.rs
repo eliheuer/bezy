@@ -176,8 +176,14 @@ pub enum InputMode {
     Shape,
     /// Metaballs tool mode
     Metaballs,
+    /// Metaball tool mode (alternative name)
+    Metaball,
     /// Hyper tool mode
     Hyper,
+    /// Pan tool mode
+    Pan,
+    /// Measure tool mode
+    Measure,
     /// Temporary mode
     Temporary,
 }

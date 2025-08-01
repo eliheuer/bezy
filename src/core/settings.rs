@@ -15,7 +15,7 @@ pub const DEFAULT_UFO_PATH: &str = "assets/fonts/bezy-grotesk.designspace";
 // WINDOW SETTINGS
 
 /// Default window title
-pub const WINDOW_TITLE: &str = "Bezy Font Editor";
+pub const WINDOW_TITLE: &str = "Bezy";
 
 /// Default window resolution
 pub const DEFAULT_WINDOW_SIZE: (f32, f32) = (1024.0, 768.0);

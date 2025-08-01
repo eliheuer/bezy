@@ -95,6 +95,10 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
+// NEW: Centralized configuration system
+pub mod toolbar_config;
+pub mod config_loader;
+
 mod hyper;
 pub mod knife;
 mod measure;
@@ -115,6 +119,10 @@ pub use ui::{
     handle_toolbar_mode_selection, spawn_edit_mode_toolbar,
     update_current_edit_mode, update_toolbar_button_appearances,
 };
+
+// NEW: Re-export centralized configuration system
+pub use toolbar_config::{ToolConfig, ToolBehavior, TOOLBAR_TOOLS};
+pub use config_loader::{ConfigBasedToolbarPlugin, ConfigurableTool};
 
 // Re-export legacy types for backward compatibility (commented out until UI is
 // ported)
@@ -547,16 +555,13 @@ impl Plugin for EditModeToolbarPlugin {
             // .init_resource::<CurrentCornerRadius>()  // Will be added when shapes is ported
             // .init_resource::<UiInteractionState>()  // Will be added when shapes is ported
             .init_resource::<SpacebarToggleState>()
-            // Add tool plugins (they will register themselves)
-            // .add_plugins(SelectToolPlugin) // Disabled - using new clean tools system
+            // 🎉 NEW: Use centralized configuration system instead of manual registrations
+            .add_plugins(config_loader::ConfigBasedToolbarPlugin)
+            // Legacy tool plugins for behavior (still needed for now)
             .add_plugins(PanToolPlugin)
             .add_plugins(MeasureToolPlugin)
             .add_plugins(TextToolPlugin) // Re-enabled for submenu functionality
-            // .add_plugins(PenModePlugin) // Disabled - using new tools system
-            // .add_plugins(ShapesToolPlugin) // Temporarily disabled - event ordering issue
-            // .add_plugins(knife::KnifeToolPlugin) // Temporarily disabled - event ordering issue
-            // .add_plugins(hyper::HyperToolPlugin) // Temporarily disabled - event ordering issue
-            // .add_plugins(metaballs::MetaballsToolPlugin) // Temporarily disabled - event ordering issue
+            // All individual tool registration is now handled by ConfigBasedToolbarPlugin!
             .add_systems(
                 PostStartup,
                 (
