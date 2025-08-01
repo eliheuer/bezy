@@ -173,7 +173,9 @@ impl EntityPools {
         
         // Hide all cursor entities when returning them to pool
         for entity in &self.cursor_pool.in_use {
-            commands.entity(*entity).insert(Visibility::Hidden);
+            if let Ok(mut entity_commands) = commands.get_entity(*entity) {
+                entity_commands.insert(Visibility::Hidden);
+            }
         }
         
         self.cursor_pool.available.append(&mut self.cursor_pool.in_use);
@@ -188,7 +190,9 @@ impl EntityPools {
             }
             // CRITICAL: Hide entities when returning them to pool to prevent double rendering
             for &entity in &pool.in_use {
-                commands.entity(entity).insert(Visibility::Hidden);
+                if let Ok(mut entity_commands) = commands.get_entity(entity) {
+                    entity_commands.insert(Visibility::Hidden);
+                }
             }
             pool.available.append(&mut pool.in_use);
         }
@@ -203,7 +207,9 @@ impl EntityPools {
             }
             // CRITICAL: Hide entities when returning them to pool to prevent double rendering
             for &entity in &pool.in_use {
-                commands.entity(entity).insert(Visibility::Hidden);
+                if let Ok(mut entity_commands) = commands.get_entity(entity) {
+                    entity_commands.insert(Visibility::Hidden);
+                }
             }
             pool.available.append(&mut pool.in_use);
         }
@@ -310,13 +316,18 @@ pub fn update_outline_entity(
     transform: Transform,
     outline_component: impl Component,
 ) {
-    commands.entity(entity).insert((
-        Mesh2d(mesh),
-        MeshMaterial2d(material),
-        transform,
-        outline_component,
-        Visibility::Visible,
-    ));
+    // Check if entity exists before trying to update it
+    if let Ok(mut entity_commands) = commands.get_entity(entity) {
+        entity_commands.insert((
+            Mesh2d(mesh),
+            MeshMaterial2d(material),
+            transform,
+            outline_component,
+            Visibility::Visible,
+        ));
+    } else {
+        debug!("Skipping update for non-existent outline entity {:?}", entity);
+    }
 }
 
 /// Update a metrics entity with new mesh and material  
@@ -328,13 +339,18 @@ pub fn update_metrics_entity(
     transform: Transform,
     metrics_component: impl Component,
 ) {
-    commands.entity(entity).insert((
-        Mesh2d(mesh),
-        MeshMaterial2d(material),
-        transform,
-        metrics_component,
-        Visibility::Visible,
-    ));
+    // Check if entity exists before trying to update it
+    if let Ok(mut entity_commands) = commands.get_entity(entity) {
+        entity_commands.insert((
+            Mesh2d(mesh),
+            MeshMaterial2d(material),
+            transform,
+            metrics_component,
+            Visibility::Visible,
+        ));
+    } else {
+        debug!("Skipping update for non-existent metrics entity {:?}", entity);
+    }
 }
 
 /// Update a cursor entity with new mesh and material
@@ -346,13 +362,18 @@ pub fn update_cursor_entity(
     transform: Transform,
     cursor_component: impl Component,
 ) {
-    commands.entity(entity).insert((
-        Mesh2d(mesh),
-        MeshMaterial2d(material),
-        transform,
-        cursor_component,
-        Visibility::Visible,
-    ));
+    // Check if entity exists before trying to update it
+    if let Ok(mut entity_commands) = commands.get_entity(entity) {
+        entity_commands.insert((
+            Mesh2d(mesh),
+            MeshMaterial2d(material),
+            transform,
+            cursor_component,
+            Visibility::Visible,
+        ));
+    } else {
+        debug!("Skipping update for non-existent cursor entity {:?}", entity);
+    }
 }
 
 /// Plugin for entity pooling system

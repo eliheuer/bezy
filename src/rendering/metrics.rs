@@ -209,34 +209,33 @@ pub fn render_mesh_metrics_lines(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut metrics_entities: ResMut<MetricsLineEntities>,
-    mut entity_pools: ResMut<EntityPools>,
+    _entity_pools: ResMut<EntityPools>,
     mut metrics_cache: ResMut<GlyphMetricsCache>,
-    // CHANGE DETECTION: Only process sorts when Sort or Transform components have changed
+    // NO CHANGE DETECTION: Active sorts must always render metrics for visibility  
+    // EXCLUDE buffer sorts to prevent overlap with active_buffer_sort_query
     sort_query: Query<
         (Entity, &Transform, &crate::editing::sort::Sort),
         (
             With<crate::editing::sort::ActiveSort>,
-            Or<(Changed<crate::editing::sort::Sort>, Changed<Transform>)>
+            Without<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
         ),
     >,
     // Add query for ACTIVE text buffer sorts (text roots)
-    // CHANGE DETECTION: Only process active buffer sorts when Sort or Transform components have changed
+    // NO CHANGE DETECTION: Active buffer sorts must always render metrics for visibility
     active_buffer_sort_query: Query<
         (Entity, &Transform, &crate::editing::sort::Sort),
         (
             With<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
             With<crate::editing::sort::ActiveSort>,
-            Or<(Changed<crate::editing::sort::Sort>, Changed<Transform>)>
         ),
     >,
     // Add query for INACTIVE text buffer sorts (typed characters)
-    // CHANGE DETECTION: Only process inactive buffer sorts when Sort or Transform components have changed
+    // NO CHANGE DETECTION: Inactive buffer sorts must always render metrics for visibility
     inactive_buffer_sort_query: Query<
         (Entity, &Transform, &crate::editing::sort::Sort),
         (
             With<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>,
             With<crate::editing::sort::InactiveSort>,
-            Or<(Changed<crate::editing::sort::Sort>, Changed<Transform>)>
         ),
     >,
     _existing_metrics: Query<Entity, With<MetricsLine>>,
@@ -254,36 +253,90 @@ pub fn render_mesh_metrics_lines(
     }
 
     // SELECTIVE PROCESSING: Collect only the sorts that actually changed
-    let mut changed_sort_entities = Vec::new();
+    use std::collections::HashSet;
+    let mut changed_sort_entities = HashSet::new();
     let mut changed_active_sorts = Vec::new();
     let mut changed_active_buffer_sorts = Vec::new();
     let mut changed_inactive_buffer_sorts = Vec::new();
     
     // Collect changed sorts by type for selective processing
     for (sort_entity, sort_transform, sort) in sort_query.iter() {
-        changed_sort_entities.push(sort_entity);
-        changed_active_sorts.push((sort_entity, sort_transform, sort));
+        if changed_sort_entities.insert(sort_entity) {
+            changed_active_sorts.push((sort_entity, sort_transform, sort));
+            info!("METRICS DEBUG: Sort {:?} collected as ACTIVE (green metrics)", sort_entity);
+        } else {
+            warn!("METRICS DEBUG: Sort {:?} DUPLICATE in active query - this causes z-fighting!", sort_entity);
+        }
     }
     for (sort_entity, sort_transform, sort) in active_buffer_sort_query.iter() {
-        changed_sort_entities.push(sort_entity);
-        changed_active_buffer_sorts.push((sort_entity, sort_transform, sort));
+        if changed_sort_entities.insert(sort_entity) {
+            changed_active_buffer_sorts.push((sort_entity, sort_transform, sort));
+            info!("METRICS DEBUG: Sort {:?} collected as ACTIVE BUFFER (green metrics)", sort_entity);
+        } else {
+            warn!("METRICS DEBUG: Sort {:?} DUPLICATE in active buffer query - this causes z-fighting!", sort_entity);
+        }
     }
     for (sort_entity, sort_transform, sort) in inactive_buffer_sort_query.iter() {
-        changed_sort_entities.push(sort_entity);
-        changed_inactive_buffer_sorts.push((sort_entity, sort_transform, sort));
+        if changed_sort_entities.insert(sort_entity) {
+            changed_inactive_buffer_sorts.push((sort_entity, sort_transform, sort));
+            info!("METRICS DEBUG: Sort {:?} collected as INACTIVE BUFFER (gray metrics)", sort_entity);
+        } else {
+            warn!("METRICS DEBUG: Sort {:?} DUPLICATE in inactive buffer query - this causes z-fighting!", sort_entity);
+        }
     }
     
-    // Only return entities for changed sorts (more efficient than return_all_entities)
-    entity_pools.return_entities_for_changed_sorts(&mut commands, &changed_sort_entities);
+    // DISABLED: Entity pooling causing crashes - temporarily disabled
+    // entity_pools.return_entities_for_changed_sorts(&mut commands, &changed_sort_entities);
     
-    // SELECTIVE CLEAR: Only remove metrics entities for changed sorts instead of clearing all
+    // COMPREHENSIVE CLEAR: Despawn AND remove metrics entities for all sorts being processed to prevent z-fighting
+    // Since we removed change detection, we need to clear all metrics to avoid conflicts
+    let changed_sort_entities: Vec<Entity> = changed_sort_entities.into_iter().collect();
     for &sort_entity in &changed_sort_entities {
-        metrics_entities.lines.remove(&sort_entity);
+        if let Some(line_entities) = metrics_entities.lines.remove(&sort_entity) {
+            info!("METRICS DEBUG: Clearing {} metrics entities for sort {:?}", line_entities.len(), sort_entity);
+            for line_entity in line_entities {
+                if let Ok(mut entity_commands) = commands.get_entity(line_entity) {
+                    entity_commands.despawn();
+                } else {
+                    debug!("Skipping despawn for non-existent metrics line entity {:?}", line_entity);
+                }
+            }
+        }
+    }
+    
+    // ADDITIONAL CLEAR: Also clear any metrics that might be stale from state transitions
+    let all_active_entities: Vec<Entity> = sort_query.iter().map(|(e, _, _)| e).collect();
+    let all_active_buffer_entities: Vec<Entity> = active_buffer_sort_query.iter().map(|(e, _, _)| e).collect();
+    let all_inactive_buffer_entities: Vec<Entity> = inactive_buffer_sort_query.iter().map(|(e, _, _)| e).collect();
+    
+    for entity in all_active_entities.iter()
+        .chain(all_active_buffer_entities.iter())
+        .chain(all_inactive_buffer_entities.iter()) {
+        if let Some(line_entities) = metrics_entities.lines.remove(entity) {
+            for line_entity in line_entities {
+                if let Ok(mut entity_commands) = commands.get_entity(line_entity) {
+                    entity_commands.despawn();
+                } else {
+                    debug!("Skipping despawn for non-existent metrics line entity {:?}", line_entity);
+                }
+            }
+        }
     }
     
     debug!("Selective metrics rendering: {} active, {} active_buffer, {} inactive_buffer (total changed: {})", 
            changed_active_sorts.len(), changed_active_buffer_sorts.len(), 
            changed_inactive_buffer_sorts.len(), changed_sort_entities.len());
+    
+    // DEBUG: Log details about the different sort types being processed
+    if !changed_active_sorts.is_empty() {
+        info!("METRICS DEBUG: Processing {} active sorts (green metrics)", changed_active_sorts.len());
+    }
+    if !changed_active_buffer_sorts.is_empty() {
+        info!("METRICS DEBUG: Processing {} active buffer sorts (green metrics)", changed_active_buffer_sorts.len());
+    }
+    if !changed_inactive_buffer_sorts.is_empty() {
+        info!("METRICS DEBUG: Processing {} inactive buffer sorts (gray metrics)", changed_inactive_buffer_sorts.len());
+    }
 
     if let Some(fontir_state) = fontir_app_state {
         // Cache font metrics once for the entire frame
@@ -814,7 +867,11 @@ pub fn manage_preview_metrics(
 ) {
     // Clean up existing preview entities
     for entity in preview_entities.entities.drain(..) {
-        commands.entity(entity).despawn();
+        if let Ok(mut entity_commands) = commands.get_entity(entity) {
+            entity_commands.despawn();
+        } else {
+            debug!("Skipping despawn for non-existent preview entity {:?}", entity);
+        }
     }
 
     // Only create new preview if active and we have fontir state
@@ -1028,8 +1085,12 @@ fn spawn_preview_metrics_line(
         camera_scale,
     );
     
-    // Add the preview component for identification
-    commands.entity(entity).insert(PreviewMetricsLine);
+    // Add the preview component for identification with entity existence check
+    if let Ok(mut entity_commands) = commands.get_entity(entity) {
+        entity_commands.insert(PreviewMetricsLine);
+    } else {
+        debug!("Skipping PreviewMetricsLine component insertion for non-existent entity {:?}", entity);
+    }
     
     entity
 }

@@ -376,33 +376,27 @@ pub fn auto_activate_selected_sorts(
                 None
             };
 
-            // Deactivate all currently active sorts EXCEPT buffer roots
+            // Deactivate all currently active sorts (including buffer roots when another sort is selected)
             for active_entity in active_sorts.iter() {
-                // Check if this is a buffer root before deactivating
-                let is_buffer_root = if let Ok(buffer_index) = buffer_index_query.get(active_entity) {
-                    if let Some(sort) = text_editor_state.buffer.get(buffer_index.0) {
-                        sort.is_buffer_root
-                    } else {
-                        false
-                    }
-                } else {
-                    false
-                };
-
-                // Don't deactivate buffer roots
-                if !is_buffer_root {
+                // Always deactivate active sorts when a different sort is explicitly selected
+                // This allows buffer roots to become inactive when user clicks other handles
+                if active_entity != selected_sort {
                     commands.entity(active_entity).remove::<ActiveSort>();
                     commands.entity(active_entity).insert(InactiveSort);
 
                     // Update text editor state to deactivate the sort
                     if let Ok(buffer_index) = buffer_index_query.get(active_entity) {
                         if let Some(sort) = text_editor_state.buffer.get_mut(buffer_index.0) {
+                            let is_root = sort.is_buffer_root;
                             info!("🔻 Deactivating buffer sort {} - glyph '{}' (was_root: {})", buffer_index.0, sort.kind.glyph_name(), sort.is_buffer_root);
                             sort.is_active = false;
+                            
+                            // CRITICAL DEBUG: Track root sort deactivation specifically
+                            if is_root {
+                                warn!("ROOT SORT DEACTIVATION: Entity {:?} (buffer index {}) is being deactivated and should show filled rendering!", active_entity, buffer_index.0);
+                            }
                         }
                     }
-                } else {
-                    info!("⚠️ Skipping deactivation of buffer root at entity {:?}", active_entity);
                 }
             }
 

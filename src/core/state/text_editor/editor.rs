@@ -344,13 +344,11 @@ impl TextEditorState {
 
     /// Activate a sort at the given buffer position (only one can be active)
     pub fn activate_sort(&mut self, position: usize) -> bool {
-        // First deactivate all sorts EXCEPT buffer roots (they should stay active)  
+        // First deactivate ALL sorts (including buffer roots) to ensure only one is active at a time
         for i in 0..self.buffer.len() {
             if let Some(sort) = self.buffer.get_mut(i) {
-                // Keep buffer roots active to maintain visual hierarchy
-                if !sort.is_buffer_root {
-                    sort.is_active = false;
-                }
+                // Deactivate all sorts - buffer roots can be inactive for filled rendering
+                sort.is_active = false;
             }
         }
 
