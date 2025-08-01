@@ -13,6 +13,7 @@ use fontir::ir::{Glyph as FontIRGlyph, GlyphInstance};
 use fontir::orchestration::{Context, Flags, WorkId};
 use fontir::paths::Paths;
 use fontir::source::Source;
+use norad::designspace::DesignSpaceDocument;
 use kurbo::{BezPath, PathEl, Point};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -82,6 +83,10 @@ pub struct FontIRAppState {
 
     /// Path to the source file
     pub source_path: PathBuf,
+
+    /// Kerning groups data loaded from UFO groups.plist
+    /// Maps group name (e.g. "public.kern1.a") to list of glyph names
+    pub kerning_groups: HashMap<String, Vec<String>>,
 }
 
 impl FontIRAppState {
@@ -102,12 +107,18 @@ impl FontIRAppState {
             working_copies: HashMap::new(),
             current_glyph: None,
             current_location,
-            source_path: path,
+            source_path: path.clone(),
+            kerning_groups: HashMap::new(),
         };
 
         // Load glyphs into cache
         if let Err(e) = app_state.load_glyphs() {
             warn!("Failed to load glyphs during FontIR initialization: {}", e);
+        }
+
+        // Load kerning groups from UFO
+        if let Err(e) = app_state.load_kerning_groups() {
+            warn!("Failed to load kerning groups during FontIR initialization: {}", e);
         }
 
         Ok(app_state)
@@ -989,6 +1000,113 @@ impl FontIRAppState {
             }
             _ => None,
         }
+    }
+
+    /// Load kerning groups data from the UFO file
+    /// This loads the groups.plist data that FontIR doesn't currently expose
+    pub fn load_kerning_groups(&mut self) -> Result<()> {
+        let source_path = self.source_path.clone();
+        if let Some(ext) = source_path.extension() {
+            if ext == "ufo" {
+                // Load groups directly from UFO file
+                self.load_groups_from_ufo(&source_path)?;
+            } else if ext == "designspace" {
+                // Load groups from UFO sources referenced in designspace
+                self.load_groups_from_designspace()?;
+            } else {
+                debug!("Skipping groups loading for unsupported file type: {:?}", ext);
+            }
+        }
+        
+        info!("Successfully loaded {} kerning groups into FontIR", self.kerning_groups.len());
+        Ok(())
+    }
+    
+    /// Load kerning groups from a UFO file
+    fn load_groups_from_ufo(&mut self, ufo_path: &std::path::Path) -> Result<()> {
+        let groups_path = ufo_path.join("groups.plist");
+        if !groups_path.exists() {
+            debug!("No groups.plist found at: {:?}", groups_path);
+            return Ok(());
+        }
+
+        info!("Loading kerning groups from UFO: {:?}", ufo_path);
+
+        // Load the norad font temporarily just to access groups
+        match norad::Font::load(ufo_path) {
+            Ok(font) => {
+                info!("Successfully loaded UFO, found {} groups", font.groups.len());
+                
+                // Extract groups data
+                for (group_name, glyph_names) in font.groups.iter() {
+                    let names: Vec<String> = glyph_names.iter().map(|n| n.to_string()).collect();
+                    
+                    // Log groups that contain 'a'
+                    if names.contains(&"a".to_string()) {
+                        info!("★ Group '{}' contains 'a': {:?}", group_name, names);
+                    }
+                    
+                    self.kerning_groups.insert(group_name.to_string(), names);
+                }
+                Ok(())
+            }
+            Err(e) => {
+                warn!("Failed to load UFO for groups data: {}", e);
+                Ok(()) // Don't fail the entire initialization
+            }
+        }
+    }
+    
+    /// Load kerning groups from designspace file by loading from source UFOs
+    fn load_groups_from_designspace(&mut self) -> Result<()> {
+        let source_path = self.source_path.clone();
+        info!("Loading kerning groups from designspace: {:?}", source_path);
+        
+        // Parse the designspace file to get source UFO paths
+        match DesignSpaceDocument::load(&source_path) {
+            Ok(designspace) => {
+                info!("Successfully loaded designspace with {} sources", designspace.sources.len());
+                
+                // Load groups from each source UFO  
+                for source in &designspace.sources {
+                    let filename = &source.filename;
+                    // Resolve the UFO path relative to the designspace file
+                    let designspace_dir = source_path.parent().unwrap_or_else(|| std::path::Path::new("."));
+                    let ufo_path = designspace_dir.join(filename);
+                    
+                    info!("Loading groups from source UFO: {:?}", ufo_path);
+                    
+                    // Load groups from this UFO (ignore errors for individual UFOs)
+                    if let Err(e) = self.load_groups_from_ufo(&ufo_path) {
+                        warn!("Failed to load groups from {}: {}", ufo_path.display(), e);
+                    }
+                }
+                Ok(())
+            }
+            Err(e) => {
+                warn!("Failed to load designspace for groups: {}", e);
+                Ok(()) // Don't fail the entire initialization
+            }
+        }
+    }
+
+    /// Find which kerning groups a glyph belongs to
+    /// Returns simplified group names (without "public.kern1." or "public.kern2." prefix)
+    pub fn get_glyph_kerning_groups(&self, glyph_name: &str) -> (Option<String>, Option<String>) {
+        let mut left_group = None;
+        let mut right_group = None;
+
+        for (group_name, glyph_list) in &self.kerning_groups {
+            if glyph_list.contains(&glyph_name.to_string()) {
+                if let Some(suffix) = group_name.strip_prefix("public.kern1.") {
+                    left_group = Some(suffix.to_string());
+                } else if let Some(suffix) = group_name.strip_prefix("public.kern2.") {
+                    right_group = Some(suffix.to_string());
+                }
+            }
+        }
+
+        (left_group, right_group)
     }
 }
 

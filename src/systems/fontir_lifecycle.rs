@@ -19,6 +19,11 @@ pub fn load_fontir_font(mut commands: Commands, cli_args: Res<CliArgs>) {
                     warn!("Could not load glyphs: {}", e);
                 }
 
+                // Try to load kerning groups
+                if let Err(e) = app_state.load_kerning_groups() {
+                    warn!("Could not load kerning groups: {}", e);
+                }
+
                 info!(
                     "Successfully loaded font with FontIR from: {}",
                     path.display()
