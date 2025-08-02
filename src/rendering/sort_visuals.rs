@@ -264,7 +264,7 @@ pub fn render_mesh_sort_handles(
             let line_width = camera_scale.adjusted_line_width();
             
             // Create box outline handle
-            let handle_entities_list = spawn_box_outline_handle(
+            let mut handle_entities_list = spawn_box_outline_handle(
                 &mut commands,
                 &mut meshes,
                 &mut materials,
@@ -274,6 +274,26 @@ pub fn render_mesh_sort_handles(
                 line_width,
                 sort_entity,
             );
+            
+            // Add filled center circle for selected handles
+            if is_selected {
+                let center_radius = handle_size * 0.25; // Small circle in center
+                let center_circle = commands.spawn((
+                    SortHandle {
+                        sort_entity,
+                        handle_type: SortHandleType::Square,
+                    },
+                    Mesh2d(meshes.add(Circle::new(center_radius))),
+                    MeshMaterial2d(materials.add(ColorMaterial::from_color(Color::srgb(1.0, 1.0, 0.0)))), // Yellow
+                    Transform::from_xyz(handle_position.x, handle_position.y, 16.0), // Above the outline
+                    GlobalTransform::default(),
+                    Visibility::Visible,
+                    InheritedVisibility::default(),
+                    ViewVisibility::default(),
+                    crate::editing::selection::components::Selectable,
+                )).id();
+                handle_entities_list.push(center_circle);
+            }
             
             handle_entities.handles.insert(sort_entity, handle_entities_list);
         }
