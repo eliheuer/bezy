@@ -157,7 +157,7 @@ pub fn render_mesh_glyph_outline(
     for sort_data in buffer_sort_query.iter() {
         changed_sort_entities.push(sort_data.0);
         changed_buffer_sorts.push(sort_data);
-        info!("GLYPH OUTLINE DEBUG: Found INACTIVE BUFFER sort {:?} (glyph: {}) - will render filled", sort_data.0, sort_data.1.glyph_name);
+        warn!("FILLED RENDERING: Processing INACTIVE buffer sort {:?} (glyph: {}) for filled rendering", sort_data.0, sort_data.1.glyph_name);
     }
     
     
@@ -169,10 +169,11 @@ pub fn render_mesh_glyph_outline(
         info!("GLYPH OUTLINE DEBUG: Found INACTIVE sort {:?} (glyph: {}) - will render filled", sort_data.0, sort_data.1.glyph_name);
     }
     
-    // RE-ENABLED: Entity pooling cleanup needed to remove old rendering when sorts change state
-    // Only return entities for changed sorts (more efficient than return_all_entities)
-    info!("GLYPH OUTLINE DEBUG: Returning entities to pool for {} changed sorts: {:?}", changed_sort_entities.len(), changed_sort_entities);
-    entity_pools.return_entities_for_changed_sorts(&mut commands, &changed_sort_entities);
+    // DISABLED: Entity pooling removed to eliminate race conditions
+    // This was causing intermittent issues with root sort filled rendering
+    // We can re-add performance optimizations later once the core functionality is stable
+    // info!("GLYPH OUTLINE DEBUG: Returning entities to pool for {} changed sorts: {:?}", changed_sort_entities.len(), changed_sort_entities);
+    // entity_pools.return_entities_for_changed_sorts(&mut commands, &changed_sort_entities);
     outline_entities.path_segments.clear();
     outline_entities.control_handles.clear();
     
@@ -1732,12 +1733,54 @@ fn extract_path_segments_live(
     segments
 }
 
+/// System to clean up filled mesh entities when sorts become active
+/// This prevents old filled meshes from showing on active sorts
+fn cleanup_filled_meshes_on_activation(
+    mut commands: Commands,
+    mut outline_entities: ResMut<MeshOutlineEntities>,
+    newly_active_sorts: Query<Entity, Added<ActiveSort>>,
+    filled_entities_query: Query<(Entity, &GlyphOutlineElement), With<GlyphOutlineElement>>,
+) {
+    for sort_entity in newly_active_sorts.iter() {
+        debug!("CLEANUP: Sort {:?} became active - clearing any old filled mesh entities", sort_entity);
+        
+        // Find and despawn any filled mesh entities for this sort
+        let mut entities_to_despawn = Vec::new();
+        
+        for (entity, outline_element) in filled_entities_query.iter() {
+            if outline_element.sort_entity == sort_entity {
+                match outline_element.element_type {
+                    OutlineElementType::FilledShape => {
+                        entities_to_despawn.push(entity);
+                    }
+                    _ => {} // Keep other types (line segments, handles)
+                }
+            }
+        }
+        
+        if !entities_to_despawn.is_empty() {
+            debug!("CLEANUP: Despawning {} filled mesh entities for newly active sort {:?}", entities_to_despawn.len(), sort_entity);
+            for entity in entities_to_despawn {
+                if let Ok(mut entity_commands) = commands.get_entity(entity) {
+                    entity_commands.despawn();
+                } else {
+                    debug!("CLEANUP: Filled mesh entity {:?} already despawned", entity);
+                }
+            }
+            
+            // Also remove from tracking (filled entities are stored in path_segments for now)
+            outline_entities.path_segments.remove(&sort_entity);
+        }
+    }
+}
+
 impl Plugin for MeshGlyphOutlinePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MeshOutlineEntities>()
            .add_systems(Update, (
+               cleanup_filled_meshes_on_activation,
                render_mesh_glyph_outline
                    .after(crate::rendering::sort_visuals::handle_sort_selection_and_drag_start),
-           ));
+           ).chain());
     }
 }
