@@ -519,12 +519,6 @@ impl TextEditorState {
                 .and_then(|rs| rs.buffer_cursor_position)
                 .unwrap_or(0);
 
-            // Backspace does nothing if the cursor is at the beginning of the line.
-            if cursor_pos_in_buffer == 0 {
-                // We could implement joining with a previous line here in the future.
-                return;
-            }
-
             // Find the actual last character to delete (should be the last non-root entry in the buffer)
             // Since characters are always inserted at the end, delete the last character
             let buffer_len = self.buffer.len();
@@ -532,15 +526,31 @@ impl TextEditorState {
                 let delete_buffer_index = buffer_len - 1; // Delete the last character
                 
                 info!("🗑️ Deleting character at buffer index {} (buffer length: {})", delete_buffer_index, buffer_len);
-                self.buffer.delete(delete_buffer_index);
+                
+                // Delete the character from the buffer
+                let deleted_sort = self.buffer.delete(delete_buffer_index);
+                if let Some(deleted) = deleted_sort {
+                    info!("🗑️ Successfully deleted sort: glyph='{}'", deleted.kind.glyph_name());
+                }
+                
+                info!("🗑️ Buffer length after deletion: {}", self.buffer.len());
                 
                 // Update cursor position in the root - cursor should point to where next character will be inserted
-                let new_cursor_pos = cursor_pos_in_buffer - 1;
+                // The cursor position should be decremented only if it's greater than 0
+                let new_cursor_pos = if cursor_pos_in_buffer > 0 {
+                    cursor_pos_in_buffer - 1
+                } else {
+                    0
+                };
                 if let Some(root_sort) = self.buffer.get_mut(root_index) {
                     root_sort.buffer_cursor_position = Some(new_cursor_pos);
                     info!("📍 Updated cursor position to {}", new_cursor_pos);
                 }
+            } else {
+                info!("🗑️ Cannot delete - only root remains (buffer length: {})", buffer_len);
             }
+        } else {
+            info!("🗑️ Cannot delete - no active buffer root found");
         }
     }
 
@@ -991,6 +1001,43 @@ mod tests {
         } else {
             panic!("Text root should exist at index 2");
         }
+    }
+
+    #[test] 
+    fn test_backspace_functionality() {
+        let mut text_editor = TextEditorState::default();
+
+        // Create a text root
+        text_editor.create_text_root(Vec2::new(100.0, 200.0), SortLayoutMode::LTRText);
+        assert_eq!(text_editor.buffer.len(), 1); // Should have root
+
+        // Insert some characters
+        text_editor.insert_sort_at_cursor("h".to_string(), 100.0);
+        text_editor.insert_sort_at_cursor("e".to_string(), 100.0);
+        text_editor.insert_sort_at_cursor("l".to_string(), 100.0);
+        text_editor.insert_sort_at_cursor("l".to_string(), 100.0);
+        text_editor.insert_sort_at_cursor("o".to_string(), 100.0);
+        assert_eq!(text_editor.buffer.len(), 6); // Root + 5 characters
+
+        // Test backspace - should delete characters properly
+        text_editor.delete_sort_at_cursor(); // Delete 'o'
+        assert_eq!(text_editor.buffer.len(), 5); // Root + 4 characters
+
+        text_editor.delete_sort_at_cursor(); // Delete 'l'  
+        assert_eq!(text_editor.buffer.len(), 4); // Root + 3 characters
+
+        text_editor.delete_sort_at_cursor(); // Delete 'l'
+        assert_eq!(text_editor.buffer.len(), 3); // Root + 2 characters
+
+        text_editor.delete_sort_at_cursor(); // Delete 'e'
+        assert_eq!(text_editor.buffer.len(), 2); // Root + 1 character
+
+        text_editor.delete_sort_at_cursor(); // Delete 'h'
+        assert_eq!(text_editor.buffer.len(), 1); // Just root left
+
+        // Try to delete when only root exists - should do nothing
+        text_editor.delete_sort_at_cursor();
+        assert_eq!(text_editor.buffer.len(), 1); // Still just root
     }
 
     #[test]

@@ -431,27 +431,140 @@ pub fn despawn_missing_buffer_sort_entities(
     mut commands: Commands,
     text_editor_state: Res<TextEditorState>,
     mut buffer_entities: ResMut<BufferSortEntities>,
+    mut outline_entities: ResMut<crate::rendering::mesh_glyph_outline::MeshOutlineEntities>,
+    mut metrics_entities: ResMut<crate::rendering::metrics::MetricsLineEntities>,
     sort_query: Query<Entity, With<BufferSortIndex>>,
+    outline_element_query: Query<(Entity, &crate::rendering::mesh_glyph_outline::GlyphOutlineElement)>,
+    point_query: Query<Entity, With<crate::systems::sort_manager::SortPointEntity>>,
+    sort_point_query: Query<&crate::systems::sort_manager::SortPointEntity>,
+    sort_name_text_query: Query<(Entity, &crate::rendering::sort_renderer::SortGlyphNameText)>,
+    sort_unicode_text_query: Query<(Entity, &crate::rendering::sort_renderer::SortUnicodeText)>,
 ) {
+    // Always log to see if system is running
+    info!("🔍 despawn_missing_buffer_sort_entities: SYSTEM CALLED - Buffer length: {}, Tracked entities: {}", 
+          text_editor_state.buffer.len(), buffer_entities.entities.len());
+    
+    // Debug: Log current state
+    if !buffer_entities.entities.is_empty() {
+        info!("despawn_missing_buffer_sort_entities: Checking {} tracked entities against buffer length {}", 
+              buffer_entities.entities.len(), text_editor_state.buffer.len());
+        
+        // Log all tracked entities
+        for (&idx, &entity) in buffer_entities.entities.iter() {
+            info!("  Tracked entity: buffer[{}] -> entity {:?}", idx, entity);
+        }
+    }
+    
     // Remove entities for buffer indices that no longer exist
     let mut to_remove = Vec::new();
 
     for (&buffer_index, &entity) in buffer_entities.entities.iter() {
+        // Check if this buffer index still exists in the actual buffer
         if buffer_index >= text_editor_state.buffer.len() {
             // Buffer index no longer exists, despawn entity
             if sort_query.get(entity).is_ok() {
-                commands.entity(entity).despawn();
-                debug!(
-                    "Despawned sort entity for deleted buffer index {}",
-                    buffer_index
+                info!(
+                    "🗑️ Despawning sort entity for deleted buffer index {} (buffer len: {})",
+                    buffer_index, text_editor_state.buffer.len()
                 );
+                
+                // First, despawn all outline entities associated with this sort
+                // This includes path segments and control handles
+                let mut outline_count = 0;
+                
+                // Despawn path segments
+                if let Some(segment_entities) = outline_entities.path_segments.get(&entity) {
+                    for &segment_entity in segment_entities.iter() {
+                        commands.entity(segment_entity).despawn();
+                        outline_count += 1;
+                    }
+                }
+                
+                // Despawn control handles
+                if let Some(handle_entities) = outline_entities.control_handles.get(&entity) {
+                    for &handle_entity in handle_entities.iter() {
+                        commands.entity(handle_entity).despawn();
+                        outline_count += 1;
+                    }
+                }
+                
+                // Also despawn any filled mesh entities for this sort
+                for (outline_entity, outline_element) in outline_element_query.iter() {
+                    if outline_element.sort_entity == entity {
+                        commands.entity(outline_entity).despawn();
+                        outline_count += 1;
+                    }
+                }
+                
+                // Despawn all point entities associated with this sort
+                let mut point_count = 0;
+                for point_entity in point_query.iter() {
+                    if let Ok(sort_point) = sort_point_query.get(point_entity) {
+                        if sort_point.sort_entity == entity {
+                            commands.entity(point_entity).despawn();
+                            point_count += 1;
+                        }
+                    }
+                }
+                
+                // Despawn all metrics line entities associated with this sort
+                let mut metrics_count = 0;
+                if let Some(line_entities) = metrics_entities.lines.get(&entity) {
+                    for &line_entity in line_entities.iter() {
+                        commands.entity(line_entity).despawn();
+                        metrics_count += 1;
+                    }
+                }
+                
+                // Despawn all sort label text entities associated with this sort
+                let mut label_count = 0;
+                
+                // Despawn glyph name text entities
+                for (text_entity, name_text) in sort_name_text_query.iter() {
+                    if name_text.sort_entity == entity {
+                        commands.entity(text_entity).despawn();
+                        label_count += 1;
+                    }
+                }
+                
+                // Despawn unicode text entities
+                for (text_entity, unicode_text) in sort_unicode_text_query.iter() {
+                    if unicode_text.sort_entity == entity {
+                        commands.entity(text_entity).despawn();
+                        label_count += 1;
+                    }
+                }
+                
+                info!("🗑️ Despawned {} outline entities, {} point entities, {} metrics entities, and {} label entities for sort {:?}", 
+                      outline_count, point_count, metrics_count, label_count, entity);
+                
+                // Remove from outline tracking
+                outline_entities.path_segments.remove(&entity);
+                outline_entities.control_handles.remove(&entity);
+                
+                // Remove from metrics tracking
+                metrics_entities.lines.remove(&entity);
+                
+                // Finally, despawn the sort entity itself
+                commands.entity(entity).despawn();
+                to_remove.push(buffer_index);
+            } else {
+                warn!("Entity {:?} for buffer index {} already despawned or invalid", entity, buffer_index);
+                to_remove.push(buffer_index);
             }
-            to_remove.push(buffer_index);
         }
     }
 
+    // Store count before consuming the vector
+    let despawn_count = to_remove.len();
+    
     // Remove from tracking
     for index in to_remove {
         buffer_entities.entities.remove(&index);
+        info!("🗑️ Removed buffer index {} from entity tracking", index);
+    }
+    
+    if despawn_count > 0 {
+        info!("🗑️ Despawned {} entities total", despawn_count);
     }
 }

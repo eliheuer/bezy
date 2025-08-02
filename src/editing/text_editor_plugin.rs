@@ -6,6 +6,7 @@
 use crate::systems::text_editor_sorts::{
     debug_text_editor_state,
     despawn_inactive_sort_points_optimized, // NEW: Optimized instant point despawning
+    despawn_missing_buffer_sort_entities, // NEW: Despawn deleted buffer sorts
     // handle_text_input_with_cosmic, // DISABLED: Legacy system causing double input
     handle_arabic_text_input, // NEW: Arabic and Unicode text input
     // respawn_active_sort_points, // REMOVED: Replaced with ECS-based system
@@ -38,10 +39,10 @@ impl Plugin for TextEditorPlugin {
             .add_systems(Update, (
                 // manage_sort_activation, // DISABLED: Use selection system instead
                 spawn_missing_sort_entities,
-                crate::systems::text_editor_sorts::sort_entities::update_buffer_sort_positions
-                    .run_if(resource_changed::<crate::core::state::TextEditorState>), // PERFORMANCE: Only run when buffer changes
+                crate::systems::text_editor_sorts::sort_entities::update_buffer_sort_positions,
                 // crate::systems::text_editor_sorts::sort_entities::auto_activate_selected_sorts, // TEMPORARILY DISABLED: May be interfering with text root activation
-                crate::systems::text_editor_sorts::despawn_missing_buffer_sort_entities, // NEW: Despawn deleted buffer sorts
+                despawn_missing_buffer_sort_entities
+                    .run_if(resource_changed::<crate::core::state::text_editor::TextEditorState>), // Run when buffer changes
             ).chain().after(handle_unicode_text_input))
             // Instant point spawning/despawning (runs immediately after activation)
             .add_systems(Update, (
