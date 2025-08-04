@@ -72,8 +72,8 @@ impl TextPlacementMode {
     /// Convert to SortLayoutMode
     pub fn to_sort_layout_mode(&self) -> SortLayoutMode {
         match self {
-            TextPlacementMode::Text => SortLayoutMode::Text,
-            TextPlacementMode::Insert => SortLayoutMode::Text,
+            TextPlacementMode::Text => SortLayoutMode::LTRText, // Default to LTR
+            TextPlacementMode::Insert => SortLayoutMode::LTRText, // Default to LTR
             TextPlacementMode::Freeform => SortLayoutMode::Freeform,
         }
     }
@@ -435,6 +435,8 @@ pub fn handle_text_mode_sort_placement(
                 glyph_name.clone(),
                 sort_position,
                 advance_width,
+                current_placement_mode.0.to_sort_layout_mode(),
+                None, // No codepoint for clicked glyphs
             );
             info!(
                 "DEBUG: [PLACE] Placed sort at ({:.1}, {:.1})",
@@ -453,6 +455,7 @@ pub fn handle_text_mode_sort_placement(
                 glyph_name.clone(),
                 sort_position,
                 advance_width,
+                None, // No codepoint for clicked glyphs
             );
             info!(
                 "Placed sort '{}' in freeform mode at position ({:.1}, {:.1})",
@@ -856,6 +859,8 @@ pub fn handle_text_mode_keyboard(
                             char_glyph.to_string(),
                             position,
                             char_advance_width,
+                            current_placement_mode.0.to_sort_layout_mode(),
+                            None, // TODO: Map keycode to character
                         );
                         info!(
                             "Placed sort '{}' in text mode via keyboard at position ({:.1}, {:.1})",
@@ -875,6 +880,7 @@ pub fn handle_text_mode_keyboard(
                             char_glyph.to_string(),
                             position,
                             char_advance_width,
+                            None, // TODO: Map keycode to character
                         );
                         info!(
                             "Placed sort '{}' in freeform mode via keyboard at position ({:.1}, {:.1})",

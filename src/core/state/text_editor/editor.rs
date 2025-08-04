@@ -28,12 +28,14 @@ impl TextEditorState {
         glyph_name: String,
         position: Vec2,
         advance_width: f32,
+        codepoint: Option<char>,
     ) {
         // Clear all states first
         self.clear_all_states();
 
         let new_sort = SortEntry {
             kind: SortKind::Glyph {
+                codepoint,
                 glyph_name: glyph_name.clone(),
                 advance_width,
             },
@@ -187,6 +189,7 @@ impl TextEditorState {
 
         let text_root = SortEntry {
             kind: SortKind::Glyph {
+                codepoint: Some('a'), // Default placeholder codepoint
                 // Use a visible placeholder glyph instead of empty string
                 // This ensures the root has a visible outline and points for editing
                 glyph_name: placeholder_glyph,
@@ -234,6 +237,7 @@ impl TextEditorState {
         world_position: Vec2,
         advance_width: f32,
         layout_mode: SortLayoutMode,
+        codepoint: Option<char>,
     ) {
         // Only create a new root if there are no buffer roots yet
         if self.find_active_buffer_root_index().is_none() {
@@ -241,7 +245,7 @@ impl TextEditorState {
             self.create_text_root(world_position, layout_mode);
         }
         // After root is created, insert the glyph at the cursor
-        self.insert_sort_at_cursor(glyph_name, advance_width);
+        self.insert_sort_at_cursor(glyph_name, advance_width, codepoint);
     }
 
     /// Get the visual position for a sort based on its layout mode
@@ -451,6 +455,7 @@ impl TextEditorState {
         &mut self,
         glyph_name: String,
         advance_width: f32,
+        codepoint: Option<char>,
     ) {
         debug!("Insert at cursor: Starting insertion of '{}'", glyph_name);
         info!(
@@ -481,6 +486,7 @@ impl TextEditorState {
 
             let new_sort = SortEntry {
                 kind: SortKind::Glyph {
+                    codepoint,
                     glyph_name: glyph_name.clone(),
                     advance_width,
                 },
@@ -545,6 +551,7 @@ impl TextEditorState {
                 glyph_name,
                 advance_width,
                 default_position,
+                codepoint,
             );
         }
     }
@@ -790,12 +797,14 @@ impl TextEditorState {
         glyph_name: String,
         advance_width: f32,
         world_position: Vec2,
+        codepoint: Option<char>,
     ) {
         // FIXED: Use the provided position instead of hardcoded position
         self.clear_all_states();
 
         let new_root = SortEntry {
             kind: SortKind::Glyph {
+                codepoint,
                 glyph_name,
                 advance_width,
             },
@@ -1010,6 +1019,7 @@ mod tests {
             "a".to_string(),
             Vec2::new(100.0, 200.0),
             500.0,
+            Some('a'),
         );
 
         // Verify the sort was created and activated
@@ -1028,6 +1038,7 @@ mod tests {
             Vec2::new(300.0, 400.0),
             600.0,
             SortLayoutMode::LTRText,
+            Some('b'),
         );
 
         // Verify the new sort was created and activated, and the old one was deactivated
@@ -1081,11 +1092,11 @@ mod tests {
         assert_eq!(text_editor.buffer.len(), 1); // Should have root
 
         // Insert some characters
-        text_editor.insert_sort_at_cursor("h".to_string(), 100.0);
-        text_editor.insert_sort_at_cursor("e".to_string(), 100.0);
-        text_editor.insert_sort_at_cursor("l".to_string(), 100.0);
-        text_editor.insert_sort_at_cursor("l".to_string(), 100.0);
-        text_editor.insert_sort_at_cursor("o".to_string(), 100.0);
+        text_editor.insert_sort_at_cursor("h".to_string(), 100.0, Some('h'));
+        text_editor.insert_sort_at_cursor("e".to_string(), 100.0, Some('e'));
+        text_editor.insert_sort_at_cursor("l".to_string(), 100.0, Some('l'));
+        text_editor.insert_sort_at_cursor("l".to_string(), 100.0, Some('l'));
+        text_editor.insert_sort_at_cursor("o".to_string(), 100.0, Some('o'));
         assert_eq!(text_editor.buffer.len(), 6); // Root + 5 characters
 
         // Test backspace - should delete characters properly
@@ -1122,17 +1133,17 @@ mod tests {
         );
 
         // Insert some glyphs with known advance widths
-        text_editor.insert_sort_at_cursor("a".to_string(), 100.0);
+        text_editor.insert_sort_at_cursor("a".to_string(), 100.0, Some('a'));
         println!(
             "After inserting 'a': buffer length = {}",
             text_editor.buffer.len()
         );
-        text_editor.insert_sort_at_cursor("b".to_string(), 150.0);
+        text_editor.insert_sort_at_cursor("b".to_string(), 150.0, Some('b'));
         println!(
             "After inserting 'b': buffer length = {}",
             text_editor.buffer.len()
         );
-        text_editor.insert_sort_at_cursor("c".to_string(), 120.0);
+        text_editor.insert_sort_at_cursor("c".to_string(), 120.0, Some('c'));
         println!(
             "After inserting 'c': buffer length = {}",
             text_editor.buffer.len()

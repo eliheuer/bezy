@@ -322,6 +322,7 @@ fn calculate_cursor_visual_position(
                     SortKind::Glyph {
                         glyph_name: _,
                         advance_width,
+                        ..
                     } => {
                         // If cursor is at this position, place it at the RIGHT edge of this glyph
                         if glyph_count == cursor_pos_in_buffer {

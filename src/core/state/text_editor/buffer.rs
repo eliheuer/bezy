@@ -48,6 +48,9 @@ pub struct TextModeConfig {
 #[derive(Clone, Debug, PartialEq)]
 pub enum SortKind {
     Glyph {
+        /// Unicode codepoint (primary identifier)
+        codepoint: Option<char>,
+        /// Glyph name (fallback identifier when no codepoint)
         glyph_name: String,
         advance_width: f32,
     },
@@ -110,6 +113,7 @@ impl Default for SortEntry {
     fn default() -> Self {
         Self {
             kind: SortKind::Glyph {
+                codepoint: None,
                 glyph_name: String::new(),
                 advance_width: 0.0,
             },
@@ -324,10 +328,35 @@ impl SortKind {
         matches!(self, SortKind::LineBreak)
     }
 
+    pub fn codepoint(&self) -> Option<char> {
+        match self {
+            SortKind::Glyph { codepoint, .. } => *codepoint,
+            SortKind::LineBreak => None,
+        }
+    }
+
     pub fn glyph_name(&self) -> &str {
         match self {
             SortKind::Glyph { glyph_name, .. } => glyph_name,
             SortKind::LineBreak => "",
+        }
+    }
+
+    /// Get display string prioritizing codepoint over glyph name
+    pub fn display_string(&self) -> String {
+        match self {
+            SortKind::Glyph {
+                codepoint,
+                glyph_name,
+                ..
+            } => {
+                if let Some(cp) = codepoint {
+                    format!("U+{:04X}", *cp as u32)
+                } else {
+                    glyph_name.clone()
+                }
+            }
+            SortKind::LineBreak => "↵".to_string(),
         }
     }
 }

@@ -198,8 +198,11 @@ fn handle_unicode_character(
         // Insert the character
         match current_placement_mode.0 {
             TextPlacementMode::Insert => {
-                text_editor_state
-                    .insert_sort_at_cursor(glyph_name.clone(), advance_width);
+                text_editor_state.insert_sort_at_cursor(
+                    glyph_name.clone(),
+                    advance_width,
+                    Some(character),
+                );
                 info!("Unicode input: Inserted '{}' (U+{:04X}) as glyph '{}' in Insert mode", 
                       character, character as u32, glyph_name);
                 info!(
@@ -208,8 +211,11 @@ fn handle_unicode_character(
                 );
             }
             TextPlacementMode::LTRText | TextPlacementMode::RTLText => {
-                text_editor_state
-                    .insert_sort_at_cursor(glyph_name.clone(), advance_width);
+                text_editor_state.insert_sort_at_cursor(
+                    glyph_name.clone(),
+                    advance_width,
+                    Some(character),
+                );
                 let mode_name = if matches!(
                     current_placement_mode.0,
                     TextPlacementMode::LTRText
@@ -227,8 +233,11 @@ fn handle_unicode_character(
             }
             TextPlacementMode::Freeform => {
                 // In freeform mode, characters are placed freely - for now use same logic
-                text_editor_state
-                    .insert_sort_at_cursor(glyph_name.clone(), advance_width);
+                text_editor_state.insert_sort_at_cursor(
+                    glyph_name.clone(),
+                    advance_width,
+                    Some(character),
+                );
                 info!("Unicode input: Inserted '{}' (U+{:04X}) as glyph '{}' in Freeform mode", 
                       character, character as u32, glyph_name);
             }
@@ -267,13 +276,20 @@ fn handle_space_character(
         // Text roots should only be created by clicking with the text tool
         // This was causing duplicate sorts - one from clicking, one from typing
 
-        text_editor_state.insert_sort_at_cursor(glyph_name, advance_width);
+        text_editor_state.insert_sort_at_cursor(
+            glyph_name,
+            advance_width,
+            Some(' '), // We know this is Unicode U+0020 (space character)
+        );
         info!("Unicode input: Inserted space character");
     } else {
         // Fallback: insert a space-width advance without glyph
         let space_width = 250.0; // Default space width
-        text_editor_state
-            .insert_sort_at_cursor("space".to_string(), space_width);
+        text_editor_state.insert_sort_at_cursor(
+            "space".to_string(),
+            space_width,
+            Some(' '), // Even in fallback, we know it's U+0020
+        );
         info!("Unicode input: Inserted space character (fallback)");
     }
 }
