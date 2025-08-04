@@ -11,7 +11,7 @@ use crate::core::io::input::{
     helpers, InputEvent, InputMode, InputState, ModifierState,
 };
 use crate::core::io::pointer::PointerInfo;
-use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
+use crate::core::settings::BezySettings;
 use crate::core::state::AppState;
 use crate::editing::edit_type::EditType;
 use crate::editing::selection::components::{
@@ -332,6 +332,7 @@ pub fn handle_pen_mouse_events(
     mut app_state_changed: EventWriter<AppStateChanged>,
     text_editor_state: Option<Res<crate::core::state::TextEditorState>>,
     ui_hover_state: Res<UiHoverState>,
+    settings: Res<BezySettings>,
 ) {
     if !is_pen_mode_active(&pen_mode) || ui_hover_state.is_hovering_ui {
         return;
@@ -354,6 +355,7 @@ pub fn handle_pen_mouse_events(
             active_sort_info,
             text_editor_state.as_deref(),
             cursor_pos,
+            &settings,
         );
     }
 
@@ -387,9 +389,10 @@ fn handle_left_click(
     active_sort_info: Option<(usize, &crate::core::state::SortEntry)>,
     text_editor_state: Option<&crate::core::state::TextEditorState>,
     cursor_pos: Vec2,
+    settings: &BezySettings,
 ) {
     let final_position =
-        calculate_final_position(cursor_pos, keyboard, pen_state);
+        calculate_final_position(cursor_pos, keyboard, pen_state, settings);
 
     if pen_state.state == PenState::Ready {
         start_new_path(pen_state, final_position);
@@ -412,13 +415,10 @@ fn calculate_final_position(
     cursor_pos: Vec2,
     keyboard: &Res<ButtonInput<KeyCode>>,
     pen_state: &PenToolState,
+    settings: &BezySettings,
 ) -> Vec2 {
     // Apply snap to grid first
-    let snapped_pos = if SNAP_TO_GRID_ENABLED {
-        apply_snap_to_grid(cursor_pos)
-    } else {
-        cursor_pos
-    };
+    let snapped_pos = settings.apply_grid_snap(cursor_pos);
 
     // Apply axis locking if shift is held and we have points
     let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft)
@@ -661,6 +661,7 @@ pub fn render_pen_preview(
     keyboard: Res<ButtonInput<KeyCode>>,
     pen_state: Res<PenToolState>,
     pen_mode: Option<Res<PenModeActive>>,
+    settings: Res<BezySettings>,
 ) {
     if !is_pen_mode_active(&pen_mode) {
         return;
@@ -668,7 +669,13 @@ pub fn render_pen_preview(
 
     draw_placed_points_and_lines(&mut gizmos, &pen_state);
     let cursor_pos = pointer_info.design.to_raw();
-    draw_preview_elements(&mut gizmos, &pen_state, cursor_pos, &keyboard);
+    draw_preview_elements(
+        &mut gizmos,
+        &pen_state,
+        cursor_pos,
+        &keyboard,
+        &settings,
+    );
 }
 
 /// Draw all the points that have been placed and lines between them
@@ -699,6 +706,7 @@ fn draw_preview_elements(
     pen_state: &PenToolState,
     cursor_pos: Vec2,
     keyboard: &Res<ButtonInput<KeyCode>>,
+    settings: &BezySettings,
 ) {
     // Draw cursor indicator
     gizmos.circle_2d(
@@ -710,7 +718,7 @@ fn draw_preview_elements(
     if let Some(&last_point) = pen_state.points.last() {
         // Calculate the final position for the preview, same logic as for placing points
         let final_pos =
-            calculate_final_position(cursor_pos, keyboard, pen_state);
+            calculate_final_position(cursor_pos, keyboard, pen_state, settings);
 
         // Draw line from last point to cursor's final position
         gizmos.line_2d(last_point, final_pos, Color::srgb(0.0, 1.0, 0.0));
@@ -799,11 +807,4 @@ fn create_contour_from_points(
     }
 
     Some(Contour::new(contour_points, None))
-}
-
-/// Snaps a position to the grid, based on the current zoom level and settings.
-fn apply_snap_to_grid(pos: Vec2) -> Vec2 {
-    // For now, a simple 10-unit grid. This should be driven by settings.
-    let grid_size = 10.0;
-    (pos / grid_size).round() * grid_size
 }

@@ -1,7 +1,7 @@
 //! Point drag handling for selection
 
 use crate::core::io::pointer::PointerInfo;
-use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
+use crate::core::settings::BezySettings;
 use crate::core::state::{AppState, FontIRAppState};
 use crate::editing::edit_type::EditType;
 use crate::editing::selection::components::{GlyphPointReference, Selected};
@@ -30,6 +30,7 @@ pub fn handle_point_drag(
     mut app_state: Option<ResMut<AppState>>,
     mut fontir_app_state: Option<ResMut<FontIRAppState>>,
     mut event_writer: EventWriter<EditEvent>,
+    settings: Res<BezySettings>,
 ) {
     // Only drag if the resource says we are
     if !drag_point_state.is_dragging {
@@ -80,15 +81,7 @@ pub fn handle_point_drag(
                 // Handle glyph point drag (with snapping)
                 else if let Some(point_ref) = point_ref {
                     // Apply grid snapping if enabled
-                    let snapped_pos = if SNAP_TO_GRID_ENABLED {
-                        let grid_size = SNAP_TO_GRID_VALUE;
-                        Vec2::new(
-                            (new_pos.x / grid_size).round() * grid_size,
-                            (new_pos.y / grid_size).round() * grid_size,
-                        )
-                    } else {
-                        new_pos
-                    };
+                    let snapped_pos = settings.apply_grid_snap(new_pos);
 
                     transform.translation.x = snapped_pos.x;
                     transform.translation.y = snapped_pos.y;

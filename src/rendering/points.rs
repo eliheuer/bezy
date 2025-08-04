@@ -7,10 +7,10 @@
 
 use crate::editing::selection::components::{PointType, Selected};
 use crate::editing::sort::ActiveSort;
+use crate::rendering::camera_responsive::CameraResponsiveScale;
 use crate::systems::sort_manager::SortPointEntity;
 use crate::ui::theme::*;
 use crate::ui::themes::CurrentTheme;
-use crate::rendering::camera_responsive::CameraResponsiveScale;
 use bevy::prelude::*;
 use bevy::render::mesh::Mesh2d;
 use bevy::render::view::Visibility;
@@ -223,10 +223,10 @@ pub fn render_points_with_meshes(
             } else {
                 OFF_CURVE_POINT_RADIUS
             };
-            
+
             // Use camera-responsive line width (1.0 base, same as outlines and handles)
             let line_width = camera_scale.adjusted_line_width();
-            
+
             // Make crosshair lines slightly shorter to fit within point bounds
             let crosshair_length = line_size * 1.6;
 

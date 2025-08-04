@@ -11,7 +11,11 @@ use bevy::prelude::*;
 ///
 /// Note: Many components are now spawned automatically by their respective plugins.
 /// This function serves as a coordination point for UI elements that need manual spawning.
-pub fn spawn_hud(commands: &mut Commands, asset_server: &Res<AssetServer>, theme: &Res<CurrentTheme>) {
+pub fn spawn_hud(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    theme: &Res<CurrentTheme>,
+) {
     debug!("HUD spawning initiated");
 
     // Spawn glyph information pane
@@ -35,6 +39,10 @@ impl Plugin for HudPlugin {
 }
 
 /// System to set up the HUD during startup
-fn setup_hud_system(mut commands: Commands, asset_server: Res<AssetServer>, theme: Res<CurrentTheme>) {
+fn setup_hud_system(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    theme: Res<CurrentTheme>,
+) {
     spawn_hud(&mut commands, &asset_server, &theme);
 }

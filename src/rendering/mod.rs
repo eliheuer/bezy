@@ -39,8 +39,8 @@ pub use outline_coordination::OutlineCoordinationPlugin;
 pub use outline_elements::OutlineElementsPlugin;
 pub use points::PointRenderingPlugin;
 pub use selection::{
-    render_all_point_entities,
-    render_selected_entities, render_selection_marquee,
+    render_all_point_entities, render_selected_entities,
+    render_selection_marquee,
 };
 pub use sort_visuals::SortHandleRenderingPlugin;
 pub use unified_glyph_editing::UnifiedGlyphEditingPlugin;

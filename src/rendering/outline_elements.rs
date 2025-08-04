@@ -5,7 +5,6 @@ use crate::systems::sort_manager::SortPointEntity;
 use crate::ui::theme::HANDLE_LINE_COLOR;
 use bevy::prelude::*;
 
-
 /// Component to mark handle line entities
 #[derive(Component)]
 pub struct HandleLine {
@@ -61,7 +60,6 @@ fn update_handle_lines(
     let first_point = point_query.iter().next().unwrap();
     let glyph_name = &first_point.2.glyph_name;
 
-
     // Use FontIR as the primary runtime data structure
     let Some(fontir_state) = fontir_app_state else {
         return;
@@ -93,7 +91,6 @@ fn create_handles_from_fontir_paths(
     >,
     glyph_name: &str,
 ) {
-
     // Create material for handles
     let handle_material = materials.add(ColorMaterial::from(HANDLE_LINE_COLOR));
     let mut _handles_created = 0;
@@ -114,7 +111,6 @@ fn create_handles_from_fontir_paths(
             point_positions.insert(entity, position);
         }
     }
-
 
     // Create handles based on point connectivity (adjacent on/off-curve points)
     // Use the same logic as UFO system - connect consecutive points where one is on-curve and other is off-curve
@@ -145,7 +141,6 @@ fn create_handles_from_fontir_paths(
                         let angle = direction.y.atan2(direction.x);
                         let midpoint = (current_pos + *next_pos) / 2.0;
 
-
                         // Create a rectangle mesh for the line
                         let line_thickness = 1.0; // 1px width for subtle handles
                         let line_mesh =
@@ -168,7 +163,6 @@ fn create_handles_from_fontir_paths(
             }
         }
     }
-
 }
 
 /// Cleans up handle lines when their connected points are removed

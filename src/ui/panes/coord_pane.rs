@@ -1,6 +1,6 @@
 //! Coordinate Pane Module
 //!
-//! This module implements a floating panel that displays coordinates 
+//! This module implements a floating panel that displays coordinates
 //! and dimensions of selected elements.
 
 #![allow(unused_mut)]
@@ -139,7 +139,7 @@ pub fn spawn_coord_pane(
         ))
         .with_children(|parent| {
             // ============ COORDINATE ROWS ============
-            
+
             // X coordinate row
             parent
                 .spawn(Node {
@@ -285,7 +285,7 @@ pub fn spawn_coord_pane(
                 });
 
             // ============ QUADRANT SELECTOR ============
-            
+
             parent
                 .spawn(Node {
                     position_type: PositionType::Relative,
@@ -308,13 +308,20 @@ pub fn spawn_coord_pane(
                                 lines.spawn((
                                     Node {
                                         position_type: PositionType::Absolute,
-                                        width: Val::Px(BUTTON_POSITIONS[2] - BUTTON_POSITIONS[0]),
+                                        width: Val::Px(
+                                            BUTTON_POSITIONS[2]
+                                                - BUTTON_POSITIONS[0],
+                                        ),
                                         height: Val::Px(GRID_LINE_WIDTH),
-                                        top: Val::Px(y_pos - GRID_LINE_WIDTH / 2.0),
+                                        top: Val::Px(
+                                            y_pos - GRID_LINE_WIDTH / 2.0,
+                                        ),
                                         left: Val::Px(BUTTON_POSITIONS[0]),
                                         ..default()
                                     },
-                                    BackgroundColor(NORMAL_BUTTON_OUTLINE_COLOR),
+                                    BackgroundColor(
+                                        NORMAL_BUTTON_OUTLINE_COLOR,
+                                    ),
                                 ));
                             }
                             // Vertical grid lines
@@ -323,12 +330,19 @@ pub fn spawn_coord_pane(
                                     Node {
                                         position_type: PositionType::Absolute,
                                         width: Val::Px(GRID_LINE_WIDTH),
-                                        height: Val::Px(BUTTON_POSITIONS[2] - BUTTON_POSITIONS[0]),
-                                        left: Val::Px(x_pos - GRID_LINE_WIDTH / 2.0),
+                                        height: Val::Px(
+                                            BUTTON_POSITIONS[2]
+                                                - BUTTON_POSITIONS[0],
+                                        ),
+                                        left: Val::Px(
+                                            x_pos - GRID_LINE_WIDTH / 2.0,
+                                        ),
                                         top: Val::Px(BUTTON_POSITIONS[0]),
                                         ..default()
                                     },
-                                    BackgroundColor(NORMAL_BUTTON_OUTLINE_COLOR),
+                                    BackgroundColor(
+                                        NORMAL_BUTTON_OUTLINE_COLOR,
+                                    ),
                                 ));
                             }
                         });
@@ -356,20 +370,37 @@ pub fn spawn_coord_pane(
                         })
                         .with_children(|grid| {
                             let quadrants = [
-                                [Quadrant::TopLeft, Quadrant::Top, Quadrant::TopRight],
-                                [Quadrant::Left, Quadrant::Center, Quadrant::Right],
-                                [Quadrant::BottomLeft, Quadrant::Bottom, Quadrant::BottomRight],
+                                [
+                                    Quadrant::TopLeft,
+                                    Quadrant::Top,
+                                    Quadrant::TopRight,
+                                ],
+                                [
+                                    Quadrant::Left,
+                                    Quadrant::Center,
+                                    Quadrant::Right,
+                                ],
+                                [
+                                    Quadrant::BottomLeft,
+                                    Quadrant::Bottom,
+                                    Quadrant::BottomRight,
+                                ],
                             ];
 
                             for row in quadrants.iter() {
                                 for &quadrant in row.iter() {
-                                    let is_selected = quadrant == Quadrant::Center;
-                                    
+                                    let is_selected =
+                                        quadrant == Quadrant::Center;
+
                                     grid.spawn((
                                         Button,
                                         Node {
-                                            width: Val::Px(QUADRANT_BUTTON_SIZE),
-                                            height: Val::Px(QUADRANT_BUTTON_SIZE),
+                                            width: Val::Px(
+                                                QUADRANT_BUTTON_SIZE,
+                                            ),
+                                            height: Val::Px(
+                                                QUADRANT_BUTTON_SIZE,
+                                            ),
                                             border: UiRect::all(Val::Px(2.0)),
                                             ..default()
                                         },
@@ -383,7 +414,9 @@ pub fn spawn_coord_pane(
                                         } else {
                                             NORMAL_BUTTON_OUTLINE_COLOR
                                         }),
-                                        BorderRadius::all(Val::Px(theme.theme().ui_border_radius())),
+                                        BorderRadius::all(Val::Px(
+                                            theme.theme().ui_border_radius(),
+                                        )),
                                         UiBorderRadius,
                                         QuadrantButton(quadrant),
                                     ));
@@ -393,7 +426,6 @@ pub fn spawn_coord_pane(
                 });
         });
 }
-
 
 // ============================================================================
 // SYSTEMS
@@ -423,8 +455,8 @@ fn update_coordinate_selection(
     let mut sort_baseline = Vec2::ZERO;
     for (_, sort_point) in selected_query.iter() {
         if let Some(sort_point) = sort_point {
-            if let Ok(sort_transform) = 
-                sort_transforms.get(sort_point.sort_entity) 
+            if let Ok(sort_transform) =
+                sort_transforms.get(sort_point.sort_entity)
             {
                 sort_baseline = sort_transform.translation().truncate();
                 break;
@@ -460,10 +492,8 @@ fn update_coordinate_display(
         return;
     }
 
-    let reference_point = get_quadrant_point(
-        &coord_selection.frame,
-        coord_selection.quadrant,
-    );
+    let reference_point =
+        get_quadrant_point(&coord_selection.frame, coord_selection.quadrant);
 
     // Update X
     if let Ok(mut text) = queries.p0().single_mut() {
@@ -477,18 +507,12 @@ fn update_coordinate_display(
 
     // Update Width
     if let Ok(mut text) = queries.p2().single_mut() {
-        *text = Text::new(format!(
-            "{}",
-            coord_selection.frame.width() as i32
-        ));
+        *text = Text::new(format!("{}", coord_selection.frame.width() as i32));
     }
 
     // Update Height
     if let Ok(mut text) = queries.p3().single_mut() {
-        *text = Text::new(format!(
-            "{}",
-            coord_selection.frame.height() as i32
-        ));
+        *text = Text::new(format!("{}", coord_selection.frame.height() as i32));
     }
 }
 
@@ -508,7 +532,7 @@ fn handle_quadrant_buttons(
     for (interaction, button) in interaction_query.iter() {
         if *interaction == Interaction::Pressed {
             coord_selection.quadrant = button.0;
-            
+
             // Update all button states
             for (other_button, mut bg, mut border) in all_buttons.iter_mut() {
                 let is_selected = other_button.0 == button.0;
@@ -533,7 +557,7 @@ fn toggle_pane_visibility(
     mut coord_pane: Query<&mut Visibility, With<CoordPane>>,
 ) {
     let should_show = coord_selection.count > 0;
-    
+
     for mut visibility in coord_pane.iter_mut() {
         *visibility = if should_show {
             Visibility::Visible

@@ -64,12 +64,18 @@ pub enum PooledEntityType {
 
 impl EntityPools {
     /// Get or create an outline entity pool for a specific sort
-    pub fn get_outline_pool(&mut self, sort_entity: Entity) -> &mut OutlineEntityPool {
+    pub fn get_outline_pool(
+        &mut self,
+        sort_entity: Entity,
+    ) -> &mut OutlineEntityPool {
         self.outline_pools.entry(sort_entity).or_default()
     }
 
     /// Get or create a metrics entity pool for a specific sort
-    pub fn get_metrics_pool(&mut self, sort_entity: Entity) -> &mut MetricsEntityPool {
+    pub fn get_metrics_pool(
+        &mut self,
+        sort_entity: Entity,
+    ) -> &mut MetricsEntityPool {
         self.metrics_pools.entry(sort_entity).or_default()
     }
 
@@ -87,16 +93,18 @@ impl EntityPools {
             entity
         } else {
             // Create new entity if pool is empty
-            let entity = commands.spawn((
-                PooledEntity { entity_type },
-                // Basic transform - will be updated when entity is used
-                Transform::default(),
-                GlobalTransform::default(),
-                Visibility::Visible,
-                InheritedVisibility::default(),
-                ViewVisibility::default(),
-            )).id();
-            
+            let entity = commands
+                .spawn((
+                    PooledEntity { entity_type },
+                    // Basic transform - will be updated when entity is used
+                    Transform::default(),
+                    GlobalTransform::default(),
+                    Visibility::Visible,
+                    InheritedVisibility::default(),
+                    ViewVisibility::default(),
+                ))
+                .id();
+
             debug!("Created new cursor entity: {:?}", entity);
             self.cursor_pool.in_use.push(entity);
             entity
@@ -110,26 +118,37 @@ impl EntityPools {
         sort_entity: Entity,
     ) -> Entity {
         let pool = self.get_outline_pool(sort_entity);
-        
+
         // Try to reuse an available entity
         if let Some(entity) = pool.available.pop() {
             // Only log at trace level to reduce debug noise in hot paths
-            trace!("Reusing outline entity for sort {:?}: {:?}", sort_entity, entity);
+            trace!(
+                "Reusing outline entity for sort {:?}: {:?}",
+                sort_entity,
+                entity
+            );
             pool.in_use.push(entity);
             entity
         } else {
             // Create new entity if pool is empty
-            let entity = commands.spawn((
-                PooledEntity { entity_type: PooledEntityType::Outline },
-                // Basic transform - will be updated when entity is used
-                Transform::default(),
-                GlobalTransform::default(),
-                Visibility::Visible,
-                InheritedVisibility::default(),
-                ViewVisibility::default(),
-            )).id();
-            
-            debug!("Created new outline entity for sort {:?}: {:?}", sort_entity, entity);
+            let entity = commands
+                .spawn((
+                    PooledEntity {
+                        entity_type: PooledEntityType::Outline,
+                    },
+                    // Basic transform - will be updated when entity is used
+                    Transform::default(),
+                    GlobalTransform::default(),
+                    Visibility::Visible,
+                    InheritedVisibility::default(),
+                    ViewVisibility::default(),
+                ))
+                .id();
+
+            debug!(
+                "Created new outline entity for sort {:?}: {:?}",
+                sort_entity, entity
+            );
             pool.in_use.push(entity);
             entity
         }
@@ -142,26 +161,37 @@ impl EntityPools {
         sort_entity: Entity,
     ) -> Entity {
         let pool = self.get_metrics_pool(sort_entity);
-        
+
         // Try to reuse an available entity
         if let Some(entity) = pool.available.pop() {
             // Only log at trace level to reduce debug noise in hot paths
-            trace!("Reusing metrics entity for sort {:?}: {:?}", sort_entity, entity);
+            trace!(
+                "Reusing metrics entity for sort {:?}: {:?}",
+                sort_entity,
+                entity
+            );
             pool.in_use.push(entity);
             entity
         } else {
             // Create new entity if pool is empty
-            let entity = commands.spawn((
-                PooledEntity { entity_type: PooledEntityType::Metrics },
-                // Basic transform - will be updated when entity is used
-                Transform::default(),
-                GlobalTransform::default(),
-                Visibility::Visible,
-                InheritedVisibility::default(),
-                ViewVisibility::default(),
-            )).id();
-            
-            debug!("Created new metrics entity for sort {:?}: {:?}", sort_entity, entity);
+            let entity = commands
+                .spawn((
+                    PooledEntity {
+                        entity_type: PooledEntityType::Metrics,
+                    },
+                    // Basic transform - will be updated when entity is used
+                    Transform::default(),
+                    GlobalTransform::default(),
+                    Visibility::Visible,
+                    InheritedVisibility::default(),
+                    ViewVisibility::default(),
+                ))
+                .id();
+
+            debug!(
+                "Created new metrics entity for sort {:?}: {:?}",
+                sort_entity, entity
+            );
             pool.in_use.push(entity);
             entity
         }
@@ -169,24 +199,37 @@ impl EntityPools {
 
     /// Return cursor entities to the available pool (called at start of frame)
     pub fn return_cursor_entities(&mut self, commands: &mut Commands) {
-        debug!("Returning {} cursor entities to pool", self.cursor_pool.in_use.len());
-        
+        debug!(
+            "Returning {} cursor entities to pool",
+            self.cursor_pool.in_use.len()
+        );
+
         // Hide all cursor entities when returning them to pool
         for entity in &self.cursor_pool.in_use {
             if let Ok(mut entity_commands) = commands.get_entity(*entity) {
                 entity_commands.insert(Visibility::Hidden);
             }
         }
-        
-        self.cursor_pool.available.append(&mut self.cursor_pool.in_use);
+
+        self.cursor_pool
+            .available
+            .append(&mut self.cursor_pool.in_use);
     }
 
     /// Return outline entities for a specific sort to the available pool
-    pub fn return_outline_entities(&mut self, commands: &mut Commands, sort_entity: Entity) {
+    pub fn return_outline_entities(
+        &mut self,
+        commands: &mut Commands,
+        sort_entity: Entity,
+    ) {
         if let Some(pool) = self.outline_pools.get_mut(&sort_entity) {
             // Only log if returning significant number of entities to avoid debug noise
             if pool.in_use.len() > 5 {
-                debug!("Returning {} outline entities to pool for sort {:?}", pool.in_use.len(), sort_entity);
+                debug!(
+                    "Returning {} outline entities to pool for sort {:?}",
+                    pool.in_use.len(),
+                    sort_entity
+                );
             }
             // CRITICAL: Hide entities when returning them to pool to prevent double rendering
             for &entity in &pool.in_use {
@@ -199,11 +242,19 @@ impl EntityPools {
     }
 
     /// Return metrics entities for a specific sort to the available pool
-    pub fn return_metrics_entities(&mut self, commands: &mut Commands, sort_entity: Entity) {
+    pub fn return_metrics_entities(
+        &mut self,
+        commands: &mut Commands,
+        sort_entity: Entity,
+    ) {
         if let Some(pool) = self.metrics_pools.get_mut(&sort_entity) {
             // Only log if returning significant number of entities to avoid debug noise
             if pool.in_use.len() > 10 {
-                debug!("Returning {} metrics entities to pool for sort {:?}", pool.in_use.len(), sort_entity);
+                debug!(
+                    "Returning {} metrics entities to pool for sort {:?}",
+                    pool.in_use.len(),
+                    sort_entity
+                );
             }
             // CRITICAL: Hide entities when returning them to pool to prevent double rendering
             for &entity in &pool.in_use {
@@ -219,31 +270,40 @@ impl EntityPools {
     /// NOTE: This is expensive - prefer selective returns when possible
     pub fn return_all_entities(&mut self, commands: &mut Commands) {
         debug!("Returning all entities to pools");
-        
+
         // Return cursor entities
         self.return_cursor_entities(commands);
-        
+
         // Return outline entities for all sorts
-        let sort_entities: Vec<Entity> = self.outline_pools.keys().copied().collect();
+        let sort_entities: Vec<Entity> =
+            self.outline_pools.keys().copied().collect();
         for sort_entity in sort_entities {
             self.return_outline_entities(commands, sort_entity);
         }
-        
+
         // Return metrics entities for all sorts
-        let sort_entities: Vec<Entity> = self.metrics_pools.keys().copied().collect();
+        let sort_entities: Vec<Entity> =
+            self.metrics_pools.keys().copied().collect();
         for sort_entity in sort_entities {
             self.return_metrics_entities(commands, sort_entity);
         }
     }
 
     /// Return entities for specific sorts that have changed (more efficient)
-    pub fn return_entities_for_changed_sorts(&mut self, commands: &mut Commands, changed_sort_entities: &[Entity]) {
+    pub fn return_entities_for_changed_sorts(
+        &mut self,
+        commands: &mut Commands,
+        changed_sort_entities: &[Entity],
+    ) {
         if changed_sort_entities.is_empty() {
             return;
         }
-        
-        debug!("Returning entities for {} changed sorts", changed_sort_entities.len());
-        
+
+        debug!(
+            "Returning entities for {} changed sorts",
+            changed_sort_entities.len()
+        );
+
         // Return outline and metrics entities only for changed sorts
         for &sort_entity in changed_sort_entities {
             self.return_outline_entities(commands, sort_entity);
@@ -257,7 +317,7 @@ impl EntityPools {
         self.outline_pools.retain(|_, pool| {
             !pool.available.is_empty() || !pool.in_use.is_empty()
         });
-        
+
         // Remove metrics pools that have no entities
         self.metrics_pools.retain(|_, pool| {
             !pool.available.is_empty() || !pool.in_use.is_empty()
@@ -272,14 +332,14 @@ impl EntityPools {
             outline_available += pool.available.len();
             outline_in_use += pool.in_use.len();
         }
-        
+
         let mut metrics_available = 0;
         let mut metrics_in_use = 0;
         for pool in self.metrics_pools.values() {
             metrics_available += pool.available.len();
             metrics_in_use += pool.in_use.len();
         }
-        
+
         PoolStats {
             outline_available,
             outline_in_use,
@@ -326,7 +386,10 @@ pub fn update_outline_entity(
             Visibility::Visible,
         ));
     } else {
-        debug!("Skipping update for non-existent outline entity {:?}", entity);
+        debug!(
+            "Skipping update for non-existent outline entity {:?}",
+            entity
+        );
     }
 }
 
@@ -349,7 +412,10 @@ pub fn update_metrics_entity(
             Visibility::Visible,
         ));
     } else {
-        debug!("Skipping update for non-existent metrics entity {:?}", entity);
+        debug!(
+            "Skipping update for non-existent metrics entity {:?}",
+            entity
+        );
     }
 }
 
@@ -372,7 +438,10 @@ pub fn update_cursor_entity(
             Visibility::Visible,
         ));
     } else {
-        debug!("Skipping update for non-existent cursor entity {:?}", entity);
+        debug!(
+            "Skipping update for non-existent cursor entity {:?}",
+            entity
+        );
     }
 }
 
@@ -381,11 +450,15 @@ pub struct EntityPoolingPlugin;
 
 impl Plugin for EntityPoolingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<EntityPools>()
-            .add_systems(Update, (
-                log_pool_stats.run_if(on_timer(std::time::Duration::from_secs(5))),
-                cleanup_pools.run_if(on_timer(std::time::Duration::from_secs(10))),
-            ));
+        app.init_resource::<EntityPools>().add_systems(
+            Update,
+            (
+                log_pool_stats
+                    .run_if(on_timer(std::time::Duration::from_secs(5))),
+                cleanup_pools
+                    .run_if(on_timer(std::time::Duration::from_secs(10))),
+            ),
+        );
     }
 }
 
@@ -394,7 +467,7 @@ fn log_pool_stats(pools: Res<EntityPools>) {
     let stats = pools.get_pool_stats();
     info!("Entity Pool Stats: Outline(avail:{}/use:{}), Metrics(avail:{}/use:{}), Cursor(avail:{}/use:{}), Pools(outline:{}, metrics:{})", 
         stats.outline_available, stats.outline_in_use,
-        stats.metrics_available, stats.metrics_in_use, 
+        stats.metrics_available, stats.metrics_in_use,
         stats.cursor_available, stats.cursor_in_use,
         stats.outline_pools_count, stats.metrics_pools_count);
 }

@@ -114,17 +114,22 @@ pub fn shape_arabic_text_system(
     // 2. Load the appropriate font face
     // 3. Use harfrust to shape the text
     // 4. Update sort positions based on shaped output
-    
+
     debug!("Arabic text shaping system: detected RTL text that would benefit from shaping");
     debug!("Buffer contains {} sorts", text_editor_state.buffer.len());
-    
+
     // Count RTL sorts for debugging
-    let rtl_count = text_editor_state.buffer.iter()
+    let rtl_count = text_editor_state
+        .buffer
+        .iter()
         .filter(|entry| entry.layout_mode == SortLayoutMode::RTLText)
         .count();
-    
+
     if rtl_count > 0 {
-        debug!("Found {} RTL text sorts for potential Arabic shaping", rtl_count);
+        debug!(
+            "Found {} RTL text sorts for potential Arabic shaping",
+            rtl_count
+        );
     }
 }
 
@@ -137,7 +142,7 @@ pub fn shape_text_with_harfbuzz(
 ) -> Result<ShapedText, String> {
     // Convert text to UTF-32 codepoints
     let input_codepoints: Vec<char> = text.chars().collect();
-    
+
     if input_codepoints.is_empty() {
         return Ok(ShapedText {
             input_codepoints,
@@ -197,7 +202,7 @@ pub fn needs_complex_shaping(text: &str) -> bool {
 /// Get the appropriate script for HarfBuzz based on Unicode ranges
 pub fn get_script_for_text(text: &str) -> Option<Script> {
     use harfrust::Tag;
-    
+
     if text.chars().any(|ch| {
         let code = ch as u32;
         (0x0600..=0x06FF).contains(&code) // Basic Arabic block
@@ -232,11 +237,11 @@ mod tests {
         // Arabic text
         assert!(needs_complex_shaping("السلام عليكم"));
         assert!(needs_complex_shaping("مرحبا"));
-        
+
         // Latin text
         assert!(!needs_complex_shaping("Hello World"));
         assert!(!needs_complex_shaping("abc"));
-        
+
         // Mixed text
         assert!(needs_complex_shaping("Hello مرحبا"));
     }
@@ -244,16 +249,34 @@ mod tests {
     #[test]
     fn test_script_detection() {
         use harfrust::Tag;
-        
-        assert_eq!(get_script_for_text("السلام"), Script::from_iso15924_tag(Tag::new(b"arab")));
-        assert_eq!(get_script_for_text("שלום"), Script::from_iso15924_tag(Tag::new(b"hebr")));
-        assert_eq!(get_script_for_text("Hello"), Script::from_iso15924_tag(Tag::new(b"latn")));
+
+        assert_eq!(
+            get_script_for_text("السلام"),
+            Script::from_iso15924_tag(Tag::new(b"arab"))
+        );
+        assert_eq!(
+            get_script_for_text("שלום"),
+            Script::from_iso15924_tag(Tag::new(b"hebr"))
+        );
+        assert_eq!(
+            get_script_for_text("Hello"),
+            Script::from_iso15924_tag(Tag::new(b"latn"))
+        );
     }
 
     #[test]
     fn test_direction_conversion() {
-        assert_eq!(TextDirection::from(SortLayoutMode::LTRText), TextDirection::LeftToRight);
-        assert_eq!(TextDirection::from(SortLayoutMode::RTLText), TextDirection::RightToLeft);
-        assert_eq!(TextDirection::from(SortLayoutMode::Freeform), TextDirection::LeftToRight);
+        assert_eq!(
+            TextDirection::from(SortLayoutMode::LTRText),
+            TextDirection::LeftToRight
+        );
+        assert_eq!(
+            TextDirection::from(SortLayoutMode::RTLText),
+            TextDirection::RightToLeft
+        );
+        assert_eq!(
+            TextDirection::from(SortLayoutMode::Freeform),
+            TextDirection::LeftToRight
+        );
     }
 }

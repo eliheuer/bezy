@@ -6,7 +6,7 @@
 use crate::systems::text_editor_sorts::{
     debug_text_editor_state,
     despawn_inactive_sort_points_optimized, // NEW: Optimized instant point despawning
-    despawn_missing_buffer_sort_entities, // NEW: Despawn deleted buffer sorts
+    despawn_missing_buffer_sort_entities,   // NEW: Despawn deleted buffer sorts
     // handle_text_input_with_cosmic, // DISABLED: Legacy system causing double input
     handle_arabic_text_input, // NEW: Arabic and Unicode text input
     // respawn_active_sort_points, // REMOVED: Replaced with ECS-based system

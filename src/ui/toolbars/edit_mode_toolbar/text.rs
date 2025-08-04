@@ -22,9 +22,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::rendering::cameras::DesignCamera;
 use crate::rendering::checkerboard::calculate_dynamic_grid_size;
-use crate::ui::theme::{SORT_ACTIVE_METRICS_COLOR, PRESSED_BUTTON_COLOR};
 use crate::ui::theme::*;
-use crate::ui::themes::{ToolbarBorderRadius, CurrentTheme};
+use crate::ui::theme::{PRESSED_BUTTON_COLOR, SORT_ACTIVE_METRICS_COLOR};
+use crate::ui::themes::{CurrentTheme, ToolbarBorderRadius};
 use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
 
 // --------- Resources, Structs, Enums -----------
@@ -215,7 +215,9 @@ fn spawn_text_mode_button(
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(theme.theme().toolbar_border_radius())),
+                    BorderRadius::all(Val::Px(
+                        theme.theme().toolbar_border_radius(),
+                    )),
                     ToolbarBorderRadius,
                     BorderColor(NORMAL_BUTTON_OUTLINE_COLOR),
                     BackgroundColor(NORMAL_BUTTON_COLOR),
@@ -491,7 +493,8 @@ pub fn handle_text_mode_mouse_clicks(
 
         // If we placed a text sort, automatically switch to Insert mode
         if did_place_text_sort
-            && (current_placement_mode.0 == TextPlacementMode::LTRText || current_placement_mode.0 == TextPlacementMode::RTLText)
+            && (current_placement_mode.0 == TextPlacementMode::LTRText
+                || current_placement_mode.0 == TextPlacementMode::RTLText)
         {
             current_placement_mode.0 = TextPlacementMode::Insert;
             info!("Auto-switched to Insert mode after placing text sort");
@@ -528,7 +531,9 @@ pub fn render_sort_preview(
     fontir_app_state: Option<Res<FontIRAppState>>,
     pointer_info: Res<crate::core::io::pointer::PointerInfo>,
     camera_query: Query<&Projection, With<DesignCamera>>,
-    mut preview_metrics_state: ResMut<crate::rendering::metrics::PreviewMetricsState>,
+    mut preview_metrics_state: ResMut<
+        crate::rendering::metrics::PreviewMetricsState,
+    >,
 ) {
     info!("[PREVIEW] Entered render_sort_preview - text_mode_active: {}, placement_mode: {:?}", text_mode_active.0, current_placement_mode.0);
     if !text_mode_active.0 {
@@ -580,12 +585,14 @@ pub fn render_sort_preview(
                 // For now, just show metrics without glyph outline
 
                 // Update mesh-based preview metrics state for FontIR
-                let advance_width = fontir_state.get_glyph_advance_width(glyph_name);
+                let advance_width =
+                    fontir_state.get_glyph_advance_width(glyph_name);
                 preview_metrics_state.active = true;
                 preview_metrics_state.position = snapped_position;
                 preview_metrics_state.glyph_name = glyph_name.clone();
                 preview_metrics_state.advance_width = advance_width;
-                preview_metrics_state.color = PRESSED_BUTTON_COLOR.with_alpha(0.8);
+                preview_metrics_state.color =
+                    PRESSED_BUTTON_COLOR.with_alpha(0.8);
                 debug!(
                     "[PREVIEW] Updated mesh-based preview metrics for '{}' at ({:.1}, {:.1})",
                     glyph_name, snapped_position.x, snapped_position.y
@@ -617,7 +624,8 @@ pub fn render_sort_preview(
                 preview_metrics_state.position = snapped_position;
                 preview_metrics_state.glyph_name = glyph_name.clone();
                 preview_metrics_state.advance_width = advance_width;
-                preview_metrics_state.color = PRESSED_BUTTON_COLOR.with_alpha(0.8);
+                preview_metrics_state.color =
+                    PRESSED_BUTTON_COLOR.with_alpha(0.8);
                 debug!(
                     "[PREVIEW] Updated mesh-based preview metrics for '{}' at ({:.1}, {:.1})",
                     glyph_name, snapped_position.x, snapped_position.y
@@ -791,7 +799,9 @@ pub fn handle_text_mode_keyboard(
 
     // text_editor_state is now available directly as ResMut
 
-    if current_placement_mode.0 == TextPlacementMode::LTRText || current_placement_mode.0 == TextPlacementMode::RTLText {
+    if current_placement_mode.0 == TextPlacementMode::LTRText
+        || current_placement_mode.0 == TextPlacementMode::RTLText
+    {
         if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
             text_editor_state.move_cursor_left();
             debug!(

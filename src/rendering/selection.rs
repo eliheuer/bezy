@@ -239,7 +239,3 @@ pub fn render_all_point_entities(
         // This includes point backgrounds, center dots, and properly-sized outlines
     }
 }
-
-
-
-

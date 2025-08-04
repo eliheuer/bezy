@@ -148,7 +148,6 @@ impl SortBuffer {
         }
     }
 
-
     /// Get the logical length (excluding gap)
     pub fn len(&self) -> usize {
         self.buffer.len() - (self.gap_end - self.gap_start)
@@ -158,7 +157,6 @@ impl SortBuffer {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
-
 
     /// Get sort at logical position
     pub fn get(&self, index: usize) -> Option<&SortEntry> {
@@ -301,7 +299,6 @@ impl SortBuffer {
         self.gap_start = 0;
         self.gap_end = self.buffer.len();
     }
-
 }
 
 impl<'a> Iterator for SortBufferIterator<'a> {

@@ -37,7 +37,7 @@ pub fn hot_reload_themes(
     time: Res<Time>,
 ) {
     hot_reload.check_timer.tick(time.delta());
-    
+
     if !hot_reload.check_timer.just_finished() {
         return;
     }
@@ -50,16 +50,18 @@ pub fn hot_reload_themes(
     if let Ok(metadata) = fs::metadata(&theme_path) {
         if let Ok(modified) = metadata.modified() {
             let last_check = hot_reload.last_modified.get(&theme_file).copied();
-            
+
             // If file was modified since last check, reload the theme
             if last_check.is_none_or(|last| modified > last) {
                 info!("Theme file {} was modified, reloading...", theme_file);
-                hot_reload.last_modified.insert(theme_file.clone(), modified);
-                
+                hot_reload
+                    .last_modified
+                    .insert(theme_file.clone(), modified);
+
                 // Force a theme switch to the same theme to reload colors
                 let variant = current_theme.variant.clone();
                 current_theme.switch_to(variant);
-                
+
                 info!("Theme reloaded successfully!");
             }
         }
@@ -76,7 +78,7 @@ impl Plugin for ThemeHotReloadPlugin {
         {
             app.init_resource::<ThemeHotReload>()
                 .add_systems(Update, hot_reload_themes);
-            
+
             info!("Theme hot reloading enabled! Edit theme files to see changes live.");
         }
     }
@@ -88,8 +90,9 @@ pub fn reload_theme_on_keypress(
     mut current_theme: ResMut<CurrentTheme>,
 ) {
     // Press Ctrl/Cmd + R to reload the current theme
-    let ctrl_held = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
-    
+    let ctrl_held = keyboard.pressed(KeyCode::ControlLeft)
+        || keyboard.pressed(KeyCode::ControlRight);
+
     if ctrl_held && keyboard.just_pressed(KeyCode::KeyR) {
         let variant = current_theme.variant.clone();
         current_theme.switch_to(variant);

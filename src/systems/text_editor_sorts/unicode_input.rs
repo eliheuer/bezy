@@ -6,7 +6,9 @@
 
 use crate::core::state::fontir_app_state::FontIRAppState;
 use crate::core::state::{AppState, TextEditorState};
-use crate::systems::text_editor_sorts::input_utilities::{unicode_to_glyph_name, unicode_to_glyph_name_fontir};
+use crate::systems::text_editor_sorts::input_utilities::{
+    unicode_to_glyph_name, unicode_to_glyph_name_fontir,
+};
 use crate::ui::toolbars::edit_mode_toolbar::text::{
     CurrentTextPlacementMode, TextPlacementMode,
 };
@@ -45,27 +47,39 @@ pub fn handle_unicode_text_input(
 
     // ONLY handle typing when in Insert mode - placement modes should use mouse clicks only
     if !matches!(current_placement_mode.0, TextPlacementMode::Insert) {
-        debug!("Unicode input blocked: Not in Insert mode (current: {:?})", current_placement_mode.0);
+        debug!(
+            "Unicode input blocked: Not in Insert mode (current: {:?})",
+            current_placement_mode.0
+        );
         return;
     }
 
     if key_count > 0 {
-        debug!("Unicode input: Processing {} keyboard events in Insert mode", key_count);
+        debug!(
+            "Unicode input: Processing {} keyboard events in Insert mode",
+            key_count
+        );
     }
-    
+
     debug!("Unicode input: Processing in Insert mode");
 
     // Handle keyboard input events
     let event_count = key_evr.len();
     info!("Unicode input: Processing {} keyboard events", event_count);
-    
+
     for ev in key_evr.read() {
-        info!("Unicode input: Keyboard event - key: {:?}, state: {:?}", ev.logical_key, ev.state);
-        
+        info!(
+            "Unicode input: Keyboard event - key: {:?}, state: {:?}",
+            ev.logical_key, ev.state
+        );
+
         // Only process pressed keys
         let is_pressed = matches!(ev.state, ButtonState::Pressed);
-        info!("Unicode input: Key state - is_pressed: {}, raw state: {:?}", is_pressed, ev.state);
-        
+        info!(
+            "Unicode input: Key state - is_pressed: {}, raw state: {:?}",
+            is_pressed, ev.state
+        );
+
         if !is_pressed {
             debug!("Unicode input: Skipping non-pressed key event");
             continue;
@@ -74,10 +88,16 @@ pub fn handle_unicode_text_input(
         match &ev.logical_key {
             // Handle Unicode character input
             Key::Character(character_string) => {
-                info!("Unicode input: Character key pressed: '{}'", character_string);
+                info!(
+                    "Unicode input: Character key pressed: '{}'",
+                    character_string
+                );
                 // Process each character in the string (usually just one)
                 for character in character_string.chars() {
-                    info!("Unicode input: Processing character '{}' (U+{:04X})", character, character as u32);
+                    info!(
+                        "Unicode input: Processing character '{}' (U+{:04X})",
+                        character, character as u32
+                    );
                     // Skip control characters (except newline)
                     if character.is_control() && character != '\n' {
                         debug!("Unicode input: Skipping control character");
@@ -111,7 +131,10 @@ pub fn handle_unicode_text_input(
                         &fontir_app_state,
                         &current_placement_mode,
                     );
-                    debug!("Unicode input: Completed character '{}'", character);
+                    debug!(
+                        "Unicode input: Completed character '{}'",
+                        character
+                    );
                 }
             }
             // Handle special keys
@@ -179,15 +202,28 @@ fn handle_unicode_character(
                     .insert_sort_at_cursor(glyph_name.clone(), advance_width);
                 info!("Unicode input: Inserted '{}' (U+{:04X}) as glyph '{}' in Insert mode", 
                       character, character as u32, glyph_name);
-                info!("Text editor buffer now has {} sorts", text_editor_state.buffer.len());
+                info!(
+                    "Text editor buffer now has {} sorts",
+                    text_editor_state.buffer.len()
+                );
             }
             TextPlacementMode::LTRText | TextPlacementMode::RTLText => {
                 text_editor_state
                     .insert_sort_at_cursor(glyph_name.clone(), advance_width);
-                let mode_name = if matches!(current_placement_mode.0, TextPlacementMode::LTRText) { "LTR Text" } else { "RTL Text" };
+                let mode_name = if matches!(
+                    current_placement_mode.0,
+                    TextPlacementMode::LTRText
+                ) {
+                    "LTR Text"
+                } else {
+                    "RTL Text"
+                };
                 info!("Unicode input: Inserted '{}' (U+{:04X}) as glyph '{}' in {} mode", 
                       character, character as u32, glyph_name, mode_name);
-                info!("Text editor buffer now has {} sorts", text_editor_state.buffer.len());
+                info!(
+                    "Text editor buffer now has {} sorts",
+                    text_editor_state.buffer.len()
+                );
             }
             TextPlacementMode::Freeform => {
                 // In freeform mode, characters are placed freely - for now use same logic
@@ -255,7 +291,14 @@ fn handle_newline_character(
         TextPlacementMode::LTRText | TextPlacementMode::RTLText => {
             // In Text mode, newlines might move to next line in grid
             text_editor_state.insert_line_break_at_cursor();
-            let mode_name = if matches!(current_placement_mode.0, TextPlacementMode::LTRText) { "LTR Text" } else { "RTL Text" };
+            let mode_name = if matches!(
+                current_placement_mode.0,
+                TextPlacementMode::LTRText
+            ) {
+                "LTR Text"
+            } else {
+                "RTL Text"
+            };
             info!("Unicode input: Inserted line break in {} mode", mode_name);
         }
         TextPlacementMode::Freeform => {
@@ -278,7 +321,14 @@ fn handle_backspace(
         TextPlacementMode::LTRText | TextPlacementMode::RTLText => {
             // delete_sort_at_cursor already handles deleting to the left of cursor and updating cursor position
             text_editor_state.delete_sort_at_cursor();
-            let mode_name = if matches!(current_placement_mode.0, TextPlacementMode::LTRText) { "LTR Text" } else { "RTL Text" };
+            let mode_name = if matches!(
+                current_placement_mode.0,
+                TextPlacementMode::LTRText
+            ) {
+                "LTR Text"
+            } else {
+                "RTL Text"
+            };
             info!("Unicode input: Backspace in {} mode", mode_name);
         }
         TextPlacementMode::Freeform => {
@@ -297,7 +347,6 @@ fn handle_delete(
     text_editor_state.delete_sort_at_cursor();
     info!("Unicode input: Delete key pressed");
 }
-
 
 /// Get advance width for a glyph from either AppState or FontIR
 fn get_glyph_advance_width(

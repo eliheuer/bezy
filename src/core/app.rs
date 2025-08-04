@@ -9,8 +9,8 @@ use crate::core::state::GlyphNavigation;
 use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
 use crate::rendering::{
     camera_responsive::CameraResponsivePlugin, cameras::CameraPlugin,
-    checkerboard::CheckerboardPlugin, EntityPoolingPlugin, MeshCachingPlugin, 
-    MetricsRenderingPlugin, MeshGlyphOutlinePlugin, OutlineCoordinationPlugin,
+    checkerboard::CheckerboardPlugin, EntityPoolingPlugin, MeshCachingPlugin,
+    MeshGlyphOutlinePlugin, MetricsRenderingPlugin, OutlineCoordinationPlugin,
     SortHandleRenderingPlugin, UnifiedGlyphEditingPlugin,
 };
 use crate::systems::{
@@ -176,11 +176,11 @@ fn configure_window_plugins(app: &mut App) {
 fn add_plugin_groups(app: &mut App) {
     info!("Adding plugin groups...");
     app.add_plugins((RenderingPluginGroup, EditorPluginGroup, CorePluginGroup));
-    
+
     // Add runtime theme reload plugin for development
     #[cfg(debug_assertions)]
     app.add_plugins(RuntimeThemePlugin);
-    
+
     info!("All plugin groups added successfully");
 }
 
@@ -188,5 +188,4 @@ fn add_plugin_groups(app: &mut App) {
 fn add_lifecycle_systems(app: &mut App) {
     app.add_systems(Startup, load_fontir_font)
         .add_systems(Update, exit_on_esc);
-    
 }

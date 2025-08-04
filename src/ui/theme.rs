@@ -301,7 +301,7 @@ pub fn create_widget_style<T: Component + Default>(
     name: &str,
 ) -> impl Bundle {
     use super::themes::WidgetBorderRadius;
-    
+
     (
         Node {
             position_type: position,

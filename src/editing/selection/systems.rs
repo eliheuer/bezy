@@ -8,7 +8,7 @@ use super::DragPointState;
 use super::DragSelectionState;
 use crate::core::io::input::{helpers, InputEvent, InputState};
 use crate::core::io::pointer::PointerInfo;
-use crate::core::settings::{SNAP_TO_GRID_ENABLED, SNAP_TO_GRID_VALUE};
+use crate::core::settings::BezySettings;
 use crate::core::state::AppState;
 use crate::core::state::FontMetrics;
 use crate::core::state::TextEditorState;
@@ -484,6 +484,7 @@ pub fn handle_point_drag(
     >,
     mut app_state: ResMut<AppState>,
     mut event_writer: EventWriter<EditEvent>,
+    settings: Res<BezySettings>,
 ) {
     // Only drag if the resource says we are
     if !drag_point_state.is_dragging {
@@ -534,15 +535,7 @@ pub fn handle_point_drag(
                 // Handle glyph point drag (with snapping)
                 else if let Some(point_ref) = point_ref {
                     // Apply grid snapping if enabled
-                    let snapped_pos = if SNAP_TO_GRID_ENABLED {
-                        let grid_size = SNAP_TO_GRID_VALUE;
-                        Vec2::new(
-                            (new_pos.x / grid_size).round() * grid_size,
-                            (new_pos.y / grid_size).round() * grid_size,
-                        )
-                    } else {
-                        new_pos
-                    };
+                    let snapped_pos = settings.apply_grid_snap(new_pos);
 
                     transform.translation.x = snapped_pos.x;
                     transform.translation.y = snapped_pos.y;
@@ -1475,7 +1468,6 @@ mod tests {
             &marquee_end,
         );
 
-
         // Calculate distances for debugging
         let rect_start_vec = marquee_start.to_raw();
         let rect_end_vec = marquee_end.to_raw();
@@ -1500,7 +1492,6 @@ mod tests {
             0.0
         };
 
-
         // This should fail because the coordinate systems don't match
         // The test documents the expected behavior
         assert!(!in_rect, "Sort point should NOT be in marquee due to coordinate system mismatch");
@@ -1518,7 +1509,6 @@ mod tests {
             SelectionCoordinateSystem::entity_to_design_coordinates(
                 &entity_coords,
             );
-
 
         assert_eq!(
             design_point.to_raw(),
@@ -1546,7 +1536,6 @@ mod tests {
             &marquee_end,
         );
 
-
         // Case 2: Point just outside rectangle
         let point_outside = Vec2::new(99.9, 200.0);
         let just_outside = SelectionCoordinateSystem::is_point_in_rectangle(
@@ -1554,7 +1543,6 @@ mod tests {
             &marquee_edge,
             &marquee_end,
         );
-
 
         // Case 3: Inverted rectangle (end before start)
         let inverted_start = DPoint::from_raw(Vec2::new(200.0, 300.0));
@@ -1566,7 +1554,6 @@ mod tests {
             &inverted_start,
             &inverted_end,
         );
-
 
         // Assertions
         assert!(on_edge, "Point on edge should be considered inside");
@@ -1591,14 +1578,12 @@ mod tests {
         let marquee_start = DPoint::from_raw(Vec2::new(481.9, 249.1));
         let marquee_end = DPoint::from_raw(Vec2::new(233.0, 398.5));
 
-
         for (i, pos) in entity_positions.iter().enumerate() {
             let in_rect = SelectionCoordinateSystem::is_point_in_rectangle(
                 pos,
                 &marquee_start,
                 &marquee_end,
             );
-
 
             // All should fail due to Y coordinate mismatch
             assert!(!in_rect, "Entity {} should not be in marquee due to Y coordinate mismatch", i);
@@ -1609,7 +1594,6 @@ mod tests {
         let _entity_y_max = -496.0;
         let _marquee_y_min = 233.0;
         let _marquee_y_max = 398.5;
-
     }
 
     #[test]

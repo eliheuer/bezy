@@ -12,8 +12,7 @@ use crate::editing::sort::{
 };
 use crate::rendering::cameras::DesignCamera;
 use crate::rendering::sort_renderer::{
-    manage_sort_labels, update_sort_label_colors,
-    update_sort_label_positions,
+    manage_sort_labels, update_sort_label_colors, update_sort_label_positions,
 };
 use crate::systems::sort_manager::{
     handle_sort_events, respawn_sort_points_on_glyph_change, spawn_initial_sort,

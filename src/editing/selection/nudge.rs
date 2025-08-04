@@ -1,6 +1,4 @@
-use crate::core::settings::{
-    CMD_NUDGE_AMOUNT, NUDGE_AMOUNT, SHIFT_NUDGE_AMOUNT,
-};
+use crate::core::settings::BezySettings;
 use crate::editing::edit_type::EditType;
 use crate::editing::selection::components::Selected;
 use crate::editing::sort::ActiveSortState;
@@ -42,6 +40,7 @@ pub fn handle_nudge_input(
     mut nudge_state: ResMut<NudgeState>,
     time: Res<Time>,
     _active_sort_state: Res<ActiveSortState>, // Keep for potential future use
+    settings: Res<BezySettings>,
 ) {
     // Debug: Log that the system is being called
     debug!(
@@ -75,15 +74,15 @@ pub fn handle_nudge_input(
     let nudge_amount = if keyboard_input.pressed(KeyCode::ShiftLeft)
         || keyboard_input.pressed(KeyCode::ShiftRight)
     {
-        SHIFT_NUDGE_AMOUNT
+        settings.nudge.shift
     } else if keyboard_input.pressed(KeyCode::ControlLeft)
         || keyboard_input.pressed(KeyCode::ControlRight)
         || keyboard_input.pressed(KeyCode::SuperLeft)
         || keyboard_input.pressed(KeyCode::SuperRight)
     {
-        CMD_NUDGE_AMOUNT
+        settings.nudge.cmd
     } else {
-        NUDGE_AMOUNT
+        settings.nudge.default
     };
 
     let mut nudge_direction = Vec2::ZERO;

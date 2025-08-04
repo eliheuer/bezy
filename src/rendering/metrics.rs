@@ -9,7 +9,7 @@
 use crate::core::state::font_metrics::FontMetrics;
 use crate::core::state::fontir_app_state::FontIRMetrics;
 use crate::rendering::camera_responsive::CameraResponsiveScale;
-use crate::rendering::entity_pools::{EntityPools, update_metrics_entity};
+use crate::rendering::entity_pools::{update_metrics_entity, EntityPools};
 use crate::ui::theme::METRICS_GUIDE_COLOR;
 use bevy::prelude::*;
 use bevy::render::mesh::Mesh2d;
@@ -54,30 +54,40 @@ pub struct GlyphMetricsCache {
 
 impl GlyphMetricsCache {
     /// Get cached advance width or calculate and cache it
-    pub fn get_advance_width(&mut self, glyph_name: &str, fontir_state: &crate::core::state::FontIRAppState) -> f32 {
+    pub fn get_advance_width(
+        &mut self,
+        glyph_name: &str,
+        fontir_state: &crate::core::state::FontIRAppState,
+    ) -> f32 {
         if let Some(&width) = self.advance_widths.get(glyph_name) {
             return width;
         }
-        
+
         let width = fontir_state.get_glyph_advance_width(glyph_name);
         self.advance_widths.insert(glyph_name.to_string(), width);
         debug!("Cached advance width for glyph '{}': {}", glyph_name, width);
         width
     }
-    
+
     /// Get cached font metrics or extract and cache them
-    pub fn get_font_metrics(&mut self, fontir_state: &crate::core::state::FontIRAppState) -> &FontIRMetrics {
+    pub fn get_font_metrics(
+        &mut self,
+        fontir_state: &crate::core::state::FontIRAppState,
+    ) -> &FontIRMetrics {
         // For now, skip generation tracking since FontIRAppState doesn't expose it
         // TODO: Add generation tracking when FontIRAppState API supports it
-        
+
         if self.font_metrics.is_none() {
             self.font_metrics = Some(fontir_state.get_font_metrics());
-            debug!("Cached font metrics: UPM={}", self.font_metrics.as_ref().unwrap().units_per_em);
+            debug!(
+                "Cached font metrics: UPM={}",
+                self.font_metrics.as_ref().unwrap().units_per_em
+            );
         }
-        
+
         self.font_metrics.as_ref().unwrap()
     }
-    
+
     /// Clear all cached data (useful for debugging)
     pub fn clear(&mut self) {
         self.advance_widths.clear();
@@ -168,7 +178,7 @@ fn get_or_update_metrics_line(
 ) -> Entity {
     // Get an entity from the pool
     let entity = entity_pools.get_metrics_entity(commands, sort_entity);
-    
+
     // Create the mesh and material
     let line_width = camera_scale.adjusted_line_width();
     let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
@@ -176,20 +186,20 @@ fn get_or_update_metrics_line(
     );
     let mesh_handle = meshes.add(line_mesh);
     let material_handle = materials.add(ColorMaterial::from_color(color));
-    
+
     // Calculate transform
     let transform = Transform::from_xyz(
         (start.x + end.x) * 0.5,
         (start.y + end.y) * 0.5,
         METRICS_LINE_Z,
     );
-    
+
     // Update the entity using the helper function
     let metrics_component = MetricsLine {
         sort_entity,
         line_type,
     };
-    
+
     update_metrics_entity(
         commands,
         entity,
@@ -198,8 +208,11 @@ fn get_or_update_metrics_line(
         transform,
         metrics_component,
     );
-    
-    debug!("Updated pooled metrics entity {:?} for sort {:?}", entity, sort_entity);
+
+    debug!(
+        "Updated pooled metrics entity {:?} for sort {:?}",
+        entity, sort_entity
+    );
     entity
 }
 
@@ -211,7 +224,7 @@ pub fn render_mesh_metrics_lines(
     mut metrics_entities: ResMut<MetricsLineEntities>,
     _entity_pools: ResMut<EntityPools>,
     mut metrics_cache: ResMut<GlyphMetricsCache>,
-    // NO CHANGE DETECTION: Active sorts must always render metrics for visibility  
+    // NO CHANGE DETECTION: Active sorts must always render metrics for visibility
     // EXCLUDE buffer sorts to prevent overlap with active_buffer_sort_query
     sort_query: Query<
         (Entity, &Transform, &crate::editing::sort::Sort),
@@ -246,8 +259,9 @@ pub fn render_mesh_metrics_lines(
     let sort_count = sort_query.iter().count();
     let active_buffer_count = active_buffer_sort_query.iter().count();
     let inactive_buffer_count = inactive_buffer_sort_query.iter().count();
-    
-    if sort_count == 0 && active_buffer_count == 0 && inactive_buffer_count == 0 {
+
+    if sort_count == 0 && active_buffer_count == 0 && inactive_buffer_count == 0
+    {
         debug!("Metrics rendering skipped - no changed sorts");
         return;
     }
@@ -258,44 +272,64 @@ pub fn render_mesh_metrics_lines(
     let mut changed_active_sorts = Vec::new();
     let mut changed_active_buffer_sorts = Vec::new();
     let mut changed_inactive_buffer_sorts = Vec::new();
-    
+
     // Collect changed sorts by type for selective processing
     for (sort_entity, sort_transform, sort) in sort_query.iter() {
         if changed_sort_entities.insert(sort_entity) {
             changed_active_sorts.push((sort_entity, sort_transform, sort));
-            info!("METRICS DEBUG: Sort {:?} collected as ACTIVE (green metrics)", sort_entity);
+            info!(
+                "METRICS DEBUG: Sort {:?} collected as ACTIVE (green metrics)",
+                sort_entity
+            );
         } else {
             warn!("METRICS DEBUG: Sort {:?} DUPLICATE in active query - this causes z-fighting!", sort_entity);
         }
     }
     for (sort_entity, sort_transform, sort) in active_buffer_sort_query.iter() {
         if changed_sort_entities.insert(sort_entity) {
-            changed_active_buffer_sorts.push((sort_entity, sort_transform, sort));
+            changed_active_buffer_sorts.push((
+                sort_entity,
+                sort_transform,
+                sort,
+            ));
             info!("METRICS DEBUG: Sort {:?} collected as ACTIVE BUFFER (green metrics)", sort_entity);
         } else {
             warn!("METRICS DEBUG: Sort {:?} DUPLICATE in active buffer query - this causes z-fighting!", sort_entity);
         }
     }
-    for (sort_entity, sort_transform, sort) in inactive_buffer_sort_query.iter() {
+    for (sort_entity, sort_transform, sort) in inactive_buffer_sort_query.iter()
+    {
         if changed_sort_entities.insert(sort_entity) {
-            changed_inactive_buffer_sorts.push((sort_entity, sort_transform, sort));
+            changed_inactive_buffer_sorts.push((
+                sort_entity,
+                sort_transform,
+                sort,
+            ));
             info!("METRICS DEBUG: Sort {:?} collected as INACTIVE BUFFER (gray metrics)", sort_entity);
         } else {
             warn!("METRICS DEBUG: Sort {:?} DUPLICATE in inactive buffer query - this causes z-fighting!", sort_entity);
         }
     }
-    
+
     // DISABLED: Entity pooling causing crashes - temporarily disabled
     // entity_pools.return_entities_for_changed_sorts(&mut commands, &changed_sort_entities);
-    
+
     // COMPREHENSIVE CLEAR: Despawn AND remove metrics entities for all sorts being processed to prevent z-fighting
     // Since we removed change detection, we need to clear all metrics to avoid conflicts
-    let changed_sort_entities: Vec<Entity> = changed_sort_entities.into_iter().collect();
+    let changed_sort_entities: Vec<Entity> =
+        changed_sort_entities.into_iter().collect();
     for &sort_entity in &changed_sort_entities {
-        if let Some(line_entities) = metrics_entities.lines.remove(&sort_entity) {
-            info!("METRICS DEBUG: Clearing {} metrics entities for sort {:?}", line_entities.len(), sort_entity);
+        if let Some(line_entities) = metrics_entities.lines.remove(&sort_entity)
+        {
+            info!(
+                "METRICS DEBUG: Clearing {} metrics entities for sort {:?}",
+                line_entities.len(),
+                sort_entity
+            );
             for line_entity in line_entities {
-                if let Ok(mut entity_commands) = commands.get_entity(line_entity) {
+                if let Ok(mut entity_commands) =
+                    commands.get_entity(line_entity)
+                {
                     entity_commands.despawn();
                 } else {
                     debug!("Skipping despawn for non-existent metrics line entity {:?}", line_entity);
@@ -303,18 +337,27 @@ pub fn render_mesh_metrics_lines(
             }
         }
     }
-    
+
     // ADDITIONAL CLEAR: Also clear any metrics that might be stale from state transitions
-    let all_active_entities: Vec<Entity> = sort_query.iter().map(|(e, _, _)| e).collect();
-    let all_active_buffer_entities: Vec<Entity> = active_buffer_sort_query.iter().map(|(e, _, _)| e).collect();
-    let all_inactive_buffer_entities: Vec<Entity> = inactive_buffer_sort_query.iter().map(|(e, _, _)| e).collect();
-    
-    for entity in all_active_entities.iter()
+    let all_active_entities: Vec<Entity> =
+        sort_query.iter().map(|(e, _, _)| e).collect();
+    let all_active_buffer_entities: Vec<Entity> =
+        active_buffer_sort_query.iter().map(|(e, _, _)| e).collect();
+    let all_inactive_buffer_entities: Vec<Entity> = inactive_buffer_sort_query
+        .iter()
+        .map(|(e, _, _)| e)
+        .collect();
+
+    for entity in all_active_entities
+        .iter()
         .chain(all_active_buffer_entities.iter())
-        .chain(all_inactive_buffer_entities.iter()) {
+        .chain(all_inactive_buffer_entities.iter())
+    {
         if let Some(line_entities) = metrics_entities.lines.remove(entity) {
             for line_entity in line_entities {
-                if let Ok(mut entity_commands) = commands.get_entity(line_entity) {
+                if let Ok(mut entity_commands) =
+                    commands.get_entity(line_entity)
+                {
                     entity_commands.despawn();
                 } else {
                     debug!("Skipping despawn for non-existent metrics line entity {:?}", line_entity);
@@ -322,20 +365,29 @@ pub fn render_mesh_metrics_lines(
             }
         }
     }
-    
+
     debug!("Selective metrics rendering: {} active, {} active_buffer, {} inactive_buffer (total changed: {})", 
-           changed_active_sorts.len(), changed_active_buffer_sorts.len(), 
+           changed_active_sorts.len(), changed_active_buffer_sorts.len(),
            changed_inactive_buffer_sorts.len(), changed_sort_entities.len());
-    
+
     // DEBUG: Log details about the different sort types being processed
     if !changed_active_sorts.is_empty() {
-        info!("METRICS DEBUG: Processing {} active sorts (green metrics)", changed_active_sorts.len());
+        info!(
+            "METRICS DEBUG: Processing {} active sorts (green metrics)",
+            changed_active_sorts.len()
+        );
     }
     if !changed_active_buffer_sorts.is_empty() {
-        info!("METRICS DEBUG: Processing {} active buffer sorts (green metrics)", changed_active_buffer_sorts.len());
+        info!(
+            "METRICS DEBUG: Processing {} active buffer sorts (green metrics)",
+            changed_active_buffer_sorts.len()
+        );
     }
     if !changed_inactive_buffer_sorts.is_empty() {
-        info!("METRICS DEBUG: Processing {} inactive buffer sorts (gray metrics)", changed_inactive_buffer_sorts.len());
+        info!(
+            "METRICS DEBUG: Processing {} inactive buffer sorts (gray metrics)",
+            changed_inactive_buffer_sorts.len()
+        );
     }
 
     if let Some(fontir_state) = fontir_app_state {
@@ -349,7 +401,8 @@ pub fn render_mesh_metrics_lines(
         for (sort_entity, sort_transform, sort) in changed_active_sorts {
             let position = sort_transform.translation.truncate();
             // Use cached advance width lookup instead of expensive FontIR call
-            let advance_width = metrics_cache.get_advance_width(&sort.glyph_name, &fontir_state);
+            let advance_width = metrics_cache
+                .get_advance_width(&sort.glyph_name, &fontir_state);
             // Since query filters for ActiveSort, all sorts here are active - use active color
             let color = crate::ui::theme::SORT_ACTIVE_METRICS_COLOR;
 
@@ -518,7 +571,8 @@ pub fn render_mesh_metrics_lines(
         for (sort_entity, sort_transform, sort) in changed_active_buffer_sorts {
             let position = sort_transform.translation.truncate();
             // Use cached advance width lookup for active buffer sorts
-            let advance_width = metrics_cache.get_advance_width(&sort.glyph_name, &fontir_state);
+            let advance_width = metrics_cache
+                .get_advance_width(&sort.glyph_name, &fontir_state);
             let color = crate::ui::theme::SORT_ACTIVE_METRICS_COLOR; // Green for active buffer sorts (text roots)
 
             let mut line_entities = Vec::new();
@@ -683,10 +737,12 @@ pub fn render_mesh_metrics_lines(
         }
 
         // SELECTIVE RENDERING: Only process changed inactive buffer sorts (HUGE PERFORMANCE WIN)
-        for (sort_entity, sort_transform, sort) in changed_inactive_buffer_sorts {
+        for (sort_entity, sort_transform, sort) in changed_inactive_buffer_sorts
+        {
             let position = sort_transform.translation.truncate();
             // Use cached advance width lookup for inactive buffer sorts
-            let advance_width = metrics_cache.get_advance_width(&sort.glyph_name, &fontir_state);
+            let advance_width = metrics_cache
+                .get_advance_width(&sort.glyph_name, &fontir_state);
             let color = crate::ui::theme::SORT_INACTIVE_METRICS_COLOR; // Gray for inactive buffer sorts (typed characters)
 
             let mut line_entities = Vec::new();
@@ -852,9 +908,6 @@ pub fn render_mesh_metrics_lines(
     }
 }
 
-
-
-
 /// System to manage mesh-based preview metrics
 pub fn manage_preview_metrics(
     mut commands: Commands,
@@ -870,7 +923,10 @@ pub fn manage_preview_metrics(
         if let Ok(mut entity_commands) = commands.get_entity(entity) {
             entity_commands.despawn();
         } else {
-            debug!("Skipping despawn for non-existent preview entity {:?}", entity);
+            debug!(
+                "Skipping despawn for non-existent preview entity {:?}",
+                entity
+            );
         }
     }
 
@@ -889,7 +945,7 @@ pub fn manage_preview_metrics(
     let descender = font_metrics.descender.unwrap_or(upm * -0.2);
     let x_height = font_metrics.x_height.unwrap_or(upm * 0.5);
     let cap_height = font_metrics.cap_height.unwrap_or(upm * 0.7);
-    
+
     let temp_entity = Entity::from_raw(0); // Placeholder for preview
     let position = preview_state.position;
     let advance_width = preview_state.advance_width;
@@ -1044,7 +1100,9 @@ pub fn manage_preview_metrics(
     preview_entities.entities.push(left_entity);
 
     // Add glyph outline preview
-    if let Some(glyph_paths) = fontir_state.get_glyph_paths_with_edits(&preview_state.glyph_name) {
+    if let Some(glyph_paths) =
+        fontir_state.get_glyph_paths_with_edits(&preview_state.glyph_name)
+    {
         for path in &glyph_paths {
             let outline_entities = create_preview_glyph_outline(
                 &mut commands,
@@ -1084,14 +1142,14 @@ fn spawn_preview_metrics_line(
         line_type,
         camera_scale,
     );
-    
+
     // Add the preview component for identification with entity existence check
     if let Ok(mut entity_commands) = commands.get_entity(entity) {
         entity_commands.insert(PreviewMetricsLine);
     } else {
         debug!("Skipping PreviewMetricsLine component insertion for non-existent entity {:?}", entity);
     }
-    
+
     entity
 }
 
@@ -1108,7 +1166,7 @@ fn create_preview_glyph_outline(
     let mut entities = Vec::new();
     let line_width = camera_scale.adjusted_line_width();
     let preview_z = 6.0; // Between metrics (5.0) and glyph outlines (8.0)
-    
+
     // Dashing parameters (same as selection marquee)
     let dash_length = 8.0;
     let gap_length = 4.0;
@@ -1127,14 +1185,27 @@ fn create_preview_glyph_outline(
             }
             kurbo::PathEl::LineTo(pt) => {
                 if let Some(start) = current_pos {
-                    let start_world = Vec2::new(start.x as f32 + position.x, start.y as f32 + position.y);
-                    let end_world = Vec2::new(pt.x as f32 + position.x, pt.y as f32 + position.y);
-                    
+                    let start_world = Vec2::new(
+                        start.x as f32 + position.x,
+                        start.y as f32 + position.y,
+                    );
+                    let end_world = Vec2::new(
+                        pt.x as f32 + position.x,
+                        pt.y as f32 + position.y,
+                    );
+
                     // Create dashed line segments
                     let dashed_entities = create_dashed_line_meshes(
-                        commands, meshes, materials,
-                        start_world, end_world, line_width, 
-                        dash_length, gap_length, color, preview_z
+                        commands,
+                        meshes,
+                        materials,
+                        start_world,
+                        end_world,
+                        line_width,
+                        dash_length,
+                        gap_length,
+                        color,
+                        preview_z,
                     );
                     entities.extend(dashed_entities);
                 }
@@ -1145,20 +1216,33 @@ fn create_preview_glyph_outline(
                     // Tessellate quadratic curve into line segments
                     let quad = kurbo::QuadBez::new(start, cp, pt);
                     let mut prev_pt = start;
-                    
+
                     // Simple tessellation - could be improved
                     for i in 1..=8 {
                         let t = i as f64 / 8.0;
                         let curr_pt = quad.eval(t);
-                        
-                        let start_world = Vec2::new(prev_pt.x as f32 + position.x, prev_pt.y as f32 + position.y);
-                        let end_world = Vec2::new(curr_pt.x as f32 + position.x, curr_pt.y as f32 + position.y);
-                        
+
+                        let start_world = Vec2::new(
+                            prev_pt.x as f32 + position.x,
+                            prev_pt.y as f32 + position.y,
+                        );
+                        let end_world = Vec2::new(
+                            curr_pt.x as f32 + position.x,
+                            curr_pt.y as f32 + position.y,
+                        );
+
                         // Create dashed line segments for tessellated curves
                         let dashed_entities = create_dashed_line_meshes(
-                            commands, meshes, materials,
-                            start_world, end_world, line_width, 
-                            dash_length, gap_length, color, preview_z
+                            commands,
+                            meshes,
+                            materials,
+                            start_world,
+                            end_world,
+                            line_width,
+                            dash_length,
+                            gap_length,
+                            color,
+                            preview_z,
                         );
                         entities.extend(dashed_entities);
                         prev_pt = curr_pt;
@@ -1171,20 +1255,33 @@ fn create_preview_glyph_outline(
                     // Tessellate cubic curve into line segments
                     let cubic = kurbo::CubicBez::new(start, cp1, cp2, pt);
                     let mut prev_pt = start;
-                    
+
                     // Simple tessellation - could be improved
                     for i in 1..=12 {
                         let t = i as f64 / 12.0;
                         let curr_pt = cubic.eval(t);
-                        
-                        let start_world = Vec2::new(prev_pt.x as f32 + position.x, prev_pt.y as f32 + position.y);
-                        let end_world = Vec2::new(curr_pt.x as f32 + position.x, curr_pt.y as f32 + position.y);
-                        
+
+                        let start_world = Vec2::new(
+                            prev_pt.x as f32 + position.x,
+                            prev_pt.y as f32 + position.y,
+                        );
+                        let end_world = Vec2::new(
+                            curr_pt.x as f32 + position.x,
+                            curr_pt.y as f32 + position.y,
+                        );
+
                         // Create dashed line segments for tessellated curves
                         let dashed_entities = create_dashed_line_meshes(
-                            commands, meshes, materials,
-                            start_world, end_world, line_width, 
-                            dash_length, gap_length, color, preview_z
+                            commands,
+                            meshes,
+                            materials,
+                            start_world,
+                            end_world,
+                            line_width,
+                            dash_length,
+                            gap_length,
+                            color,
+                            preview_z,
                         );
                         entities.extend(dashed_entities);
                         prev_pt = curr_pt;
@@ -1193,16 +1290,31 @@ fn create_preview_glyph_outline(
                 current_pos = Some(pt);
             }
             kurbo::PathEl::ClosePath => {
-                if let (Some(current), Some(start)) = (current_pos, segment_start) {
+                if let (Some(current), Some(start)) =
+                    (current_pos, segment_start)
+                {
                     // Close the path by connecting back to the start
-                    let start_world = Vec2::new(current.x as f32 + position.x, current.y as f32 + position.y);
-                    let end_world = Vec2::new(start.x as f32 + position.x, start.y as f32 + position.y);
-                    
+                    let start_world = Vec2::new(
+                        current.x as f32 + position.x,
+                        current.y as f32 + position.y,
+                    );
+                    let end_world = Vec2::new(
+                        start.x as f32 + position.x,
+                        start.y as f32 + position.y,
+                    );
+
                     // Create dashed line segments for closing path
                     let dashed_entities = create_dashed_line_meshes(
-                        commands, meshes, materials,
-                        start_world, end_world, line_width, 
-                        dash_length, gap_length, color, preview_z
+                        commands,
+                        meshes,
+                        materials,
+                        start_world,
+                        end_world,
+                        line_width,
+                        dash_length,
+                        gap_length,
+                        color,
+                        preview_z,
                     );
                     entities.extend(dashed_entities);
                 }
@@ -1228,19 +1340,19 @@ fn create_dashed_line_meshes(
     z: f32,
 ) -> Vec<Entity> {
     let mut entities = Vec::new();
-    
+
     let direction = (end - start).normalize();
     let total_length = start.distance(end);
     let segment_length = dash_length + gap_length;
-    
+
     let mut current_pos = 0.0;
     while current_pos < total_length {
         let dash_start_pos = current_pos;
         let dash_end_pos = (current_pos + dash_length).min(total_length);
-        
+
         let dash_start = start + direction * dash_start_pos;
         let dash_end = start + direction * dash_end_pos;
-        
+
         // Create mesh for this dash segment
         let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
             dash_start, dash_end, line_width,
@@ -1250,7 +1362,9 @@ fn create_dashed_line_meshes(
             .spawn((
                 PreviewGlyphOutline,
                 bevy::render::mesh::Mesh2d(meshes.add(line_mesh)),
-                bevy::sprite::MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
+                bevy::sprite::MeshMaterial2d(
+                    materials.add(ColorMaterial::from_color(color)),
+                ),
                 Transform::from_xyz(
                     (dash_start.x + dash_end.x) * 0.5,
                     (dash_start.y + dash_end.y) * 0.5,
@@ -1263,10 +1377,10 @@ fn create_dashed_line_meshes(
             ))
             .id();
         entities.push(entity);
-        
+
         current_pos += segment_length;
     }
-    
+
     entities
 }
 

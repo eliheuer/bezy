@@ -26,7 +26,3 @@ pub fn draw_origin_cross(mut gizmos: Gizmos) {
         );
     }
 }
-
-
-
-

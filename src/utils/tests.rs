@@ -72,24 +72,23 @@ mod workspace_tests {
 
 #[cfg(test)]
 mod nudge_tests {
-    use crate::core::settings::{
-        CMD_NUDGE_AMOUNT, NUDGE_AMOUNT, SHIFT_NUDGE_AMOUNT,
-    };
+    use crate::core::settings::BezySettings;
     use crate::editing::selection::nudge::{EditEvent, NudgeState};
 
     #[test]
     fn test_nudge_amounts() {
         // Test that nudge amounts are reasonable
+        let settings = BezySettings::default();
         assert!(
-            NUDGE_AMOUNT > 0.0,
+            settings.nudge.default > 0.0,
             "Default nudge amount should be positive"
         );
         assert!(
-            SHIFT_NUDGE_AMOUNT > NUDGE_AMOUNT,
+            settings.nudge.shift > settings.nudge.default,
             "Shift nudge should be larger than default"
         );
         assert!(
-            CMD_NUDGE_AMOUNT > SHIFT_NUDGE_AMOUNT,
+            settings.nudge.cmd > settings.nudge.shift,
             "Cmd nudge should be larger than shift"
         );
     }

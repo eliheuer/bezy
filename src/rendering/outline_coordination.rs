@@ -1,5 +1,5 @@
 //! Coordination between outline rendering systems
-//! 
+//!
 //! This module prevents double rendering by coordinating between
 //! mesh_glyph_outline and unified_glyph_editing systems.
 
@@ -19,17 +19,17 @@ impl UnifiedRenderingSorts {
     pub fn insert(&mut self, sort_entity: Entity) {
         self.sorts.insert(sort_entity);
     }
-    
+
     /// Remove a sort from unified rendering
     pub fn remove(&mut self, sort_entity: Entity) {
         self.sorts.remove(&sort_entity);
     }
-    
+
     /// Check if a sort should use unified rendering
     pub fn contains(&self, sort_entity: Entity) -> bool {
         self.sorts.contains(&sort_entity)
     }
-    
+
     /// Clear all sorts
     pub fn clear(&mut self) {
         self.sorts.clear();

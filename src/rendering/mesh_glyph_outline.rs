@@ -13,21 +13,23 @@
 
 use crate::core::state::{ContourData, OutlineData, PointData, PointTypeData};
 use crate::editing::sort::{ActiveSort, Sort};
-use crate::rendering::entity_pools::{EntityPools, PooledEntityType, update_outline_entity};
+use crate::rendering::entity_pools::{
+    update_outline_entity, EntityPools, PooledEntityType,
+};
 use crate::rendering::mesh_cache::GlyphMeshCache;
 use crate::systems::sort_manager::SortPointEntity;
 use crate::ui::theme::*;
 
 // Lyon imports for filled glyph tessellation
-use lyon::tessellation::{
-    FillTessellator, FillOptions, FillRule, VertexBuffers, 
-    BuffersBuilder, FillVertex
-};
-use lyon::path::Path;
-use lyon::geom::point;
 use bevy::prelude::*;
 use bevy::render::mesh::Mesh2d;
 use bevy::sprite::{ColorMaterial, MeshMaterial2d};
+use lyon::geom::point;
+use lyon::path::Path;
+use lyon::tessellation::{
+    BuffersBuilder, FillOptions, FillRule, FillTessellator, FillVertex,
+    VertexBuffers,
+};
 use std::collections::HashMap;
 
 /// Component to mark entities as glyph outline elements
@@ -69,11 +71,11 @@ pub fn render_mesh_glyph_outline(
     // Active sort query for outline rendering (INCLUDES buffer sorts for outline rendering)
     // CHANGE DETECTION: Process sorts when Sort/Transform change OR when they become active
     active_sort_query: Query<
-        (Entity, &Sort, &Transform), 
+        (Entity, &Sort, &Transform),
         (
-            With<ActiveSort>, 
-            Or<(Changed<Sort>, Changed<Transform>, Added<ActiveSort>)>
-        )
+            With<ActiveSort>,
+            Or<(Changed<Sort>, Changed<Transform>, Added<ActiveSort>)>,
+        ),
     >,
     // Buffer sort query for text editor sorts (INACTIVE buffer sorts only - filled rendering)
     // NO CHANGE DETECTION: Always process ALL inactive buffer sorts for consistent filled rendering
@@ -85,7 +87,7 @@ pub fn render_mesh_glyph_outline(
             With<crate::editing::sort::InactiveSort>,
         ),
     >,
-    // Inactive sort query for non-buffer sorts (filled rendering for inactive freeform sorts)  
+    // Inactive sort query for non-buffer sorts (filled rendering for inactive freeform sorts)
     // COMPONENT CHANGE DETECTION: Detect when sorts become inactive (InactiveSort component added)
     inactive_sort_query: Query<
         (Entity, &Sort, &Transform),
@@ -96,9 +98,13 @@ pub fn render_mesh_glyph_outline(
         )
     >,
     // Camera-responsive scaling for proper zoom-aware rendering
-    camera_scale: Res<crate::rendering::camera_responsive::CameraResponsiveScale>,
+    camera_scale: Res<
+        crate::rendering::camera_responsive::CameraResponsiveScale,
+    >,
     // Coordination with unified rendering system
-    unified_rendering_sorts: Res<crate::rendering::outline_coordination::UnifiedRenderingSorts>,
+    unified_rendering_sorts: Res<
+        crate::rendering::outline_coordination::UnifiedRenderingSorts,
+    >,
     app_state: Option<Res<crate::core::state::AppState>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     _existing_outlines: Query<Entity, With<GlyphOutlineElement>>,
@@ -119,20 +125,23 @@ pub fn render_mesh_glyph_outline(
 ) {
     // System runs frequently - only log when processing sorts
     debug!("MESH OUTLINE SYSTEM: render_mesh_glyph_outline system running");
-    
+
     // CHANGE DETECTION: Early return only if no active sorts have changed AND no buffer/inactive sorts exist
     let active_sort_count = active_sort_query.iter().count();
     let buffer_sort_count = buffer_sort_query.iter().count();
     let inactive_sort_count = inactive_sort_query.iter().count();
-    
+
     // Only skip rendering if there are no active sort changes AND no buffer/inactive sorts to render
-    if active_sort_count == 0 && buffer_sort_count == 0 && inactive_sort_count == 0 {
+    if active_sort_count == 0
+        && buffer_sort_count == 0
+        && inactive_sort_count == 0
+    {
         debug!("Outline rendering skipped - no changed active sorts and no buffer/inactive sorts (active: {}, buffer: {}, inactive: {})", active_sort_count, buffer_sort_count, inactive_sort_count);
         return; // No sorts to render - performance optimization
     }
 
     debug!("Outline rendering proceeding - changed sorts detected (active: {}, buffer: {}, inactive: {})", active_sort_count, buffer_sort_count, inactive_sort_count);
-    
+
     // Log inactive sort processing with detailed component analysis
     if inactive_sort_count > 0 {
         info!("GLYPH OUTLINE DEBUG: Rendering {} inactive sorts with filled glyphs", inactive_sort_count);
@@ -148,7 +157,7 @@ pub fn render_mesh_glyph_outline(
     let mut changed_active_sorts = Vec::new();
     let mut changed_buffer_sorts = Vec::new();
     let mut changed_inactive_sorts = Vec::new();
-    
+
     for sort_data in active_sort_query.iter() {
         changed_sort_entities.push(sort_data.0);
         changed_active_sorts.push(sort_data);
@@ -159,16 +168,18 @@ pub fn render_mesh_glyph_outline(
         changed_buffer_sorts.push(sort_data);
         warn!("FILLED RENDERING: Processing INACTIVE buffer sort {:?} (glyph: {}) for filled rendering", sort_data.0, sort_data.1.glyph_name);
     }
-    
-    
+
     // DEBUG: Log all inactive buffer sorts that should have filled rendering
-    info!("GLYPH OUTLINE DEBUG: Total inactive buffer sorts found: {}", changed_buffer_sorts.len());
+    info!(
+        "GLYPH OUTLINE DEBUG: Total inactive buffer sorts found: {}",
+        changed_buffer_sorts.len()
+    );
     for sort_data in inactive_sort_query.iter() {
         changed_sort_entities.push(sort_data.0);
         changed_inactive_sorts.push(sort_data);
         info!("GLYPH OUTLINE DEBUG: Found INACTIVE sort {:?} (glyph: {}) - will render filled", sort_data.0, sort_data.1.glyph_name);
     }
-    
+
     // DISABLED: Entity pooling removed to eliminate race conditions
     // This was causing intermittent issues with root sort filled rendering
     // We can re-add performance optimizations later once the core functionality is stable
@@ -176,8 +187,11 @@ pub fn render_mesh_glyph_outline(
     // entity_pools.return_entities_for_changed_sorts(&mut commands, &changed_sort_entities);
     outline_entities.path_segments.clear();
     outline_entities.control_handles.clear();
-    
-    debug!("Returned outline entities for {} changed sorts", changed_sort_entities.len());
+
+    debug!(
+        "Returned outline entities for {} changed sorts",
+        changed_sort_entities.len()
+    );
 
     // ENABLED: Mesh glyph outline rendering for proper z-ordering
     // Removed return to enable mesh-based outlines
@@ -186,17 +200,23 @@ pub fn render_mesh_glyph_outline(
     for (sort_entity, sort, transform) in changed_active_sorts {
         // Check if entity still exists before processing
         if commands.get_entity(sort_entity).is_err() {
-            debug!("Skipping active sort rendering for non-existent entity {:?}", sort_entity);
+            debug!(
+                "Skipping active sort rendering for non-existent entity {:?}",
+                sort_entity
+            );
             continue;
         }
-        
+
         // Skip if this sort is being handled by the unified rendering system
         if unified_rendering_sorts.contains(sort_entity) {
             debug!("Mesh system: Skipping sort {:?} - handled by unified rendering system", sort_entity);
             continue;
         }
-        debug!("Mesh system: Rendering sort {:?} - not in unified system", sort_entity);
-        
+        debug!(
+            "Mesh system: Rendering sort {:?} - not in unified system",
+            sort_entity
+        );
+
         let position = transform.translation.truncate();
 
         // Check if there are any points visible for this sort (indicating active editing mode)
@@ -288,15 +308,21 @@ pub fn render_mesh_glyph_outline(
 
     // Render buffer sorts (text editor sorts) with FILLED rendering for performance
     if buffer_sort_count > 0 {
-        info!("Rendering {} buffer sorts with filled glyphs", buffer_sort_count);
+        info!(
+            "Rendering {} buffer sorts with filled glyphs",
+            buffer_sort_count
+        );
     }
     for (sort_entity, sort, transform) in buffer_sort_query.iter() {
         // Check if entity still exists before processing
         if commands.get_entity(sort_entity).is_err() {
-            debug!("Skipping buffer sort rendering for non-existent entity {:?}", sort_entity);
+            debug!(
+                "Skipping buffer sort rendering for non-existent entity {:?}",
+                sort_entity
+            );
             continue;
         }
-        
+
         let position = transform.translation.truncate();
 
         // For text buffer sorts, use filled rendering (like text editors)
@@ -325,10 +351,13 @@ pub fn render_mesh_glyph_outline(
     for (sort_entity, sort, transform) in changed_inactive_sorts {
         // Check if entity still exists before processing
         if commands.get_entity(sort_entity).is_err() {
-            debug!("Skipping inactive sort rendering for non-existent entity {:?}", sort_entity);
+            debug!(
+                "Skipping inactive sort rendering for non-existent entity {:?}",
+                sort_entity
+            );
             continue;
         }
-        
+
         let position = transform.translation.truncate();
 
         // For inactive freeform sorts, use filled rendering for visibility
@@ -353,7 +382,7 @@ pub fn render_mesh_glyph_outline(
             }
         }
     }
-    
+
     // All sort types now have appropriate rendering
 }
 
@@ -408,10 +437,12 @@ pub fn create_line_mesh(start: Vec2, end: Vec2, width: f32) -> Mesh {
 
 /// Convert multiple kurbo::BezPath contours to a single filled mesh using Lyon tessellation
 /// This combines all contours of a glyph for proper winding rule application
-pub fn create_filled_mesh_from_glyph_paths(bez_paths: &[kurbo::BezPath]) -> Mesh {
+pub fn create_filled_mesh_from_glyph_paths(
+    bez_paths: &[kurbo::BezPath],
+) -> Mesh {
     // Convert all kurbo::BezPaths to a single lyon::Path
     let mut lyon_path_builder = Path::builder();
-    
+
     for bez_path in bez_paths {
         for element in bez_path.elements() {
             match element {
@@ -440,17 +471,16 @@ pub fn create_filled_mesh_from_glyph_paths(bez_paths: &[kurbo::BezPath]) -> Mesh
             }
         }
     }
-    
+
     let lyon_path = lyon_path_builder.build();
-    
+
     // Tessellate to triangles with proper winding rule for font rendering
     let mut tessellator = FillTessellator::new();
     let mut buffers: VertexBuffers<[f32; 3], u32> = VertexBuffers::new();
-    
+
     // Use non-zero winding rule (standard for font rendering)
-    let fill_options = FillOptions::default()
-        .with_fill_rule(FillRule::NonZero);
-    
+    let fill_options = FillOptions::default().with_fill_rule(FillRule::NonZero);
+
     let result = tessellator.tessellate_path(
         &lyon_path,
         &fill_options,
@@ -458,7 +488,7 @@ pub fn create_filled_mesh_from_glyph_paths(bez_paths: &[kurbo::BezPath]) -> Mesh
             [vertex.position().x, vertex.position().y, 0.0]
         }),
     );
-    
+
     if result.is_err() {
         warn!("Failed to tessellate path for filled glyph rendering");
         // Return empty mesh on tessellation failure
@@ -467,26 +497,30 @@ pub fn create_filled_mesh_from_glyph_paths(bez_paths: &[kurbo::BezPath]) -> Mesh
             bevy::render::render_asset::RenderAssetUsages::RENDER_WORLD,
         );
     }
-    
+
     // Convert to Bevy mesh
     let mut mesh = Mesh::new(
         bevy::render::render_resource::PrimitiveTopology::TriangleList,
         bevy::render::render_asset::RenderAssetUsages::RENDER_WORLD,
     );
-    
+
     // Get vertex count and create UVs before moving buffers.vertices
     let vertex_count = buffers.vertices.len();
-    let uvs = buffers.vertices.iter().map(|v| [v[0], v[1]]).collect::<Vec<_>>();
-    
+    let uvs = buffers
+        .vertices
+        .iter()
+        .map(|v| [v[0], v[1]])
+        .collect::<Vec<_>>();
+
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, buffers.vertices);
     mesh.insert_indices(bevy::render::mesh::Indices::U32(buffers.indices));
-    
+
     // Generate normals
     let normals = vec![[0.0, 0.0, 1.0]; vertex_count];
-    
+
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    
+
     mesh
 }
 
@@ -556,8 +590,18 @@ fn render_fontir_outline(
     unified_rendering_sorts: &crate::rendering::outline_coordination::UnifiedRenderingSorts,
 ) {
     render_fontir_outline_with_color_and_quality(
-        commands, meshes, materials, outline_entities, entity_pools, sort_entity, paths, position, PATH_STROKE_COLOR, camera_scale, false, // inactive/buffer sorts use lower quality
-        unified_rendering_sorts
+        commands,
+        meshes,
+        materials,
+        outline_entities,
+        entity_pools,
+        sort_entity,
+        paths,
+        position,
+        PATH_STROKE_COLOR,
+        camera_scale,
+        false, // inactive/buffer sorts use lower quality
+        unified_rendering_sorts,
     );
 }
 
@@ -576,8 +620,18 @@ fn render_fontir_outline_with_color(
     unified_rendering_sorts: &crate::rendering::outline_coordination::UnifiedRenderingSorts,
 ) {
     render_fontir_outline_with_color_and_quality(
-        commands, meshes, materials, outline_entities, entity_pools, sort_entity, paths, position, color, camera_scale, true, // active sorts use high quality
-        unified_rendering_sorts
+        commands,
+        meshes,
+        materials,
+        outline_entities,
+        entity_pools,
+        sort_entity,
+        paths,
+        position,
+        color,
+        camera_scale,
+        true, // active sorts use high quality
+        unified_rendering_sorts,
     );
 }
 
@@ -636,11 +690,13 @@ fn render_fontir_outline_with_color_and_quality(
                     if unified_rendering_sorts.contains(sort_entity) {
                         debug!("Mesh system: Skipping CurveTo for sort {:?} - handled by unified system", sort_entity);
                         if let kurbo::PathEl::CurveTo(_, _, pt) = element {
-                            current_pos = Some(Vec2::new(pt.x as f32, pt.y as f32) + position);
+                            current_pos = Some(
+                                Vec2::new(pt.x as f32, pt.y as f32) + position,
+                            );
                         }
                         continue;
                     }
-                    
+
                     if let Some(start) = current_pos {
                         let end =
                             Vec2::new(pt.x as f32, pt.y as f32) + position;
@@ -697,11 +753,13 @@ fn render_fontir_outline_with_color_and_quality(
                     if unified_rendering_sorts.contains(sort_entity) {
                         debug!("Mesh system: Skipping QuadTo for sort {:?} - handled by unified system", sort_entity);
                         if let kurbo::PathEl::QuadTo(_, pt) = element {
-                            current_pos = Some(Vec2::new(pt.x as f32, pt.y as f32) + position);
+                            current_pos = Some(
+                                Vec2::new(pt.x as f32, pt.y as f32) + position,
+                            );
                         }
                         continue;
                     }
-                    
+
                     if let Some(start) = current_pos {
                         let end =
                             Vec2::new(pt.x as f32, pt.y as f32) + position;
@@ -1036,41 +1094,52 @@ fn render_fontir_filled_outline(
 ) {
     info!("FILLED RENDER DEBUG: Starting render_fontir_filled_outline for sort {:?} glyph '{}' with {} paths at {:?}", 
           sort_entity, glyph_name, paths.len(), position);
-    
+
     if paths.is_empty() {
         warn!("FILLED RENDER DEBUG: No paths for glyph '{}' - skipping filled rendering", glyph_name);
         return;
     }
-    
+
     let fill_material = materials.add(ColorMaterial::from(FILLED_GLYPH_COLOR));
-    info!("FILLED RENDER DEBUG: Created fill material for sort {:?}", sort_entity);
-    
+    info!(
+        "FILLED RENDER DEBUG: Created fill material for sort {:?}",
+        sort_entity
+    );
+
     // PERFORMANCE OPTIMIZATION: Try to get cached mesh first
-    let mesh_handle = if let Some(cached_mesh) = mesh_cache.get_filled_mesh(glyph_name) {
-        info!("FILLED RENDER DEBUG: Using cached mesh for glyph '{}'", glyph_name);
-        // Use cached mesh - avoid expensive tessellation
-        cached_mesh
-    } else {
-        // Create single filled mesh for entire glyph (all contours combined)
-        // This allows proper winding rule application for counters/holes
-        let filled_mesh = create_filled_mesh_from_glyph_paths(paths);
-        let mesh_handle = meshes.add(filled_mesh);
-        
-        // Cache the mesh for future use
-        mesh_cache.cache_filled_mesh(glyph_name.to_string(), mesh_handle.clone());
-        mesh_handle
-    };
-    
+    let mesh_handle =
+        if let Some(cached_mesh) = mesh_cache.get_filled_mesh(glyph_name) {
+            info!(
+                "FILLED RENDER DEBUG: Using cached mesh for glyph '{}'",
+                glyph_name
+            );
+            // Use cached mesh - avoid expensive tessellation
+            cached_mesh
+        } else {
+            // Create single filled mesh for entire glyph (all contours combined)
+            // This allows proper winding rule application for counters/holes
+            let filled_mesh = create_filled_mesh_from_glyph_paths(paths);
+            let mesh_handle = meshes.add(filled_mesh);
+
+            // Cache the mesh for future use
+            mesh_cache
+                .cache_filled_mesh(glyph_name.to_string(), mesh_handle.clone());
+            mesh_handle
+        };
+
     // Get filled entity from pool instead of spawning
     let entity = entity_pools.get_outline_entity(commands, sort_entity);
-    info!("FILLED RENDER DEBUG: Got entity {:?} from pool for sort {:?}", entity, sort_entity);
-    
+    info!(
+        "FILLED RENDER DEBUG: Got entity {:?} from pool for sort {:?}",
+        entity, sort_entity
+    );
+
     // Update the pooled entity with filled mesh components using the safe helper
     let outline_component = GlyphOutlineElement {
         element_type: OutlineElementType::FilledShape,
         sort_entity,
     };
-    
+
     // Use the helper function which has entity existence checks
     update_outline_entity(
         commands,
@@ -1081,11 +1150,18 @@ fn render_fontir_filled_outline(
         outline_component,
     );
     info!("FILLED RENDER DEBUG: Updated entity {:?} with filled mesh at position {:?}", entity, position);
-    
-    debug!("Created filled glyph entity {:?} for sort {:?} with {} contours", entity, sort_entity, paths.len());
-    
+
+    debug!(
+        "Created filled glyph entity {:?} for sort {:?} with {} contours",
+        entity,
+        sort_entity,
+        paths.len()
+    );
+
     // Store single entity for cleanup
-    outline_entities.path_segments.insert(sort_entity, vec![entity]);
+    outline_entities
+        .path_segments
+        .insert(sort_entity, vec![entity]);
 }
 
 /// Render UFO outline using live Transform positions during nudging
@@ -1369,25 +1445,25 @@ fn get_or_update_line_mesh(
 ) -> Entity {
     // Get an entity from the pool
     let entity = entity_pools.get_outline_entity(commands, sort_entity);
-    
+
     // Create the mesh and material
     let line_mesh = create_line_mesh(start, end, width);
     let mesh_handle = meshes.add(line_mesh);
     let material_handle = materials.add(ColorMaterial::from_color(color));
-    
+
     // Calculate transform
     let transform = Transform::from_xyz(
         (start.x + end.x) * 0.5,
         (start.y + end.y) * 0.5,
         z,
     );
-    
+
     // Update the entity using the helper function
     let outline_component = GlyphOutlineElement {
         element_type,
         sort_entity,
     };
-    
+
     update_outline_entity(
         commands,
         entity,
@@ -1396,8 +1472,11 @@ fn get_or_update_line_mesh(
         transform,
         outline_component,
     );
-    
-    debug!("Updated pooled outline entity {:?} for sort {:?}", entity, sort_entity);
+
+    debug!(
+        "Updated pooled outline entity {:?} for sort {:?}",
+        entity, sort_entity
+    );
     entity
 }
 
@@ -1739,14 +1818,17 @@ fn cleanup_filled_meshes_on_activation(
     mut commands: Commands,
     mut outline_entities: ResMut<MeshOutlineEntities>,
     newly_active_sorts: Query<Entity, Added<ActiveSort>>,
-    filled_entities_query: Query<(Entity, &GlyphOutlineElement), With<GlyphOutlineElement>>,
+    filled_entities_query: Query<
+        (Entity, &GlyphOutlineElement),
+        With<GlyphOutlineElement>,
+    >,
 ) {
     for sort_entity in newly_active_sorts.iter() {
         debug!("CLEANUP: Sort {:?} became active - clearing any old filled mesh entities", sort_entity);
-        
+
         // Find and despawn any filled mesh entities for this sort
         let mut entities_to_despawn = Vec::new();
-        
+
         for (entity, outline_element) in filled_entities_query.iter() {
             if outline_element.sort_entity == sort_entity {
                 match outline_element.element_type {
@@ -1757,17 +1839,20 @@ fn cleanup_filled_meshes_on_activation(
                 }
             }
         }
-        
+
         if !entities_to_despawn.is_empty() {
             debug!("CLEANUP: Despawning {} filled mesh entities for newly active sort {:?}", entities_to_despawn.len(), sort_entity);
             for entity in entities_to_despawn {
                 if let Ok(mut entity_commands) = commands.get_entity(entity) {
                     entity_commands.despawn();
                 } else {
-                    debug!("CLEANUP: Filled mesh entity {:?} already despawned", entity);
+                    debug!(
+                        "CLEANUP: Filled mesh entity {:?} already despawned",
+                        entity
+                    );
                 }
             }
-            
+
             // Also remove from tracking (filled entities are stored in path_segments for now)
             outline_entities.path_segments.remove(&sort_entity);
         }

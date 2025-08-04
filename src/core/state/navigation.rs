@@ -35,7 +35,6 @@ pub enum CycleDirection {
 }
 
 impl GlyphNavigation {
-
     /// Change to a different codepoint
     pub fn set_codepoint(&mut self, new_codepoint: String) {
         self.current_codepoint = Some(new_codepoint);
@@ -53,7 +52,6 @@ impl GlyphNavigation {
             find_glyph_by_unicode_codepoint(app_state, codepoint)
         })
     }
-
 }
 
 /// Find a glyph by Unicode codepoint in the app state

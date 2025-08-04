@@ -43,7 +43,7 @@ pub struct UnifiedGlyphEntities {
 }
 
 /// Z-levels for proper layering
-const UNIFIED_HANDLE_Z: f32 = 7.0; // Behind outlines  
+const UNIFIED_HANDLE_Z: f32 = 7.0; // Behind outlines
 const UNIFIED_OUTLINE_Z: f32 = 8.0; // Above handles, behind points
 const UNIFIED_POINT_Z: f32 = 10.0; // Unselected points
 const UNIFIED_SELECTED_POINT_Z: f32 = 15.0; // Selected points - always above unselected
@@ -74,9 +74,16 @@ pub fn render_unified_glyph_editing(
     app_state: Option<Res<crate::core::state::AppState>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     existing_elements: Query<Entity, With<UnifiedGlyphElement>>,
-    _mesh_outline_elements: Query<Entity, With<crate::rendering::mesh_glyph_outline::GlyphOutlineElement>>,
-    mut mesh_outline_entities: ResMut<crate::rendering::mesh_glyph_outline::MeshOutlineEntities>,
-    mut unified_rendering_sorts: ResMut<crate::rendering::outline_coordination::UnifiedRenderingSorts>,
+    _mesh_outline_elements: Query<
+        Entity,
+        With<crate::rendering::mesh_glyph_outline::GlyphOutlineElement>,
+    >,
+    mut mesh_outline_entities: ResMut<
+        crate::rendering::mesh_glyph_outline::MeshOutlineEntities,
+    >,
+    mut unified_rendering_sorts: ResMut<
+        crate::rendering::outline_coordination::UnifiedRenderingSorts,
+    >,
     theme: Res<CurrentTheme>,
 ) {
     let active_sort_count = active_sort_query.iter().count();
@@ -90,7 +97,7 @@ pub fn render_unified_glyph_editing(
         let has_points = point_query.iter().any(|(_, _, point_ref, _, _)| {
             point_ref.glyph_name == sort.glyph_name
         });
-        
+
         if has_points {
             sorts_with_points.push(sort_entity);
         }
@@ -100,7 +107,10 @@ pub fn render_unified_glyph_editing(
     unified_rendering_sorts.clear();
     for sort_entity in &sorts_with_points {
         unified_rendering_sorts.insert(*sort_entity);
-        debug!("Unified system: Marking sort {:?} for unified rendering", sort_entity);
+        debug!(
+            "Unified system: Marking sort {:?} for unified rendering",
+            sort_entity
+        );
     }
 
     // ONLY clear and take over rendering if there are actual points visible
@@ -114,28 +124,38 @@ pub fn render_unified_glyph_editing(
         commands.entity(entity).despawn();
     }
     unified_entities.elements.clear();
-    
+
     // CRITICAL: Clear mesh outline entities for sorts we're taking over
     // This prevents double rendering by removing the base outline
     for sort_entity in &sorts_with_points {
         // Remove from mesh outline tracking
-        if let Some(entities) = mesh_outline_entities.path_segments.remove(sort_entity) {
+        if let Some(entities) =
+            mesh_outline_entities.path_segments.remove(sort_entity)
+        {
             debug!("Unified system: Despawning {} path segment entities for sort {:?}", entities.len(), sort_entity);
             for entity in entities {
                 if let Ok(mut entity_commands) = commands.get_entity(entity) {
                     entity_commands.despawn();
                 } else {
-                    debug!("Unified system: Entity {:?} already despawned", entity);
+                    debug!(
+                        "Unified system: Entity {:?} already despawned",
+                        entity
+                    );
                 }
             }
         }
-        if let Some(entities) = mesh_outline_entities.control_handles.remove(sort_entity) {
+        if let Some(entities) =
+            mesh_outline_entities.control_handles.remove(sort_entity)
+        {
             debug!("Unified system: Despawning {} control handle entities for sort {:?}", entities.len(), sort_entity);
             for entity in entities {
                 if let Ok(mut entity_commands) = commands.get_entity(entity) {
                     entity_commands.despawn();
                 } else {
-                    debug!("Unified system: Entity {:?} already despawned", entity);
+                    debug!(
+                        "Unified system: Entity {:?} already despawned",
+                        entity
+                    );
                 }
             }
         }
@@ -378,9 +398,7 @@ fn render_unified_points(
                         custom_size: Some(Vec2::splat(size)),
                         ..default()
                     },
-                    Transform::from_translation(
-                        position.extend(base_z),
-                    ),
+                    Transform::from_translation(position.extend(base_z)),
                     GlobalTransform::default(),
                     Visibility::Visible,
                     InheritedVisibility::default(),
@@ -405,9 +423,7 @@ fn render_unified_points(
                         custom_size: Some(Vec2::splat(secondary_size)),
                         ..default()
                     },
-                    Transform::from_translation(
-                        position.extend(base_z + 1.0),
-                    ),
+                    Transform::from_translation(position.extend(base_z + 1.0)),
                     GlobalTransform::default(),
                     Visibility::Visible,
                     InheritedVisibility::default(),
@@ -467,9 +483,7 @@ fn render_unified_points(
                     MeshMaterial2d(
                         materials.add(ColorMaterial::from_color(primary_color)),
                     ),
-                    Transform::from_translation(
-                        position.extend(base_z),
-                    ),
+                    Transform::from_translation(position.extend(base_z)),
                     GlobalTransform::default(),
                     Visibility::Visible,
                     InheritedVisibility::default(),
@@ -494,9 +508,7 @@ fn render_unified_points(
                         materials
                             .add(ColorMaterial::from_color(secondary_color)),
                     ),
-                    Transform::from_translation(
-                        position.extend(base_z + 1.0),
-                    ),
+                    Transform::from_translation(position.extend(base_z + 1.0)),
                     GlobalTransform::default(),
                     Visibility::Visible,
                     InheritedVisibility::default(),
@@ -524,7 +536,8 @@ fn render_unified_points(
                         },
                         Mesh2d(meshes.add(Circle::new(center_radius))),
                         MeshMaterial2d(
-                            materials.add(ColorMaterial::from_color(primary_color)),
+                            materials
+                                .add(ColorMaterial::from_color(primary_color)),
                         ),
                         Transform::from_translation(
                             position.extend(base_z + 2.0),
@@ -548,7 +561,7 @@ fn render_unified_points(
             };
             let line_size = camera_scale.adjusted_point_size(base_line_size);
             let line_width = camera_scale.adjusted_line_width();
-            
+
             // Make crosshair lines slightly shorter to fit within point bounds
             let crosshair_length = line_size * 1.6;
 
@@ -570,9 +583,7 @@ fn render_unified_points(
                         )),
                         ..default()
                     },
-                    Transform::from_translation(
-                        position.extend(base_z + 3.0),
-                    ),
+                    Transform::from_translation(position.extend(base_z + 3.0)),
                     GlobalTransform::default(),
                     Visibility::Visible,
                     InheritedVisibility::default(),
@@ -599,9 +610,7 @@ fn render_unified_points(
                         )),
                         ..default()
                     },
-                    Transform::from_translation(
-                        position.extend(base_z + 3.0),
-                    ),
+                    Transform::from_translation(position.extend(base_z + 3.0)),
                     GlobalTransform::default(),
                     Visibility::Visible,
                     InheritedVisibility::default(),

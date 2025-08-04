@@ -45,7 +45,7 @@ impl EditTool for ConfigurableTool {
 
     fn update(&self, commands: &mut Commands) {
         use crate::core::io::input::InputMode;
-        
+
         // Delegate to the appropriate behavior based on config
         match self.config.behavior {
             ToolBehavior::Select => {
@@ -85,35 +85,46 @@ impl EditTool for ConfigurableTool {
                 commands.insert_resource(InputMode::Metaball);
             }
         }
-        
+
         debug!("{} tool activated", self.config.name);
     }
 
     fn on_enter(&self) {
-        info!("✅ {} TOOL: Entered {} mode", self.config.name.to_uppercase(), self.config.name);
+        info!(
+            "✅ {} TOOL: Entered {} mode",
+            self.config.name.to_uppercase(),
+            self.config.name
+        );
     }
 
     fn on_exit(&self) {
-        info!("❌ {} TOOL: Exited {} mode", self.config.name.to_uppercase(), self.config.name);
+        info!(
+            "❌ {} TOOL: Exited {} mode",
+            self.config.name.to_uppercase(),
+            self.config.name
+        );
     }
 }
 
 /// Automatically register all enabled tools from the configuration
 pub fn register_tools_from_config(mut tool_registry: ResMut<ToolRegistry>) {
     info!("🔧 Loading toolbar tools from configuration...");
-    
+
     // Print the current configuration for debugging
     super::toolbar_config::print_toolbar_config();
-    
+
     let enabled_tools = ToolConfig::get_enabled_tools();
-    info!("📋 Found {} enabled tools in configuration", enabled_tools.len());
-    
+    info!(
+        "📋 Found {} enabled tools in configuration",
+        enabled_tools.len()
+    );
+
     for config in enabled_tools {
         let tool = ConfigurableTool::new(config);
         tool_registry.register_tool(Box::new(tool));
         info!("✅ Registered tool: {} ({})", config.name, config.id);
     }
-    
+
     info!("🎉 Toolbar configuration loaded successfully!");
 }
 

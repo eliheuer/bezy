@@ -6,7 +6,9 @@
 use super::json_theme::JsonThemeManager;
 use bevy::prelude::*;
 
-use super::json_theme::{check_json_theme_changes, update_border_radius_on_theme_change};
+use super::json_theme::{
+    check_json_theme_changes, update_border_radius_on_theme_change,
+};
 
 /// Plugin for runtime theme reloading
 pub struct RuntimeThemePlugin;
@@ -17,12 +19,14 @@ impl Plugin for RuntimeThemePlugin {
         {
             // Initialize JSON theme manager (don't preload themes to allow change detection)
             let theme_manager = JsonThemeManager::new();
-            
-            app.insert_resource(theme_manager)
-               .add_systems(Update, (
-                   check_json_theme_changes, 
-                   update_border_radius_on_theme_change
-               ));
+
+            app.insert_resource(theme_manager).add_systems(
+                Update,
+                (
+                    check_json_theme_changes,
+                    update_border_radius_on_theme_change,
+                ),
+            );
         }
     }
 }

@@ -96,8 +96,8 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 // NEW: Centralized configuration system
-pub mod toolbar_config;
 pub mod config_loader;
+pub mod toolbar_config;
 
 mod hyper;
 pub mod knife;
@@ -121,8 +121,8 @@ pub use ui::{
 };
 
 // NEW: Re-export centralized configuration system
-pub use toolbar_config::{ToolConfig, ToolBehavior, TOOLBAR_TOOLS};
 pub use config_loader::{ConfigBasedToolbarPlugin, ConfigurableTool};
+pub use toolbar_config::{ToolBehavior, ToolConfig, TOOLBAR_TOOLS};
 
 // Re-export legacy types for backward compatibility (commented out until UI is
 // ported)

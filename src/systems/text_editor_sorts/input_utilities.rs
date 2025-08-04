@@ -6,7 +6,9 @@
 //! - Unicode character to glyph name mapping
 
 use crate::core::state::{AppState, FontIRAppState};
-use crate::systems::text_shaping::{needs_complex_shaping, get_script_for_text};
+use crate::systems::text_shaping::{
+    get_script_for_text, needs_complex_shaping,
+};
 use bevy::prelude::*;
 
 /// Check if a key is used as a tool shortcut
@@ -142,33 +144,46 @@ pub fn unicode_to_glyph_name_fontir(
 ) -> Option<String> {
     // Get all available glyph names
     let glyph_names = fontir_state.get_glyph_names();
-    
+
     // First, try standard Unicode-based naming
-    if let Some(standard_name) = unicode_char_to_standard_glyph_name(unicode_char) {
+    if let Some(standard_name) =
+        unicode_char_to_standard_glyph_name(unicode_char)
+    {
         if glyph_names.contains(&standard_name) {
             return Some(standard_name);
         }
     }
-    
+
     // For Arabic characters, try multiple naming conventions
     if is_arabic_character(unicode_char) {
-        if let Some(arabic_name) = try_arabic_glyph_naming(unicode_char, &glyph_names) {
+        if let Some(arabic_name) =
+            try_arabic_glyph_naming(unicode_char, &glyph_names)
+        {
             return Some(arabic_name);
         }
     }
-    
+
     // Try the character itself as glyph name
     let char_name = unicode_char.to_string();
     if glyph_names.contains(&char_name) {
         return Some(char_name);
     }
-    
+
     // Log when we can't find an Arabic character
     if is_arabic_character(unicode_char) {
-        info!("Arabic character '{}' (U+{:04X}) not found in font", unicode_char, unicode_char as u32);
-        debug!("Available glyph names: {:?}", glyph_names.iter().filter(|name| name.contains("uni") || name.contains("arab")).collect::<Vec<_>>());
+        info!(
+            "Arabic character '{}' (U+{:04X}) not found in font",
+            unicode_char, unicode_char as u32
+        );
+        debug!(
+            "Available glyph names: {:?}",
+            glyph_names
+                .iter()
+                .filter(|name| name.contains("uni") || name.contains("arab"))
+                .collect::<Vec<_>>()
+        );
     }
-    
+
     None
 }
 
@@ -184,34 +199,43 @@ fn is_arabic_character(ch: char) -> bool {
 }
 
 /// Try different Arabic glyph naming conventions
-fn try_arabic_glyph_naming(unicode_char: char, available_glyphs: &[String]) -> Option<String> {
+fn try_arabic_glyph_naming(
+    unicode_char: char,
+    available_glyphs: &[String],
+) -> Option<String> {
     let codepoint = unicode_char as u32;
-    
+
     // Try various naming conventions for Arabic
     let string_attempts = vec![
-        format!("uni{:04X}", codepoint),           // uni0627 for Arabic Alef
-        format!("u{:04X}", codepoint),             // u0627 
-        format!("arab{:04X}", codepoint),          // arab0627
-        format!("arabic{:04X}", codepoint),        // arabic0627
-        format!("U+{:04X}", codepoint),            // U+0627
+        format!("uni{:04X}", codepoint), // uni0627 for Arabic Alef
+        format!("u{:04X}", codepoint),   // u0627
+        format!("arab{:04X}", codepoint), // arab0627
+        format!("arabic{:04X}", codepoint), // arabic0627
+        format!("U+{:04X}", codepoint),  // U+0627
     ];
-    
+
     // Check string-based naming attempts
     for name in string_attempts {
         if available_glyphs.contains(&name) {
-            info!("Found Arabic glyph '{}' for character '{}' (U+{:04X})", name, unicode_char, codepoint);
+            info!(
+                "Found Arabic glyph '{}' for character '{}' (U+{:04X})",
+                name, unicode_char, codepoint
+            );
             return Some(name);
         }
     }
-    
+
     // Try Arabic character name
     if let Some(arabic_name) = arabic_character_name(unicode_char) {
         if available_glyphs.contains(&arabic_name) {
-            info!("Found Arabic glyph '{}' for character '{}' (U+{:04X})", arabic_name, unicode_char, codepoint);
+            info!(
+                "Found Arabic glyph '{}' for character '{}' (U+{:04X})",
+                arabic_name, unicode_char, codepoint
+            );
             return Some(arabic_name);
         }
     }
-    
+
     None
 }
 

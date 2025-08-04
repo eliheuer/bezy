@@ -41,29 +41,49 @@ pub struct MeshCacheStats {
 
 impl GlyphMeshCache {
     /// Get a cached filled mesh for a glyph, or None if not cached
-    pub fn get_filled_mesh(&mut self, glyph_name: &str) -> Option<Handle<Mesh>> {
+    pub fn get_filled_mesh(
+        &mut self,
+        glyph_name: &str,
+    ) -> Option<Handle<Mesh>> {
         if let Some(mesh_handle) = self.filled_meshes.get(glyph_name) {
             self.stats.filled_hits += 1;
-            debug!("Mesh cache HIT for filled glyph '{}' (hits: {})", glyph_name, self.stats.filled_hits);
+            debug!(
+                "Mesh cache HIT for filled glyph '{}' (hits: {})",
+                glyph_name, self.stats.filled_hits
+            );
             Some(mesh_handle.clone())
         } else {
             self.stats.filled_misses += 1;
-            debug!("Mesh cache MISS for filled glyph '{}' (misses: {})", glyph_name, self.stats.filled_misses);
+            debug!(
+                "Mesh cache MISS for filled glyph '{}' (misses: {})",
+                glyph_name, self.stats.filled_misses
+            );
             None
         }
     }
 
     /// Cache a filled mesh for a glyph
-    pub fn cache_filled_mesh(&mut self, glyph_name: String, mesh_handle: Handle<Mesh>) {
+    pub fn cache_filled_mesh(
+        &mut self,
+        glyph_name: String,
+        mesh_handle: Handle<Mesh>,
+    ) {
         debug!("Caching filled mesh for glyph '{}'", glyph_name);
         self.filled_meshes.insert(glyph_name, mesh_handle);
     }
 
     /// Get cached outline meshes for a glyph, or None if not cached
-    pub fn get_outline_meshes(&mut self, glyph_name: &str) -> Option<Vec<Handle<Mesh>>> {
+    pub fn get_outline_meshes(
+        &mut self,
+        glyph_name: &str,
+    ) -> Option<Vec<Handle<Mesh>>> {
         if let Some(mesh_handles) = self.outline_meshes.get(glyph_name) {
             self.stats.outline_hits += 1;
-            debug!("Mesh cache HIT for outline glyph '{}' ({} segments)", glyph_name, mesh_handles.len());
+            debug!(
+                "Mesh cache HIT for outline glyph '{}' ({} segments)",
+                glyph_name,
+                mesh_handles.len()
+            );
             Some(mesh_handles.clone())
         } else {
             self.stats.outline_misses += 1;
@@ -73,16 +93,31 @@ impl GlyphMeshCache {
     }
 
     /// Cache outline meshes for a glyph
-    pub fn cache_outline_meshes(&mut self, glyph_name: String, mesh_handles: Vec<Handle<Mesh>>) {
-        debug!("Caching {} outline meshes for glyph '{}'", mesh_handles.len(), glyph_name);
+    pub fn cache_outline_meshes(
+        &mut self,
+        glyph_name: String,
+        mesh_handles: Vec<Handle<Mesh>>,
+    ) {
+        debug!(
+            "Caching {} outline meshes for glyph '{}'",
+            mesh_handles.len(),
+            glyph_name
+        );
         self.outline_meshes.insert(glyph_name, mesh_handles);
     }
 
     /// Get cached metrics meshes for a glyph, or None if not cached
-    pub fn get_metrics_meshes(&mut self, glyph_name: &str) -> Option<Vec<Handle<Mesh>>> {
+    pub fn get_metrics_meshes(
+        &mut self,
+        glyph_name: &str,
+    ) -> Option<Vec<Handle<Mesh>>> {
         if let Some(mesh_handles) = self.metrics_meshes.get(glyph_name) {
             self.stats.metrics_hits += 1;
-            debug!("Mesh cache HIT for metrics glyph '{}' ({} lines)", glyph_name, mesh_handles.len());
+            debug!(
+                "Mesh cache HIT for metrics glyph '{}' ({} lines)",
+                glyph_name,
+                mesh_handles.len()
+            );
             Some(mesh_handles.clone())
         } else {
             self.stats.metrics_misses += 1;
@@ -92,8 +127,16 @@ impl GlyphMeshCache {
     }
 
     /// Cache metrics meshes for a glyph
-    pub fn cache_metrics_meshes(&mut self, glyph_name: String, mesh_handles: Vec<Handle<Mesh>>) {
-        debug!("Caching {} metrics meshes for glyph '{}'", mesh_handles.len(), glyph_name);
+    pub fn cache_metrics_meshes(
+        &mut self,
+        glyph_name: String,
+        mesh_handles: Vec<Handle<Mesh>>,
+    ) {
+        debug!(
+            "Caching {} metrics meshes for glyph '{}'",
+            mesh_handles.len(),
+            glyph_name
+        );
         self.metrics_meshes.insert(glyph_name, mesh_handles);
     }
 
@@ -101,7 +144,7 @@ impl GlyphMeshCache {
     pub fn invalidate_all(&mut self) {
         info!("Invalidating all mesh caches due to font change (filled: {}, outline: {}, metrics: {})", 
             self.filled_meshes.len(), self.outline_meshes.len(), self.metrics_meshes.len());
-        
+
         self.filled_meshes.clear();
         self.outline_meshes.clear();
         self.metrics_meshes.clear();
@@ -153,7 +196,9 @@ impl GlyphMeshCache {
 
     /// Get total number of cached meshes across all types
     pub fn total_cached_count(&self) -> usize {
-        self.filled_meshes.len() + self.outline_meshes.len() + self.metrics_meshes.len()
+        self.filled_meshes.len()
+            + self.outline_meshes.len()
+            + self.metrics_meshes.len()
     }
 }
 
@@ -162,12 +207,16 @@ pub struct MeshCachingPlugin;
 
 impl Plugin for MeshCachingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GlyphMeshCache>()
-            .add_systems(Update, (
-                log_cache_stats.run_if(bevy::time::common_conditions::on_timer(
-                    std::time::Duration::from_secs(10)
-                )),
-            ));
+        app.init_resource::<GlyphMeshCache>().add_systems(
+            Update,
+            (
+                log_cache_stats.run_if(
+                    bevy::time::common_conditions::on_timer(
+                        std::time::Duration::from_secs(10),
+                    ),
+                ),
+            ),
+        );
     }
 }
 

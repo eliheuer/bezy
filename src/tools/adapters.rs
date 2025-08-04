@@ -143,10 +143,10 @@ impl Plugin for CleanToolsPlugin {
     fn build(&self, app: &mut App) {
         // 🎉 NEW SYSTEM: Tools are now registered automatically by ConfigBasedToolbarPlugin
         // No manual registration needed - just edit toolbar_config.rs!
-        
+
         // Old system disabled:
         // app.add_systems(Startup, register_clean_tools);
-        
+
         info!("🎛️  CleanToolsPlugin: Using new config-based toolbar system");
         info!("📝 To modify toolbar: Edit src/ui/toolbars/edit_mode_toolbar/toolbar_config.rs");
     }
@@ -330,7 +330,7 @@ fn _register_clean_tools_old_system(
     // 🚫 OLD SYSTEM - DO NOT USE
     // All tools are now automatically registered from toolbar_config.rs
     // by the ConfigBasedToolbarPlugin
-    
+
     // tool_registry.register_tool(Box::new(SelectToolAdapter));
     // tool_registry.register_tool(Box::new(PenToolAdapter));
     // tool_registry.register_tool(Box::new(TextToolAdapter));

@@ -5,14 +5,15 @@ use crate::core::state::FontMetrics;
 use bevy::prelude::*;
 
 impl TextEditorState {
-
     /// Get only text sorts (sorts that flow like text)
     pub fn get_text_sorts(&self) -> Vec<(usize, &SortEntry)> {
         let mut text_sorts = Vec::new();
 
         for i in 0..self.buffer.len() {
             if let Some(sort) = self.buffer.get(i) {
-                if sort.layout_mode == SortLayoutMode::LTRText || sort.layout_mode == SortLayoutMode::RTLText {
+                if sort.layout_mode == SortLayoutMode::LTRText
+                    || sort.layout_mode == SortLayoutMode::RTLText
+                {
                     text_sorts.push((i, sort));
                 }
             }
@@ -20,8 +21,6 @@ impl TextEditorState {
 
         text_sorts
     }
-
-
 
     /// Add a new freeform sort at the specified position
     pub fn add_freeform_sort(
@@ -67,7 +66,9 @@ impl TextEditorState {
         _leading: f32,
     ) -> Option<Vec2> {
         if let Some(sort) = self.buffer.get(buffer_position) {
-            if sort.layout_mode == SortLayoutMode::LTRText || sort.layout_mode == SortLayoutMode::RTLText {
+            if sort.layout_mode == SortLayoutMode::LTRText
+                || sort.layout_mode == SortLayoutMode::RTLText
+            {
                 // Find the active buffer root
                 let mut active_root_index = None;
                 let mut root_position = Vec2::ZERO;
@@ -76,7 +77,10 @@ impl TextEditorState {
                 for i in (0..=buffer_position).rev() {
                     if let Some(candidate) = self.buffer.get(i) {
                         if candidate.is_buffer_root
-                            && (candidate.layout_mode == SortLayoutMode::LTRText || candidate.layout_mode == SortLayoutMode::RTLText)
+                            && (candidate.layout_mode
+                                == SortLayoutMode::LTRText
+                                || candidate.layout_mode
+                                    == SortLayoutMode::RTLText)
                         {
                             active_root_index = Some(i);
                             root_position = candidate.root_position;
@@ -122,7 +126,9 @@ impl TextEditorState {
                                 }
                                 SortKind::Glyph { advance_width, .. } => {
                                     // For RTL, subtract advance width instead of adding
-                                    if sort_entry.layout_mode == SortLayoutMode::RTLText {
+                                    if sort_entry.layout_mode
+                                        == SortLayoutMode::RTLText
+                                    {
                                         x_offset -= advance_width;
                                     } else {
                                         x_offset += advance_width;
@@ -147,16 +153,20 @@ impl TextEditorState {
     }
 
     /// Create a new text root at the specified world position
-    pub fn create_text_root(&mut self, world_position: Vec2, layout_mode: SortLayoutMode) {
+    pub fn create_text_root(
+        &mut self,
+        world_position: Vec2,
+        layout_mode: SortLayoutMode,
+    ) {
         self.create_text_root_with_fontir(world_position, layout_mode, None);
     }
 
     /// Create a new text root with FontIR access for proper advance width calculation
     pub fn create_text_root_with_fontir(
-        &mut self, 
-        world_position: Vec2, 
+        &mut self,
+        world_position: Vec2,
         layout_mode: SortLayoutMode,
-        fontir_app_state: Option<&crate::core::state::FontIRAppState>
+        fontir_app_state: Option<&crate::core::state::FontIRAppState>,
     ) {
         // Only clear states if buffer is empty (first text root)
         if self.buffer.is_empty() {
@@ -209,7 +219,7 @@ impl TextEditorState {
                   SortLayoutMode::Freeform => "Freeform",
               },
               world_position.x, world_position.y, cursor_pos);
-        
+
         // Verify it was inserted correctly
         if let Some(inserted_root) = self.buffer.get(insert_index) {
             info!("Verified inserted root at index {}: is_active={}, is_buffer_root={}", 
@@ -379,7 +389,10 @@ impl TextEditorState {
 
     /// Clear both active state and selections from all sorts
     pub fn clear_all_states(&mut self) {
-        debug!("Clear all states: Called with buffer length {}", self.buffer.len());
+        debug!(
+            "Clear all states: Called with buffer length {}",
+            self.buffer.len()
+        );
         for i in 0..self.buffer.len() {
             if let Some(sort) = self.buffer.get_mut(i) {
                 sort.is_active = false;
@@ -440,10 +453,16 @@ impl TextEditorState {
         advance_width: f32,
     ) {
         debug!("Insert at cursor: Starting insertion of '{}'", glyph_name);
-        info!("insert_sort_at_cursor called with glyph '{}', advance_width {}", glyph_name, advance_width);
-        
+        info!(
+            "insert_sort_at_cursor called with glyph '{}', advance_width {}",
+            glyph_name, advance_width
+        );
+
         if let Some(root_index) = self.find_active_buffer_root_index() {
-            debug!("Insert at cursor: Found active root at index {}", root_index);
+            debug!(
+                "Insert at cursor: Found active root at index {}",
+                root_index
+            );
             let cursor_pos_in_buffer = self
                 .buffer
                 .get(root_index)
@@ -454,7 +473,9 @@ impl TextEditorState {
                   glyph_name, cursor_pos_in_buffer, root_index);
 
             // Get the layout mode from the buffer root
-            let root_layout_mode = self.buffer.get(root_index)
+            let root_layout_mode = self
+                .buffer
+                .get(root_index)
                 .map(|sort| sort.layout_mode.clone())
                 .unwrap_or(SortLayoutMode::LTRText);
 
@@ -466,7 +487,7 @@ impl TextEditorState {
                 is_active: false, // Don't make new sorts active by default
                 layout_mode: root_layout_mode,
                 root_position: Vec2::ZERO, // Will be calculated by flow
-                    is_buffer_root: false, // New sorts are not buffer roots
+                is_buffer_root: false,     // New sorts are not buffer roots
                 buffer_cursor_position: None,
             };
 
@@ -476,24 +497,42 @@ impl TextEditorState {
             // FIXED: Insert at the end of the buffer instead of using cursor position
             // The cursor position was getting out of sync with the actual buffer
             let insert_buffer_index = self.buffer.len();
-            debug!("Inserting: Before insert - buffer has {} entries", self.buffer.len());
-            debug!("Inserting: Inserting at index {} (end of buffer)", insert_buffer_index);
-            
+            debug!(
+                "Inserting: Before insert - buffer has {} entries",
+                self.buffer.len()
+            );
+            debug!(
+                "Inserting: Inserting at index {} (end of buffer)",
+                insert_buffer_index
+            );
+
             self.buffer.insert(insert_buffer_index, new_sort);
-            debug!("Inserting: Insert successful - buffer now has {} entries", self.buffer.len());
+            debug!(
+                "Inserting: Insert successful - buffer now has {} entries",
+                self.buffer.len()
+            );
             info!("🔤 Inserted character '{}' at buffer index {} (root stays at {})", 
                   glyph_name, insert_buffer_index, root_index);
-            info!("🔤 Buffer now has {} entries after insertion", self.buffer.len());
-            
+            info!(
+                "🔤 Buffer now has {} entries after insertion",
+                self.buffer.len()
+            );
+
             // Update the cursor position in the root to point after the inserted character
             let new_cursor_pos = self.buffer.len() - 1; // Cursor after the new character
             if let Some(root_sort) = self.buffer.get_mut(root_index) {
                 root_sort.buffer_cursor_position = Some(new_cursor_pos);
-                debug!("Inserting: Updated cursor position to {}", new_cursor_pos);
+                debug!(
+                    "Inserting: Updated cursor position to {}",
+                    new_cursor_pos
+                );
                 info!("📍 Updated root cursor position to {}", new_cursor_pos);
                 // CRITICAL: Keep the root active so it maintains its outline
-                info!("🔥 Root sort '{}' remains active with is_active={}", 
-                      root_sort.kind.glyph_name(), root_sort.is_active);
+                info!(
+                    "🔥 Root sort '{}' remains active with is_active={}",
+                    root_sort.kind.glyph_name(),
+                    root_sort.is_active
+                );
             }
         } else {
             // No active text buffer, so create a new one with this character.
@@ -522,19 +561,23 @@ impl TextEditorState {
             // Find the actual last character to delete (should be the last non-root entry in the buffer)
             // Since characters are always inserted at the end, delete the last character
             let buffer_len = self.buffer.len();
-            if buffer_len > 1 { // Must have more than just the root
+            if buffer_len > 1 {
+                // Must have more than just the root
                 let delete_buffer_index = buffer_len - 1; // Delete the last character
-                
+
                 info!("🗑️ Deleting character at buffer index {} (buffer length: {})", delete_buffer_index, buffer_len);
-                
+
                 // Delete the character from the buffer
                 let deleted_sort = self.buffer.delete(delete_buffer_index);
                 if let Some(deleted) = deleted_sort {
-                    info!("🗑️ Successfully deleted sort: glyph='{}'", deleted.kind.glyph_name());
+                    info!(
+                        "🗑️ Successfully deleted sort: glyph='{}'",
+                        deleted.kind.glyph_name()
+                    );
                 }
-                
+
                 info!("🗑️ Buffer length after deletion: {}", self.buffer.len());
-                
+
                 // Update cursor position in the root - cursor should point to where next character will be inserted
                 // The cursor position should be decremented only if it's greater than 0
                 let new_cursor_pos = if cursor_pos_in_buffer > 0 {
@@ -547,7 +590,10 @@ impl TextEditorState {
                     info!("📍 Updated cursor position to {}", new_cursor_pos);
                 }
             } else {
-                info!("🗑️ Cannot delete - only root remains (buffer length: {})", buffer_len);
+                info!(
+                    "🗑️ Cannot delete - only root remains (buffer length: {})",
+                    buffer_len
+                );
             }
         } else {
             info!("🗑️ Cannot delete - no active buffer root found");
@@ -664,7 +710,10 @@ impl TextEditorState {
 
     /// Helper: Find the index of the active buffer root
     fn find_active_buffer_root_index(&self) -> Option<usize> {
-        debug!("Find root: Searching for active buffer root in {} buffer entries", self.buffer.len());
+        debug!(
+            "Find root: Searching for active buffer root in {} buffer entries",
+            self.buffer.len()
+        );
         // Use same logic as insert_sort_at_cursor
         let mut checked_roots = 0;
         for i in 0..self.buffer.len() {
@@ -680,7 +729,10 @@ impl TextEditorState {
                 }
             }
         }
-        debug!("No active buffer root found after checking {} roots", checked_roots);
+        debug!(
+            "No active buffer root found after checking {} roots",
+            checked_roots
+        );
 
         for i in 0..self.buffer.len() {
             if let Some(sort) = self.buffer.get(i) {
@@ -709,7 +761,8 @@ impl TextEditorState {
             if let Some(sort) = self.buffer.get(i) {
                 // A text sequence ends when we hit another buffer root or a non-text sort.
                 if (i > root_index && sort.is_buffer_root)
-                    || (sort.layout_mode != SortLayoutMode::LTRText && sort.layout_mode != SortLayoutMode::RTLText)
+                    || (sort.layout_mode != SortLayoutMode::LTRText
+                        && sort.layout_mode != SortLayoutMode::RTLText)
                 {
                     break;
                 }
@@ -760,10 +813,15 @@ impl TextEditorState {
     /// Insert a line break at the cursor position (for Enter key)
     pub fn insert_line_break_at_cursor(&mut self) {
         if let Some(root_index) = self.find_active_buffer_root_index() {
-            debug!("Insert line break: Found active root at index {}", root_index);
-            
+            debug!(
+                "Insert line break: Found active root at index {}",
+                root_index
+            );
+
             // Get the layout mode from the buffer root
-            let root_layout_mode = self.buffer.get(root_index)
+            let root_layout_mode = self
+                .buffer
+                .get(root_index)
                 .map(|sort| sort.layout_mode.clone())
                 .unwrap_or(SortLayoutMode::LTRText);
 
@@ -772,25 +830,34 @@ impl TextEditorState {
                 is_active: false,
                 layout_mode: root_layout_mode,
                 root_position: Vec2::ZERO,
-                    is_buffer_root: false,
+                is_buffer_root: false,
                 buffer_cursor_position: None,
             };
 
             // FIXED: Insert at the end of the buffer instead of using cursor position
             // The cursor position was getting out of sync with the actual buffer
             let insert_buffer_index = self.buffer.len();
-            debug!("Insert line break: Inserting at index {} (end of buffer)", insert_buffer_index);
-            
+            debug!(
+                "Insert line break: Inserting at index {} (end of buffer)",
+                insert_buffer_index
+            );
+
             self.buffer.insert(insert_buffer_index, new_sort);
             debug!("Insert line break: Insert successful - buffer now has {} entries", self.buffer.len());
-            info!("🔤 Inserted line break at buffer index {}", insert_buffer_index);
+            info!(
+                "🔤 Inserted line break at buffer index {}",
+                insert_buffer_index
+            );
 
             // Update the cursor position in the root to point after the line break
             let new_cursor_pos = self.buffer.len(); // Cursor AFTER the line break (at the position where next character will be inserted)
             if let Some(root_sort) = self.buffer.get_mut(root_index) {
                 root_sort.buffer_cursor_position = Some(new_cursor_pos);
                 debug!("Insert line break: Updated cursor position to {} (after line break)", new_cursor_pos);
-                info!("📍 Updated root cursor position to {} after line break", new_cursor_pos);
+                info!(
+                    "📍 Updated root cursor position to {} after line break",
+                    new_cursor_pos
+                );
             }
         } else {
             debug!("Insert line break: NO ACTIVE ROOT FOUND");
@@ -981,7 +1048,8 @@ mod tests {
         }
 
         // Test 3: Text root should be activated when created
-        text_editor.create_text_root(Vec2::new(500.0, 600.0), SortLayoutMode::LTRText);
+        text_editor
+            .create_text_root(Vec2::new(500.0, 600.0), SortLayoutMode::LTRText);
 
         // Verify the new text root was created and activated, and others were deactivated
         assert_eq!(text_editor.buffer.len(), 3);
@@ -1003,12 +1071,13 @@ mod tests {
         }
     }
 
-    #[test] 
+    #[test]
     fn test_backspace_functionality() {
         let mut text_editor = TextEditorState::default();
 
         // Create a text root
-        text_editor.create_text_root(Vec2::new(100.0, 200.0), SortLayoutMode::LTRText);
+        text_editor
+            .create_text_root(Vec2::new(100.0, 200.0), SortLayoutMode::LTRText);
         assert_eq!(text_editor.buffer.len(), 1); // Should have root
 
         // Insert some characters
@@ -1023,7 +1092,7 @@ mod tests {
         text_editor.delete_sort_at_cursor(); // Delete 'o'
         assert_eq!(text_editor.buffer.len(), 5); // Root + 4 characters
 
-        text_editor.delete_sort_at_cursor(); // Delete 'l'  
+        text_editor.delete_sort_at_cursor(); // Delete 'l'
         assert_eq!(text_editor.buffer.len(), 4); // Root + 3 characters
 
         text_editor.delete_sort_at_cursor(); // Delete 'l'
@@ -1045,7 +1114,8 @@ mod tests {
         let mut text_editor = TextEditorState::default();
 
         // Create a text root at position (100, 200)
-        text_editor.create_text_root(Vec2::new(100.0, 200.0), SortLayoutMode::LTRText);
+        text_editor
+            .create_text_root(Vec2::new(100.0, 200.0), SortLayoutMode::LTRText);
         println!(
             "After create_text_root: buffer length = {}",
             text_editor.buffer.len()

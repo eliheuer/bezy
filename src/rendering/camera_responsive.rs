@@ -68,7 +68,6 @@ pub fn update_camera_responsive_scale(
     mut scale_resource: ResMut<CameraResponsiveScale>,
     camera_query: Query<(&Transform, &Projection), With<DesignCamera>>,
 ) {
-
     if let Ok((camera_transform, projection)) = camera_query.single() {
         // Get camera scale from OrthographicProjection (this is what PanCam modifies for zoom)
         let projection_scale = match projection {
@@ -79,7 +78,6 @@ pub fn update_camera_responsive_scale(
 
         // Use projection scale for responsive scaling (this is the real zoom level)
         let camera_scale = projection_scale;
-
 
         // Calculate responsive scale factor
         // When camera_scale is large (zoomed in), we want smaller visual elements
@@ -106,7 +104,6 @@ pub fn update_camera_responsive_scale(
             scale_resource.default_factor * (1.0 - t)
                 + scale_resource.zoom_out_max_factor * t
         };
-
 
         // Store the interpolated factor directly (no additional clamping needed)
         scale_resource.scale_factor = responsive_factor;

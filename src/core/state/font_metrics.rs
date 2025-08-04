@@ -39,7 +39,6 @@ pub struct FontMetrics {
     pub line_height: f64,
 }
 
-
 impl FontInfo {
     /// Extract font info from norad Font
     pub fn from_norad_font(font: &Font) -> Self {
@@ -130,7 +129,6 @@ impl FontInfo {
         info.cap_height = self.cap_height;
         info
     }
-
 }
 
 impl FontMetrics {
@@ -164,4 +162,3 @@ impl FontMetrics {
         }
     }
 }
-

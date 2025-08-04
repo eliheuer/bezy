@@ -605,16 +605,22 @@ pub fn update_glyph_metrics(
 
             // Get kerning groups from FontIR if available
             if let Some(fontir_state) = fontir_app_state.as_ref() {
-                let (left_group, right_group) = fontir_state.get_glyph_kerning_groups(&glyph_name);
-                metrics.left_group = left_group.unwrap_or_else(|| String::new());
-                metrics.right_group = right_group.unwrap_or_else(|| String::new());
+                let (left_group, right_group) =
+                    fontir_state.get_glyph_kerning_groups(&glyph_name);
+                metrics.left_group =
+                    left_group.unwrap_or_else(|| String::new());
+                metrics.right_group =
+                    right_group.unwrap_or_else(|| String::new());
             } else {
                 metrics.left_group = String::new();
                 metrics.right_group = String::new();
             }
         } else if let Some(state) = app_state.as_ref() {
             // Fallback to AppState (UFO data)
-            info!("Glyph pane: FALLBACK BRANCH - Using AppState for glyph '{}'", glyph_name);
+            info!(
+                "Glyph pane: FALLBACK BRANCH - Using AppState for glyph '{}'",
+                glyph_name
+            );
             if let Some(glyph_data) =
                 state.workspace.font.get_glyph(&glyph_name)
             {
@@ -685,11 +691,20 @@ pub fn update_glyph_metrics(
 
                 // Get kerning groups from FontIR
                 if let Some(fontir_state) = fontir_app_state.as_ref() {
-                    info!("Glyph pane: Using FontIR to get groups for '{}'", glyph_name);
-                    let (left_group, right_group) = fontir_state.get_glyph_kerning_groups(&glyph_name);
-                    metrics.left_group = left_group.unwrap_or_else(|| String::new());
-                    metrics.right_group = right_group.unwrap_or_else(|| String::new());
-                    info!("Glyph pane: Set groups - left: '{}', right: '{}'", metrics.left_group, metrics.right_group);
+                    info!(
+                        "Glyph pane: Using FontIR to get groups for '{}'",
+                        glyph_name
+                    );
+                    let (left_group, right_group) =
+                        fontir_state.get_glyph_kerning_groups(&glyph_name);
+                    metrics.left_group =
+                        left_group.unwrap_or_else(|| String::new());
+                    metrics.right_group =
+                        right_group.unwrap_or_else(|| String::new());
+                    info!(
+                        "Glyph pane: Set groups - left: '{}', right: '{}'",
+                        metrics.left_group, metrics.right_group
+                    );
                 } else {
                     info!("Glyph pane: No FontIR state available for groups");
                     metrics.left_group = String::new();
