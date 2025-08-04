@@ -102,7 +102,7 @@ pub fn create_app(cli_args: CliArgs) -> Result<App> {
     configure_resources(&mut app, cli_args);
     configure_window_plugins(&mut app);
     add_plugin_groups(&mut app);
-    add_lifecycle_systems(&mut app);
+    add_startup_and_exit_systems(&mut app);
     Ok(app)
 }
 
@@ -185,8 +185,8 @@ fn add_plugin_groups(app: &mut App) {
     info!("All plugin groups added successfully");
 }
 
-/// Add lifecycle systems for startup and shutdown
-fn add_lifecycle_systems(app: &mut App) {
+/// Add startup and exit systems
+fn add_startup_and_exit_systems(app: &mut App) {
     app.add_systems(Startup, load_fontir_font)
         .add_systems(Update, exit_on_esc);
 }
