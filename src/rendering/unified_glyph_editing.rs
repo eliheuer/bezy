@@ -18,6 +18,14 @@ use bevy::render::mesh::Mesh2d;
 use bevy::sprite::{ColorMaterial, MeshMaterial2d};
 use std::collections::HashMap;
 
+// Lyon imports for filled glyph tessellation
+use lyon::geom::point;
+use lyon::path::Path;
+use lyon::tessellation::{
+    BuffersBuilder, FillOptions, FillRule, FillTessellator, FillVertex,
+    VertexBuffers,
+};
+
 /// Component to mark entities as unified glyph editing elements
 #[derive(Component)]
 pub struct UnifiedGlyphElement {
@@ -48,7 +56,8 @@ const UNIFIED_OUTLINE_Z: f32 = 8.0; // Above handles, behind points
 const UNIFIED_POINT_Z: f32 = 10.0; // Unselected points
 const UNIFIED_SELECTED_POINT_Z: f32 = 15.0; // Selected points - always above unselected
 
-/// Unified system that renders points, outlines, and handles together for zero lag
+/// Unified system that renders all sorts - both active (with points/handles) and inactive (filled outlines)
+/// This eliminates the need for the separate mesh_glyph_outline system and coordination complexity
 #[allow(clippy::type_complexity)]
 pub fn render_unified_glyph_editing(
     mut commands: Commands,
@@ -56,10 +65,14 @@ pub fn render_unified_glyph_editing(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut unified_entities: ResMut<UnifiedGlyphEntities>,
     camera_scale: Res<CameraResponsiveScale>,
-    // Include ALL active sorts (regular sorts and buffer sorts both use ActiveSort component)
+    // Include ALL sorts (both active and inactive)
     active_sort_query: Query<
         (Entity, &crate::editing::sort::Sort, &Transform),
         With<ActiveSort>,
+    >,
+    inactive_sort_query: Query<
+        (Entity, &crate::editing::sort::Sort, &Transform),
+        (With<crate::editing::sort::InactiveSort>, Without<ActiveSort>),
     >,
     point_query: Query<
         (
@@ -74,94 +87,22 @@ pub fn render_unified_glyph_editing(
     app_state: Option<Res<crate::core::state::AppState>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     existing_elements: Query<Entity, With<UnifiedGlyphElement>>,
-    _mesh_outline_elements: Query<
-        Entity,
-        With<crate::rendering::mesh_glyph_outline::GlyphOutlineElement>,
-    >,
-    mut mesh_outline_entities: ResMut<
-        crate::rendering::mesh_glyph_outline::MeshOutlineEntities,
-    >,
-    mut unified_rendering_sorts: ResMut<
-        crate::rendering::outline_coordination::UnifiedRenderingSorts,
-    >,
     theme: Res<CurrentTheme>,
 ) {
-    let active_sort_count = active_sort_query.iter().count();
-    if active_sort_count == 0 {
-        return; // No active sorts, nothing to render
+    // PERFORMANCE: Early exit if no sorts to render
+    let active_count = active_sort_query.iter().count();
+    let inactive_count = inactive_sort_query.iter().count();
+    if active_count == 0 && inactive_count == 0 {
+        return;
     }
 
-    // Check which sorts have visible points and should use unified rendering
-    let mut sorts_with_points = Vec::new();
-    for (sort_entity, sort, _) in active_sort_query.iter() {
-        let has_points = point_query.iter().any(|(_, _, point_ref, _, _)| {
-            point_ref.glyph_name == sort.glyph_name
-        });
-
-        if has_points {
-            sorts_with_points.push(sort_entity);
-        }
-    }
-
-    // Update the coordination resource
-    unified_rendering_sorts.clear();
-    for sort_entity in &sorts_with_points {
-        unified_rendering_sorts.insert(*sort_entity);
-        debug!(
-            "Unified system: Marking sort {:?} for unified rendering",
-            sort_entity
-        );
-    }
-
-    // ONLY clear and take over rendering if there are actual points visible
-    // This prevents the unified system from interfering when no points are active
-    if sorts_with_points.is_empty() {
-        return; // Let mesh_glyph_outline handle basic outline rendering
-    }
-
-    // Clear existing unified elements only when we're taking over
+    // Clear existing unified elements - we now handle ALL sorts
     for entity in existing_elements.iter() {
         commands.entity(entity).despawn();
     }
     unified_entities.elements.clear();
 
-    // CRITICAL: Clear mesh outline entities for sorts we're taking over
-    // This prevents double rendering by removing the base outline
-    for sort_entity in &sorts_with_points {
-        // Remove from mesh outline tracking
-        if let Some(entities) =
-            mesh_outline_entities.path_segments.remove(sort_entity)
-        {
-            debug!("Unified system: Despawning {} path segment entities for sort {:?}", entities.len(), sort_entity);
-            for entity in entities {
-                if let Ok(mut entity_commands) = commands.get_entity(entity) {
-                    entity_commands.despawn();
-                } else {
-                    debug!(
-                        "Unified system: Entity {:?} already despawned",
-                        entity
-                    );
-                }
-            }
-        }
-        if let Some(entities) =
-            mesh_outline_entities.control_handles.remove(sort_entity)
-        {
-            debug!("Unified system: Despawning {} control handle entities for sort {:?}", entities.len(), sort_entity);
-            for entity in entities {
-                if let Ok(mut entity_commands) = commands.get_entity(entity) {
-                    entity_commands.despawn();
-                } else {
-                    debug!(
-                        "Unified system: Entity {:?} already despawned",
-                        entity
-                    );
-                }
-            }
-        }
-    }
-
-    // Process each active sort
+    // Process ACTIVE sorts (with editing capabilities)
     for (sort_entity, sort, sort_transform) in active_sort_query.iter() {
         let sort_position = sort_transform.translation.truncate();
         let mut element_entities = Vec::new();
@@ -240,6 +181,131 @@ pub fn render_unified_glyph_editing(
         unified_entities
             .elements
             .insert(sort_entity, element_entities);
+    }
+
+    // Process INACTIVE sorts (filled outlines only, no points/handles)  
+    for (sort_entity, sort, sort_transform) in inactive_sort_query.iter() {
+        let sort_position = sort_transform.translation.truncate();
+        let mut element_entities = Vec::new();
+
+        // Render filled outline for inactive sorts
+        render_filled_outline(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            &mut element_entities,
+            sort_entity,
+            &sort.glyph_name,
+            sort_position,
+            fontir_app_state.as_deref(),
+            app_state.as_deref(),
+            &camera_scale,
+            &theme,
+        );
+
+        unified_entities
+            .elements
+            .insert(sort_entity, element_entities);
+    }
+}
+
+/// Render filled shapes for inactive sorts using Lyon tessellation
+fn render_filled_outline(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    element_entities: &mut Vec<Entity>,
+    sort_entity: Entity,
+    glyph_name: &str,
+    position: Vec2,
+    fontir_state: Option<&crate::core::state::FontIRAppState>,
+    _app_state: Option<&crate::core::state::AppState>,
+    _camera_scale: &CameraResponsiveScale,
+    _theme: &CurrentTheme,
+) {
+    if let Some(fontir_state) = fontir_state {
+        if let Some(paths) = fontir_state.get_glyph_paths_with_edits(glyph_name) {
+            // Combine all contours into a single Lyon path for proper winding rule handling
+            let mut lyon_path_builder = Path::builder();
+            
+            // Convert all kurbo paths (contours) to a single Lyon path
+            for kurbo_path in paths {
+                for element in kurbo_path.elements().iter() {
+                    match element {
+                        kurbo::PathEl::MoveTo(pt) => {
+                            lyon_path_builder.begin(point(pt.x as f32, pt.y as f32));
+                        },
+                        kurbo::PathEl::LineTo(pt) => {
+                            lyon_path_builder.line_to(point(pt.x as f32, pt.y as f32));
+                        },
+                        kurbo::PathEl::CurveTo(c1, c2, pt) => {
+                            lyon_path_builder.cubic_bezier_to(
+                                point(c1.x as f32, c1.y as f32),
+                                point(c2.x as f32, c2.y as f32),
+                                point(pt.x as f32, pt.y as f32),
+                            );
+                        },
+                        kurbo::PathEl::QuadTo(c, pt) => {
+                            lyon_path_builder.quadratic_bezier_to(
+                                point(c.x as f32, c.y as f32),
+                                point(pt.x as f32, pt.y as f32),
+                            );
+                        },
+                        kurbo::PathEl::ClosePath => {
+                            lyon_path_builder.close();
+                        }
+                    }
+                }
+            }
+            
+            let lyon_path = lyon_path_builder.build();
+            
+            // Tessellate the combined path for filled rendering with proper winding rules
+            let mut tessellator = FillTessellator::new();
+            let mut geometry: VertexBuffers<[f32; 2], u32> = VertexBuffers::new();
+            
+            let tessellation_result = tessellator.tessellate_path(
+                &lyon_path,
+                &FillOptions::default().with_fill_rule(FillRule::EvenOdd),
+                &mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
+                    [vertex.position().x, vertex.position().y]
+                }),
+            );
+            
+            if tessellation_result.is_ok() && !geometry.vertices.is_empty() {
+                // Convert tessellated geometry to Bevy mesh
+                let vertices: Vec<[f32; 3]> = geometry.vertices
+                    .iter()
+                    .map(|&[x, y]| [x + position.x, y + position.y, 0.0])
+                    .collect();
+                
+                let normals = vec![[0.0, 0.0, 1.0]; vertices.len()];
+                let uvs = vec![[0.0, 0.0]; vertices.len()]; // Simple UV mapping
+                
+                let mut mesh = Mesh::new(bevy::render::mesh::PrimitiveTopology::TriangleList, default());
+                mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+                mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+                mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+                mesh.insert_indices(bevy::render::mesh::Indices::U32(geometry.indices));
+                
+                // Create filled mesh entity
+                let entity = commands.spawn((
+                    UnifiedGlyphElement { 
+                        element_type: UnifiedElementType::OutlineSegment,
+                        sort_entity,
+                    },
+                    Mesh2d(meshes.add(mesh)),
+                    MeshMaterial2d(materials.add(ColorMaterial::from_color(FILLED_GLYPH_COLOR))),
+                    Transform::from_translation(Vec3::new(0.0, 0.0, UNIFIED_OUTLINE_Z)),
+                    GlobalTransform::default(),
+                    Visibility::Visible,
+                    InheritedVisibility::default(),
+                    ViewVisibility::default(),
+                )).id();
+                
+                element_entities.push(entity);
+            }
+        }
     }
 }
 
@@ -999,7 +1065,7 @@ fn spawn_unified_line_mesh(
     camera_scale: &CameraResponsiveScale,
 ) -> Entity {
     let adjusted_width = camera_scale.adjusted_line_width() * width;
-    let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
+    let line_mesh = crate::rendering::mesh_utils::create_line_mesh(
         start,
         end,
         adjusted_width,

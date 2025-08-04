@@ -137,7 +137,7 @@ fn spawn_metrics_line(
     camera_scale: &CameraResponsiveScale,
 ) -> Entity {
     let line_width = camera_scale.adjusted_line_width(); // Camera-responsive width
-    let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
+    let line_mesh = crate::rendering::mesh_utils::create_line_mesh(
         start, end, line_width,
     );
 
@@ -181,7 +181,7 @@ fn get_or_update_metrics_line(
 
     // Create the mesh and material
     let line_width = camera_scale.adjusted_line_width();
-    let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
+    let line_mesh = crate::rendering::mesh_utils::create_line_mesh(
         start, end, line_width,
     );
     let mesh_handle = meshes.add(line_mesh);
@@ -1354,7 +1354,7 @@ fn create_dashed_line_meshes(
         let dash_end = start + direction * dash_end_pos;
 
         // Create mesh for this dash segment
-        let line_mesh = crate::rendering::mesh_glyph_outline::create_line_mesh(
+        let line_mesh = crate::rendering::mesh_utils::create_line_mesh(
             dash_start, dash_end, line_width,
         );
 
@@ -1395,7 +1395,6 @@ impl Plugin for MetricsRenderingPlugin {
             .init_resource::<GlyphMetricsCache>()
             .add_systems(Update, (
                 render_mesh_metrics_lines
-                    .after(crate::rendering::mesh_glyph_outline::render_mesh_glyph_outline)
                     .after(crate::systems::text_editor_sorts::sort_entities::update_buffer_sort_positions),
                 manage_preview_metrics
                     .after(render_mesh_metrics_lines)

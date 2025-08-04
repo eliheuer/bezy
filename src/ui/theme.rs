@@ -223,6 +223,8 @@ pub const SELECTED_PRIMARY_COLOR: Color = Color::srgba(1.0, 1.0, 0.0, 1.0);
 pub const SELECTED_SECONDARY_COLOR: Color = Color::srgba(0.5, 0.5, 0.0, 1.0);
 
 pub const PATH_STROKE_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
+/// Color for inactive sort outlines (slightly dimmed)
+pub const INACTIVE_OUTLINE_COLOR: Color = Color::srgb(0.6, 0.6, 0.6);
 /// Color for filled glyph rendering (inactive text sorts)
 pub const FILLED_GLYPH_COLOR: Color = Color::srgb(0.7, 0.7, 0.7);
 /// Z-layer for filled glyphs (below outlines but above background)

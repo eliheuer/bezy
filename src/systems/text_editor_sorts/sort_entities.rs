@@ -456,16 +456,16 @@ pub fn despawn_missing_buffer_sort_entities(
     mut commands: Commands,
     text_editor_state: Res<TextEditorState>,
     mut buffer_entities: ResMut<BufferSortEntities>,
-    mut outline_entities: ResMut<
-        crate::rendering::mesh_glyph_outline::MeshOutlineEntities,
+    mut unified_entities: ResMut<
+        crate::rendering::unified_glyph_editing::UnifiedGlyphEntities,
     >,
     mut metrics_entities: ResMut<
         crate::rendering::metrics::MetricsLineEntities,
     >,
     sort_query: Query<Entity, With<BufferSortIndex>>,
-    outline_element_query: Query<(
+    unified_element_query: Query<(
         Entity,
-        &crate::rendering::mesh_glyph_outline::GlyphOutlineElement,
+        &crate::rendering::unified_glyph_editing::UnifiedGlyphElement,
     )>,
     point_query: Query<
         Entity,
@@ -509,37 +509,22 @@ pub fn despawn_missing_buffer_sort_entities(
                     buffer_index, text_editor_state.buffer.len()
                 );
 
-                // First, despawn all outline entities associated with this sort
-                // This includes path segments and control handles
-                let mut outline_count = 0;
+                // First, despawn all unified glyph elements associated with this sort
+                let mut unified_count = 0;
 
-                // Despawn path segments
-                if let Some(segment_entities) =
-                    outline_entities.path_segments.get(&entity)
-                {
-                    for &segment_entity in segment_entities.iter() {
-                        commands.entity(segment_entity).despawn();
-                        outline_count += 1;
+                // Despawn all unified elements (points, outlines, handles)
+                if let Some(element_entities) = unified_entities.elements.get(&entity) {
+                    for &element_entity in element_entities.iter() {
+                        commands.entity(element_entity).despawn();
+                        unified_count += 1;
                     }
                 }
 
-                // Despawn control handles
-                if let Some(handle_entities) =
-                    outline_entities.control_handles.get(&entity)
-                {
-                    for &handle_entity in handle_entities.iter() {
-                        commands.entity(handle_entity).despawn();
-                        outline_count += 1;
-                    }
-                }
-
-                // Also despawn any filled mesh entities for this sort
-                for (outline_entity, outline_element) in
-                    outline_element_query.iter()
-                {
-                    if outline_element.sort_entity == entity {
-                        commands.entity(outline_entity).despawn();
-                        outline_count += 1;
+                // Also despawn any loose unified elements that might not be tracked
+                for (unified_entity, unified_element) in unified_element_query.iter() {
+                    if unified_element.sort_entity == entity {
+                        commands.entity(unified_entity).despawn();
+                        unified_count += 1;
                     }
                 }
 
@@ -585,12 +570,11 @@ pub fn despawn_missing_buffer_sort_entities(
                     }
                 }
 
-                info!("🗑️ Despawned {} outline entities, {} point entities, {} metrics entities, and {} label entities for sort {:?}", 
-                      outline_count, point_count, metrics_count, label_count, entity);
+                info!("🗑️ Despawned {} unified elements, {} point entities, {} metrics entities, and {} label entities for sort {:?}", 
+                      unified_count, point_count, metrics_count, label_count, entity);
 
-                // Remove from outline tracking
-                outline_entities.path_segments.remove(&entity);
-                outline_entities.control_handles.remove(&entity);
+                // Remove from unified tracking
+                unified_entities.elements.remove(&entity);
 
                 // Remove from metrics tracking
                 metrics_entities.lines.remove(&entity);

@@ -10,7 +10,7 @@ use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
 use crate::rendering::{
     camera_responsive::CameraResponsivePlugin, cameras::CameraPlugin,
     checkerboard::CheckerboardPlugin, EntityPoolingPlugin, MeshCachingPlugin,
-    MeshGlyphOutlinePlugin, MetricsRenderingPlugin, OutlineCoordinationPlugin,
+    MetricsRenderingPlugin,
     SortHandleRenderingPlugin, UnifiedGlyphEditingPlugin,
 };
 use crate::systems::{
@@ -64,8 +64,6 @@ impl PluginGroup for RenderingPluginGroup {
             .add(EntityPoolingPlugin)
             .add(MeshCachingPlugin)
             .add(MetricsRenderingPlugin)
-            .add(OutlineCoordinationPlugin)
-            .add(MeshGlyphOutlinePlugin)
             .add(SortHandleRenderingPlugin)
             .add(UnifiedGlyphEditingPlugin)
     }
