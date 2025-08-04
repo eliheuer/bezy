@@ -22,6 +22,7 @@ use crate::ui::panes::coord_pane::CoordinatePanePlugin;
 use crate::ui::panes::design_space::DesignSpacePlugin;
 use crate::ui::panes::glyph_pane::GlyphPanePlugin;
 use crate::ui::theme::CurrentTheme;
+#[cfg(debug_assertions)]
 use crate::ui::themes::runtime_reload::RuntimeThemePlugin;
 use crate::ui::toolbars::EditModeToolbarPlugin;
 use anyhow::Result;

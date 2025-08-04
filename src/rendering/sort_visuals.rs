@@ -50,46 +50,6 @@ pub struct SortHandleDragState {
     pub initial_position: Vec2,
 }
 
-/// Helper to spawn a square handle mesh
-fn spawn_square_handle(
-    commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<ColorMaterial>>,
-    position: Vec2,
-    size: f32,
-    color: Color,
-    filled: bool,
-    sort_entity: Entity,
-) -> Entity {
-    let square_mesh = Rectangle::new(size, size);
-
-    // Use transparent color for unfilled box
-    let material_color = if filled {
-        color
-    } else {
-        color.with_alpha(0.0) // Transparent fill for unfilled box
-    };
-
-    commands
-        .spawn((
-            SortHandle {
-                sort_entity,
-                handle_type: SortHandleType::Square,
-            },
-            Mesh2d(meshes.add(square_mesh)),
-            MeshMaterial2d(
-                materials.add(ColorMaterial::from_color(material_color)),
-            ),
-            Transform::from_xyz(position.x, position.y, 15.0), // Above metrics
-            GlobalTransform::default(),
-            Visibility::Visible,
-            InheritedVisibility::default(),
-            ViewVisibility::default(),
-            crate::editing::selection::components::Selectable, // Make handle selectable
-        ))
-        .id()
-}
-
 /// Helper to spawn a box outline handle mesh
 fn spawn_box_outline_handle(
     commands: &mut Commands,
@@ -203,36 +163,8 @@ fn spawn_box_outline_handle(
     entities
 }
 
-/// Helper to spawn a circle handle mesh
-fn spawn_circle_handle(
-    commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<ColorMaterial>>,
-    position: Vec2,
-    radius: f32,
-    color: Color,
-    sort_entity: Entity,
-) -> Entity {
-    let circle_mesh = Circle::new(radius);
-
-    commands
-        .spawn((
-            SortHandle {
-                sort_entity,
-                handle_type: SortHandleType::Circle,
-            },
-            Mesh2d(meshes.add(circle_mesh)),
-            MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
-            Transform::from_xyz(position.x, position.y, 15.0), // Above metrics
-            GlobalTransform::default(),
-            Visibility::Visible,
-            InheritedVisibility::default(),
-            ViewVisibility::default(),
-        ))
-        .id()
-}
-
 /// System to render mesh-based sort handles for all sorts
+#[allow(clippy::type_complexity)]
 pub fn render_mesh_sort_handles(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,

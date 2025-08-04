@@ -72,6 +72,7 @@ pub fn hot_reload_themes(
 pub struct ThemeHotReloadPlugin;
 
 impl Plugin for ThemeHotReloadPlugin {
+    #[allow(unused_variables)]
     fn build(&self, app: &mut App) {
         // Only enable hot reload in development builds
         #[cfg(debug_assertions)]

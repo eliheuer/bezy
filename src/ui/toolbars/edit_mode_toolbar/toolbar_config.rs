@@ -72,7 +72,6 @@ pub enum ToolBehavior {
 /// - 60-69: Advanced tools (Hyper)
 /// - 70-79: Utility tools (Measure)
 /// - 80-89: Experimental tools (Metaballs)
-
 pub const TOOLBAR_TOOLS: &[ToolConfig] = &[
     ToolConfig {
         order: 10,
@@ -169,7 +168,6 @@ pub const TOOLBAR_TOOLS: &[ToolConfig] = &[
 /// ============================================================================
 /// CONFIGURATION HELPERS
 /// ============================================================================
-
 impl ToolConfig {
     /// Get all enabled tools sorted by order
     pub fn get_enabled_tools() -> Vec<&'static ToolConfig> {
@@ -200,7 +198,7 @@ pub fn print_toolbar_config() {
         let status = if tool.enabled { "✅" } else { "❌" };
         let shortcut = tool
             .shortcut
-            .map(|c| format!("'{}'", c))
+            .map(|c| format!("'{c}'"))
             .unwrap_or_else(|| "None".to_string());
 
         info!(

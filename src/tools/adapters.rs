@@ -140,7 +140,7 @@ impl LegacyEditTool for TextToolAdapter {
 pub struct CleanToolsPlugin;
 
 impl Plugin for CleanToolsPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         // 🎉 NEW SYSTEM: Tools are now registered automatically by ConfigBasedToolbarPlugin
         // No manual registration needed - just edit toolbar_config.rs!
 

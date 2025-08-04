@@ -12,7 +12,7 @@ use bevy::log::{debug, warn};
 use bevy::prelude::*;
 
 /// System to handle advanced point dragging with constraints and snapping
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn handle_point_drag(
     pointer_info: Res<PointerInfo>,
     keyboard_input: Res<ButtonInput<KeyCode>>,

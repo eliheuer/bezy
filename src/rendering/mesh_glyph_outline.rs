@@ -1831,11 +1831,10 @@ fn cleanup_filled_meshes_on_activation(
 
         for (entity, outline_element) in filled_entities_query.iter() {
             if outline_element.sort_entity == sort_entity {
-                match outline_element.element_type {
-                    OutlineElementType::FilledShape => {
-                        entities_to_despawn.push(entity);
-                    }
-                    _ => {} // Keep other types (line segments, handles)
+                if let OutlineElementType::FilledShape =
+                    outline_element.element_type
+                {
+                    entities_to_despawn.push(entity);
                 }
             }
         }

@@ -607,10 +607,8 @@ pub fn update_glyph_metrics(
             if let Some(fontir_state) = fontir_app_state.as_ref() {
                 let (left_group, right_group) =
                     fontir_state.get_glyph_kerning_groups(&glyph_name);
-                metrics.left_group =
-                    left_group.unwrap_or_else(|| String::new());
-                metrics.right_group =
-                    right_group.unwrap_or_else(|| String::new());
+                metrics.left_group = left_group.unwrap_or_else(String::new);
+                metrics.right_group = right_group.unwrap_or_else(String::new);
             } else {
                 metrics.left_group = String::new();
                 metrics.right_group = String::new();
@@ -697,10 +695,9 @@ pub fn update_glyph_metrics(
                     );
                     let (left_group, right_group) =
                         fontir_state.get_glyph_kerning_groups(&glyph_name);
-                    metrics.left_group =
-                        left_group.unwrap_or_else(|| String::new());
+                    metrics.left_group = left_group.unwrap_or_else(String::new);
                     metrics.right_group =
-                        right_group.unwrap_or_else(|| String::new());
+                        right_group.unwrap_or_else(String::new);
                     info!(
                         "Glyph pane: Set groups - left: '{}', right: '{}'",
                         metrics.left_group, metrics.right_group

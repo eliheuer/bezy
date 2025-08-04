@@ -479,6 +479,7 @@ fn update_coordinate_selection(
 }
 
 /// Updates the displayed coordinate values
+#[allow(clippy::type_complexity)]
 fn update_coordinate_display(
     coord_selection: Res<CoordinateSelection>,
     mut queries: ParamSet<(

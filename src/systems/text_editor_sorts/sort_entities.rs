@@ -451,6 +451,7 @@ pub fn auto_activate_selected_sorts(
 }
 
 /// Despawn missing buffer sort entities
+#[allow(clippy::too_many_arguments)]
 pub fn despawn_missing_buffer_sort_entities(
     mut commands: Commands,
     text_editor_state: Res<TextEditorState>,
