@@ -9,21 +9,13 @@ use norad::Font;
 /// Font information
 #[derive(Clone, Default)]
 pub struct FontInfo {
-    /// Family name
     pub family_name: String,
-    /// Style name
     pub style_name: String,
-    /// Units per em
     pub units_per_em: f64,
-    /// Font metrics for spacing and positioning
     pub metrics: FontMetrics,
-    /// Ascender value
     pub ascender: Option<f64>,
-    /// Descender value
     pub descender: Option<f64>,
-    /// x-height value
     pub x_height: Option<f64>,
-    /// Cap height value
     pub cap_height: Option<f64>,
 }
 

@@ -52,12 +52,15 @@ pub enum SortKind {
         codepoint: Option<char>,
         /// Glyph name (fallback identifier when no codepoint)
         glyph_name: String,
+        /// With of the drawing space for each glyph
         advance_width: f32,
     },
     LineBreak,
 }
 
 /// Unified buffer of all sorts (both text and freeform) using gap buffer for efficient editing
+/// Text sorts are grouped by their root sort (marked with is_buffer_root=true), while freeform sorts exist independently
+/// This allows switching between text/freeform modes and managing all glyphs in one consistent structure
 #[derive(Clone)]
 pub struct SortBuffer {
     /// The gap buffer storage
