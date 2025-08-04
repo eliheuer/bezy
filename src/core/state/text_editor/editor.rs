@@ -477,6 +477,22 @@ impl TextEditorState {
             info!("Inserting sort '{}' at cursor position {} in buffer root at index {}", 
                   glyph_name, cursor_pos_in_buffer, root_index);
 
+            // Special case: if cursor is at position 0, replace the root glyph instead of inserting
+            if cursor_pos_in_buffer == 0 {
+                if let Some(root_sort) = self.buffer.get_mut(root_index) {
+                    // Replace the root glyph with the new character
+                    root_sort.kind = SortKind::Glyph {
+                        codepoint,
+                        glyph_name: glyph_name.clone(),
+                        advance_width,
+                    };
+                    // Move cursor to position 1 (after the new root character)
+                    root_sort.buffer_cursor_position = Some(1);
+                    info!("🔄 Replaced root glyph with '{}', cursor moved to position 1", glyph_name);
+                }
+                return;
+            }
+
             // Get the layout mode from the buffer root
             let root_layout_mode = self
                 .buffer
@@ -525,14 +541,34 @@ impl TextEditorState {
             );
 
             // Update the cursor position in the root to point after the inserted character
-            let new_cursor_pos = self.buffer.len() - 1; // Cursor after the new character
+            // Count how many text sorts are in this sequence after insertion
+            let mut text_sort_count = 0;
+            for i in (root_index + 1)..self.buffer.len() {
+                if let Some(sort) = self.buffer.get(i) {
+                    // Stop counting if we hit another buffer root
+                    if sort.is_buffer_root {
+                        break;
+                    }
+                    // Count text sorts in this sequence
+                    if sort.layout_mode == SortLayoutMode::LTRText
+                        || sort.layout_mode == SortLayoutMode::RTLText
+                    {
+                        text_sort_count += 1;
+                    }
+                }
+            }
+            
+            // Cursor should be after all text sorts
+            // Position 0 = before root, Position 1 = after root, Position 2 = after first character, etc.
+            // So cursor position = text_sort_count + 1 (to account for the root)
+            let new_cursor_pos = text_sort_count + 1;
             if let Some(root_sort) = self.buffer.get_mut(root_index) {
                 root_sort.buffer_cursor_position = Some(new_cursor_pos);
                 debug!(
                     "Inserting: Updated cursor position to {}",
                     new_cursor_pos
                 );
-                info!("📍 Updated root cursor position to {}", new_cursor_pos);
+                info!("📍 Updated root cursor position to {} (text sorts in sequence: {}, +1 for root)", new_cursor_pos, text_sort_count);
                 // CRITICAL: Keep the root active so it maintains its outline
                 info!(
                     "🔥 Root sort '{}' remains active with is_active={}",
@@ -559,7 +595,7 @@ impl TextEditorState {
     /// Delete the sort at the cursor position
     pub fn delete_sort_at_cursor(&mut self) {
         if let Some(root_index) = self.find_active_buffer_root_index() {
-            let cursor_pos_in_buffer = self
+            let _cursor_pos_in_buffer = self
                 .buffer
                 .get(root_index)
                 .and_then(|rs| rs.buffer_cursor_position)
@@ -585,22 +621,40 @@ impl TextEditorState {
 
                 info!("🗑️ Buffer length after deletion: {}", self.buffer.len());
 
-                // Update cursor position in the root - cursor should point to where next character will be inserted
-                // The cursor position should be decremented only if it's greater than 0
-                let new_cursor_pos = if cursor_pos_in_buffer > 0 {
-                    cursor_pos_in_buffer - 1
-                } else {
-                    0
-                };
+                // Update cursor position in the root
+                // Since we're deleting from the end of the buffer, we need to count
+                // how many actual text sorts (non-root) remain after deletion
+                let mut text_sort_count = 0;
+                for i in (root_index + 1)..self.buffer.len() {
+                    if let Some(sort) = self.buffer.get(i) {
+                        // Stop counting if we hit another buffer root
+                        if sort.is_buffer_root {
+                            break;
+                        }
+                        // Count text sorts in this sequence
+                        if sort.layout_mode == SortLayoutMode::LTRText
+                            || sort.layout_mode == SortLayoutMode::RTLText
+                        {
+                            text_sort_count += 1;
+                        }
+                    }
+                }
+                
+                // Cursor position should be after all remaining text sorts
+                // Position 0 = before root, Position 1 = after root, Position 2 = after first character, etc.
+                // So cursor position = text_sort_count + 1 (to account for the root)
+                let new_cursor_pos = text_sort_count + 1;
                 if let Some(root_sort) = self.buffer.get_mut(root_index) {
                     root_sort.buffer_cursor_position = Some(new_cursor_pos);
-                    info!("📍 Updated cursor position to {}", new_cursor_pos);
+                    info!("📍 Updated cursor position to {} (text sorts remaining: {}, +1 for root)", new_cursor_pos, text_sort_count);
                 }
             } else {
-                info!(
-                    "🗑️ Cannot delete - only root remains (buffer length: {})",
-                    buffer_len
-                );
+                // Only root remains - set cursor to position 0 to allow replacing the root
+                if let Some(root_sort) = self.buffer.get_mut(root_index) {
+                    root_sort.buffer_cursor_position = Some(0);
+                    info!("📍 Only root remains - cursor set to position 0 (ready to replace root)");
+                }
+                info!("🗑️ Cannot delete root - cursor positioned to allow replacement");
             }
         } else {
             info!("🗑️ Cannot delete - no active buffer root found");
