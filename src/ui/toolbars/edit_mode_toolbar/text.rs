@@ -186,49 +186,21 @@ fn register_text_tool(mut tool_registry: ResMut<ToolRegistry>) {
 
 // --------- UI Systems -----------
 
-/// Helper function to spawn a single text mode button
+/// Helper function to spawn a single text mode button using the unified system
 fn spawn_text_mode_button(
     parent: &mut ChildSpawnerCommands,
     mode: TextPlacementMode,
     asset_server: &Res<AssetServer>,
     theme: &Res<CurrentTheme>,
 ) {
-    parent
-        .spawn(Node {
-            margin: UiRect::all(Val::Px(TOOLBAR_ITEM_SPACING)),
-            ..default()
-        })
-        .with_children(|button_container| {
-            button_container
-                .spawn((
-                    Button,
-                    Node {
-                        width: Val::Px(64.0),
-                        height: Val::Px(64.0),
-                        padding: UiRect::all(Val::ZERO),
-                        border: UiRect::all(Val::Px(TOOLBAR_BORDER_WIDTH)),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    BorderRadius::all(Val::Px(
-                        theme.theme().toolbar_border_radius(),
-                    )),
-                    ToolbarBorderRadius,
-                    BorderColor(NORMAL_BUTTON_OUTLINE_COLOR),
-                    BackgroundColor(NORMAL_BUTTON_COLOR),
-                    TextSubMenuButton,
-                    TextModeButton { mode },
-                ))
-                .with_children(|button| {
-                    // Use the shared button icon creation helper for consistent alignment
-                    crate::ui::toolbars::edit_mode_toolbar::ui::create_button_icon_text(
-                        button,
-                        mode.get_icon(),
-                        asset_server,
-                    );
-                });
-        });
+    // Use the unified toolbar button creation system for consistent styling
+    crate::ui::toolbars::edit_mode_toolbar::ui::create_unified_toolbar_button(
+        parent,
+        mode.get_icon(),
+        (TextSubMenuButton, TextModeButton { mode }),
+        asset_server,
+        theme,
+    );
 }
 
 pub fn spawn_text_submenu(
@@ -275,13 +247,16 @@ pub fn handle_text_mode_selection(
             &mut BackgroundColor,
             &mut BorderColor,
             &TextModeButton,
+            Entity,
         ),
         With<TextSubMenuButton>,
     >,
     mut current_mode: ResMut<CurrentTextPlacementMode>,
     mut text_mode_config: ResMut<TextModeConfig>,
+    children_query: Query<&Children>,
+    mut text_query: Query<&mut TextColor>,
 ) {
-    for (interaction, mut color, mut border_color, mode_button) in
+    for (interaction, mut color, mut border_color, mode_button, entity) in
         &mut interaction_query
     {
         let is_current_mode = current_mode.0 == mode_button.mode;
@@ -293,20 +268,21 @@ pub fn handle_text_mode_selection(
             info!("Switched to text placement mode: {:?}", mode_button.mode);
         }
 
-        match (*interaction, is_current_mode) {
-            (Interaction::Pressed, _) | (_, true) => {
-                *color = PRESSED_BUTTON_COLOR.into();
-                border_color.0 = PRESSED_BUTTON_OUTLINE_COLOR;
-            }
-            (Interaction::Hovered, false) => {
-                *color = HOVERED_BUTTON_COLOR.into();
-                border_color.0 = HOVERED_BUTTON_OUTLINE_COLOR;
-            }
-            (Interaction::None, false) => {
-                *color = NORMAL_BUTTON_COLOR.into();
-                border_color.0 = NORMAL_BUTTON_OUTLINE_COLOR;
-            }
-        }
+        // Use the unified button color system for consistent appearance with main toolbar
+        crate::ui::toolbars::edit_mode_toolbar::ui::update_unified_button_colors(
+            *interaction,
+            is_current_mode,
+            &mut color,
+            &mut border_color,
+        );
+        
+        // Use the unified text color system for consistent icon colors with main toolbar
+        crate::ui::toolbars::edit_mode_toolbar::ui::update_unified_button_text_colors(
+            entity,
+            is_current_mode,
+            &children_query,
+            &mut text_query,
+        );
     }
 }
 
