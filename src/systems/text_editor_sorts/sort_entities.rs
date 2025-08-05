@@ -462,6 +462,9 @@ pub fn despawn_missing_buffer_sort_entities(
     mut metrics_entities: ResMut<
         crate::rendering::metrics::MetricsLineEntities,
     >,
+    mut handle_entities: ResMut<
+        crate::rendering::sort_visuals::SortHandleEntities,
+    >,
     sort_query: Query<Entity, With<BufferSortIndex>>,
     unified_element_query: Query<(
         Entity,
@@ -570,14 +573,45 @@ pub fn despawn_missing_buffer_sort_entities(
                     }
                 }
 
-                info!("🗑️ Despawned {} unified elements, {} point entities, {} metrics entities, and {} label entities for sort {:?}", 
-                      unified_count, point_count, metrics_count, label_count, entity);
+                // Despawn all sort handle entities associated with this sort
+                let mut handle_count = 0;
+                if let Some(handle_entity_list) = handle_entities.handles.get(&entity) {
+                    for &handle_entity in handle_entity_list.iter() {
+                        commands.entity(handle_entity).despawn();
+                        handle_count += 1;
+                    }
+                }
+
+                info!("🗑️ Despawned {} unified elements, {} point entities, {} metrics line entities, {} label entities, and {} handle entities for sort {:?}", 
+                      unified_count, point_count, metrics_count, label_count, handle_count, entity);
 
                 // Remove from unified tracking
                 unified_entities.elements.remove(&entity);
 
+                // Despawn all metrics line entities associated with this sort
+                let mut metrics_count = 0;
+                if let Some(metrics_entity_list) = metrics_entities.lines.get(&entity) {
+                    info!(
+                        "🗑️ CLEANING UP METRICS: Found {} metrics entities for sort {:?}",
+                        metrics_entity_list.len(), entity
+                    );
+                    for &metrics_entity in metrics_entity_list.iter() {
+                        info!("🗑️ Despawning metrics entity {:?}", metrics_entity);
+                        commands.entity(metrics_entity).despawn();
+                        metrics_count += 1;
+                    }
+                } else {
+                    info!(
+                        "⚠️ NO METRICS FOUND: Sort {:?} has no metrics entities to clean up",
+                        entity
+                    );
+                }
+
                 // Remove from metrics tracking
                 metrics_entities.lines.remove(&entity);
+
+                // Remove from handle tracking
+                handle_entities.handles.remove(&entity);
 
                 // Finally, despawn the sort entity itself
                 commands.entity(entity).despawn();

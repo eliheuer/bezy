@@ -373,19 +373,19 @@ pub fn render_mesh_metrics_lines(
     // DEBUG: Log details about the different sort types being processed
     if !changed_active_sorts.is_empty() {
         info!(
-            "METRICS DEBUG: Processing {} active sorts (green metrics)",
+            "🔵 METRICS RENDER: Processing {} active sorts (green metrics)",
             changed_active_sorts.len()
         );
     }
     if !changed_active_buffer_sorts.is_empty() {
         info!(
-            "METRICS DEBUG: Processing {} active buffer sorts (green metrics)",
+            "🟢 METRICS RENDER: Processing {} active buffer sorts (green metrics)",
             changed_active_buffer_sorts.len()
         );
     }
     if !changed_inactive_buffer_sorts.is_empty() {
         info!(
-            "METRICS DEBUG: Processing {} inactive buffer sorts (gray metrics)",
+            "🔘 METRICS RENDER: Processing {} inactive buffer sorts (gray metrics)",
             changed_inactive_buffer_sorts.len()
         );
     }
@@ -574,6 +574,11 @@ pub fn render_mesh_metrics_lines(
             let advance_width = metrics_cache
                 .get_advance_width(&sort.glyph_name, &fontir_state);
             let color = crate::ui::theme::SORT_ACTIVE_METRICS_COLOR; // Green for active buffer sorts (text roots)
+            
+            info!(
+                "🟢 RENDERING METRICS for active buffer sort {:?} at ({:.1}, {:.1})", 
+                sort_entity, position.x, position.y
+            );
 
             let mut line_entities = Vec::new();
 
@@ -733,6 +738,10 @@ pub fn render_mesh_metrics_lines(
             );
             line_entities.push(left_entity);
 
+            info!(
+                "🟢 METRICS STORED: {} metrics entities for active buffer sort {:?}", 
+                line_entities.len(), sort_entity
+            );
             metrics_entities.lines.insert(sort_entity, line_entities);
         }
 
@@ -744,6 +753,11 @@ pub fn render_mesh_metrics_lines(
             let advance_width = metrics_cache
                 .get_advance_width(&sort.glyph_name, &fontir_state);
             let color = crate::ui::theme::SORT_INACTIVE_METRICS_COLOR; // Gray for inactive buffer sorts (typed characters)
+            
+            info!(
+                "🔘 RENDERING METRICS for inactive buffer sort {:?} at ({:.1}, {:.1})", 
+                sort_entity, position.x, position.y
+            );
 
             let mut line_entities = Vec::new();
 
@@ -903,6 +917,10 @@ pub fn render_mesh_metrics_lines(
             );
             line_entities.push(left_entity);
 
+            info!(
+                "🔘 METRICS STORED: {} metrics entities for inactive buffer sort {:?}", 
+                line_entities.len(), sort_entity
+            );
             metrics_entities.lines.insert(sort_entity, line_entities);
         }
     }

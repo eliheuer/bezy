@@ -41,9 +41,12 @@ impl Plugin for TextEditorPlugin {
                 spawn_missing_sort_entities,
                 crate::systems::text_editor_sorts::sort_entities::update_buffer_sort_positions,
                 // crate::systems::text_editor_sorts::sort_entities::auto_activate_selected_sorts, // TEMPORARILY DISABLED: May be interfering with text root activation
-                despawn_missing_buffer_sort_entities
-                    .run_if(resource_changed::<crate::core::state::text_editor::TextEditorState>), // Run when buffer changes
             ).chain().after(handle_unicode_text_input))
+            // Cleanup system MUST run after metrics rendering to prevent race condition
+            .add_systems(Update, 
+                despawn_missing_buffer_sort_entities
+                    .after(crate::rendering::metrics::render_mesh_metrics_lines)
+            )
             // Instant point spawning/despawning (runs immediately after activation)
             .add_systems(Update, (
                 spawn_active_sort_points_optimized,
