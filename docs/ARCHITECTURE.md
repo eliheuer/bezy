@@ -176,6 +176,81 @@ struct AppState {
 }
 ```
 
+### 5. System Sets for Execution Order (NEW)
+**Critical for preventing race conditions** - systems run in guaranteed order:
+
+```rust
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub enum FontEditorSets {
+    Input,        // Handle keyboard and mouse input
+    TextBuffer,   // Update text buffer state  
+    EntitySync,   // Synchronize ECS entities with buffer state
+    Rendering,    // Create visual elements
+    Cleanup,      // Clean up orphaned entities
+}
+
+// Configure execution order
+app.configure_sets(Update, (
+    FontEditorSets::Input,
+    FontEditorSets::TextBuffer,
+    FontEditorSets::EntitySync,
+    FontEditorSets::Rendering,
+    FontEditorSets::Cleanup,
+).chain());
+
+// Systems run in their assigned set
+app.add_systems(Update, handle_input.in_set(FontEditorSets::Input));
+app.add_systems(Update, cleanup_orphans.in_set(FontEditorSets::Cleanup));
+```
+
+**Why this matters**: Prevents race conditions where cleanup could run before rendering, or rendering could run before entity creation.
+
+### 6. Component Relationships (NEW)
+**Replaces error-prone entity tracking** - use components to establish relationships:
+
+```rust
+// Old pattern: Manual entity tracking (error-prone)
+#[derive(Resource)]
+struct MetricsEntities {
+    lines: HashMap<Entity, Vec<Entity>>, // sort_entity -> metrics_entities
+}
+
+// New pattern: Component relationships (automatic cleanup)
+#[derive(Component)]
+struct MetricsLine {
+    pub line_type: MetricsLineType,
+}
+
+#[derive(Component)]
+struct MetricsFor(pub Entity); // Links metrics to their parent sort
+
+// Usage
+commands.spawn((
+    MetricsLine { line_type: MetricsLineType::Baseline },
+    MetricsFor(sort_entity), // Automatic relationship
+));
+
+// Cleanup system automatically finds and removes orphaned metrics
+fn cleanup_orphaned_metrics(
+    buffer_entities: Res<BufferSortEntities>,
+    metrics_query: Query<(Entity, &MetricsFor), With<MetricsLine>>,
+    sort_query: Query<Entity, With<Sort>>,
+    mut commands: Commands,
+) {
+    for (metrics_entity, metrics_for) in metrics_query.iter() {
+        if sort_query.get(metrics_for.0).is_err() {
+            commands.entity(metrics_entity).despawn();
+        }
+    }
+}
+```
+
+**Benefits**:
+- Automatic cleanup when parent entities are deleted
+- No manual tracking required
+- Prevents orphaned entities
+- Works with Bevy's change detection
+
 ## Common Tasks
 
 ### Adding a New Tool
@@ -247,10 +322,26 @@ pub fn your_operation(
 
 ## Performance Considerations
 
-- **System Ordering**: Critical systems run in specific order
-- **Change Detection**: Use Bevy's change detection to avoid unnecessary work
-- **Gizmos**: Debug visualizations use immediate-mode gizmos
-- **Batching**: Group similar operations together
+### System Execution Strategy
+- **System Sets**: Use FontEditorSets to guarantee execution order and prevent race conditions
+- **Change Detection**: Use Bevy's `is_changed()` to avoid unnecessary work:
+  ```rust
+  fn expensive_system(data: Res<SomeData>) {
+      if !data.is_changed() { return; } // Skip if unchanged
+      // Expensive work here
+  }
+  ```
+- **Batching**: Group similar operations together within system sets
+
+### Entity Management  
+- **Component Relationships**: Prefer component-based relationships over manual entity tracking
+- **Efficient Cleanup**: Use change detection in cleanup systems to avoid running every frame
+- **Entity Pooling**: Available for high-frequency spawning/despawning (see `entity_pools.rs`)
+
+### Rendering Performance
+- **Unified System**: All glyph rendering goes through unified system for consistency
+- **Mesh-based Only**: No gizmos for world-space elements (they don't scale with camera)
+- **Camera-responsive Scaling**: Visual elements scale appropriately at all zoom levels
 
 ## Testing
 
@@ -266,12 +357,28 @@ pub fn your_operation(
 
 ## Best Practices
 
+### Code Organization
 1. **Keep files under 500 lines** for LLM context windows
 2. **Use descriptive names** - clarity over brevity
 3. **Document complex algorithms** inline
 4. **Follow Bevy patterns** - Resources, Components, Systems
 5. **Centralize constants** in theme files
-6. **Test edge cases** - empty glyphs, missing data, etc.
+
+### Architecture Patterns
+6. **Use System Sets** for any systems that need specific execution order
+7. **Prefer Component Relationships** over manual entity tracking with HashMap resources
+8. **Apply Change Detection** in expensive or cleanup systems to avoid unnecessary work
+9. **Test race conditions** - verify cleanup happens after rendering, entity sync before rendering
+
+### Entity Management
+10. **Use MetricsFor-style components** to link child entities to parents
+11. **Implement cleanup systems** that run in the Cleanup set to prevent orphaned entities
+12. **Test edge cases** - empty glyphs, missing data, deleted parents, etc.
+
+### Performance
+13. **Avoid running systems every frame** unless necessary - use change detection
+14. **Group related systems** in the same set when execution order doesn't matter
+15. **Use entity pooling** for high-frequency spawn/despawn scenarios
 
 ## Getting Help
 

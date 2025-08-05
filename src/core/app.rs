@@ -6,7 +6,7 @@ use crate::core::io::input::InputPlugin;
 use crate::core::io::pointer::PointerPlugin;
 use crate::core::settings::{BezySettings, DEFAULT_WINDOW_SIZE, WINDOW_TITLE};
 use crate::core::state::GlyphNavigation;
-use crate::editing::{SelectionPlugin, TextEditorPlugin, UndoPlugin};
+use crate::editing::{FontEditorSystemSetsPlugin, SelectionPlugin, TextEditorPlugin, UndoPlugin};
 use crate::rendering::{
     camera_responsive::CameraResponsivePlugin, cameras::CameraPlugin,
     checkerboard::CheckerboardPlugin, EntityPoolingPlugin, MeshCachingPlugin,
@@ -41,6 +41,7 @@ impl PluginGroup for CorePluginGroup {
             .add(InputPlugin)
             .add(GamepadPlugin)
             .add(InputConsumerPlugin)
+            .add(FontEditorSystemSetsPlugin) // Must be added before other font editor plugins
             .add(TextEditorPlugin)
             .add(TextShapingPlugin)
             .add(SelectionPlugin)

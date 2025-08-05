@@ -35,36 +35,33 @@ impl Plugin for TextEditorPlugin {
             .init_resource::<crate::core::state::text_editor::ActiveSortEntity>()
             // Initialize text editor state
             .add_systems(Startup, initialize_text_editor_sorts)
-            // Sort activation management (runs after input)
+            // Input handling
+            .add_systems(Update, 
+                handle_unicode_text_input
+                    .in_set(super::FontEditorSets::Input)
+            )
+            // Text buffer updates
             .add_systems(Update, (
-                // manage_sort_activation, // DISABLED: Use selection system instead
                 spawn_missing_sort_entities,
                 crate::systems::text_editor_sorts::sort_entities::update_buffer_sort_positions,
-                // crate::systems::text_editor_sorts::sort_entities::auto_activate_selected_sorts, // TEMPORARILY DISABLED: May be interfering with text root activation
-            ).chain().after(handle_unicode_text_input))
-            // Cleanup system MUST run after metrics rendering to prevent race condition
-            .add_systems(Update, 
-                despawn_missing_buffer_sort_entities
-                    .after(crate::rendering::metrics::render_mesh_metrics_lines)
-            )
-            // Instant point spawning/despawning (runs immediately after activation)
+            ).chain().in_set(super::FontEditorSets::EntitySync))
+            // Entity spawning/despawning 
             .add_systems(Update, (
                 spawn_active_sort_points_optimized,
                 despawn_inactive_sort_points_optimized,
-            ).chain().after(manage_sort_activation))
-            // Input handling (must run before spawning)
-            .add_systems(Update, handle_unicode_text_input)
-            // Rendering and input handling (rendering must run after nudging)
+            ).chain().in_set(super::FontEditorSets::EntitySync))
+            // Rendering systems
             .add_systems(Update, (
-                render_text_editor_sorts
-                    .after(crate::editing::selection::nudge::handle_nudge_input),
-                crate::systems::text_editor_sorts::sort_rendering::render_text_editor_cursor
-                    .after(crate::editing::selection::nudge::handle_nudge_input),
-                // handle_text_editor_keyboard_input, // DISABLED: Replaced by Unicode input system
-                // handle_arabic_text_input, // DISABLED: Replaced by Unicode input system  
+                render_text_editor_sorts,
+                crate::systems::text_editor_sorts::sort_rendering::render_text_editor_cursor,
                 handle_sort_placement_input,
-            ).after(handle_unicode_text_input))
-            // Debug systems (optional)
+            ).in_set(super::FontEditorSets::Rendering))
+            // Cleanup systems (the old cleanup system is now replaced by component-relationship cleanup)
+            .add_systems(Update, 
+                despawn_missing_buffer_sort_entities
+                    .in_set(super::FontEditorSets::Cleanup)
+            )
+            // Debug systems (no set - can run anytime)
             .add_systems(Update, debug_text_editor_state);
     }
 }

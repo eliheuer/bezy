@@ -135,6 +135,51 @@ Legacy UFO support:
 - **Contour**: Closed or open paths made of points
 - **Point**: Curve or line points with coordinates and control handles
 
+### System Architecture
+
+#### System Sets for Guaranteed Execution Order
+The application uses Bevy's SystemSet pattern to prevent race conditions and ensure predictable system execution:
+
+```rust
+#[derive(SystemSet)]
+pub enum FontEditorSets {
+    Input,        // Handle keyboard and mouse input
+    TextBuffer,   // Update text buffer state
+    EntitySync,   // Synchronize ECS entities with buffer state
+    Rendering,    // Create visual elements
+    Cleanup,      // Clean up orphaned entities
+}
+```
+
+These sets execute in strict order: Input → TextBuffer → EntitySync → Rendering → Cleanup
+
+#### Component Relationships for Entity Management
+Instead of storing entity references in components, use Bevy's idiomatic component relationship pattern:
+
+```rust
+#[derive(Component)]
+pub struct MetricsFor(pub Entity); // Points to the sort entity
+
+// Query for metrics belonging to a specific sort
+fn cleanup_orphaned_metrics(
+    metrics_query: Query<(Entity, &MetricsFor), With<MetricsLine>>,
+    sort_query: Query<Entity, With<Sort>>,
+) {
+    for (metrics_entity, metrics_for) in metrics_query.iter() {
+        if sort_query.get(metrics_for.0).is_err() {
+            // Sort no longer exists, clean up metrics
+        }
+    }
+}
+```
+
+**Benefits:**
+- Flat entity structure (fastest queries)
+- Uses Bevy's change detection (minimal CPU)
+- Prevents race conditions through explicit system ordering
+- Scales to thousands of entities
+- Works with Bevy's grain, not against it
+
 ## Testing and Debugging
 
 ### Built-in Test Font

@@ -19,9 +19,13 @@ use kurbo::ParamCurve;
 /// Component to mark entities as metrics line visual elements
 #[derive(Component)]
 pub struct MetricsLine {
-    pub sort_entity: Entity,
     pub line_type: MetricsLineType,
 }
+
+/// Component that establishes a relationship between metrics and their sort
+/// This is the idiomatic Bevy pattern for entity relationships
+#[derive(Component)]
+pub struct MetricsFor(pub Entity);
 
 /// Types of metrics line elements
 #[derive(Debug, Clone)]
@@ -144,9 +148,9 @@ fn spawn_metrics_line(
     commands
         .spawn((
             MetricsLine {
-                sort_entity,
                 line_type,
             },
+            MetricsFor(sort_entity), // Component relationship pattern
             Mesh2d(meshes.add(line_mesh)),
             MeshMaterial2d(materials.add(ColorMaterial::from_color(color))),
             Transform::from_xyz(
@@ -196,7 +200,6 @@ fn get_or_update_metrics_line(
 
     // Update the entity using the helper function
     let metrics_component = MetricsLine {
-        sort_entity,
         line_type,
     };
 
@@ -208,6 +211,11 @@ fn get_or_update_metrics_line(
         transform,
         metrics_component,
     );
+    
+    // Add the MetricsFor relationship component
+    if let Ok(mut entity_commands) = commands.get_entity(entity) {
+        entity_commands.insert(MetricsFor(sort_entity));
+    }
 
     debug!(
         "Updated pooled metrics entity {:?} for sort {:?}",
@@ -1402,6 +1410,51 @@ fn create_dashed_line_meshes(
     entities
 }
 
+/// System to clean up orphaned metrics entities using component relationships
+/// This prevents the race condition by using change detection and explicit relationships
+pub fn cleanup_orphaned_metrics(
+    buffer_entities: Res<crate::systems::text_editor_sorts::sort_entities::BufferSortEntities>,
+    metrics_query: Query<(Entity, &MetricsFor), With<MetricsLine>>,
+    sort_query: Query<Entity, With<crate::editing::sort::Sort>>,
+    mut commands: Commands,
+) {
+    // Only run cleanup if buffer entities have changed to avoid aggressive cleanup
+    if !buffer_entities.is_changed() {
+        return;
+    }
+    
+    let mut cleanup_count = 0;
+    let mut debug_info = Vec::new();
+    
+    for (metrics_entity, metrics_for) in metrics_query.iter() {
+        let sort_entity = metrics_for.0;
+        
+        // Check if the sort this metrics belongs to still exists
+        let sort_exists = sort_query.get(sort_entity).is_ok();
+        let sort_in_buffer = buffer_entities.entities.values().any(|&e| e == sort_entity);
+        
+        debug_info.push(format!(
+            "Metrics {:?} -> Sort {:?} (exists: {}, in_buffer: {})",
+            metrics_entity, sort_entity, sort_exists, sort_in_buffer
+        ));
+        
+        // Only cleanup if sort doesn't exist AND is not in buffer
+        if !sort_exists && !sort_in_buffer {
+            debug!(
+                "🗑️ CLEANUP: Removing orphaned metrics entity {:?} for sort {:?} (exists: {}, in_buffer: {})",
+                metrics_entity, sort_entity, sort_exists, sort_in_buffer
+            );
+            commands.entity(metrics_entity).despawn();
+            cleanup_count += 1;
+        }
+    }
+    
+    if cleanup_count > 0 {
+        info!("🗑️ CLEANUP: Removed {} orphaned metrics entities", cleanup_count);
+        debug!("🗑️ CLEANUP DEBUG: {:?}", debug_info);
+    }
+}
+
 /// Plugin for mesh-based metrics line rendering
 pub struct MetricsRenderingPlugin;
 
@@ -1413,9 +1466,12 @@ impl Plugin for MetricsRenderingPlugin {
             .init_resource::<GlyphMetricsCache>()
             .add_systems(Update, (
                 render_mesh_metrics_lines
-                    .after(crate::systems::text_editor_sorts::sort_entities::update_buffer_sort_positions),
+                    .in_set(crate::editing::FontEditorSets::Rendering),
                 manage_preview_metrics
-                    .after(render_mesh_metrics_lines)
+                    .in_set(crate::editing::FontEditorSets::Rendering)
+                    .after(render_mesh_metrics_lines),
+                cleanup_orphaned_metrics
+                    .in_set(crate::editing::FontEditorSets::Cleanup),
             ));
     }
 }
