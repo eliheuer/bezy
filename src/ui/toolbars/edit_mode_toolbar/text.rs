@@ -1,11 +1,12 @@
-//! Text Tool - Sort Placement and text editing
+//! Text Tool - Sort placement and text editing
 //!
-//! The text tool allows users to place sorts by clicking in the design space.
+//! The text tool allows users to place sorts by clicking in world-space.
 //! Sorts can be placed and edited with different modes:
-//! - Text mode: Sorts follow the gap buffer layout in a grid
-//! - Insert mode: Sorts are positioned freely in the design space
-//! - Freeform mode: Sorts are positioned freely in the design space
-//! - Vim mode: Sorts are edited with vim-like keybindings
+//! - LTR Text Mode: left-to-right gap buffer layout in a text-editor-like buffer
+//! - RTL Text Mode: right-to-left gap buffer layout in a text-editor-like buffer
+//! - Insert mode: a cursor mode for basic text editing LTR and RTL text buffers
+//! - Freeform mode: Sorts are positioned freely in the world-space
+//! - Vim mode: LRT and RTL sorts are edited with vim-like keybindings
 
 #![allow(clippy::manual_map)]
 
@@ -27,8 +28,6 @@ use crate::ui::theme::{PRESSED_BUTTON_COLOR, SORT_ACTIVE_METRICS_COLOR};
 use crate::ui::themes::{CurrentTheme, ToolbarBorderRadius};
 use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
 
-// --------- Resources, Structs, Enums -----------
-
 /// Resource to track if text mode is active
 #[derive(Resource, Default)]
 pub struct TextModeActive(pub bool);
@@ -36,7 +35,7 @@ pub struct TextModeActive(pub bool);
 /// Resource to track text mode state for sort placement
 #[derive(Resource, Default)]
 pub struct TextModeState {
-    /// Current cursor position in design-space coordinates
+    /// Current cursor position in world-space coordinates
     pub cursor_position: Option<Vec2>,
     /// Whether we're showing a sort placement preview
     pub showing_preview: bool,
@@ -45,24 +44,20 @@ pub struct TextModeState {
 /// Text placement modes for the submenu
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Resource)]
 pub enum TextPlacementMode {
-    /// Place sorts in left-to-right text mode
     #[default]
     LTRText,
-    /// Place sorts in right-to-left text mode (Arabic/Hebrew)
     RTLText,
-    /// Insert and edit text within existing text mode sorts  
     Insert,
-    /// Place sorts freely in the design space
     Freeform,
 }
 
 impl TextPlacementMode {
-    /// Get the icon for each placement mode
+    /// Get the icon for each text submenu mode
     pub fn get_icon(&self) -> &'static str {
         match self {
             TextPlacementMode::LTRText => "\u{E004}",
-            TextPlacementMode::RTLText => "\u{E005}",
-            TextPlacementMode::Insert => "\u{F001}",
+            TextPlacementMode::RTLText => "\u{F004}",
+            TextPlacementMode::Insert => "\u{E017}",
             TextPlacementMode::Freeform => "\u{E006}",
         }
     }
@@ -77,12 +72,13 @@ impl TextPlacementMode {
             TextPlacementMode::Freeform => "Freeform",
         }
     }
+
     /// Convert to SortLayoutMode
     pub fn to_sort_layout_mode(&self) -> SortLayoutMode {
         match self {
             TextPlacementMode::LTRText => SortLayoutMode::LTRText,
             TextPlacementMode::RTLText => SortLayoutMode::RTLText,
-            TextPlacementMode::Insert => SortLayoutMode::LTRText, // Default to LTR for insert mode
+            TextPlacementMode::Insert => SortLayoutMode::LTRText,
             TextPlacementMode::Freeform => SortLayoutMode::Freeform,
         }
     }
@@ -225,15 +221,12 @@ fn spawn_text_mode_button(
                     TextModeButton { mode },
                 ))
                 .with_children(|button| {
-                    button.spawn((
-                        Text::new(mode.get_icon().to_string()),
-                        TextFont {
-                            font: asset_server.load(GROTESK_FONT_PATH),
-                            font_size: 48.0,
-                            ..default()
-                        },
-                        TextColor(TOOLBAR_ICON_COLOR),
-                    ));
+                    // Use the shared button icon creation helper for consistent alignment
+                    crate::ui::toolbars::edit_mode_toolbar::ui::create_button_icon_text(
+                        button,
+                        mode.get_icon(),
+                        asset_server,
+                    );
                 });
         });
 }
@@ -982,114 +975,4 @@ pub fn handle_text_mode_keyboard(
     } else {
         600.0
     };
-
-    // NOTE: Character input (a-z, 0-9, space) is now handled by the Unicode input system
-    // in unicode_input.rs. This section is disabled to prevent double input conflicts.
-    // Only navigation keys and tool shortcuts are handled in this function now.
-
-    // DISABLED: Character input - now handled by Unicode system for global script support
-    /*
-    let pressed_keys: Vec<KeyCode> =
-        keyboard_input.get_just_pressed().cloned().collect();
-
-    for key in pressed_keys {
-        let character_glyph = match key {
-            KeyCode::KeyA => Some("a"),
-            KeyCode::KeyB => Some("b"),
-            KeyCode::KeyC => Some("c"),
-            KeyCode::KeyD => Some("d"),
-            KeyCode::KeyE => Some("e"),
-            KeyCode::KeyF => Some("f"),
-            KeyCode::KeyG => Some("g"),
-            KeyCode::KeyH => Some("h"),
-            KeyCode::KeyI => Some("i"),
-            KeyCode::KeyJ => Some("j"),
-            KeyCode::KeyK => Some("k"),
-            KeyCode::KeyL => Some("l"),
-            KeyCode::KeyM => Some("m"),
-            KeyCode::KeyN => Some("n"),
-            KeyCode::KeyO => Some("o"),
-            KeyCode::KeyP => Some("p"),
-            KeyCode::KeyQ => Some("q"),
-            KeyCode::KeyR => Some("r"),
-            KeyCode::KeyS => Some("s"),
-            KeyCode::KeyT => Some("t"),
-            KeyCode::KeyU => Some("u"),
-            KeyCode::KeyV => Some("v"),
-            KeyCode::KeyW => Some("w"),
-            KeyCode::KeyX => Some("x"),
-            KeyCode::KeyY => Some("y"),
-            KeyCode::KeyZ => Some("z"),
-            KeyCode::Digit0 => Some("zero"),
-            KeyCode::Digit1 => Some("one"),
-            KeyCode::Digit2 => Some("two"),
-            KeyCode::Digit3 => Some("three"),
-            KeyCode::Digit4 => Some("four"),
-            KeyCode::Digit5 => Some("five"),
-            KeyCode::Digit6 => Some("six"),
-            KeyCode::Digit7 => Some("seven"),
-            KeyCode::Digit8 => Some("eight"),
-            KeyCode::Digit9 => Some("nine"),
-            KeyCode::Space => Some("space"),
-            _ => None,
-        };
-        if let Some(char_glyph) = character_glyph {
-            if font_has_glyph(char_glyph) {
-                let char_advance_width = if let Some(app_state) = app_state.as_ref() {
-                    app_state.workspace.font.glyphs.get(char_glyph)
-                        .map(|g| g.advance_width as f32)
-                        .unwrap_or(default_advance_width)
-                } else if let Some(fontir_state) = fontir_app_state.as_ref() {
-                    fontir_state.get_glyph_advance_width(char_glyph)
-                } else {
-                    default_advance_width
-                };
-                match current_placement_mode.0 {
-                    TextPlacementMode::LTRText | TextPlacementMode::RTLText => {
-                        let position = text_mode_state
-                            .cursor_position
-                            .unwrap_or(Vec2::ZERO);
-                        text_editor_state.create_text_sort_at_position(
-                            char_glyph.to_string(),
-                            position,
-                            char_advance_width,
-                        );
-                        info!(
-                            "Placed sort '{}' in text mode via keyboard at position ({:.1}, {:.1})",
-                            char_glyph, position.x, position.y
-                        );
-                    }
-                    TextPlacementMode::Insert => {
-                        // Insert character at cursor position in text buffer
-                        text_editor_state.insert_sort_at_cursor(
-                            char_glyph.to_string(),
-                            char_advance_width,
-                        );
-                        info!(
-                            "Insert mode: Inserted '{}' at cursor position {}",
-                            char_glyph, text_editor_state.cursor_position
-                        );
-                    }
-                    TextPlacementMode::Freeform => {
-                        let position = text_mode_state
-                            .cursor_position
-                            .unwrap_or(Vec2::ZERO);
-                        text_editor_state.add_freeform_sort(
-                            char_glyph.to_string(),
-                            position,
-                            char_advance_width,
-                        );
-                        info!(
-                            "Placed sort '{}' in freeform mode via keyboard at position ({:.1}, {:.1})",
-                            char_glyph, position.x, position.y
-                        );
-                    }
-                }
-                keyboard_input.clear_just_pressed(key);
-            } else {
-                debug!("Glyph '{}' not found in font, skipping", char_glyph);
-            }
-        }
-    }
-    */
 }

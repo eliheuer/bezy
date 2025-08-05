@@ -5,6 +5,26 @@
 //! The system automatically discovers and displays all registered tools with
 //! proper ordering and visual feedback. To add a new tool, implement the
 //! `EditTool` trait and register it with `ToolRegistry::register_tool()`.
+//!
+//! ## Unified Button Rendering
+//!
+//! This module provides a unified button rendering system that ensures consistent
+//! icon alignment across all toolbar buttons (main toolbar and submenus). Use the
+//! `create_button_icon_text()` function for all submenu buttons to maintain
+//! visual consistency with the main toolbar.
+//!
+//! ### For Submenu Developers
+//!
+//! When creating buttons for submenus, always use:
+//! ```rust,ignore
+//! crate::ui::toolbars::edit_mode_toolbar::ui::create_button_icon_text(
+//!     button,
+//!     icon_string,
+//!     &asset_server,
+//! );
+//! ```
+//!
+//! This ensures proper vertical centering and consistent font sizing across all buttons.
 
 use crate::ui::theme::{
     BUTTON_ICON_SIZE, GROTESK_FONT_PATH, HOVERED_BUTTON_COLOR,
@@ -133,14 +153,23 @@ fn create_button_text(
     tool: &dyn EditTool,
     asset_server: &AssetServer,
 ) {
+    create_button_icon_text(parent, tool.icon(), asset_server);
+}
+
+/// Creates properly centered button icon text - shared helper for consistent alignment
+/// This should be used by all toolbar buttons (main toolbar and submenus) for consistent icon centering
+pub fn create_button_icon_text(
+    parent: &mut ChildSpawnerCommands,
+    icon: &str,
+    asset_server: &AssetServer,
+) {
     parent.spawn((
         Node {
-            // TODO: This is a not great way to center the text vertically.
-            // We should have a better way to center the text.
+            // Vertical centering adjustment - ensures icons are properly centered in buttons
             margin: UiRect::top(Val::Px(8.0)),
             ..default()
         },
-        Text::new(tool.icon()),
+        Text::new(icon.to_string()),
         TextFont {
             font: asset_server.load(GROTESK_FONT_PATH),
             font_size: BUTTON_ICON_SIZE,

@@ -99,10 +99,27 @@ All visual styling constants MUST be declared in `src/ui/theme.rs`. No visual co
 - Modernist "less is more" approach
 - Game-like feel with fast, engaging interactions
 
-#### Rendering Architecture
+#### Rendering Architecture - Unified System
+The application uses a **single unified rendering system** located in `src/rendering/unified_glyph_editing.rs` that handles ALL glyph visualization:
+
+##### Core Principles
 - **NEVER use Bevy Gizmos**: All world-space visual elements MUST use mesh-based rendering for proper z-ordering, camera-responsive scaling, and visual consistency
-- **Mesh-based rendering only**: Gizmos cause problems with layering, scaling, and maintainability
-- **Camera-responsive scaling**: All visual elements must work with the zoom-aware scaling system
+- **Single rendering system**: The unified system eliminates coordination complexity and ensures reliable cleanup
+- **Camera-responsive scaling**: All visual elements work with the zoom-aware scaling system
+- **Mesh-based only**: Gizmos cause problems with layering, scaling, and maintainability
+
+##### Unified Rendering Behavior
+- **Active sorts**: Show editable points, handles, and outlines for interactive editing
+- **Inactive sorts**: Render as filled shapes using Lyon tessellation with proper winding rules (EvenOdd fill rule)
+- **Zero visual lag**: All components (points, handles, outlines) render together using live Transform data
+- **Proper vector rendering**: Handles font counters/holes correctly (e.g., the hole in letter 'a')
+
+##### Technical Implementation
+- **Lyon tessellation**: Converts vector paths to filled meshes for inactive sorts
+- **Combined contours**: All contours processed as single path for correct winding rule handling  
+- **EvenOdd fill rule**: Standard font rendering approach that properly handles counters
+- **Camera-responsive scaling**: Uses `CameraResponsiveScale` for zoom-appropriate visual sizing
+- **Entity tracking**: `UnifiedGlyphEntities` resource tracks all rendered elements for reliable cleanup
 
 ### Font Data Model
 
@@ -191,25 +208,27 @@ zoom_out_max_camera_scale: 16.0, // Maximum zoom out
 ## Technical Details
 - Uses PanCam's OrthographicProjection.scale for real zoom detection
 - Interpolates smoothly between three scale points
-- Applies to all mesh-based rendering: points, outlines, handles, metrics
-- No gizmos used - completely mesh-based system
+- Applies to unified rendering system: points, outlines, handles, filled shapes, metrics
+- Completely mesh-based system with proper tessellation
 - Debug output shows current camera scale and responsive factor
 
 ## Performance
 - Minimal overhead - only updates when camera scale changes
-- Single system handles all visual elements consistently
+- Unified system handles all visual elements consistently
 - Zero visual lag during nudging operations
+- Single rendering path eliminates coordination complexity
 
-## IMPORTANT: Mesh-Based Rendering Policy
-**ALWAYS prefer mesh-based camera-responsive rendering for world-space elements.**
+## IMPORTANT: Unified Mesh-Based Rendering Policy
+**The unified rendering system uses mesh-based camera-responsive rendering for ALL glyph elements.**
 
-### Rule: Mesh vs Gizmos
-- ✅ **USE MESHES**: For any visual element in world-space that is affected by panning and zooming
-  - Sort metrics, points, handles, outlines, guides, previews
-  - These elements need to scale appropriately with camera zoom
-  - Use `CameraResponsiveScale` and `spawn_metrics_line()` functions
+### Unified System Architecture
+- ✅ **UNIFIED RENDERING**: All glyph visualization handled by `unified_glyph_editing.rs`
+  - Active sorts: Points, handles, editable outlines with camera-responsive scaling
+  - Inactive sorts: Filled tessellated shapes with proper winding rules
+  - Zero coordination needed - single source of truth for all glyph rendering
+  - Use `spawn_unified_line_mesh()` and Lyon tessellation functions
 - ❌ **AVOID GIZMOS**: For world-space elements (they don't integrate with camera-responsive scaling)
-  - Gizmos are acceptable only for UI elements or temporary debug visualization
+  - Gizmos acceptable only for UI elements or temporary debug visualization
   - Never use gizmos for preview systems, metrics, or interactive elements
 
 ### Implementation Pattern

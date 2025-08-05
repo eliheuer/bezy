@@ -284,7 +284,7 @@ pub const HOVER_CIRCLE_RADIUS_MULTIPLIER: f32 = 1.0;
 // Font paths remain constants as they don't change per theme
 // =================================================================
 
-pub const GROTESK_FONT_PATH: &str = "fonts/bezy-grotesk-regular.ttf";
+pub const GROTESK_FONT_PATH: &str = "fonts/BezyGrotesk-Regular.ttf";
 pub const MONO_FONT_PATH: &str = "fonts/HasubiMono-Regular.ttf";
 
 // =================================================================
