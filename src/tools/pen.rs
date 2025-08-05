@@ -280,6 +280,7 @@ pub fn render_pen_preview(
     pointer_info: Res<PointerInfo>,
     camera_scale: Res<CameraResponsiveScale>,
     existing_preview_query: Query<Entity, With<PenPreviewElement>>,
+    theme: Res<crate::ui::themes::CurrentTheme>,
 ) {
     // Clean up existing preview elements
     for entity in existing_preview_query.iter() {
@@ -299,63 +300,93 @@ pub fn render_pen_preview(
         info!("Pen tool preview: Rendering {} points", pen_state.current_path.len());
     }
 
-    let preview_color = Color::srgb(0.0, 0.8, 1.0);
-    let point_color = Color::srgb(1.0, 0.3, 0.0);
+    // Use theme colors: orange ACTION color for points and lines
+    let action_color = theme.theme().action_color();
+    let active_color = theme.theme().active_color(); // Green for closure indicator
     let line_width = camera_scale.adjusted_line_width() * 2.0;
+    
+    // Check if cursor is hovering over start point for closure
+    let cursor_pos = Vec2::new(pointer_info.design.x, pointer_info.design.y);
+    let hovering_start_point = if pen_state.current_path.len() > 2 {
+        if let Some(first_point) = pen_state.current_path.first() {
+            let first_pos = Vec2::new(first_point.x, first_point.y);
+            let distance = cursor_pos.distance(first_pos);
+            distance < CLOSE_PATH_THRESHOLD
+        } else {
+            false
+        }
+    } else {
+        false
+    };
 
     // Draw current path points
     for (i, &point) in pen_state.current_path.iter().enumerate() {
         let pos = Vec2::new(point.x, point.y);
         
-        // Spawn point mesh
+        // Spawn point mesh using orange ACTION color
         spawn_pen_preview_point(
             &mut commands,
             &mut meshes,
             &mut materials,
             pos,
-            point_color,
+            action_color,
             camera_scale.adjusted_point_size(POINT_PREVIEW_SIZE),
         );
 
-        // Draw line to next point
+        // Draw dashed line to next point
         if i > 0 {
             let prev_point = pen_state.current_path[i - 1];
             let prev_pos = Vec2::new(prev_point.x, prev_point.y);
-            spawn_pen_preview_line(
+            spawn_pen_preview_dashed_line(
                 &mut commands,
                 &mut meshes,
                 &mut materials,
                 prev_pos,
                 pos,
-                preview_color,
+                action_color,
                 line_width,
             );
         }
     }
 
-    // Draw preview line to cursor if we have at least one point
+    // Draw dashed preview line to cursor if we have at least one point
     if let Some(&last_point) = pen_state.current_path.last() {
         let last_pos = Vec2::new(last_point.x, last_point.y);
         let cursor_pos = Vec2::new(pointer_info.design.x, pointer_info.design.y);
-        spawn_pen_preview_line(
+        spawn_pen_preview_dashed_line(
             &mut commands,
             &mut meshes,
             &mut materials,
             last_pos,
             cursor_pos,
-            preview_color.with_alpha(0.5),
+            action_color.with_alpha(0.5),
             line_width * 0.5,
         );
     }
 
-    // Draw cursor indicator
-    let cursor_pos = Vec2::new(pointer_info.design.x, pointer_info.design.y);
+    // Draw green circle outline when hovering over start point for closure
+    if hovering_start_point {
+        if let Some(first_point) = pen_state.current_path.first() {
+            let first_pos = Vec2::new(first_point.x, first_point.y);
+            spawn_pen_closure_indicator(
+                &mut commands,
+                &mut meshes,
+                &mut materials,
+                first_pos,
+                active_color,
+                CLOSE_PATH_THRESHOLD,  // Use the threshold as radius
+                camera_scale.adjusted_line_width(),  // Use standard zoom-aware line thickness
+            );
+        }
+    }
+    
+    // Draw cursor indicator using orange ACTION color
     spawn_pen_preview_point(
         &mut commands,
         &mut meshes,
         &mut materials,
         cursor_pos,
-        preview_color.with_alpha(0.7),
+        action_color.with_alpha(0.7),
         camera_scale.adjusted_point_size(CURSOR_INDICATOR_SIZE),
     );
 }
@@ -577,6 +608,120 @@ fn spawn_pen_preview_line(
         Mesh2d(meshes.add(mesh)),
         MeshMaterial2d(materials.add(material)),
         Transform::from_translation(center.extend(5.0)), // Z=5 to render above glyph but below points
+        PenPreviewElement,
+    ));
+}
+
+/// Create dashed line mesh entities for pen tool preview
+fn spawn_pen_preview_dashed_line(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    start: Vec2,
+    end: Vec2,
+    color: Color,
+    width: f32,
+) {
+    let dash_length = 8.0;
+    let gap_length = 4.0;
+    
+    let direction = (end - start).normalize();
+    let total_length = start.distance(end);
+    let segment_length = dash_length + gap_length;
+
+    let mut current_pos = 0.0;
+    while current_pos < total_length {
+        let dash_start_pos = current_pos;
+        let dash_end_pos = (current_pos + dash_length).min(total_length);
+
+        let dash_start = start + direction * dash_start_pos;
+        let dash_end = start + direction * dash_end_pos;
+
+        // Create mesh for this dash segment using the existing mesh utility
+        let line_mesh = crate::rendering::mesh_utils::create_line_mesh(
+            dash_start, dash_end, width,
+        );
+
+        commands.spawn((
+            Mesh2d(meshes.add(line_mesh)),
+            MeshMaterial2d(materials.add(ColorMaterial::from(color))),
+            Transform::from_xyz(
+                (dash_start.x + dash_end.x) * 0.5,
+                (dash_start.y + dash_end.y) * 0.5,
+                5.0, // Z=5 to render above glyph but below points
+            ),
+            PenPreviewElement,
+        ));
+
+        current_pos += segment_length;
+    }
+}
+
+/// Create a green circle outline indicator when hovering over start point for closure
+fn spawn_pen_closure_indicator(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    position: Vec2,
+    color: Color,
+    radius: f32,
+    line_width: f32,
+) {
+    // Create a thin circle outline (ring) mesh using the line width for thickness
+    let segments = 32;
+    let outer_radius = radius;
+    let inner_radius = radius - line_width; // Use line width to control ring thickness
+    
+    let mut vertices = Vec::new();
+    let mut indices = Vec::new();
+    let mut uvs = Vec::new();
+    let mut normals = Vec::new();
+    
+    // Create vertices for the ring
+    for i in 0..=segments {
+        let angle = (i as f32 / segments as f32) * 2.0 * std::f32::consts::PI;
+        let cos_a = angle.cos();
+        let sin_a = angle.sin();
+        
+        // Outer vertex
+        vertices.push([outer_radius * cos_a, outer_radius * sin_a, 0.0]);
+        uvs.push([0.5 + 0.5 * cos_a, 0.5 + 0.5 * sin_a]);
+        normals.push([0.0, 0.0, 1.0]);
+        
+        // Inner vertex
+        vertices.push([inner_radius * cos_a, inner_radius * sin_a, 0.0]);
+        uvs.push([0.5 + 0.5 * cos_a * (inner_radius / outer_radius), 0.5 + 0.5 * sin_a * (inner_radius / outer_radius)]);
+        normals.push([0.0, 0.0, 1.0]);
+    }
+    
+    // Create indices for the ring triangles
+    for i in 0..segments {
+        let base = i * 2;
+        let next_base = ((i + 1) % (segments + 1)) * 2;
+        
+        // Triangle 1: outer[i] -> inner[i] -> outer[i+1]
+        indices.push(base as u32);
+        indices.push((base + 1) as u32);
+        indices.push(next_base as u32);
+        
+        // Triangle 2: inner[i] -> inner[i+1] -> outer[i+1]
+        indices.push((base + 1) as u32);
+        indices.push((next_base + 1) as u32);
+        indices.push(next_base as u32);
+    }
+    
+    let mut mesh = Mesh::new(bevy::render::render_resource::PrimitiveTopology::TriangleList, bevy::render::render_asset::RenderAssetUsages::all());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
+    
+    let material = ColorMaterial::from(color);
+
+    commands.spawn((
+        Mesh2d(meshes.add(mesh)),
+        MeshMaterial2d(materials.add(material)),
+        Transform::from_translation(position.extend(12.0)), // Z=12 to render above points
         PenPreviewElement,
     ));
 }
