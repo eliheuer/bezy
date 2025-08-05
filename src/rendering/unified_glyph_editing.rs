@@ -1043,7 +1043,36 @@ fn render_fontir_outline_unified(
                     element_point_index += 2;
                 }
                 kurbo::PathEl::ClosePath => {
-                    // ClosePath doesn't add geometry
+                    // Draw closing line from current position back to contour start
+                    if let Some(end) = current_pos {
+                        // Find the start position of this contour (first MoveTo)
+                        let contour_elements: Vec<_> = original_path.elements().iter().collect();
+                        if let Some(kurbo::PathEl::MoveTo(start_pt)) = contour_elements.first() {
+                            let start = if let Some((live_pos, _)) = live_positions.get(&(contour_idx, 0)) {
+                                *live_pos + sort_position
+                            } else {
+                                Vec2::new(start_pt.x as f32, start_pt.y as f32) + sort_position
+                            };
+                            
+                            // Only draw closing line if start and end are different
+                            if (end - start).length() > 0.1 {
+                                let entity = spawn_unified_line_mesh(
+                                    commands,
+                                    meshes,
+                                    materials,
+                                    end,
+                                    start,
+                                    1.0,
+                                    PATH_STROKE_COLOR,
+                                    UNIFIED_OUTLINE_Z,
+                                    sort_entity,
+                                    UnifiedElementType::OutlineSegment,
+                                    camera_scale,
+                                );
+                                element_entities.push(entity);
+                            }
+                        }
+                    }
                 }
             }
         }

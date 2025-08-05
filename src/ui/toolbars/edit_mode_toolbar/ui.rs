@@ -302,6 +302,7 @@ pub fn handle_toolbar_mode_selection(
 ) {
     for (interaction, tool_button) in interaction_query.iter() {
         if *interaction == Interaction::Pressed {
+            println!("🖊️ PEN_DEBUG: Button pressed for tool: {}", tool_button.tool_id);
             switch_to_tool(
                 tool_button.tool_id,
                 &mut current_tool,
@@ -420,17 +421,20 @@ fn update_button_text_color(
 
 /// Updates the current edit mode by calling the active tool's update method
 ///
-/// This system runs every frame and calls the current tool's update method,
-/// allowing tools to perform their active behavior (input handling, rendering,
-/// etc.)
+/// This system only runs when the tool changes, not every frame, to avoid
+/// infinite activation loops.
 pub fn update_current_edit_mode(
     mut commands: Commands,
     current_tool: Res<CurrentTool>,
     tool_registry: Res<ToolRegistry>,
 ) {
-    if let Some(current_tool_id) = current_tool.get_current() {
-        if let Some(tool) = tool_registry.get_tool(current_tool_id) {
-            tool.update(&mut commands);
+    // Only update when the tool actually changes
+    if current_tool.is_changed() {
+        if let Some(current_tool_id) = current_tool.get_current() {
+            if let Some(tool) = tool_registry.get_tool(current_tool_id) {
+                tool.update(&mut commands);
+                debug!("Tool changed to: {}", current_tool_id);
+            }
         }
     }
 }

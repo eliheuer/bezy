@@ -105,7 +105,7 @@ impl FontIRAppState {
             context: None,
             glyph_cache: HashMap::new(),
             working_copies: HashMap::new(),
-            current_glyph: None,
+            current_glyph: Some("a".to_string()), // Default to 'a' to match GlyphNavigation
             current_location,
             source_path: path.clone(),
             kerning_groups: HashMap::new(),

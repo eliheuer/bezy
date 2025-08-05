@@ -51,38 +51,57 @@ impl EditTool for ConfigurableTool {
             ToolBehavior::Select => {
                 // Set input mode for select tool
                 commands.insert_resource(InputMode::Select);
+                // Deactivate pen mode when switching to other tools
+                commands.insert_resource(crate::tools::pen::PenModeActive(false));
             }
             ToolBehavior::Pan => {
                 // Set input mode for pan tool
                 commands.insert_resource(InputMode::Pan);
+                // Deactivate pen mode when switching to other tools
+                commands.insert_resource(crate::tools::pen::PenModeActive(false));
             }
             ToolBehavior::Pen => {
                 // Set input mode for pen tool
                 commands.insert_resource(InputMode::Pen);
+                // Also set PenModeActive for compatibility with pen tool systems
+                commands.insert_resource(crate::tools::pen::PenModeActive(true));
+                println!("🖊️ PEN_DEBUG: Pen tool activated - InputMode::Pen and PenModeActive(true) set");
             }
             ToolBehavior::Text => {
                 // Set input mode for text tool
                 commands.insert_resource(InputMode::Text);
+                // Deactivate pen mode when switching to other tools
+                commands.insert_resource(crate::tools::pen::PenModeActive(false));
             }
             ToolBehavior::Shapes => {
                 // Set input mode for shapes tool
                 commands.insert_resource(InputMode::Shape);
+                // Deactivate pen mode when switching to other tools
+                commands.insert_resource(crate::tools::pen::PenModeActive(false));
             }
             ToolBehavior::Knife => {
                 // Set input mode for knife tool
                 commands.insert_resource(InputMode::Knife);
+                // Deactivate pen mode when switching to other tools
+                commands.insert_resource(crate::tools::pen::PenModeActive(false));
             }
             ToolBehavior::Hyper => {
                 // Set input mode for hyper tool
                 commands.insert_resource(InputMode::Hyper);
+                // Deactivate pen mode when switching to other tools
+                commands.insert_resource(crate::tools::pen::PenModeActive(false));
             }
             ToolBehavior::Measure => {
                 // Set input mode for measure tool
                 commands.insert_resource(InputMode::Measure);
+                // Deactivate pen mode when switching to other tools
+                commands.insert_resource(crate::tools::pen::PenModeActive(false));
             }
             ToolBehavior::Metaballs => {
                 // Set input mode for metaballs tool
                 commands.insert_resource(InputMode::Metaball);
+                // Deactivate pen mode when switching to other tools
+                commands.insert_resource(crate::tools::pen::PenModeActive(false));
             }
         }
 

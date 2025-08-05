@@ -81,8 +81,25 @@ impl InputConsumer for SelectionInputConsumer {
 }
 
 /// Input consumer for pen tool functionality
-#[derive(Resource, Default)]
-pub struct PenInputConsumer;
+#[derive(Resource)]
+pub struct PenInputConsumer {
+    /// Points that have been placed in the current path
+    pub current_path: Vec<DPoint>,
+    /// Whether the path should be closed (clicking near start point)
+    pub should_close_path: bool,
+    /// Whether we are currently placing a path
+    pub is_drawing: bool,
+}
+
+impl Default for PenInputConsumer {
+    fn default() -> Self {
+        Self {
+            current_path: Vec::new(),
+            should_close_path: false,
+            is_drawing: false,
+        }
+    }
+}
 
 impl InputConsumer for PenInputConsumer {
     fn should_handle_input(
@@ -90,26 +107,203 @@ impl InputConsumer for PenInputConsumer {
         event: &InputEvent,
         input_state: &InputState,
     ) -> bool {
-        // Handle pen tool events
-        matches!(
+        let should_handle = matches!(
             event,
-            InputEvent::MouseClick { .. } | InputEvent::MouseDrag { .. }
-        ) && helpers::is_input_mode(input_state, InputMode::Pen)
+            InputEvent::MouseClick { .. } | InputEvent::MouseDrag { .. } | InputEvent::MouseRelease { .. }
+        ) && helpers::is_input_mode(input_state, InputMode::Pen);
+        
+        // Debug: Only log when pen tool should handle input
+        if should_handle && matches!(event, InputEvent::MouseClick { .. }) {
+            println!("🖊️ PEN_DEBUG: Mouse click will be handled by pen tool");
+        }
+        
+        should_handle
     }
 
-    fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
-        if let InputEvent::MouseClick {
-            button,
-            position,
-            modifiers,
-        } = event
-        {
-            debug!(
-                "[PEN] Mouse click: {:?} at {:?} with {:?}",
-                button, position, modifiers
-            );
-            // Pen tool logic would go here
+    fn handle_input(&mut self, event: &InputEvent, input_state: &InputState) {
+        match event {
+            InputEvent::MouseClick {
+                button,
+                position,
+                modifiers,
+            } => {
+                println!("🖊️ PEN_DEBUG: Processing mouse click at ({:.1}, {:.1})", position.x, position.y);
+                
+                if *button == bevy::input::mouse::MouseButton::Left {
+                    let click_position = DPoint::new(position.x, position.y);
+                    
+                    // Check if we should close the path
+                    if self.current_path.len() > 2 {
+                        if let Some(first_point) = self.current_path.first() {
+                            let distance = click_position.to_raw().distance(first_point.to_raw());
+                            println!("🖊️ PEN_DEBUG: Distance to first point: {:.1} (threshold: 16.0)", distance);
+                            if distance < 16.0 { // CLOSE_PATH_THRESHOLD
+                                self.should_close_path = true;
+                                self.is_drawing = false; // Stop drawing to trigger finalization
+                                println!("🖊️ PEN_DEBUG: CLOSING PATH - should_close_path={}, is_drawing={}", self.should_close_path, self.is_drawing);
+                                info!("🖊️ [PEN] Closing path - clicked near start point");
+                                // Mark for finalization - actual finalization happens in process_input_events
+                                return;
+                            }
+                        }
+                    }
+
+                    // Add point to current path
+                    self.current_path.push(click_position);
+                    self.is_drawing = true;
+
+                    println!("🖊️ PEN_DEBUG: Added point at ({:.1}, {:.1}), total points: {}", 
+                             click_position.x, click_position.y, self.current_path.len());
+                } else if *button == bevy::input::mouse::MouseButton::Right {
+                    info!("🖊️ [PEN] Right click - finishing open path");
+                    if self.current_path.len() > 1 {
+                        // Mark for finalization - actual finalization happens in process_input_events
+                        self.is_drawing = false; // Will trigger finalization
+                        println!("🖊️ PEN_DEBUG: RIGHT CLICK FINALIZATION - is_drawing={}, path_len={}", self.is_drawing, self.current_path.len());
+                    }
+                }
+            }
+            InputEvent::MouseDrag { .. } => {
+                // For now, pen tool doesn't handle dragging
+                // In the future, this could be used for handle manipulation
+            }
+            InputEvent::MouseRelease { .. } => {
+                // Currently not needed for pen tool
+            }
+            _ => {}
         }
+    }
+}
+
+impl PenInputConsumer {
+    /// Handle input with sort position for coordinate conversion
+    fn handle_input_with_sort_position(&mut self, event: &InputEvent, _input_state: &InputState, sort_position: Vec2) {
+        match event {
+            InputEvent::MouseClick {
+                button,
+                position,
+                modifiers: _,
+            } => {
+                println!("🖊️ PEN_DEBUG: Processing mouse click at ({:.1}, {:.1}), sort_pos=({:.1}, {:.1})", 
+                         position.x, position.y, sort_position.x, sort_position.y);
+                
+                if *button == bevy::input::mouse::MouseButton::Left {
+                    // Convert world coordinates to relative coordinates
+                    let position_vec2 = Vec2::new(position.x, position.y);
+                    let relative_pos = position_vec2 - sort_position;
+                    let click_position = DPoint::new(relative_pos.x, relative_pos.y);
+                    
+                    info!("🔍 COORD CONVERSION: world=({:.1}, {:.1}) -> relative=({:.1}, {:.1})", 
+                          position.x, position.y, relative_pos.x, relative_pos.y);
+                    
+                    // Check if we should close the path
+                    if self.current_path.len() > 2 {
+                        if let Some(first_point) = self.current_path.first() {
+                            let distance = click_position.to_raw().distance(first_point.to_raw());
+                            println!("🖊️ PEN_DEBUG: Distance to first point: {:.1} (threshold: 16.0)", distance);
+                            if distance < 16.0 { // CLOSE_PATH_THRESHOLD
+                                self.should_close_path = true;
+                                self.is_drawing = false; // Stop drawing to trigger finalization
+                                println!("🖊️ PEN_DEBUG: CLOSING PATH - should_close_path={}, is_drawing={}", self.should_close_path, self.is_drawing);
+                                info!("🖊️ [PEN] Closing path - clicked near start point");
+                                return;
+                            }
+                        }
+                    }
+
+                    // Add relative point to current path
+                    self.current_path.push(click_position);
+                    self.is_drawing = true;
+
+                    println!("🖊️ PEN_DEBUG: Added relative point at ({:.1}, {:.1}), total points: {}", 
+                             click_position.x, click_position.y, self.current_path.len());
+                } else if *button == bevy::input::mouse::MouseButton::Right {
+                    info!("🖊️ [PEN] Right click - finishing open path");
+                    if self.current_path.len() > 1 {
+                        self.is_drawing = false; // This will trigger finalization
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Finalize the current path and add it to the glyph
+    fn finalize_path(
+        &mut self, 
+        fontir_app_state: &mut Option<&mut crate::core::state::FontIRAppState>,
+        app_state_changed: &mut bevy::ecs::event::EventWriter<crate::editing::selection::events::AppStateChanged>
+    ) {
+        if self.current_path.len() < 2 {
+            return;
+        }
+
+        info!("🖊️ [PEN] Finalizing path with {} points (closed: {})", 
+              self.current_path.len(), self.should_close_path);
+
+        // Create a BezPath from the current path
+        let mut bez_path = kurbo::BezPath::new();
+
+        if let Some(&first_point) = self.current_path.first() {
+            info!("🔍 PEN COORD DEBUG: Creating BezPath - first_point=({:.1}, {:.1})", first_point.x, first_point.y);
+            bez_path
+                .move_to(kurbo::Point::new(first_point.x as f64, first_point.y as f64));
+
+            for (i, &point) in self.current_path.iter().skip(1).enumerate() {
+                info!("🔍 PEN COORD DEBUG: Adding line_to point[{}]=({:.1}, {:.1})", i+1, point.x, point.y);
+                bez_path.line_to(kurbo::Point::new(point.x as f64, point.y as f64));
+            }
+
+            if self.should_close_path {
+                bez_path.close_path();
+            }
+        }
+
+        // Add the BezPath to the FontIR glyph data if available
+        if let Some(ref mut fontir_state) = fontir_app_state {
+            let current_glyph_name = fontir_state.current_glyph.clone();
+            if let Some(current_glyph_name) = current_glyph_name {
+                // Get the current location
+                let location = fontir_state.current_location.clone();
+                let key = (current_glyph_name.clone(), location);
+
+                // Get or create a working copy
+                let working_copy_exists = fontir_state.working_copies.contains_key(&key);
+                
+                if !working_copy_exists {
+                    // Create working copy from original FontIR data
+                    if let Some(fontir_glyph) = fontir_state.glyph_cache.get(&current_glyph_name) {
+                        if let Some((_location, instance)) = fontir_glyph.sources().iter().next() {
+                            let working_copy = crate::core::state::fontir_app_state::EditableGlyphInstance::from(instance);
+                            fontir_state.working_copies.insert(key.clone(), working_copy);
+                        }
+                    }
+                }
+
+                // Add the new contour to the working copy
+                if let Some(working_copy) = fontir_state.working_copies.get_mut(&key) {
+                    working_copy.contours.push(bez_path.clone());
+                    working_copy.is_dirty = true;
+                    app_state_changed.write(crate::editing::selection::events::AppStateChanged);
+                    
+                    info!("🖊️ [PEN] Added contour with {} elements to glyph '{}'. Total contours: {}", 
+                          bez_path.elements().len(), current_glyph_name, working_copy.contours.len());
+                } else {
+                    warn!("🖊️ [PEN] Could not create working copy for glyph '{}'", current_glyph_name);
+                }
+            } else {
+                warn!("🖊️ [PEN] No current glyph selected");
+            }
+        } else {
+            warn!("🖊️ [PEN] FontIR app state not available");
+        }
+
+        info!("🖊️ [PEN] Path finalized successfully - added to FontIR data");
+
+        // Reset state
+        self.current_path.clear();
+        self.is_drawing = false;
+        self.should_close_path = false;
     }
 }
 
@@ -331,12 +525,19 @@ fn process_input_events(
     mut text_consumer: ResMut<TextInputConsumer>,
     mut camera_consumer: ResMut<CameraInputConsumer>,
     mut measurement_consumer: ResMut<MeasurementToolInputConsumer>,
+    mut pen_tool_state: Option<ResMut<crate::tools::pen::PenToolState>>,
+    mut fontir_app_state: Option<ResMut<crate::core::state::FontIRAppState>>,
+    mut app_state_changed: bevy::ecs::event::EventWriter<crate::editing::selection::events::AppStateChanged>,
 ) {
     let events: Vec<_> = input_events.read().collect();
-    debug!("[INPUT CONSUMER] Processing {} input events", events.len());
+    if !events.is_empty() {
+        println!("🖊️ PEN_DEBUG: Processing {} input events", events.len());
+    }
 
     for event in events {
-        debug!("[INPUT CONSUMER] Processing event: {:?}", event);
+        if matches!(event, InputEvent::MouseClick { .. }) {
+            println!("🖊️ PEN_DEBUG: Mouse click event detected, current input mode: {:?}", input_state.mode);
+        }
 
         // Route events to consumers based on priority
         // High priority: Text input
@@ -348,6 +549,42 @@ fn process_input_events(
         // Mode-specific consumers
         if pen_consumer.should_handle_input(event, &input_state) {
             pen_consumer.handle_input(event, &input_state);
+            
+            // Sync with PenToolState for rendering BEFORE finalization
+            if let Some(ref mut pen_state) = pen_tool_state {
+                pen_state.current_path = pen_consumer.current_path.clone();
+                pen_state.should_close_path = pen_consumer.should_close_path;
+                pen_state.is_drawing = pen_consumer.is_drawing;
+                info!("🖊️ [INPUT CONSUMER] Synced PenToolState: {} points", pen_state.current_path.len());
+            } else {
+                warn!("🖊️ [INPUT CONSUMER] PenToolState not available for sync!");
+            }
+            
+            // Check if path should be finalized (after sync)
+            let should_finalize = pen_consumer.should_close_path || 
+                                 (!pen_consumer.is_drawing && pen_consumer.current_path.len() >= 2);
+            
+            // Only log finalization checks when something interesting happens
+            if should_finalize || pen_consumer.should_close_path {
+                println!("🖊️ PEN_DEBUG: Finalization check - should_close_path={}, is_drawing={}, path_len={}, should_finalize={}", 
+                         pen_consumer.should_close_path, pen_consumer.is_drawing, pen_consumer.current_path.len(), should_finalize);
+            }
+                                 
+            if should_finalize {
+                info!("🖊️ [INPUT CONSUMER] Finalizing pen path");
+                // Get mutable reference to FontIR state
+                let mut fontir_state_opt = fontir_app_state.as_deref_mut();
+                pen_consumer.finalize_path(&mut fontir_state_opt, &mut app_state_changed);
+                
+                // Sync again after finalization to clear the preview
+                if let Some(ref mut pen_state) = pen_tool_state {
+                    pen_state.current_path = pen_consumer.current_path.clone(); // Now empty
+                    pen_state.should_close_path = pen_consumer.should_close_path; // Now false
+                    pen_state.is_drawing = pen_consumer.is_drawing; // Now false
+                    info!("🖊️ [INPUT CONSUMER] Synced PenToolState after finalization: {} points", pen_state.current_path.len());
+                }
+            }
+            
             continue;
         }
 

@@ -14,10 +14,13 @@ use crate::core::io::pointer::PointerInfo;
 use crate::core::state::{AppState, ContourData, PointData, PointTypeData};
 use crate::editing::selection::events::AppStateChanged;
 use crate::geometry::design_space::DPoint;
+use crate::rendering::camera_responsive::CameraResponsiveScale;
 use crate::systems::ui_interaction::UiHoverState;
 use bevy::input::keyboard::KeyCode;
 use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
+use bevy::render::mesh::Mesh2d;
+use bevy::sprite::{ColorMaterial, MeshMaterial2d};
 use kurbo::{BezPath, Point};
 
 pub struct PenTool;
@@ -99,6 +102,7 @@ impl crate::systems::input_consumer::InputConsumer for PenInputConsumer {
 }
 
 /// Current state of the pen tool's path drawing
+/// This is the shared state between input handling and rendering
 #[derive(Resource, Default)]
 pub struct PenToolState {
     /// Points that have been placed in the current path
@@ -109,6 +113,10 @@ pub struct PenToolState {
     pub is_drawing: bool,
 }
 
+/// Component to mark pen tool preview elements for cleanup
+#[derive(Component)]
+pub struct PenPreviewElement;
+
 // ================================================================
 // PLUGIN SETUP
 // ================================================================
@@ -118,17 +126,42 @@ pub struct PenToolPlugin;
 
 impl Plugin for PenToolPlugin {
     fn build(&self, app: &mut App) {
+        info!("🖊️ Registering PenToolPlugin systems");
         app.init_resource::<PenToolState>()
             .init_resource::<PenModeActive>()
+            .add_systems(Startup, pen_tool_startup_log)
             .add_systems(
                 Update,
                 (
-                    handle_pen_mouse_events,
+                    // handle_pen_mouse_events, // DISABLED - using InputConsumer system instead
                     handle_pen_keyboard_events,
                     render_pen_preview,
                     reset_pen_mode_when_inactive,
+                    debug_pen_tool_state,
                 ),
             );
+    }
+}
+
+/// Startup system to confirm pen tool plugin loaded
+fn pen_tool_startup_log() {
+    info!("🖊️ PenToolPlugin successfully initialized with all systems");
+}
+
+/// Debug system to monitor pen tool state
+fn debug_pen_tool_state(
+    pen_state: Res<PenToolState>,
+    time: Res<Time>,
+) {
+    static mut LAST_LOG: f32 = 0.0;
+    let current_time = time.elapsed_secs();
+    
+    unsafe {
+        if current_time - LAST_LOG > 2.0 && !pen_state.current_path.is_empty() {
+            LAST_LOG = current_time;
+            info!("🖊️ PEN STATE: {} points in path, drawing: {}", 
+                  pen_state.current_path.len(), pen_state.is_drawing);
+        }
     }
 }
 
@@ -139,7 +172,8 @@ impl Plugin for PenToolPlugin {
 /// System to handle mouse events for the pen tool
 pub fn handle_pen_mouse_events(
     mut pen_state: ResMut<PenToolState>,
-    pen_mode_active: Res<PenModeActive>,
+    pen_mode_active: Option<Res<PenModeActive>>,
+    current_tool: Option<Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>>,
     mut app_state: Option<ResMut<AppState>>,
     mut fontir_app_state: Option<ResMut<crate::core::state::FontIRAppState>>,
     mut app_state_changed: EventWriter<AppStateChanged>,
@@ -147,12 +181,28 @@ pub fn handle_pen_mouse_events(
     pointer_info: Res<PointerInfo>,
     ui_hover_state: Res<UiHoverState>,
 ) {
-    if !pen_mode_active.0 || ui_hover_state.is_hovering_ui {
+    // Check if pen tool is active via multiple methods
+    let pen_is_active = pen_mode_active.as_ref().map_or(false, |p| p.0) 
+        || current_tool.as_ref().and_then(|t| t.get_current()).map_or(false, |tool| tool == "pen");
+    
+    // Debug: Always log current state during mouse button presses (ALWAYS LOG REGARDLESS OF PEN STATE)
+    if mouse_button_input.just_pressed(MouseButton::Left) || mouse_button_input.just_pressed(MouseButton::Right) {
+        info!("🖊️ PEN TOOL SYSTEM: Mouse button pressed - pen_is_active: {}, pen_mode_active: {:?}, current_tool: {:?}, ui_hovering: {}", 
+              pen_is_active,
+              pen_mode_active.as_ref().map(|p| p.0), 
+              current_tool.as_ref().and_then(|t| t.get_current()),
+              ui_hover_state.is_hovering_ui);
+    }
+    
+    if !pen_is_active || ui_hover_state.is_hovering_ui {
         return;
     }
 
+    info!("Pen tool: Mouse input system active and processing clicks");
+
     if mouse_button_input.just_pressed(MouseButton::Left) {
         let click_position = pointer_info.design;
+        info!("Pen tool: Left click detected at ({:.1}, {:.1})", click_position.x, click_position.y);
 
         // Check if we should close the path
         if pen_state.current_path.len() > 2 {
@@ -161,6 +211,7 @@ pub fn handle_pen_mouse_events(
                     click_position.to_raw().distance(first_point.to_raw());
                 if distance < CLOSE_PATH_THRESHOLD {
                     pen_state.should_close_path = true;
+                    info!("Pen tool: Closing path - clicked near start point");
                     finalize_pen_path(
                         &mut pen_state,
                         &mut app_state,
@@ -185,8 +236,10 @@ pub fn handle_pen_mouse_events(
     }
 
     if mouse_button_input.just_pressed(MouseButton::Right) {
+        info!("Pen tool: Right click detected");
         // Finish open path
         if pen_state.current_path.len() > 1 {
+            info!("Pen tool: Finishing open path with {} points", pen_state.current_path.len());
             finalize_pen_path(
                 &mut pen_state,
                 &mut app_state,
@@ -216,47 +269,94 @@ pub fn handle_pen_keyboard_events(
     }
 }
 
-/// System to render the pen tool preview
+/// System to render the pen tool preview using unified mesh-based rendering
 pub fn render_pen_preview(
-    mut gizmos: Gizmos,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
     pen_state: Res<PenToolState>,
-    pen_mode_active: Res<PenModeActive>,
+    pen_mode_active: Option<Res<PenModeActive>>,
+    current_tool: Option<Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>>,
     pointer_info: Res<PointerInfo>,
+    camera_scale: Res<CameraResponsiveScale>,
+    existing_preview_query: Query<Entity, With<PenPreviewElement>>,
 ) {
-    if !pen_mode_active.0 {
+    // Clean up existing preview elements
+    for entity in existing_preview_query.iter() {
+        commands.entity(entity).despawn();
+    }
+
+    // Check if pen tool is active via multiple methods
+    let pen_is_active = pen_mode_active.as_ref().map_or(false, |p| p.0) 
+        || current_tool.as_ref().and_then(|t| t.get_current()).map_or(false, |tool| tool == "pen");
+    
+    if !pen_is_active {
         return;
+    }
+
+    // Debug: Log the current path state
+    if !pen_state.current_path.is_empty() {
+        info!("Pen tool preview: Rendering {} points", pen_state.current_path.len());
     }
 
     let preview_color = Color::srgb(0.0, 0.8, 1.0);
     let point_color = Color::srgb(1.0, 0.3, 0.0);
+    let line_width = camera_scale.adjusted_line_width() * 2.0;
 
     // Draw current path points
     for (i, &point) in pen_state.current_path.iter().enumerate() {
         let pos = Vec2::new(point.x, point.y);
-        gizmos.circle_2d(pos, POINT_PREVIEW_SIZE, point_color);
+        
+        // Spawn point mesh
+        spawn_pen_preview_point(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            pos,
+            point_color,
+            camera_scale.adjusted_point_size(POINT_PREVIEW_SIZE),
+        );
 
         // Draw line to next point
         if i > 0 {
             let prev_point = pen_state.current_path[i - 1];
             let prev_pos = Vec2::new(prev_point.x, prev_point.y);
-            gizmos.line_2d(prev_pos, pos, preview_color);
+            spawn_pen_preview_line(
+                &mut commands,
+                &mut meshes,
+                &mut materials,
+                prev_pos,
+                pos,
+                preview_color,
+                line_width,
+            );
         }
     }
 
     // Draw preview line to cursor if we have at least one point
     if let Some(&last_point) = pen_state.current_path.last() {
         let last_pos = Vec2::new(last_point.x, last_point.y);
-        let cursor_pos =
-            Vec2::new(pointer_info.design.x, pointer_info.design.y);
-        gizmos.line_2d(last_pos, cursor_pos, preview_color.with_alpha(0.5));
+        let cursor_pos = Vec2::new(pointer_info.design.x, pointer_info.design.y);
+        spawn_pen_preview_line(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            last_pos,
+            cursor_pos,
+            preview_color.with_alpha(0.5),
+            line_width * 0.5,
+        );
     }
 
     // Draw cursor indicator
     let cursor_pos = Vec2::new(pointer_info.design.x, pointer_info.design.y);
-    gizmos.circle_2d(
+    spawn_pen_preview_point(
+        &mut commands,
+        &mut meshes,
+        &mut materials,
         cursor_pos,
-        CURSOR_INDICATOR_SIZE,
         preview_color.with_alpha(0.7),
+        camera_scale.adjusted_point_size(CURSOR_INDICATOR_SIZE),
     );
 }
 
@@ -287,8 +387,8 @@ fn finalize_pen_path(
     }
 
     // Try FontIR first, then fallback to AppState
-    if let Some(_fontir_state) = fontir_app_state.as_mut() {
-        finalize_fontir_path(pen_state);
+    if fontir_app_state.is_some() {
+        finalize_fontir_path(pen_state, fontir_app_state, app_state_changed);
     } else if let Some(_app_state) = _app_state.as_mut() {
         finalize_appstate_path(pen_state);
     } else {
@@ -306,7 +406,11 @@ fn finalize_pen_path(
 }
 
 /// Helper function to finalize path using FontIR BezPath operations
-fn finalize_fontir_path(pen_state: &mut ResMut<PenToolState>) {
+fn finalize_fontir_path(
+    pen_state: &mut ResMut<PenToolState>,
+    fontir_app_state: &mut Option<ResMut<crate::core::state::FontIRAppState>>,
+    app_state_changed: &mut EventWriter<AppStateChanged>,
+) {
     // Create a BezPath from the current path
     let mut bez_path = BezPath::new();
 
@@ -323,15 +427,48 @@ fn finalize_fontir_path(pen_state: &mut ResMut<PenToolState>) {
         }
     }
 
-    // For now, just log the BezPath creation
-    // TODO: Add the BezPath to the FontIR glyph data
+    // Add the BezPath to the FontIR glyph data if available
+    if let Some(ref mut fontir_state) = fontir_app_state.as_mut() {
+        let current_glyph_name = fontir_state.current_glyph.clone();
+        if let Some(current_glyph_name) = current_glyph_name {
+            // Get the current location
+            let location = fontir_state.current_location.clone();
+            let key = (current_glyph_name.clone(), location);
+
+            // Get or create a working copy
+            let working_copy_exists = fontir_state.working_copies.contains_key(&key);
+            
+            if !working_copy_exists {
+                // Create working copy from original FontIR data
+                if let Some(fontir_glyph) = fontir_state.glyph_cache.get(&current_glyph_name) {
+                    if let Some((_location, instance)) = fontir_glyph.sources().iter().next() {
+                        let working_copy = crate::core::state::fontir_app_state::EditableGlyphInstance::from(instance);
+                        fontir_state.working_copies.insert(key.clone(), working_copy);
+                    }
+                }
+            }
+
+            // Add the new contour to the working copy
+            if let Some(working_copy) = fontir_state.working_copies.get_mut(&key) {
+                working_copy.contours.push(bez_path.clone());
+                working_copy.is_dirty = true;
+                app_state_changed.write(AppStateChanged);
+                
+                info!("Pen tool (FontIR): Added contour with {} elements to glyph '{}'. Total contours: {}", 
+                      bez_path.elements().len(), current_glyph_name, working_copy.contours.len());
+            } else {
+                warn!("Pen tool (FontIR): Could not create working copy for glyph '{}'", current_glyph_name);
+            }
+        } else {
+            warn!("Pen tool (FontIR): No current glyph selected");
+        }
+    } else {
+        warn!("Pen tool (FontIR): FontIR app state not available");
+    }
+
     let path_info =
         format!("BezPath with {} elements", bez_path.elements().len());
     info!("Pen tool (FontIR): Created {} for current glyph", path_info);
-    info!(
-        "Pen tool (FontIR): Path elements: {:?}",
-        bez_path.elements()
-    );
 }
 
 /// Helper function to finalize path using traditional AppState operations
@@ -368,4 +505,78 @@ fn finalize_appstate_path(pen_state: &mut ResMut<PenToolState>) {
     // For now just log that we would add it
     info!("Pen tool (AppState): Would add {} point contour to current glyph (contour has {} points)", 
           pen_state.current_path.len(), contour.points.len());
+}
+
+// ================================================================
+// MESH-BASED PREVIEW HELPERS
+// ================================================================
+
+/// Create a mesh-based point for pen tool preview
+fn spawn_pen_preview_point(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    position: Vec2,
+    color: Color,
+    size: f32,
+) {
+    let mesh = Mesh::from(Circle::new(size));
+    let material = ColorMaterial::from(color);
+
+    commands.spawn((
+        Mesh2d(meshes.add(mesh)),
+        MeshMaterial2d(materials.add(material)),
+        Transform::from_translation(position.extend(10.0)), // Z=10 to render above glyph
+        PenPreviewElement,
+    ));
+}
+
+/// Create a mesh-based line for pen tool preview
+fn spawn_pen_preview_line(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    start: Vec2,
+    end: Vec2,
+    color: Color,
+    width: f32,
+) {
+    let direction = (end - start).normalize();
+    let perpendicular = Vec2::new(-direction.y, direction.x);
+    let half_width = width * 0.5;
+    
+    // Calculate the center position for the transform
+    let center = (start + end) * 0.5;
+    
+    // Create vertices relative to the center position
+    let p1 = (start - center) + perpendicular * half_width;
+    let p2 = (start - center) - perpendicular * half_width;
+    let p3 = (end - center) - perpendicular * half_width;
+    let p4 = (end - center) + perpendicular * half_width;
+    
+    let vertices = vec![
+        [p1.x, p1.y, 0.0],
+        [p2.x, p2.y, 0.0],
+        [p3.x, p3.y, 0.0],
+        [p4.x, p4.y, 0.0],
+    ];
+    
+    let indices = vec![0, 1, 2, 0, 2, 3];
+    let uvs = vec![[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
+    let normals = vec![[0.0, 0.0, 1.0]; 4];
+    
+    let mut mesh = Mesh::new(bevy::render::render_resource::PrimitiveTopology::TriangleList, bevy::render::render_asset::RenderAssetUsages::all());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
+    
+    let material = ColorMaterial::from(color);
+
+    commands.spawn((
+        Mesh2d(meshes.add(mesh)),
+        MeshMaterial2d(materials.add(material)),
+        Transform::from_translation(center.extend(5.0)), // Z=5 to render above glyph but below points
+        PenPreviewElement,
+    ));
 }

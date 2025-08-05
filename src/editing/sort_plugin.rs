@@ -15,7 +15,7 @@ use crate::rendering::sort_renderer::{
     manage_sort_labels, update_sort_label_colors, update_sort_label_positions,
 };
 use crate::systems::sort_manager::{
-    handle_sort_events, respawn_sort_points_on_glyph_change, spawn_initial_sort,
+    handle_sort_events, respawn_sort_points_on_glyph_change, spawn_current_glyph_sort,
 };
 // use crate::systems::sort_interaction::handle_sort_clicks; // DISABLED: Old input system conflicts with selection
 use bevy::prelude::*;
@@ -51,8 +51,8 @@ impl Plugin for SortPlugin {
             .add_systems(
                 Update,
                 (
-                    spawn_initial_sort,
                     handle_sort_events,
+                    // REMOVED: spawn_current_glyph_sort - unwanted automatic sort creation
                     // REMOVED: enforce_single_active_sort, auto_activate_first_sort, handle_glyph_navigation_changes,
                     // These are now handled by TextEditorState + sync system
                 )

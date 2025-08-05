@@ -443,15 +443,47 @@ pub fn sync_points_to_sort_move() {}
 #[allow(dead_code)]
 pub fn debug_sort_point_entities() {}
 
-/// System to spawn initial sorts when the font is loaded.
-/// This preserves the natural UFO file order like the backup version.
-pub fn spawn_initial_sort(
-    _commands: Commands,
-    _sorts_query: Query<Entity, With<Sort>>,
-    _app_state: Option<Res<AppState>>,
-    _has_run: Local<bool>,
+/// System to spawn initial sort for the current glyph when needed
+pub fn spawn_current_glyph_sort(
+    mut commands: Commands,
+    sorts_query: Query<&Sort>,
+    fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
+    glyph_navigation: Option<Res<crate::core::state::navigation::GlyphNavigation>>,
 ) {
-    // DISABLED: Skip creating initial sorts grid to keep design space clean
+    // Determine current glyph name from FontIR or GlyphNavigation
+    let current_glyph_name = if let Some(fontir_state) = &fontir_app_state {
+        fontir_state.current_glyph.clone()
+    } else if let Some(nav) = &glyph_navigation {
+        nav.current_glyph.clone()
+    } else {
+        None
+    };
+
+    if let Some(glyph_name) = current_glyph_name {
+        // Check if a sort already exists for this glyph
+        let sort_exists = sorts_query
+            .iter()
+            .any(|sort| sort.glyph_name == glyph_name);
+
+        if !sort_exists {
+            info!(
+                "Creating inactive sort for current glyph '{}' to display pen tool results",
+                glyph_name
+            );
+
+            // Create an inactive sort at the center of the design space
+            let entity = create_sort(
+                &mut commands,
+                glyph_name.clone(),
+                Vec2::ZERO, // Center of design space
+                0.0, // Advance width (not used in new structure)
+                crate::core::state::SortLayoutMode::Freeform, // Not part of text buffer
+            );
+
+            // Mark it as inactive (filled outline, not editable)
+            commands.entity(entity).insert(InactiveSort);
+        }
+    }
 }
 
 /// System to automatically activate the first sort that is created

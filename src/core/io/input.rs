@@ -274,12 +274,21 @@ fn update_input_state(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut mouse_motion: EventReader<MouseMotion>,
     mut mouse_wheel: EventReader<MouseWheel>,
+    input_mode_resource: Option<Res<InputMode>>,
 
     _gamepad_axis_events: EventReader<GamepadAxisChangedEvent>,
     _gamepad_button_events: EventReader<GamepadButtonChangedEvent>,
     ui_hover_state: Res<UiHoverState>,
 ) {
     debug!("[INPUT] update_input_state called");
+
+    // Update input mode from resource (CRITICAL: This was missing!)
+    if let Some(input_mode) = input_mode_resource {
+        if _input_state.mode != *input_mode {
+            println!("🖊️ PEN_DEBUG: Input mode changed from {:?} to {:?}", _input_state.mode, *input_mode);
+            _input_state.mode = *input_mode;
+        }
+    }
 
     // Update mouse state
     update_mouse_state(
