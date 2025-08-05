@@ -285,28 +285,17 @@ pub fn regenerate_points_on_fontir_change(
                         let points = extract_points_from_path_element(element);
 
                         for (point_pos, point_type_data) in points {
+                            // All FontIR coordinates are now consistently relative to sort position
                             let sort_position = active_sort_query.get(sort_entity)
                                 .map(|(_, _, transform)| transform.translation.truncate())
                                 .unwrap_or(Vec2::ZERO);
                             
-                            // Better coordinate detection: pen tool coordinates are typically outside normal glyph bounds
-                            // Normal glyph coordinates are 0-600 range, pen tool coordinates can be negative or > 600
-                            let looks_like_world_coords = point_pos.x < 0.0 || point_pos.y < -100.0 || 
-                                                         point_pos.x > 600.0 || point_pos.y > 600.0;
-                            
-                            let world_pos = if looks_like_world_coords {
-                                // Pen tool contours: already in world coordinates
-                                Vec2::new(point_pos.x as f32, point_pos.y as f32)
-                            } else {
-                                // Original FontIR contours: relative to sort position
-                                sort_position + Vec2::new(point_pos.x as f32, point_pos.y as f32)
-                            };
+                            let world_pos = sort_position + Vec2::new(point_pos.x as f32, point_pos.y as f32);
                             
                             // COORDINATE DEBUG: Log transformation details
                             if point_count < 5 {
-                                info!("🔍 COORD DEBUG [{}]: raw=({:.1}, {:.1}), world_coords={}, sort_pos=({:.1}, {:.1}), final_world=({:.1}, {:.1})", 
-                                      point_count, point_pos.x, point_pos.y, looks_like_world_coords, 
-                                      sort_position.x, sort_position.y, world_pos.x, world_pos.y);
+                                info!("🔍 COORD DEBUG [{}]: relative=({:.1}, {:.1}), sort_pos=({:.1}, {:.1}), final_world=({:.1}, {:.1})", 
+                                      point_count, point_pos.x, point_pos.y, sort_position.x, sort_position.y, world_pos.x, world_pos.y);
                             }
                             
                             let point_index = element_point_index;

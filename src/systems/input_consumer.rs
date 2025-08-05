@@ -232,7 +232,8 @@ impl PenInputConsumer {
     fn finalize_path(
         &mut self, 
         fontir_app_state: &mut Option<&mut crate::core::state::FontIRAppState>,
-        app_state_changed: &mut bevy::ecs::event::EventWriter<crate::editing::selection::events::AppStateChanged>
+        app_state_changed: &mut bevy::ecs::event::EventWriter<crate::editing::selection::events::AppStateChanged>,
+        active_sort_position: Vec2,
     ) {
         if self.current_path.len() < 2 {
             return;
@@ -241,16 +242,27 @@ impl PenInputConsumer {
         info!("🖊️ [PEN] Finalizing path with {} points (closed: {})", 
               self.current_path.len(), self.should_close_path);
 
-        // Create a BezPath from the current path
+        // Convert world coordinates to relative coordinates for consistent storage
+        let mut relative_path = Vec::new();
+        for &point in &self.current_path {
+            let world_pos = Vec2::new(point.x, point.y);
+            let relative_pos = world_pos - active_sort_position;
+            let relative_point = DPoint::new(relative_pos.x, relative_pos.y);
+            relative_path.push(relative_point);
+            info!("🔍 PEN COORD CONVERSION: world=({:.1}, {:.1}) -> relative=({:.1}, {:.1})", 
+                  world_pos.x, world_pos.y, relative_pos.x, relative_pos.y);
+        }
+
+        // Create a BezPath from the relative coordinates
         let mut bez_path = kurbo::BezPath::new();
 
-        if let Some(&first_point) = self.current_path.first() {
-            info!("🔍 PEN COORD DEBUG: Creating BezPath - first_point=({:.1}, {:.1})", first_point.x, first_point.y);
+        if let Some(&first_point) = relative_path.first() {
+            info!("🔍 PEN COORD DEBUG: Creating BezPath - first_relative_point=({:.1}, {:.1})", first_point.x, first_point.y);
             bez_path
                 .move_to(kurbo::Point::new(first_point.x as f64, first_point.y as f64));
 
-            for (i, &point) in self.current_path.iter().skip(1).enumerate() {
-                info!("🔍 PEN COORD DEBUG: Adding line_to point[{}]=({:.1}, {:.1})", i+1, point.x, point.y);
+            for (i, &point) in relative_path.iter().skip(1).enumerate() {
+                info!("🔍 PEN COORD DEBUG: Adding line_to relative_point[{}]=({:.1}, {:.1})", i+1, point.x, point.y);
                 bez_path.line_to(kurbo::Point::new(point.x as f64, point.y as f64));
             }
 
@@ -528,11 +540,17 @@ fn process_input_events(
     mut pen_tool_state: Option<ResMut<crate::tools::pen::PenToolState>>,
     mut fontir_app_state: Option<ResMut<crate::core::state::FontIRAppState>>,
     mut app_state_changed: bevy::ecs::event::EventWriter<crate::editing::selection::events::AppStateChanged>,
+    active_sort_query: Query<(Entity, &crate::editing::sort::Sort, &Transform), With<crate::editing::sort::ActiveSort>>,
 ) {
     let events: Vec<_> = input_events.read().collect();
     if !events.is_empty() {
         println!("🖊️ PEN_DEBUG: Processing {} input events", events.len());
     }
+
+    // Get active sort position for coordinate conversion
+    let active_sort_position = active_sort_query.iter().next()
+        .map(|(_, _, transform)| transform.translation.truncate())
+        .unwrap_or(Vec2::ZERO);
 
     for event in events {
         if matches!(event, InputEvent::MouseClick { .. }) {
@@ -574,7 +592,7 @@ fn process_input_events(
                 info!("🖊️ [INPUT CONSUMER] Finalizing pen path");
                 // Get mutable reference to FontIR state
                 let mut fontir_state_opt = fontir_app_state.as_deref_mut();
-                pen_consumer.finalize_path(&mut fontir_state_opt, &mut app_state_changed);
+                pen_consumer.finalize_path(&mut fontir_state_opt, &mut app_state_changed, active_sort_position);
                 
                 // Sync again after finalization to clear the preview
                 if let Some(ref mut pen_state) = pen_tool_state {
