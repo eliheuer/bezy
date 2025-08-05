@@ -649,12 +649,13 @@ impl TextEditorState {
                     info!("📍 Updated cursor position to {} (text sorts remaining: {}, +1 for root)", new_cursor_pos, text_sort_count);
                 }
             } else {
-                // Only root remains - set cursor to position 0 to allow replacing the root
-                if let Some(root_sort) = self.buffer.get_mut(root_index) {
-                    root_sort.buffer_cursor_position = Some(0);
-                    info!("📍 Only root remains - cursor set to position 0 (ready to replace root)");
+                // Only root remains - delete the entire buffer root and clear the text buffer
+                info!("🗑️ Deleting root sort - clearing entire text buffer");
+                let deleted_root = self.buffer.delete(root_index);
+                if let Some(deleted) = deleted_root {
+                    info!("🗑️ Successfully deleted root sort: glyph='{}'", deleted.kind.glyph_name());
                 }
-                info!("🗑️ Cannot delete root - cursor positioned to allow replacement");
+                info!("🗑️ Text buffer cleared - buffer length after root deletion: {}", self.buffer.len());
             }
         } else {
             info!("🗑️ Cannot delete - no active buffer root found");
@@ -1169,9 +1170,9 @@ mod tests {
         text_editor.delete_sort_at_cursor(); // Delete 'h'
         assert_eq!(text_editor.buffer.len(), 1); // Just root left
 
-        // Try to delete when only root exists - should do nothing
+        // Delete the root - should clear the entire buffer
         text_editor.delete_sort_at_cursor();
-        assert_eq!(text_editor.buffer.len(), 1); // Still just root
+        assert_eq!(text_editor.buffer.len(), 0); // Buffer should be empty
     }
 
     #[test]
