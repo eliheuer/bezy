@@ -17,9 +17,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 // DESIGN CONSTANTS
 // ============================================================================
 
-/// Size of the UFO master selector widget
-const MASTER_SELECTOR_SIZE: f32 = 120.0;
-
 /// Size of each master button (same as coordinate pane quadrant buttons)
 const MASTER_BUTTON_SIZE: f32 = 24.0;
 
@@ -32,8 +29,8 @@ const LABEL_VALUE_SPACING: f32 = 8.0;
 /// Spacing between file info rows
 const ROW_SPACING: f32 = WIDGET_ROW_GAP;
 
-/// Extra spacing before master selector
-const MASTER_SELECTOR_MARGIN: f32 = 16.0;
+/// Extra spacing before master selector (same as row spacing)
+const MASTER_SELECTOR_MARGIN: f32 = WIDGET_ROW_GAP;
 
 // ============================================================================
 // COMPONENTS & RESOURCES
@@ -132,21 +129,42 @@ pub fn spawn_file_pane(
     };
 
     commands
-        .spawn(create_widget_style(
-            &asset_server,
-            &theme,
-            PositionType::Absolute,
-            position,
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: position.left,
+                right: position.right,
+                top: position.top,
+                bottom: position.bottom,
+                padding: UiRect::all(Val::Px(16.0)),
+                margin: UiRect::all(Val::Px(0.0)),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(WIDGET_ROW_GAP),
+                border: UiRect::all(Val::Px(2.0)),
+                width: Val::Auto,  // Auto-size to content
+                height: Val::Auto,
+                min_width: Val::Auto,
+                min_height: Val::Auto,
+                max_width: Val::Auto,  // No max width constraint
+                max_height: Val::Percent(50.0),
+                justify_content: JustifyContent::FlexStart,
+                align_items: AlignItems::FlexStart,
+                ..default()
+            },
+            BackgroundColor(theme.theme().widget_background_color()),
+            BorderColor(theme.theme().widget_border_color()),
+            BorderRadius::all(Val::Px(theme.theme().widget_border_radius())),
+            crate::ui::themes::WidgetBorderRadius,
             FilePane,
-            "FilePane",
+            Name::new("FilePane"),
         ))
         .with_children(|parent| {
             // ============ UFO MASTER SELECTOR ============
             parent
                 .spawn(Node {
                     position_type: PositionType::Relative,
-                    width: Val::Px(MASTER_SELECTOR_SIZE),
-                    height: Val::Px(40.0), // Compact horizontal layout
+                    width: Val::Auto, // Auto-size to content
+                    height: Val::Auto, // Auto-size to content
                     margin: UiRect::bottom(Val::Px(MASTER_SELECTOR_MARGIN)),
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::FlexStart,
@@ -176,7 +194,7 @@ pub fn spawn_file_pane(
                             margin: UiRect::right(Val::Px(LABEL_VALUE_SPACING)),
                             ..default()
                         },
-                        Text::new("Designspace:"),
+                        Text::new("File:"),
                         TextFont {
                             font: asset_server.load(MONO_FONT_PATH),
                             font_size: WIDGET_TEXT_FONT_SIZE,
@@ -310,9 +328,9 @@ fn update_file_info(
             }
         }
 
-        // Update current UFO based on current master
+        // Update current UFO based on current master (show filename instead of style name)
         if let Some(current_master) = file_info.masters.get(file_info.current_master_index) {
-            file_info.current_ufo = current_master.style_name.clone();
+            file_info.current_ufo = current_master.filename.clone();
         }
     }
 }
