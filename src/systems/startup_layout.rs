@@ -59,7 +59,7 @@ pub fn create_startup_layout(
     // Calculate camera position to center on the default sort
     // TEMPORARY: Center camera on the visual center of the default glyph
     // TO REVERT: Simply comment out the camera centering resource creation below
-    let visual_center_x = advance_width / 2.0;
+    let visual_center_x = advance_width / 2.25;
     
     // For vertical centering, estimate the visual center of lowercase 'a'
     // MANUAL ADJUSTMENT: Change this value to move camera up/down
