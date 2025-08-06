@@ -88,12 +88,13 @@ pub fn render_unified_glyph_editing(
             &GlyphPointReference,
             &PointType,
             Option<&Selected>,
+            &SortPointEntity,
         ),
         With<SortPointEntity>,
     >,
     app_state: Option<Res<crate::core::state::AppState>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
-    existing_elements: Query<Entity, With<UnifiedGlyphElement>>,
+    existing_elements: Query<(Entity, &UnifiedGlyphElement)>,
     // Debug: Check entities with just SortPointEntity
     existing_sort_points: Query<Entity, With<SortPointEntity>>,
     theme: Res<CurrentTheme>,
@@ -145,7 +146,8 @@ pub fn render_unified_glyph_editing(
     
     let all_current_sorts: HashSet<_> = current_active_sorts.union(&current_inactive_sorts).cloned().collect();
     
-    // Only clear elements for sorts that no longer exist or changed state
+    // CRITICAL FIX: Only clear elements for sorts that actually changed or no longer exist
+    // This prevents cross contamination between sorts during placement
     let mut sorts_to_clear = HashSet::new();
     
     // Find sorts that no longer exist
@@ -155,28 +157,66 @@ pub fn render_unified_glyph_editing(
         }
     }
     
-    // Clear existing unified elements - we now handle ALL sorts
-    for entity in existing_elements.iter() {
-        commands.entity(entity).despawn();
+    // Find sorts that changed state by checking change detection queries
+    for (sort_entity, _, _) in active_sort_query.iter() {
+        sorts_to_clear.insert(sort_entity);
     }
-    unified_entities.elements.clear();
+    for (sort_entity, _, _) in inactive_sort_query.iter() {
+        sorts_to_clear.insert(sort_entity);
+    }
+    
+    // SELECTIVE CLEARING: Only despawn elements for sorts that actually changed
+    // This prevents cross contamination between sorts during placement
+    let mut cleared_count = 0;
+    let mut skipped_count = 0;
+    let total_count = existing_elements.iter().count();
+    
+    for (element_entity, unified_element) in existing_elements.iter() {
+        // Only despawn elements that belong to sorts that need clearing
+        if sorts_to_clear.contains(&unified_element.sort_entity) {
+            commands.entity(element_entity).despawn();
+            cleared_count += 1;
+        } else {
+            skipped_count += 1;
+        }
+    }
+    
+    info!("🧹 SELECTIVE CLEANUP: Cleared {}/{} elements, skipped {} (sorts_to_clear: {}, total_sorts: {})", 
+          cleared_count, total_count, skipped_count, sorts_to_clear.len(), all_current_sorts.len());
+    
+    // Only clear tracking for sorts that changed, not all sorts
+    if sorts_to_clear.len() == all_current_sorts.len() {
+        // If all sorts changed, clear everything (fallback to nuclear approach)
+        unified_entities.elements.clear();
+    } else {
+        // Selective clearing: only remove tracking for changed sorts
+        for sort_entity in &sorts_to_clear {
+            unified_entities.elements.remove(sort_entity);
+        }
+    }
 
-    // Process ACTIVE sorts (with editing capabilities)
+    // Process ACTIVE sorts (with editing capabilities) - only those that changed
     for (sort_entity, sort, sort_transform) in active_sort_query.iter() {
+        // Skip sorts that don't need re-rendering (selective update)
+        if !sorts_to_clear.contains(&sort_entity) && !sorts_to_clear.is_empty() {
+            continue;
+        }
         
         let sort_position = sort_transform.translation.truncate();
         let mut element_entities = Vec::new();
 
-        // Collect all points for this sort from the point query
+        // Collect all points for this specific sort entity (prevents cross contamination)
         let mut sort_points = Vec::new();
         let mut checked_points = 0;
         let mut matching_points = 0;
         
-        for (point_entity, point_transform, point_ref, point_type, selected) in
+        for (point_entity, point_transform, point_ref, point_type, selected, sort_point_entity) in
             point_query.iter()
         {
             checked_points += 1;
-            if point_ref.glyph_name == sort.glyph_name {
+            // CRITICAL FIX: Filter by sort entity, not glyph name, to prevent cross contamination
+            // Only include points that belong to this specific sort entity
+            if sort_point_entity.sort_entity == sort_entity {
                 matching_points += 1;
                 sort_points.push((
                     point_entity,
@@ -187,7 +227,8 @@ pub fn render_unified_glyph_editing(
                 ));
             } else if checked_points <= 3 {
                 // Log first few mismatches for debugging
-                info!("🔍 GLYPH MISMATCH: Point glyph '{}' != sort glyph '{}'", point_ref.glyph_name, sort.glyph_name);
+                info!("🔍 SORT_ENTITY MISMATCH: Point {:?} belongs to sort {:?}, not current sort {:?}", 
+                      point_entity, sort_point_entity.sort_entity, sort_entity);
             }
         }
         
@@ -255,8 +296,12 @@ pub fn render_unified_glyph_editing(
             .insert(sort_entity, element_entities);
     }
 
-    // Process INACTIVE sorts (filled outlines only, no points/handles)  
+    // Process INACTIVE sorts (filled outlines only, no points/handles) - only those that changed
     for (sort_entity, sort, sort_transform) in inactive_sort_query.iter() {
+        // Skip sorts that don't need re-rendering (selective update)
+        if !sorts_to_clear.contains(&sort_entity) && !sorts_to_clear.is_empty() {
+            continue;
+        }
         
         let sort_position = sort_transform.translation.truncate();
         let mut element_entities = Vec::new();
