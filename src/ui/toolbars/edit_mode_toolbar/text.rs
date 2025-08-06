@@ -44,9 +44,9 @@ pub struct TextModeState {
 /// Text placement modes for the submenu
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Resource)]
 pub enum TextPlacementMode {
-    #[default]
     LTRText,
     RTLText,
+    #[default]
     Insert,
     Freeform,
 }
@@ -209,9 +209,9 @@ pub fn spawn_text_submenu(
     theme: Res<CurrentTheme>,
 ) {
     let modes = [
+        TextPlacementMode::Insert,
         TextPlacementMode::LTRText,
         TextPlacementMode::RTLText,
-        TextPlacementMode::Insert,
         TextPlacementMode::Freeform,
     ];
 

@@ -38,7 +38,7 @@ pub fn create_startup_layout(
         "a".to_string()
     };
 
-    info!("Creating startup layout with default sort for glyph '{}'", glyph_name);
+    info!("Creating startup layout with default LTR text sort for glyph '{}'", glyph_name);
 
     // Get advance width from FontIR if available
     let advance_width = if let Some(state) = &fontir_state {
@@ -47,7 +47,7 @@ pub fn create_startup_layout(
         500.0 // Default fallback
     };
 
-    // Create a default sort at the origin
+    // Create a default LTR text sort at the origin with cursor ready for typing
     // Future: This will be replaced with a grid of sorts
     create_default_sort_at_position(
         &mut text_editor_state,
@@ -93,10 +93,10 @@ fn create_default_sort_at_position(
             advance_width,
         },
         is_active: true, // Make it active and ready to edit
-        layout_mode: SortLayoutMode::Freeform,
+        layout_mode: SortLayoutMode::LTRText,  // LTR text mode for typing
         root_position: position,
-        is_buffer_root: false, // Independent sort
-        buffer_cursor_position: None,
+        is_buffer_root: true, // This is a text root so cursor can appear
+        buffer_cursor_position: Some(1), // Cursor after the first character
     };
 
     // Add to the text editor buffer
