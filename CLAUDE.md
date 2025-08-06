@@ -362,3 +362,53 @@ fn render_system(mut tracker: ResMut<VisualUpdateTracker>) {
 - Consider this pattern for any system managing dynamic visual elements
 
 This pattern is essential for maintaining professional-quality UI responsiveness without visual artifacts.
+
+## CRITICAL: Cross-Sort Contamination Prevention
+
+### Problem: Points From Multiple Sorts Getting Mixed
+When rendering sorts in a unified system, a critical issue can occur where points from different sort entities get collected together, causing visual contamination:
+- **Handle lines connecting points from different sorts**
+- **Points appearing in wrong locations during state transitions**
+- **Visual "flash" when placing new sorts with the same glyph**
+
+### Root Cause: Filtering by Glyph Name Instead of Sort Entity
+```rust
+// ❌ PROBLEMATIC: Causes cross contamination between sorts
+for (point_entity, transform, point_ref, ...) in point_query.iter() {
+    if point_ref.glyph_name == sort.glyph_name {
+        // WRONG: Collects points from ALL sorts with same glyph!
+        sort_points.push(point_entity);
+    }
+}
+```
+
+This causes multiple sorts with glyph 'a' to collect each other's points, leading to errant handle connections.
+
+### Solution: Filter Points by Sort Entity Ownership
+```rust
+// ✅ CORRECT: Each sort only collects its own points
+// Include SortPointEntity in the query
+point_query: Query<(Entity, &Transform, &GlyphPointReference, &SortPointEntity)>,
+
+// Filter by the sort entity that owns each point
+for (point_entity, transform, point_ref, sort_point_entity) in point_query.iter() {
+    if sort_point_entity.sort_entity == current_sort_entity {
+        // Only collect points that belong to THIS specific sort
+        sort_points.push(point_entity);
+    }
+}
+```
+
+### Key Implementation Details:
+1. **Always track sort ownership** in point entities using a component like `SortPointEntity`
+2. **Filter by entity ownership**, not by shared properties like glyph name
+3. **Validate sort consistency** when collecting points for rendering
+4. **Use selective clearing** - only despawn/respawn elements for sorts that actually changed
+
+### Benefits:
+- **Complete sort isolation**: Multiple sorts with same glyph remain independent
+- **No visual contamination**: Handles only connect points within same sort
+- **Stable rendering**: Unchanged sorts remain visually stable during updates
+- **Better performance**: Selective updates instead of nuclear rebuilding
+
+This pattern is critical when implementing any multi-instance editing system where multiple copies of the same data can coexist.
