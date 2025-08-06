@@ -32,6 +32,12 @@ const ROW_SPACING: f32 = WIDGET_ROW_GAP;
 /// Extra spacing before master selector (same as row spacing)
 const MASTER_SELECTOR_MARGIN: f32 = WIDGET_ROW_GAP;
 
+/// File pane internal padding 
+const FILE_PANE_PADDING: f32 = 16.0;
+
+/// File pane border width
+const FILE_PANE_BORDER: f32 = 2.0;
+
 // ============================================================================
 // COMPONENTS & RESOURCES
 // ============================================================================
@@ -121,9 +127,14 @@ pub fn spawn_file_pane(
     asset_server: Res<AssetServer>,
     theme: Res<CurrentTheme>,
 ) {
+    // Position to visually align with toolbar content, accounting for our border and padding
+    // Toolbar content is at: TOOLBAR_CONTAINER_MARGIN = 16px from edge
+    // Our content will be at: position + border + padding = position + 2px + 16px
+    // To match toolbar: position + 2px + 16px = 16px, so position = -2px
+    // But we want some visible margin, so let's use a small positive offset
     let position = UiRect {
-        left: Val::Px(WIDGET_MARGIN),
-        top: Val::Px(WIDGET_MARGIN),
+        left: Val::Px(TOOLBAR_CONTAINER_MARGIN + 4.0), // Slight adjustment to better align
+        top: Val::Px(TOOLBAR_CONTAINER_MARGIN + 4.0),  
         right: Val::Auto,
         bottom: Val::Auto,
     };
@@ -136,11 +147,11 @@ pub fn spawn_file_pane(
                 right: position.right,
                 top: position.top,
                 bottom: position.bottom,
-                padding: UiRect::all(Val::Px(16.0)),
+                padding: UiRect::all(Val::Px(FILE_PANE_PADDING)),
                 margin: UiRect::all(Val::Px(0.0)),
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(WIDGET_ROW_GAP),
-                border: UiRect::all(Val::Px(2.0)),
+                border: UiRect::all(Val::Px(FILE_PANE_BORDER)),
                 width: Val::Auto,  // Auto-size to content
                 height: Val::Auto,
                 min_width: Val::Auto,
@@ -179,7 +190,7 @@ pub fn spawn_file_pane(
 
             // ============ FILE INFO ROWS ============
 
-            // Designspace path row
+            // File path row  
             parent
                 .spawn(Node {
                     flex_direction: FlexDirection::Row,
