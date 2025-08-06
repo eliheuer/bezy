@@ -26,23 +26,37 @@ pub fn handle_sort_placement_input(
     use crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode;
 
     // Only handle input when text tool is active
-    if current_tool.get_current() != Some("text") {
+    let current_tool_name = current_tool.get_current();
+    if current_tool_name != Some("text") {
+        // Always log when we have a click so user knows what's happening
+        if mouse_button_input.just_pressed(MouseButton::Left) && !ui_hover_state.is_hovering_ui {
+            warn!("🖱️ SORT PLACEMENT: ❌ Click ignored - current tool is {:?}, need 'text' tool to place sorts", current_tool_name);
+        }
         return;
     }
+    
+    info!("🖱️ SORT PLACEMENT: ✅ Text tool is active, checking other conditions...");
 
     // Only handle text placement modes, not insert mode
     match current_placement_mode.0 {
         TextPlacementMode::LTRText | TextPlacementMode::RTLText => {
             // Continue with placement
+            info!("🖱️ SORT PLACEMENT: ✅ Text tool active with placement mode {:?} - READY TO PLACE SORTS!", current_placement_mode.0);
         }
         TextPlacementMode::Insert | TextPlacementMode::Freeform => {
             // These modes don't place sorts on click
+            if mouse_button_input.just_pressed(MouseButton::Left) && !ui_hover_state.is_hovering_ui {
+                info!("🖱️ SORT PLACEMENT: Click ignored - in {:?} mode (not placement mode)", current_placement_mode.0);
+            }
             return;
         }
     }
 
     // Don't process clicks when hovering over UI
     if ui_hover_state.is_hovering_ui {
+        if mouse_button_input.just_pressed(MouseButton::Left) {
+            info!("🖱️ SORT PLACEMENT: ⚠️  Click ignored - hovering over UI");
+        }
         return;
     }
 
@@ -50,6 +64,10 @@ pub fn handle_sort_placement_input(
     if !mouse_button_input.just_pressed(MouseButton::Left) {
         return;
     }
+    
+    info!("🖱️ SORT PLACEMENT: ✅ Left mouse click detected, UI not hovering");
+
+    info!("🖱️ SORT PLACEMENT: Left mouse click detected - processing placement");
 
     // Get camera, transform, and projection
     let Ok((camera, camera_transform, projection)) = camera_query.single()
@@ -82,21 +100,81 @@ pub fn handle_sort_placement_input(
     let grid_size = calculate_dynamic_grid_size(zoom_scale);
     let snapped_position = (raw_world_position / grid_size).round() * grid_size;
 
-    // Check if we already have text sorts - if not, create a text root
-    let has_text_sorts = !text_editor_state.get_text_sorts().is_empty();
-    if !has_text_sorts {
-        info!(
-            "Creating text root at snapped position ({:.1}, {:.1})",
-            snapped_position.x, snapped_position.y
-        );
-        text_editor_state.create_text_root_with_fontir(
-            snapped_position,
-            current_placement_mode.0.to_sort_layout_mode(),
-            fontir_app_state.as_deref(),
-        );
-
-        // Automatically switch to Insert mode after placing a text sort
-        current_placement_mode.0 = TextPlacementMode::Insert;
-        info!("Automatically switched to Insert mode for typing");
+    // Always create a new sort when clicking in placement mode
+    // This allows placing multiple sorts of the same glyph or different glyphs
+    let existing_sorts_count = text_editor_state.get_text_sorts().len();
+    info!("🖱️ SORT PLACEMENT: Creating new sort at position ({:.1}, {:.1}), existing sorts: {}", 
+          snapped_position.x, snapped_position.y, existing_sorts_count);
+    
+    // CRITICAL FIX: Deactivate all existing sorts before creating new active sort
+    // This prevents multiple active sorts from existing simultaneously
+    for i in 0..text_editor_state.buffer.len() {
+        if let Some(sort) = text_editor_state.buffer.get_mut(i) {
+            if sort.is_active {
+                info!("🔻 SORT PLACEMENT: Deactivating existing sort - glyph '{}'", sort.kind.glyph_name());
+                sort.is_active = false;
+            }
+        }
     }
+    
+    // Create a new independent sort (not part of text buffer)
+    info!("🖱️ SORT PLACEMENT: About to call create_independent_sort_with_fontir");
+    create_independent_sort_with_fontir(
+        &mut text_editor_state,
+        snapped_position,
+        current_placement_mode.0.to_sort_layout_mode(),
+        fontir_app_state.as_deref(),
+    );
+    
+    // CRITICAL: Mark the text editor state as changed to trigger entity spawning
+    text_editor_state.set_changed();
+    
+    info!("🖱️ SORT PLACEMENT: create_independent_sort_with_fontir completed");
+
+    info!("🖱️ SORT PLACEMENT: Created new sort, total sorts now: {}", 
+          text_editor_state.get_text_sorts().len());
+}
+
+/// Create an independent sort that can coexist with other sorts
+/// This is different from the text buffer system which creates connected text
+fn create_independent_sort_with_fontir(
+    text_editor_state: &mut crate::core::state::TextEditorState,
+    world_position: bevy::math::Vec2,
+    layout_mode: crate::core::state::text_editor::SortLayoutMode,
+    fontir_app_state: Option<&crate::core::state::FontIRAppState>,
+) {
+    use crate::core::state::text_editor::{SortEntry, SortKind};
+    
+    info!("🖱️ INSIDE create_independent_sort_with_fontir: Starting function");
+
+    // Get the actual advance width from FontIR if available
+    let placeholder_glyph = "a".to_string();
+    let advance_width = if let Some(fontir_state) = fontir_app_state {
+        fontir_state.get_glyph_advance_width(&placeholder_glyph)
+    } else {
+        // Fallback to reasonable default if FontIR not available
+        500.0
+    };
+
+    let independent_sort = SortEntry {
+        kind: SortKind::Glyph {
+            codepoint: Some('a'), // Default placeholder codepoint
+            glyph_name: placeholder_glyph,
+            advance_width, // Get from FontIR runtime data
+        },
+        is_active: true, // Automatically activate the new sort
+        layout_mode: crate::core::state::text_editor::SortLayoutMode::Freeform, // Use Freeform for independent positioning
+        root_position: world_position,
+        is_buffer_root: false, // This is NOT a buffer root - it's an independent sort
+        buffer_cursor_position: None, // Independent sorts don't have cursor positions
+    };
+
+    // Insert at the end of the buffer (this creates a new independent sort)  
+    let insert_index = text_editor_state.buffer.len();
+    info!("🖱️ Inserting independent sort at index {} into buffer with {} existing entries", insert_index, text_editor_state.buffer.len());
+    text_editor_state.buffer.insert(insert_index, independent_sort);
+    info!("🖱️ Successfully inserted sort, buffer now has {} entries", text_editor_state.buffer.len());
+
+    info!("🖱️ Created independent sort at world position ({:.1}, {:.1}), index: {}", 
+          world_position.x, world_position.y, insert_index);
 }

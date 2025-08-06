@@ -37,14 +37,16 @@ impl Plugin for TextEditorPlugin {
             // Initialize text editor state
             .add_systems(Startup, initialize_text_editor_sorts)
             // Input handling
-            .add_systems(Update, 
-                handle_unicode_text_input
-                    .in_set(super::FontEditorSets::Input)
-            )
+            .add_systems(Update, (
+                handle_unicode_text_input,
+                handle_sort_placement_input,
+            ).in_set(super::FontEditorSets::Input))
             // Text buffer updates
             .add_systems(Update, (
                 spawn_missing_sort_entities,
                 crate::systems::text_editor_sorts::sort_entities::update_buffer_sort_positions,
+                crate::systems::text_editor_sorts::sort_entities::auto_activate_selected_sorts,
+                manage_sort_activation,
             ).chain().in_set(super::FontEditorSets::EntitySync))
             // Entity spawning/despawning 
             .add_systems(Update, (
@@ -56,7 +58,6 @@ impl Plugin for TextEditorPlugin {
             .add_systems(Update, (
                 render_text_editor_sorts,
                 crate::systems::text_editor_sorts::sort_rendering::render_text_editor_cursor,
-                handle_sort_placement_input,
             ).in_set(super::FontEditorSets::Rendering))
             // Cleanup systems (the old cleanup system is now replaced by component-relationship cleanup)
             .add_systems(Update, 

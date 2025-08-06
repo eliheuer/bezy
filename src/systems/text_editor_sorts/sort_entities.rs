@@ -137,36 +137,36 @@ pub fn spawn_missing_sort_entities(
         With<crate::editing::sort::ActiveSort>,
     >,
 ) {
-    // Debug: Log buffer state
+    // Debug: Log buffer state (only when buffer has content to reduce spam)
     if !text_editor_state.buffer.is_empty() {
         info!(
-            "spawn_missing_sort_entities: Processing {} buffer entries",
+            "📋 spawn_missing_sort_entities: Processing {} buffer entries",
             text_editor_state.buffer.len()
         );
         for i in 0..text_editor_state.buffer.len() {
             if let Some(sort) = text_editor_state.buffer.get(i) {
                 info!(
-                    "  Buffer[{}]: glyph='{}', is_buffer_root={}, is_active={}",
+                    "  📋 Buffer[{}]: glyph='{}', is_buffer_root={}, is_active={}, layout_mode={:?}",
                     i,
                     sort.kind.glyph_name(),
                     sort.is_buffer_root,
-                    sort.is_active
+                    sort.is_active,
+                    sort.layout_mode
                 );
             }
         }
-    } else {
-        debug!(
-            "spawn_missing_sort_entities: Buffer is empty, nothing to spawn"
-        );
     }
+    // Silently skip logging when buffer is empty to reduce spam
 
     // Iterate through all sorts in the buffer
     for i in 0..text_editor_state.buffer.len() {
         // Skip if we already have an entity for this buffer index
         if buffer_entities.entities.contains_key(&i) {
-            debug!("spawn_missing_sort_entities: Entity already exists for buffer index {}", i);
+            warn!("🔄 spawn_missing_sort_entities: Entity already exists for buffer index {} - SKIPPING", i);
             continue;
         }
+        
+        warn!("🆕 spawn_missing_sort_entities: No entity exists for buffer index {} - SPAWNING NEW ENTITY", i);
 
         if let Some(sort_entry) = text_editor_state.buffer.get(i) {
             // Skip spawning entities for line breaks - they are invisible
@@ -229,6 +229,8 @@ pub fn spawn_missing_sort_entities(
             };
 
             if let Some(position) = position {
+                warn!("🎯 spawn_missing_sort_entities: Got position ({:.1}, {:.1}) for buffer index {}", position.x, position.y, i);
+                
                 // Create Sort component
                 let sort = Sort {
                     glyph_name: sort_entry.kind.glyph_name().to_string(),
@@ -254,11 +256,11 @@ pub fn spawn_missing_sort_entities(
                 let should_be_active = sort_entry.is_active;
                 if should_be_active {
                     entity_commands.insert(ActiveSort);
-                    info!("🟢 Spawned ACTIVE sort entity for buffer index {} at position ({:.1}, {:.1}) - glyph '{}' (is_active: {}, is_buffer_root: {})", 
+                    warn!("🟢 Spawned ACTIVE sort entity for buffer index {} at position ({:.1}, {:.1}) - glyph '{}' (is_active: {}, is_buffer_root: {})", 
                            i, position.x, position.y, sort_entry.kind.glyph_name(), sort_entry.is_active, sort_entry.is_buffer_root);
                 } else {
                     entity_commands.insert(InactiveSort);
-                    info!("🔴 Spawned INACTIVE sort entity for buffer index {} at position ({:.1}, {:.1}) - glyph '{}' (is_active: {}, is_buffer_root: {})", 
+                    warn!("🔴 Spawned INACTIVE sort entity for buffer index {} at position ({:.1}, {:.1}) - glyph '{}' (is_active: {}, is_buffer_root: {})", 
                            i, position.x, position.y, sort_entry.kind.glyph_name(), sort_entry.is_active, sort_entry.is_buffer_root);
                 }
 
@@ -271,7 +273,7 @@ pub fn spawn_missing_sort_entities(
                 info!("✅ Spawned buffer sort entity {} for glyph '{}' at position ({:.1}, {:.1})", 
                     i, sort_entry.kind.glyph_name(), position.x, position.y);
             } else {
-                warn!("Failed to get position for buffer sort index {}", i);
+                warn!("❌ spawn_missing_sort_entities: Failed to get position for buffer sort index {} - SKIPPING ENTITY SPAWN", i);
             }
         }
     }
