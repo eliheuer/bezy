@@ -117,13 +117,14 @@ pub fn create_default_sort(
     let visual_center_x = advance_width / 2.0;
     
     // For vertical centering, use the font metrics to find the visual center
-    // Most Latin lowercase letters have their visual center around 200-300 units from baseline
-    let visual_center_y = if let Some(state) = &fontir_state {
+    // Most Latin lowercase letters have their visual center around 200-400 units from baseline
+    let visual_center_y = if let Some(_state) = &fontir_state {
         // Try to get x-height or use a reasonable estimate for lowercase 'a'
-        // The visual center of 'a' is typically around 250 units above baseline
-        250.0
+        // The visual center of 'a' is typically around 350 units above baseline
+        // MANUAL ADJUSTMENT: Change this value to move camera up/down
+        328.0  // <-- ADJUST THIS VALUE: Higher = camera moves up, Lower = camera moves down
     } else {
-        250.0 // Default estimate for lowercase 'a'
+        328.0 // Default estimate for lowercase 'a'
     };
     
     // Insert a marker resource to trigger camera centering in the next frame
