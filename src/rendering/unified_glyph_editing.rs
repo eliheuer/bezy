@@ -16,7 +16,7 @@ use crate::ui::themes::CurrentTheme;
 use bevy::prelude::*;
 use bevy::render::mesh::Mesh2d;
 use bevy::sprite::{ColorMaterial, MeshMaterial2d};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 // Lyon imports for filled glyph tessellation
 use lyon::geom::point;
@@ -50,6 +50,12 @@ pub struct UnifiedGlyphEntities {
     pub elements: HashMap<Entity, Vec<Entity>>, // sort_entity -> element entities
 }
 
+/// Resource to track when sorts need visual updates (prevents unnecessary rebuilding)
+#[derive(Resource, Default)]
+pub struct SortVisualUpdateTracker {
+    pub needs_update: bool,
+}
+
 /// Z-levels for proper layering
 const UNIFIED_HANDLE_Z: f32 = 7.0; // Behind outlines
 const UNIFIED_OUTLINE_Z: f32 = 8.0; // Above handles, behind points
@@ -64,6 +70,7 @@ pub fn render_unified_glyph_editing(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut unified_entities: ResMut<UnifiedGlyphEntities>,
+    mut update_tracker: ResMut<SortVisualUpdateTracker>,
     camera_scale: Res<CameraResponsiveScale>,
     // Include ALL sorts (both active and inactive)
     active_sort_query: Query<
@@ -92,10 +99,47 @@ pub fn render_unified_glyph_editing(
     // PERFORMANCE: Early exit if no sorts to render
     let active_count = active_sort_query.iter().count();
     let inactive_count = inactive_sort_query.iter().count();
-    if active_count == 0 && inactive_count == 0 {
+    
+    // Only rebuild if we actually need to update (prevents flash)
+    if !update_tracker.needs_update {
         return;
     }
+    
+    info!("🎨 UNIFIED RENDERING EXECUTING: active_sorts={}, inactive_sorts={}", active_count, inactive_count);
+    
+    if active_count == 0 && inactive_count == 0 {
+        update_tracker.needs_update = false;
+        return;
+    }
+    
+    // Clear the update flag since we're processing it now
+    update_tracker.needs_update = false;
 
+    // PERFORMANCE FIX: Only clear elements for sorts that have changed activation status
+    // Collect all current sort entities
+    let mut current_active_sorts = HashSet::new();
+    let mut current_inactive_sorts = HashSet::new();
+    
+    for (sort_entity, _, _) in active_sort_query.iter() {
+        current_active_sorts.insert(sort_entity);
+    }
+    
+    for (sort_entity, _, _) in inactive_sort_query.iter() {
+        current_inactive_sorts.insert(sort_entity);
+    }
+    
+    let all_current_sorts: HashSet<_> = current_active_sorts.union(&current_inactive_sorts).cloned().collect();
+    
+    // Only clear elements for sorts that no longer exist or changed state
+    let mut sorts_to_clear = HashSet::new();
+    
+    // Find sorts that no longer exist
+    for &tracked_sort in unified_entities.elements.keys() {
+        if !all_current_sorts.contains(&tracked_sort) {
+            sorts_to_clear.insert(tracked_sort);
+        }
+    }
+    
     // Clear existing unified elements - we now handle ALL sorts
     for entity in existing_elements.iter() {
         commands.entity(entity).despawn();
@@ -104,6 +148,7 @@ pub fn render_unified_glyph_editing(
 
     // Process ACTIVE sorts (with editing capabilities)
     for (sort_entity, sort, sort_transform) in active_sort_query.iter() {
+        
         let sort_position = sort_transform.translation.truncate();
         let mut element_entities = Vec::new();
 
@@ -185,6 +230,7 @@ pub fn render_unified_glyph_editing(
 
     // Process INACTIVE sorts (filled outlines only, no points/handles)  
     for (sort_entity, sort, sort_transform) in inactive_sort_query.iter() {
+        
         let sort_position = sort_transform.translation.truncate();
         let mut element_entities = Vec::new();
 
@@ -1121,14 +1167,62 @@ fn spawn_unified_line_mesh(
         .id()
 }
 
+/// System to detect when sorts change and trigger visual updates
+fn detect_sort_changes(
+    mut update_tracker: ResMut<SortVisualUpdateTracker>,
+    active_sort_query: Query<Entity, (With<ActiveSort>, Or<(Changed<ActiveSort>, Added<ActiveSort>)>)>,
+    inactive_sort_query: Query<Entity, (With<crate::editing::sort::InactiveSort>, Or<(Changed<crate::editing::sort::InactiveSort>, Added<crate::editing::sort::InactiveSort>)>)>,
+    removed_active: RemovedComponents<ActiveSort>,
+    removed_inactive: RemovedComponents<crate::editing::sort::InactiveSort>,
+) {
+    let active_changed = !active_sort_query.is_empty();
+    let inactive_changed = !inactive_sort_query.is_empty();
+    let removed_active_count = removed_active.len();
+    let removed_inactive_count = removed_inactive.len();
+    
+    let needs_update = active_changed || inactive_changed || removed_active_count > 0 || removed_inactive_count > 0;
+    
+    if needs_update {
+        update_tracker.needs_update = true;
+        info!("🔄 SORT CHANGES DETECTED: Setting update flag - active_changed: {}, inactive_changed: {}, removed_active: {}, removed_inactive: {}", 
+              active_changed, inactive_changed, removed_active_count, removed_inactive_count);
+    }
+}
+
 /// Plugin for unified glyph editing rendering
 pub struct UnifiedGlyphEditingPlugin;
 
 impl Plugin for UnifiedGlyphEditingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UnifiedGlyphEntities>()
-           .add_systems(Update, render_unified_glyph_editing
+           .init_resource::<SortVisualUpdateTracker>()
+           .add_systems(Update, (
+               detect_sort_changes,
+               render_unified_glyph_editing,
+           ).chain()
                .after(crate::systems::text_editor_sorts::spawn_active_sort_points_optimized)
                .after(crate::editing::selection::nudge::handle_nudge_input));
     }
+}
+
+/// Run condition to only update unified rendering when sorts change
+fn should_update_unified_rendering(
+    active_sort_query: Query<Entity, (With<ActiveSort>, Or<(Changed<ActiveSort>, Added<ActiveSort>)>)>,
+    inactive_sort_query: Query<Entity, (With<crate::editing::sort::InactiveSort>, Or<(Changed<crate::editing::sort::InactiveSort>, Added<crate::editing::sort::InactiveSort>)>)>,
+    removed_active: RemovedComponents<ActiveSort>,
+    removed_inactive: RemovedComponents<crate::editing::sort::InactiveSort>,
+) -> bool {
+    let active_changed = !active_sort_query.is_empty();
+    let inactive_changed = !inactive_sort_query.is_empty();
+    let removed_active_count = removed_active.len();
+    let removed_inactive_count = removed_inactive.len();
+    
+    let should_run = active_changed || inactive_changed || removed_active_count > 0 || removed_inactive_count > 0;
+    
+    if should_run {
+        info!("🔄 UNIFIED RENDERING: Running due to changes - active_changed: {}, inactive_changed: {}, removed_active: {}, removed_inactive: {}", 
+              active_changed, inactive_changed, removed_active_count, removed_inactive_count);
+    }
+    
+    should_run
 }

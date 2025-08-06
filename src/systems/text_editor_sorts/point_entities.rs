@@ -54,8 +54,8 @@ pub fn spawn_active_sort_points_optimized(
 
         // Try FontIR first, then fallback to AppState
         if let Some(fontir_state) = fontir_app_state.as_ref() {
-            // Get FontIR BezPaths for this glyph
-            if let Some(paths) = fontir_state.get_glyph_paths(&sort.glyph_name)
+            // CRITICAL FIX: Get FontIR BezPaths WITH pen tool edits for this glyph
+            if let Some(paths) = fontir_state.get_glyph_paths_with_edits(&sort.glyph_name)
             {
                 let mut point_count = 0;
                 info!("FontIR: Spawning points for active sort '{}' with {} paths", sort.glyph_name, paths.len());
