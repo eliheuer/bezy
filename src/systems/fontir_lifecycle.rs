@@ -8,6 +8,14 @@ use crate::core::state::{FontIRAppState, TextEditorState};
 use bevy::prelude::*;
 use fontir::source::Source;
 
+/// Resource to trigger camera centering on the default sort
+#[derive(Resource)]
+pub struct CenterCameraOnDefaultSort {
+    pub center_x: f32,
+    pub center_y: f32,
+    pub advance_width: f32,
+}
+
 /// System to load UFO/designspace font on startup using FontIR
 pub fn load_fontir_font(mut commands: Commands, cli_args: Res<CliArgs>) {
     // clap provides the default value, so ufo_path is guaranteed to be Some
@@ -51,7 +59,8 @@ pub fn create_default_sort(
     fontir_state: Option<Res<FontIRAppState>>,
     mut text_editor_state: ResMut<TextEditorState>,
     // CRITICAL FIX: Trigger unified renderer update when default sort is created
-    mut visual_update_tracker: ResMut<crate::rendering::unified_glyph_editing::SortVisualUpdateTracker>,
+    _visual_update_tracker: ResMut<crate::rendering::unified_glyph_editing::SortVisualUpdateTracker>,
+    mut commands: Commands,
 ) {
     // Only create default sort if no sorts exist yet
     if !text_editor_state.buffer.is_empty() {
@@ -99,5 +108,56 @@ pub fn create_default_sort(
     // after the points are spawned in the Update cycle
 
     info!("Default sort created for new users - ready to edit!");
+    
+    // TEMPORARY: Center camera on the visual center of the default glyph
+    // The glyph is at (0,0) but we want to center on its visual middle
+    // For glyph 'a' with advance width ~592, the visual center is around x=296
+    // The glyph also needs vertical centering - estimate based on typical glyph height
+    // TO REVERT: Simply comment out the lines below and the camera will center at (0,0)
+    let visual_center_x = advance_width / 2.0;
+    
+    // For vertical centering, use the font metrics to find the visual center
+    // Most Latin lowercase letters have their visual center around 200-300 units from baseline
+    let visual_center_y = if let Some(state) = &fontir_state {
+        // Try to get x-height or use a reasonable estimate for lowercase 'a'
+        // The visual center of 'a' is typically around 250 units above baseline
+        250.0
+    } else {
+        250.0 // Default estimate for lowercase 'a'
+    };
+    
+    // Insert a marker resource to trigger camera centering in the next frame
+    commands.insert_resource(CenterCameraOnDefaultSort {
+        center_x: visual_center_x,
+        center_y: visual_center_y,
+        advance_width,
+    });
+    
+    info!("Camera will center on default sort at ({}, {}) (advance width: {})", 
+          visual_center_x, visual_center_y, advance_width);
+}
+
+/// System to center the camera on the default sort after it's created
+/// This runs once and then removes the resource
+pub fn center_camera_on_default_sort(
+    mut commands: Commands,
+    center_resource: Option<Res<CenterCameraOnDefaultSort>>,
+    mut camera_query: Query<&mut Transform, With<crate::rendering::cameras::DesignCamera>>,
+) {
+    if let Some(center) = center_resource {
+        // Center the camera on the visual center of the default sort
+        for mut transform in camera_query.iter_mut() {
+            // Move camera to center on the glyph's visual center
+            // The glyph is at (0,0) but its visual center is offset for better viewing
+            transform.translation.x = center.center_x;
+            transform.translation.y = center.center_y;
+            
+            info!("Centered camera on default sort at ({}, {}) (advance width: {})", 
+                  center.center_x, center.center_y, center.advance_width);
+        }
+        
+        // Remove the resource so this only happens once
+        commands.remove_resource::<CenterCameraOnDefaultSort>();
+    }
 }
 
