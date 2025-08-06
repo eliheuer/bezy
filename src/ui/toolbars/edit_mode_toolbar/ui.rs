@@ -109,7 +109,7 @@ fn create_toolbar_container() -> impl Bundle {
     Node {
         position_type: PositionType::Absolute,
         top: Val::Px(TOOLBAR_CONTAINER_MARGIN),
-        left: Val::Px(TOOLBAR_CONTAINER_MARGIN),
+        right: Val::Px(TOOLBAR_CONTAINER_MARGIN),
         flex_direction: FlexDirection::Row,
         padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),
         margin: UiRect::all(Val::ZERO),
