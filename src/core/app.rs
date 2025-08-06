@@ -14,7 +14,7 @@ use crate::rendering::{
     SortHandleRenderingPlugin, UnifiedGlyphEditingPlugin,
 };
 use crate::systems::{
-    exit_on_esc, load_fontir_font, BezySystems, CommandsPlugin,
+    exit_on_esc, load_fontir_font, create_default_sort, BezySystems, CommandsPlugin,
     InputConsumerPlugin, TextShapingPlugin, UiInteractionPlugin,
 };
 use crate::ui::hud::HudPlugin;
@@ -186,6 +186,6 @@ fn add_plugin_groups(app: &mut App) {
 
 /// Add startup and exit systems
 fn add_startup_and_exit_systems(app: &mut App) {
-    app.add_systems(Startup, load_fontir_font)
+    app.add_systems(Startup, (load_fontir_font, create_default_sort).chain())
         .add_systems(Update, exit_on_esc);
 }

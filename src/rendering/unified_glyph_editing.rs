@@ -94,6 +94,8 @@ pub fn render_unified_glyph_editing(
     app_state: Option<Res<crate::core::state::AppState>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     existing_elements: Query<Entity, With<UnifiedGlyphElement>>,
+    // Debug: Check entities with just SortPointEntity
+    existing_sort_points: Query<Entity, With<SortPointEntity>>,
     theme: Res<CurrentTheme>,
 ) {
     // PERFORMANCE: Early exit if no sorts to render
@@ -105,7 +107,20 @@ pub fn render_unified_glyph_editing(
         return;
     }
     
-    info!("🎨 UNIFIED RENDERING EXECUTING: active_sorts={}, inactive_sorts={}", active_count, inactive_count);
+    let point_count = point_query.iter().count();
+    info!("🎨 UNIFIED RENDERING EXECUTING: active_sorts={}, inactive_sorts={}, points={}", active_count, inactive_count, point_count);
+    
+    // Debug: Check what components all entities with SortPointEntity have
+    if point_count == 0 && !existing_sort_points.is_empty() {
+        let all_sort_point_entities = existing_sort_points.iter().count();
+        info!("🔍 DEBUG: {} entities with SortPointEntity exist, but 0 match full point query - component mismatch!", all_sort_point_entities);
+        
+        // Let's see what the first few SortPointEntity entities actually have
+        for (i, entity) in existing_sort_points.iter().enumerate() {
+            if i >= 3 { break; } // Only check first 3 for debugging
+            info!("🔍 DEBUG: Entity {:?} has SortPointEntity", entity);
+        }
+    }
     
     if active_count == 0 && inactive_count == 0 {
         update_tracker.needs_update = false;
@@ -154,10 +169,15 @@ pub fn render_unified_glyph_editing(
 
         // Collect all points for this sort from the point query
         let mut sort_points = Vec::new();
+        let mut checked_points = 0;
+        let mut matching_points = 0;
+        
         for (point_entity, point_transform, point_ref, point_type, selected) in
             point_query.iter()
         {
+            checked_points += 1;
             if point_ref.glyph_name == sort.glyph_name {
+                matching_points += 1;
                 sort_points.push((
                     point_entity,
                     point_transform.translation.truncate(),
@@ -165,10 +185,16 @@ pub fn render_unified_glyph_editing(
                     point_type,
                     selected.is_some(),
                 ));
+            } else if checked_points <= 3 {
+                // Log first few mismatches for debugging
+                info!("🔍 GLYPH MISMATCH: Point glyph '{}' != sort glyph '{}'", point_ref.glyph_name, sort.glyph_name);
             }
         }
+        
+        info!("🔍 UNIFIED POINT COLLECTION: Sort '{}' found {}/{} matching points, sort_points.len()={}", sort.glyph_name, matching_points, checked_points, sort_points.len());
 
         if !sort_points.is_empty() {
+            info!("🎨 RENDERING COMPONENTS: {} points for sort '{}'", sort_points.len(), sort.glyph_name);
             // UNIFIED RENDERING: Render all components using the same live Transform data
 
             // 1. Render outlines using live Transform positions
@@ -208,6 +234,7 @@ pub fn render_unified_glyph_editing(
                 &theme,
             );
         } else {
+            info!("🚫 NO POINTS: Rendering static outline for sort '{}' (no points found)", sort.glyph_name);
             // No points visible, render static outline from FontIR/UFO data
             render_static_outline(
                 &mut commands,
@@ -1174,18 +1201,36 @@ fn detect_sort_changes(
     inactive_sort_query: Query<Entity, (With<crate::editing::sort::InactiveSort>, Or<(Changed<crate::editing::sort::InactiveSort>, Added<crate::editing::sort::InactiveSort>)>)>,
     removed_active: RemovedComponents<ActiveSort>,
     removed_inactive: RemovedComponents<crate::editing::sort::InactiveSort>,
+    // CRITICAL FIX: Also trigger updates when points are available for active sorts
+    point_query: Query<&crate::systems::sort_manager::SortPointEntity>,
+    buffer_active_sorts: Query<Entity, (With<ActiveSort>, With<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>)>,
 ) {
     let active_changed = !active_sort_query.is_empty();
     let inactive_changed = !inactive_sort_query.is_empty();
     let removed_active_count = removed_active.len();
     let removed_inactive_count = removed_inactive.len();
     
-    let needs_update = active_changed || inactive_changed || removed_active_count > 0 || removed_inactive_count > 0;
+    // CRITICAL FIX: Also check if active buffer sorts have points but visual update wasn't triggered
+    let mut points_ready_for_rendering = false;
+    for sort_entity in buffer_active_sorts.iter() {
+        let point_count = point_query.iter().filter(|point_parent| point_parent.sort_entity == sort_entity).count();
+        if point_count > 0 && !update_tracker.needs_update {
+            points_ready_for_rendering = true;
+            info!("🔄 POINTS READY: Sort {:?} has {} points but visual update not triggered", sort_entity, point_count);
+            break;
+        }
+    }
+    
+    let needs_update = active_changed || inactive_changed || removed_active_count > 0 || removed_inactive_count > 0 || points_ready_for_rendering;
     
     if needs_update {
         update_tracker.needs_update = true;
-        info!("🔄 SORT CHANGES DETECTED: Setting update flag - active_changed: {}, inactive_changed: {}, removed_active: {}, removed_inactive: {}", 
-              active_changed, inactive_changed, removed_active_count, removed_inactive_count);
+        if points_ready_for_rendering {
+            info!("🔄 POINTS READY DETECTED: Setting update flag for active sorts with existing points");
+        } else {
+            info!("🔄 SORT CHANGES DETECTED: Setting update flag - active_changed: {}, inactive_changed: {}, removed_active: {}, removed_inactive: {}", 
+                  active_changed, inactive_changed, removed_active_count, removed_inactive_count);
+        }
     }
 }
 

@@ -21,10 +21,34 @@ pub fn spawn_active_sort_points_optimized(
     mut commands: Commands,
     active_sort_query: Query<(Entity, &Sort, &Transform), With<ActiveSort>>,
     existing_points: Query<&PointSortParent>,
+    // Debug: Check if existing points have SortPointEntity component (needed for rendering)
+    existing_sort_points: Query<Entity, With<SortPointEntity>>,
     app_state: Option<Res<AppState>>,
     fontir_app_state: Option<Res<FontIRAppState>>,
+    // Debug: Check all buffer sorts
+    all_buffer_sorts: Query<(Entity, &Sort, &Transform, Option<&ActiveSort>), With<crate::systems::text_editor_sorts::sort_entities::BufferSortIndex>>,
+    // CRITICAL FIX: Trigger unified renderer update when points are spawned
+    mut visual_update_tracker: ResMut<crate::rendering::unified_glyph_editing::SortVisualUpdateTracker>,
 ) {
     let active_sort_count = active_sort_query.iter().count();
+    let total_buffer_sorts = all_buffer_sorts.iter().count();
+    let sort_point_count = existing_sort_points.iter().count();
+    
+    // Always log for debugging the default sort issue
+    info!(
+        "🔍 POINT SPAWN DEBUG: {} active sorts found, {} total buffer sorts, {} points with SortPointEntity",
+        active_sort_count, total_buffer_sorts, sort_point_count
+    );
+    
+    // Debug: Log all buffer sorts and their ActiveSort status
+    for (entity, sort, _transform, maybe_active) in all_buffer_sorts.iter() {
+        let is_active = maybe_active.is_some();
+        info!(
+            "🔍 BUFFER SORT DEBUG: Entity {:?}, glyph '{}', has ActiveSort: {}",
+            entity, sort.glyph_name, is_active
+        );
+    }
+    
     if active_sort_count > 0 {
         info!(
             "Point spawning system called: {} active sorts found",
@@ -34,10 +58,24 @@ pub fn spawn_active_sort_points_optimized(
 
     for (sort_entity, sort, transform) in active_sort_query.iter() {
         // Check if points already exist for this sort
-        let has_points =
-            existing_points.iter().any(|parent| parent.0 == sort_entity);
+        let existing_point_count = existing_points.iter().filter(|parent| parent.0 == sort_entity).count();
+        let has_points = existing_point_count > 0;
+        
+        info!(
+            "🔍 POINT CHECK: Sort {:?} glyph '{}' has {} existing points, skipping: {}",
+            sort_entity, sort.glyph_name, existing_point_count, has_points
+        );
+        
+        // Debug: Check what components the existing points have
+        for point_parent in existing_points.iter() {
+            if point_parent.0 == sort_entity {
+                info!("🔍 Existing point has PointSortParent({:?})", point_parent.0);
+                break; // Just check one example
+            }
+        }
+        
         if has_points {
-            debug!("Skipping point spawning for sort entity {:?} - points already exist", sort_entity);
+            info!("Skipping point spawning for sort entity {:?} - {} points already exist", sort_entity, existing_point_count);
             continue; // Skip if points already exist
         }
 
@@ -149,6 +187,12 @@ pub fn spawn_active_sort_points_optimized(
                     "FontIR: Spawned {} points for active sort '{}'",
                     point_count, sort.glyph_name
                 );
+                
+                // CRITICAL FIX: Trigger unified renderer update when points are spawned
+                if point_count > 0 {
+                    visual_update_tracker.needs_update = true;
+                    info!("🔄 TRIGGERED VISUAL UPDATE: Points spawned for sort '{}'", sort.glyph_name);
+                }
             } else {
                 warn!("FontIR: No paths found for glyph '{}'", sort.glyph_name);
             }
@@ -219,6 +263,12 @@ pub fn spawn_active_sort_points_optimized(
                         "UFO: Spawned {} points for active sort '{}'",
                         point_count, sort.glyph_name
                     );
+                    
+                    // CRITICAL FIX: Trigger unified renderer update when points are spawned
+                    if point_count > 0 {
+                        visual_update_tracker.needs_update = true;
+                        info!("🔄 TRIGGERED VISUAL UPDATE: Points spawned for sort '{}'", sort.glyph_name);
+                    }
                 } else {
                     warn!(
                         "UFO: No outline found for glyph '{}'",
