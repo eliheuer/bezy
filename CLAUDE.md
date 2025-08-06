@@ -296,3 +296,69 @@ gizmos.line_2d(start_pos, end_pos, color);
 ```
 
 This ensures consistent visual scaling and maintains the professional font editor experience at all zoom levels.
+
+## CRITICAL: Visual Flash Prevention Pattern
+
+### Problem: Visual Artifacts During State Transitions
+When developing UI systems that manage visual elements, a common issue is **visual flashing** during state transitions (e.g., when placing new sorts). This manifests as brief visual artifacts where elements appear distorted or cross-contaminated.
+
+### Root Cause: Every-Frame Rebuilding
+The issue typically stems from systems that rebuild ALL visual elements every frame:
+```rust
+// ❌ PROBLEMATIC: Every-frame nuclear approach
+fn render_system() {
+    // Despawn ALL elements every frame
+    for entity in existing_elements.iter() {
+        commands.entity(entity).despawn();
+    }
+    // Rebuild everything from scratch
+    spawn_all_elements();
+}
+```
+
+This creates a 1-frame gap where elements are despawned but not yet respawned, causing visual artifacts.
+
+### Solution: Change-Detection Based Updates
+Use Bevy's change detection to only rebuild when actually needed:
+
+```rust
+// ✅ CORRECT: Change-detection based approach
+#[derive(Resource, Default)]
+pub struct VisualUpdateTracker {
+    pub needs_update: bool,
+}
+
+fn detect_changes(
+    mut tracker: ResMut<VisualUpdateTracker>,
+    changed_query: Query<Entity, (With<SomeComponent>, Changed<SomeComponent>)>,
+) {
+    if !changed_query.is_empty() {
+        tracker.needs_update = true;
+    }
+}
+
+fn render_system(mut tracker: ResMut<VisualUpdateTracker>) {
+    // Only rebuild when actually needed
+    if !tracker.needs_update {
+        return; // Early exit prevents unnecessary rebuilding
+    }
+    tracker.needs_update = false;
+    
+    // Rebuild elements atomically
+    rebuild_visual_elements();
+}
+```
+
+### Key Benefits:
+- **Eliminates Visual Flash**: Elements only update when necessary
+- **Better Performance**: Avoids expensive every-frame rebuilding
+- **Atomic Updates**: Changes happen in a single frame when needed
+- **Maintains Responsiveness**: Still updates immediately when state changes
+
+### Implementation Notes:
+- Use `.chain()` to ensure change detection runs before rendering
+- Track state with dedicated resources rather than every-frame queries
+- Leverage `Changed<T>`, `Added<T>`, and `RemovedComponents<T>` for precise change detection
+- Consider this pattern for any system managing dynamic visual elements
+
+This pattern is essential for maintaining professional-quality UI responsiveness without visual artifacts.
