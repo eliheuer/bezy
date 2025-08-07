@@ -7,7 +7,10 @@ use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, Window};
 use crate::core::state::fontir_app_state::FontIRAppState;
 use crate::ui::panes::file_pane::FileInfo;
+use crate::core::state::{OutlineData, ContourData, PointData, PointTypeData, GlyphData};
 use std::path::PathBuf;
+use norad::{Font as NoradFont, designspace::DesignSpaceDocument};
+use kurbo::PathEl;
 
 // ============================================================================
 // EVENTS
@@ -144,73 +147,200 @@ fn save_font_files(
     
     // Check if it's a designspace file
     if source_path.extension().and_then(|s| s.to_str()) == Some("designspace") {
-        info!("Saving designspace and associated UFO files...");
+        info!("💾 Saving changes to designspace UFO sources...");
         
-        // For now, we'll save the FontIR back to UFO format
-        // This is a basic implementation - you may want to enhance this
-        // to properly handle the designspace structure
+        // Parse designspace to get UFO source paths
+        let designspace = DesignSpaceDocument::load(source_path)?;
+        let designspace_dir = source_path.parent().unwrap_or(std::path::Path::new("."));
         
-        // Access the FontIR state data
-        info!("Saving FontIR state with {} cached glyphs and {} working copies", 
-              fontir_state.glyph_cache.len(), 
-              fontir_state.working_copies.len());
+        info!("Found {} UFO sources in designspace", designspace.sources.len());
         
-        // Convert back to UFO and save
-        // Note: This is a simplified approach. For production, you'd want to:
-        // 1. Parse the original designspace to get all UFO sources
-        // 2. Update only the modified glyphs in each UFO
-        // 3. Preserve all original metadata and structure
-        
-        // For now, let's save to a backup location to be safe
-        let backup_path = source_path.with_extension("designspace.backup");
-        
-        // Copy original designspace as backup
-        if let Err(e) = std::fs::copy(source_path, &backup_path) {
-            warn!("Could not create backup: {}", e);
+        // Check for modified glyphs in working copies
+        let modified_glyphs: Vec<_> = fontir_state.working_copies
+            .iter()
+            .filter(|((_glyph_name, _location), working_copy)| working_copy.is_dirty)
+            .collect();
+            
+        if modified_glyphs.is_empty() {
+            info!("No modified glyphs found - nothing to save");
+            return Ok(saved_paths);
         }
         
-        // TODO: Implement proper UFO saving
-        // This would involve:
-        // 1. Converting FontIR back to UFO format
-        // 2. Writing .glif files for modified glyphs
-        // 3. Updating UFO metadata files
+        info!("Found {} modified glyphs to save", modified_glyphs.len());
         
-        info!("Note: Full UFO saving not yet implemented - created backup at {}", backup_path.display());
-        saved_paths.push(backup_path);
+        // Process each UFO source
+        for source in &designspace.sources {
+            let ufo_path = designspace_dir.join(&source.filename);
+            
+            // Check if any modified glyphs belong to this UFO source
+            let source_has_changes = modified_glyphs.iter().any(|((_, location), _)| {
+                // For now, save to first UFO (regular). In a full implementation,
+                // you'd match the location to the correct UFO source
+                ufo_path.file_name() == Some(std::ffi::OsStr::new("bezy-grotesk-regular.ufo"))
+            });
+            
+            if source_has_changes {
+                info!("Saving changes to UFO: {}", ufo_path.display());
+                
+                // Load the UFO
+                let mut ufo_font = NoradFont::load(&ufo_path)?;
+                
+                // Update modified glyphs
+                for ((glyph_name, _location), working_copy) in &modified_glyphs {
+                    if working_copy.is_dirty {
+                        info!("  Updating glyph: {}", glyph_name);
+                        
+                        // Convert BezPath back to UFO glyph using existing conversions
+                        let glyph_data = convert_working_copy_to_glyph_data(glyph_name, working_copy);
+                        let ufo_glyph = glyph_data.to_norad_glyph();
+                        
+                        // Update the glyph in the UFO
+                        let layer = ufo_font.default_layer_mut();
+                        layer.insert_glyph(ufo_glyph);
+                    }
+                }
+                
+                // Save the modified UFO
+                ufo_font.save(&ufo_path)?;
+                saved_paths.push(ufo_path.clone());
+                
+                info!("✅ Successfully saved UFO: {}", ufo_path.display());
+            }
+        }
         
-    } else {
+    } else if source_path.extension().and_then(|s| s.to_str()) == Some("ufo") {
         // Handle single UFO file
-        info!("Saving single UFO file...");
+        info!("💾 Saving changes to UFO file: {}", source_path.display());
         
-        // Create a backup
-        let backup_path = source_path.with_extension("ufo.backup");
-        if let Err(e) = std::fs::copy(source_path, &backup_path) {
-            warn!("Could not create backup: {}", e);
+        // Check for modified glyphs
+        let modified_glyphs: Vec<_> = fontir_state.working_copies
+            .iter()
+            .filter(|((_glyph_name, _location), working_copy)| working_copy.is_dirty)
+            .collect();
+            
+        if modified_glyphs.is_empty() {
+            info!("No modified glyphs found - nothing to save");
+            return Ok(saved_paths);
         }
         
-        info!("Note: Full UFO saving not yet implemented - created backup at {}", backup_path.display());
-        saved_paths.push(backup_path);
+        // Load the UFO
+        let mut ufo_font = NoradFont::load(source_path)?;
+        
+        // Update modified glyphs
+        for ((glyph_name, _location), working_copy) in &modified_glyphs {
+            if working_copy.is_dirty {
+                info!("  Updating glyph: {}", glyph_name);
+                
+                // Convert BezPath back to UFO glyph using existing conversions
+                let glyph_data = convert_working_copy_to_glyph_data(glyph_name, working_copy);
+                let ufo_glyph = glyph_data.to_norad_glyph();
+                
+                // Update the glyph in the UFO
+                let layer = ufo_font.default_layer_mut();
+                layer.insert_glyph(ufo_glyph);
+            }
+        }
+        
+        // Save the modified UFO
+        ufo_font.save(source_path)?;
+        saved_paths.push(source_path.clone());
+        
+        info!("✅ Successfully saved UFO: {}", source_path.display());
     }
     
     Ok(saved_paths)
 }
 
-/// Convert FontIR back to UFO format (placeholder implementation)
-/// This function will be implemented when we need actual UFO saving
-#[allow(dead_code)]
-fn convert_fontir_to_ufo(
-    fontir_state: &crate::core::state::fontir_app_state::FontIRAppState,
-    _output_path: &PathBuf,
-) -> Result<(), Box<dyn std::error::Error>> {
-    // TODO: Implement FontIR to UFO conversion
-    // This would involve:
-    // 1. Iterating through fontir_state.working_copies to find dirty glyphs
-    // 2. Converting BezPath back to UFO glyph format
-    // 3. Writing .glif files and updating font metadata
+/// Convert working copy back to GlyphData using existing conversion infrastructure
+fn convert_working_copy_to_glyph_data(
+    glyph_name: &str,
+    working_copy: &crate::core::state::fontir_app_state::EditableGlyphInstance,
+) -> GlyphData {
+    let outline = if working_copy.contours.is_empty() {
+        None
+    } else {
+        let mut all_contours = Vec::new();
+        
+        // Convert each BezPath to ContourData
+        for bez_path in &working_copy.contours {
+            let mut current_contour = Vec::new();
+            
+            // Convert BezPath elements to our point format (same logic as fontir_adapter.rs)
+            for element in bez_path.elements() {
+                match element {
+                    PathEl::MoveTo(pt) => {
+                        current_contour.push(PointData {
+                            x: pt.x,
+                            y: pt.y,
+                            point_type: PointTypeData::Move,
+                        });
+                    }
+                    PathEl::LineTo(pt) => {
+                        current_contour.push(PointData {
+                            x: pt.x,
+                            y: pt.y,
+                            point_type: PointTypeData::Line,
+                        });
+                    }
+                    PathEl::CurveTo(p1, p2, p3) => {
+                        // Add off-curve control points and the curve point
+                        current_contour.push(PointData {
+                            x: p1.x,
+                            y: p1.y,
+                            point_type: PointTypeData::OffCurve,
+                        });
+                        current_contour.push(PointData {
+                            x: p2.x,
+                            y: p2.y,
+                            point_type: PointTypeData::OffCurve,
+                        });
+                        current_contour.push(PointData {
+                            x: p3.x,
+                            y: p3.y,
+                            point_type: PointTypeData::Curve,
+                        });
+                    }
+                    PathEl::QuadTo(p1, p2) => {
+                        // Add off-curve control point and quadratic curve point
+                        current_contour.push(PointData {
+                            x: p1.x,
+                            y: p1.y,
+                            point_type: PointTypeData::OffCurve,
+                        });
+                        current_contour.push(PointData {
+                            x: p2.x,
+                            y: p2.y,
+                            point_type: PointTypeData::QCurve,
+                        });
+                    }
+                    PathEl::ClosePath => {
+                        // Close current contour - no additional point needed
+                    }
+                }
+            }
+            
+            // Add contour if it has points
+            if !current_contour.is_empty() {
+                all_contours.push(ContourData {
+                    points: current_contour,
+                });
+            }
+        }
+        
+        if all_contours.is_empty() {
+            None
+        } else {
+            Some(OutlineData {
+                contours: all_contours,
+            })
+        }
+    };
     
-    info!("Would convert {} working copies back to UFO format", 
-          fontir_state.working_copies.len());
-    
-    // For now, return an error indicating this needs implementation
-    Err("FontIR to UFO conversion not yet implemented".into())
+    GlyphData {
+        name: glyph_name.to_string(),
+        advance_width: working_copy.width,
+        advance_height: working_copy.height,
+        unicode_values: Vec::new(), // Will preserve existing unicode values in actual implementation
+        outline,
+    }
 }

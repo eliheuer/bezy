@@ -205,8 +205,16 @@ The toolbar system uses a plugin-based architecture. New editing tools can be ad
 2. Adding plugin registration in the toolbar module
 3. Tools automatically appear in UI with proper ordering
 
-### Font Loading
-UFO fonts are loaded through the `data::ufo` module which uses the Norad library for parsing and the workspace system for file management.
+### Font Loading and Saving
+**CRITICAL: Always use Norad for UFO operations.** UFO fonts are loaded and saved exclusively through the Norad library:
+
+- **Loading**: Use `norad::Font::load(path)` for all UFO file loading
+- **Saving**: Use `font.save(path)` with proper glyph updates via `layer.insert_glyph()`
+- **Never bypass Norad**: All UFO reading/writing must go through Norad to ensure format compliance
+- **Glyph updates**: Use `font.default_layer_mut().insert_glyph(glyph)` to update glyphs
+- **Conversion pattern**: FontIR BezPath → GlyphData → norad::Glyph → UFO file
+
+UFO loading is handled through the `data::ufo` module, while saving is implemented in the file menu system.
 
 ### Selection System
 Point selection uses coordinate-based hit testing with visual feedback. The selection system supports:
