@@ -9,6 +9,7 @@ use crate::systems::text_editor_sorts::sort_entities::BufferSortEntities;
 use crate::ui::theme::*;
 use crate::ui::themes::{CurrentTheme, UiBorderRadius};
 use bevy::prelude::*;
+use bevy::window::{PrimaryWindow, Window, WindowMode};
 use norad::designspace::DesignSpaceDocument;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -307,15 +308,49 @@ pub fn spawn_file_pane(
 fn update_file_info(
     fontir_state: Option<Res<FontIRAppState>>,
     mut file_info: ResMut<FileInfo>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
     if let Some(state) = fontir_state {
+        // Check if we should show full path (fullscreen or large window)
+        let show_full_path = windows
+            .get_single()
+            .ok()
+            .map(|window| {
+                let is_fullscreen = window.mode != bevy::window::WindowMode::Windowed;
+                let is_wide = window.width() > 1200.0;
+                
+                // Debug logging
+                if file_info.is_changed() {
+                    info!("Window mode: {:?}, Width: {}, Show full path: {}", 
+                          window.mode, window.width(), is_fullscreen || is_wide);
+                }
+                
+                // Show full path if:
+                // 1. Window is in fullscreen mode, OR
+                // 2. Window width is greater than 1200 pixels (large enough to show full path)
+                is_fullscreen || is_wide
+            })
+            .unwrap_or(false);
+
         // Update designspace path
-        if let Some(_path_str) = state.source_path.to_str() {
-            let filename = state.source_path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("Unknown");
-            file_info.designspace_path = filename.to_string();
+        if let Some(path_str) = state.source_path.to_str() {
+            if show_full_path {
+                // In fullscreen: show full path with ~/ notation
+                let home_dir = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+                let full_path = if path_str.starts_with(&home_dir) {
+                    format!("~{}", &path_str[home_dir.len()..])
+                } else {
+                    path_str.to_string()
+                };
+                file_info.designspace_path = full_path;
+            } else {
+                // In windowed mode: show just the filename
+                let filename = state.source_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("Unknown");
+                file_info.designspace_path = filename.to_string();
+            }
         }
 
         // Load UFO masters from designspace file
