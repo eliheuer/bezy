@@ -375,7 +375,7 @@ fn create_mesh_cursor(
     camera_scale: &crate::rendering::camera_responsive::CameraResponsiveScale,
 ) {
     let outline_width = camera_scale.adjusted_line_width();
-    let cursor_width = outline_width * 4.0; // 4x the outline width
+    let cursor_width = outline_width * 2.0; // 2x the outline width (reduced by half)
     let circle_size = cursor_width * 4.0;
 
     // Create main vertical line mesh
