@@ -1,5 +1,6 @@
 //! User interface modules for the Bezy font editor
 
+pub mod file_menu;
 pub mod hud;
 pub mod panes;
 pub mod text_editor;

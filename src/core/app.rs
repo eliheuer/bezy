@@ -22,6 +22,7 @@ use crate::ui::panes::coord_pane::CoordinatePanePlugin;
 use crate::ui::panes::design_space::DesignSpacePlugin;
 use crate::ui::panes::file_pane::FilePanePlugin;
 use crate::ui::panes::glyph_pane::GlyphPanePlugin;
+use crate::ui::file_menu::FileMenuPlugin;
 use crate::ui::theme::CurrentTheme;
 #[cfg(debug_assertions)]
 use crate::ui::themes::runtime_reload::RuntimeThemePlugin;
@@ -83,6 +84,7 @@ impl PluginGroup for EditorPluginGroup {
             .add(GlyphPanePlugin)
             .add(CoordinatePanePlugin)
             .add(EditModeToolbarPlugin)
+            .add(FileMenuPlugin)
             .add(HudPlugin)
             // Add clean tools plugin and supporting plugins
             .add(crate::tools::CleanToolsPlugin)
