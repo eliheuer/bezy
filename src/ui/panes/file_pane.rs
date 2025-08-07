@@ -288,7 +288,7 @@ pub fn spawn_file_pane(
                     ));
                     // Value
                     row.spawn((
-                        Text::new("Not yet"),
+                        Text::new("unsaved"),
                         TextFont {
                             font: asset_server.load(MONO_FONT_PATH),
                             font_size: WIDGET_TEXT_FONT_SIZE,
@@ -500,7 +500,7 @@ fn update_file_display(
             let datetime: DateTime<Local> = save_time.into();
             datetime.format("%Y-%m-%d %H:%M:%S").to_string()
         } else {
-            "Not yet".to_string()
+            "unsaved".to_string()
         };
         *text = Text::new(saved_text);
     }
