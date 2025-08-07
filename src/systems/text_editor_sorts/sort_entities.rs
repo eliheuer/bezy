@@ -503,8 +503,15 @@ pub fn despawn_missing_buffer_sort_entities(
 
     // Remove entities for buffer indices that no longer exist
     let mut to_remove = Vec::new();
+    let mut despawn_operations = 0;
+    const MAX_DESPAWN_PER_FRAME: usize = 50; // Limit to prevent command queue overflow
 
     for (&buffer_index, &entity) in buffer_entities.entities.iter() {
+        // Break early if we've hit our despawn limit for this frame
+        if despawn_operations >= MAX_DESPAWN_PER_FRAME {
+            info!("⚠️ Reached despawn limit ({}) for this frame - will continue next frame", MAX_DESPAWN_PER_FRAME);
+            break;
+        }
         // Check if this buffer index still exists in the actual buffer
         if buffer_index >= text_editor_state.buffer.len() {
             // Buffer index no longer exists, despawn entity
@@ -522,6 +529,7 @@ pub fn despawn_missing_buffer_sort_entities(
                     for &element_entity in element_entities.iter() {
                         commands.entity(element_entity).despawn();
                         unified_count += 1;
+                        despawn_operations += 1;
                     }
                 }
 
@@ -530,6 +538,7 @@ pub fn despawn_missing_buffer_sort_entities(
                     if unified_element.sort_entity == entity {
                         commands.entity(unified_entity).despawn();
                         unified_count += 1;
+                        despawn_operations += 1;
                     }
                 }
 
@@ -540,19 +549,13 @@ pub fn despawn_missing_buffer_sort_entities(
                         if sort_point.sort_entity == entity {
                             commands.entity(point_entity).despawn();
                             point_count += 1;
+                            despawn_operations += 1;
                         }
                     }
                 }
 
-                // Despawn all metrics line entities associated with this sort
+                // Initialize metrics count for later cleanup
                 let mut metrics_count = 0;
-                if let Some(line_entities) = metrics_entities.lines.get(&entity)
-                {
-                    for &line_entity in line_entities.iter() {
-                        commands.entity(line_entity).despawn();
-                        metrics_count += 1;
-                    }
-                }
 
                 // Despawn all sort label text entities associated with this sort
                 let mut label_count = 0;
@@ -562,6 +565,7 @@ pub fn despawn_missing_buffer_sort_entities(
                     if name_text.sort_entity == entity {
                         commands.entity(text_entity).despawn();
                         label_count += 1;
+                        despawn_operations += 1;
                     }
                 }
 
@@ -572,6 +576,7 @@ pub fn despawn_missing_buffer_sort_entities(
                     if unicode_text.sort_entity == entity {
                         commands.entity(text_entity).despawn();
                         label_count += 1;
+                        despawn_operations += 1;
                     }
                 }
 
@@ -581,11 +586,12 @@ pub fn despawn_missing_buffer_sort_entities(
                     for &handle_entity in handle_entity_list.iter() {
                         commands.entity(handle_entity).despawn();
                         handle_count += 1;
+                        despawn_operations += 1;
                     }
                 }
 
-                info!("🗑️ Despawned {} unified elements, {} point entities, {} metrics line entities, {} label entities, and {} handle entities for sort {:?}", 
-                      unified_count, point_count, metrics_count, label_count, handle_count, entity);
+                info!("🗑️ Despawned {} unified elements, {} point entities, {} metrics line entities, {} label entities, and {} handle entities for sort {:?} (total operations: {})", 
+                      unified_count, point_count, metrics_count, label_count, handle_count, entity, despawn_operations);
 
                 // Remove from unified tracking
                 unified_entities.elements.remove(&entity);
@@ -601,6 +607,7 @@ pub fn despawn_missing_buffer_sort_entities(
                         info!("🗑️ Despawning metrics entity {:?}", metrics_entity);
                         commands.entity(metrics_entity).despawn();
                         metrics_count += 1;
+                        despawn_operations += 1;
                     }
                 } else {
                     info!(
@@ -617,6 +624,7 @@ pub fn despawn_missing_buffer_sort_entities(
 
                 // Finally, despawn the sort entity itself
                 commands.entity(entity).despawn();
+                despawn_operations += 1;
                 to_remove.push(buffer_index);
             } else {
                 warn!("Entity {:?} for buffer index {} already despawned or invalid", entity, buffer_index);
@@ -632,6 +640,11 @@ pub fn despawn_missing_buffer_sort_entities(
     for index in to_remove {
         buffer_entities.entities.remove(&index);
         info!("🗑️ Removed buffer index {} from entity tracking", index);
+    }
+    
+    // Log final summary
+    if despawn_operations > 0 {
+        info!("📊 despawn_missing_buffer_sort_entities: Completed {} total despawn operations this frame (despawned {} sorts)", despawn_operations, despawn_count);
     }
 
     if despawn_count > 0 {
