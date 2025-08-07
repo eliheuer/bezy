@@ -7,7 +7,7 @@ use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, Window};
 use crate::core::state::fontir_app_state::FontIRAppState;
 use crate::ui::panes::file_pane::FileInfo;
-use crate::core::state::{OutlineData, ContourData, PointData, PointTypeData, GlyphData};
+// Note: Removed unused imports - we now preserve original glyph data
 use std::path::PathBuf;
 use norad::{Font as NoradFont, designspace::DesignSpaceDocument};
 use kurbo::PathEl;
@@ -190,13 +190,24 @@ fn save_font_files(
                     if working_copy.is_dirty {
                         info!("  Updating glyph: {}", glyph_name);
                         
-                        // Convert BezPath back to UFO glyph using existing conversions
-                        let glyph_data = convert_working_copy_to_glyph_data(glyph_name, working_copy);
-                        let ufo_glyph = glyph_data.to_norad_glyph();
-                        
-                        // Update the glyph in the UFO
+                        // Preserve original glyph and only update outline
                         let layer = ufo_font.default_layer_mut();
-                        layer.insert_glyph(ufo_glyph);
+                        if let Some(existing_glyph) = layer.get_glyph_mut(glyph_name) {
+                            // Update only the outline and width, preserve everything else (anchors, unicode, etc.)
+                            existing_glyph.width = working_copy.width;
+                            if let Some(height) = working_copy.height {
+                                existing_glyph.height = height;
+                            }
+                            
+                            // Convert BezPaths back to UFO contours
+                            existing_glyph.contours.clear();
+                            for bez_path in &working_copy.contours {
+                                let contour = convert_bezpath_to_ufo_contour(bez_path);
+                                existing_glyph.contours.push(contour);
+                            }
+                        } else {
+                            warn!("Glyph {} not found in UFO, skipping update", glyph_name);
+                        }
                     }
                 }
                 
@@ -231,13 +242,24 @@ fn save_font_files(
             if working_copy.is_dirty {
                 info!("  Updating glyph: {}", glyph_name);
                 
-                // Convert BezPath back to UFO glyph using existing conversions
-                let glyph_data = convert_working_copy_to_glyph_data(glyph_name, working_copy);
-                let ufo_glyph = glyph_data.to_norad_glyph();
-                
-                // Update the glyph in the UFO
+                // Preserve original glyph and only update outline
                 let layer = ufo_font.default_layer_mut();
-                layer.insert_glyph(ufo_glyph);
+                if let Some(existing_glyph) = layer.get_glyph_mut(glyph_name) {
+                    // Update only the outline and width, preserve everything else (anchors, unicode, etc.)
+                    existing_glyph.width = working_copy.width;
+                    if let Some(height) = working_copy.height {
+                        existing_glyph.height = height;
+                    }
+                    
+                    // Convert BezPaths back to UFO contours
+                    existing_glyph.contours.clear();
+                    for bez_path in &working_copy.contours {
+                        let contour = convert_bezpath_to_ufo_contour(bez_path);
+                        existing_glyph.contours.push(contour);
+                    }
+                } else {
+                    warn!("Glyph {} not found in UFO, skipping update", glyph_name);
+                }
             }
         }
         
@@ -251,96 +273,51 @@ fn save_font_files(
     Ok(saved_paths)
 }
 
-/// Convert working copy back to GlyphData using existing conversion infrastructure
-fn convert_working_copy_to_glyph_data(
-    glyph_name: &str,
-    working_copy: &crate::core::state::fontir_app_state::EditableGlyphInstance,
-) -> GlyphData {
-    let outline = if working_copy.contours.is_empty() {
-        None
-    } else {
-        let mut all_contours = Vec::new();
-        
-        // Convert each BezPath to ContourData
-        for bez_path in &working_copy.contours {
-            let mut current_contour = Vec::new();
-            
-            // Convert BezPath elements to our point format (same logic as fontir_adapter.rs)
-            for element in bez_path.elements() {
-                match element {
-                    PathEl::MoveTo(pt) => {
-                        current_contour.push(PointData {
-                            x: pt.x,
-                            y: pt.y,
-                            point_type: PointTypeData::Move,
-                        });
-                    }
-                    PathEl::LineTo(pt) => {
-                        current_contour.push(PointData {
-                            x: pt.x,
-                            y: pt.y,
-                            point_type: PointTypeData::Line,
-                        });
-                    }
-                    PathEl::CurveTo(p1, p2, p3) => {
-                        // Add off-curve control points and the curve point
-                        current_contour.push(PointData {
-                            x: p1.x,
-                            y: p1.y,
-                            point_type: PointTypeData::OffCurve,
-                        });
-                        current_contour.push(PointData {
-                            x: p2.x,
-                            y: p2.y,
-                            point_type: PointTypeData::OffCurve,
-                        });
-                        current_contour.push(PointData {
-                            x: p3.x,
-                            y: p3.y,
-                            point_type: PointTypeData::Curve,
-                        });
-                    }
-                    PathEl::QuadTo(p1, p2) => {
-                        // Add off-curve control point and quadratic curve point
-                        current_contour.push(PointData {
-                            x: p1.x,
-                            y: p1.y,
-                            point_type: PointTypeData::OffCurve,
-                        });
-                        current_contour.push(PointData {
-                            x: p2.x,
-                            y: p2.y,
-                            point_type: PointTypeData::QCurve,
-                        });
-                    }
-                    PathEl::ClosePath => {
-                        // Close current contour - no additional point needed
-                    }
-                }
-            }
-            
-            // Add contour if it has points
-            if !current_contour.is_empty() {
-                all_contours.push(ContourData {
-                    points: current_contour,
-                });
-            }
-        }
-        
-        if all_contours.is_empty() {
-            None
-        } else {
-            Some(OutlineData {
-                contours: all_contours,
-            })
-        }
-    };
+/// Convert BezPath directly to norad Contour
+fn convert_bezpath_to_ufo_contour(bez_path: &kurbo::BezPath) -> norad::Contour {
+    let mut points = Vec::new();
     
-    GlyphData {
-        name: glyph_name.to_string(),
-        advance_width: working_copy.width,
-        advance_height: working_copy.height,
-        unicode_values: Vec::new(), // Will preserve existing unicode values in actual implementation
-        outline,
+    // Convert BezPath elements to UFO points
+    for element in bez_path.elements() {
+        match element {
+            PathEl::MoveTo(pt) => {
+                points.push(norad::ContourPoint::new(
+                    pt.x, pt.y, norad::PointType::Move, false, None, None
+                ));
+            }
+            PathEl::LineTo(pt) => {
+                points.push(norad::ContourPoint::new(
+                    pt.x, pt.y, norad::PointType::Line, false, None, None
+                ));
+            }
+            PathEl::CurveTo(cp1, cp2, pt) => {
+                // Add control points
+                points.push(norad::ContourPoint::new(
+                    cp1.x, cp1.y, norad::PointType::OffCurve, false, None, None
+                ));
+                points.push(norad::ContourPoint::new(
+                    cp2.x, cp2.y, norad::PointType::OffCurve, false, None, None
+                ));
+                // Add curve point
+                points.push(norad::ContourPoint::new(
+                    pt.x, pt.y, norad::PointType::Curve, false, None, None
+                ));
+            }
+            PathEl::QuadTo(cp, pt) => {
+                // Add control point
+                points.push(norad::ContourPoint::new(
+                    cp.x, cp.y, norad::PointType::OffCurve, false, None, None
+                ));
+                // Add quadratic curve point  
+                points.push(norad::ContourPoint::new(
+                    pt.x, pt.y, norad::PointType::QCurve, false, None, None
+                ));
+            }
+            PathEl::ClosePath => {
+                // ClosePath is handled automatically by UFO format
+            }
+        }
     }
+    
+    norad::Contour::new(points, None)
 }

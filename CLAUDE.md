@@ -216,6 +216,12 @@ The toolbar system uses a plugin-based architecture. New editing tools can be ad
 
 UFO loading is handled through the `data::ufo` module, while saving is implemented in the file menu system.
 
+#### Known Compatibility Issues
+- **Glyphs.app UFO formatting**: UFOs saved by Glyphs.app may have anchor formatting that's incompatible with FontIR
+- **FontIR anchor requirements**: FontIR expects specific anchor data structure that may not match other UFO editors
+- **Error symptoms**: "Invalid anchor 'top': 'no value at default location'" indicates FontIR/Glyphs compatibility issue
+- **Workaround**: Use UFOs created/saved with norad or other FontIR-compatible tools
+
 ### Selection System
 Point selection uses coordinate-based hit testing with visual feedback. The selection system supports:
 - Single point selection
