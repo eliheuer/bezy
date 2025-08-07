@@ -13,6 +13,7 @@ use bevy::window::{PrimaryWindow, Window, WindowMode};
 use norad::designspace::DesignSpaceDocument;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
+use chrono::{DateTime, Local};
 
 // ============================================================================
 // DESIGN CONSTANTS
@@ -495,19 +496,9 @@ fn update_file_display(
     // Update last saved time
     if let Ok(mut text) = saved_query.single_mut() {
         let saved_text = if let Some(save_time) = file_info.last_saved {
-            match save_time.duration_since(UNIX_EPOCH) {
-                Ok(duration) => {
-                    let seconds = duration.as_secs();
-                    if seconds < 60 {
-                        format!("{}s ago", seconds)
-                    } else if seconds < 3600 {
-                        format!("{}m ago", seconds / 60)
-                    } else {
-                        format!("{}h ago", seconds / 3600)
-                    }
-                }
-                Err(_) => "Error".to_string(),
-            }
+            // Convert SystemTime to DateTime<Local> for human-readable formatting
+            let datetime: DateTime<Local> = save_time.into();
+            datetime.format("%Y-%m-%d %H:%M:%S").to_string()
         } else {
             "Not yet".to_string()
         };
