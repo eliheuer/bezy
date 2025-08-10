@@ -135,9 +135,9 @@ pub fn spawn_file_pane(
     // To match toolbar: position + 2px + 16px = 16px, so position = -2px
     // But we want some visible margin, so let's use a small positive offset
     let position = UiRect {
-        left: Val::Px(TOOLBAR_CONTAINER_MARGIN + 4.0), // Slight adjustment to better align
+        right: Val::Px(TOOLBAR_CONTAINER_MARGIN + 4.0), // Slight adjustment to better align
         top: Val::Px(TOOLBAR_CONTAINER_MARGIN + 4.0),  
-        right: Val::Auto,
+        left: Val::Auto,
         bottom: Val::Auto,
     };
 

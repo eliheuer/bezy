@@ -215,11 +215,11 @@ pub fn spawn_text_submenu(
         TextPlacementMode::Freeform,
     ];
 
-    // Create the parent submenu node (right-aligned to match main toolbar)
+    // Create the parent submenu node (left-aligned to match main toolbar)
     let submenu_node = Node {
         position_type: PositionType::Absolute,
         top: Val::Px(TOOLBAR_CONTAINER_MARGIN + 74.0),
-        right: Val::Px(TOOLBAR_CONTAINER_MARGIN),  // Changed from left to right
+        left: Val::Px(TOOLBAR_CONTAINER_MARGIN),  // Now on the left to match toolbar
         flex_direction: FlexDirection::Row,
         padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),
         margin: UiRect::all(Val::ZERO),
