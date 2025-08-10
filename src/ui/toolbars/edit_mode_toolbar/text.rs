@@ -788,7 +788,7 @@ pub fn handle_text_mode_keyboard(
             keyboard_input.clear_just_pressed(KeyCode::ArrowRight);
         }
         if keyboard_input.just_pressed(KeyCode::ArrowUp) {
-            text_editor_state.move_cursor_up();
+            text_editor_state.move_cursor_up_multiline();
             debug!(
                 "Text mode: moved cursor up to position {}",
                 text_editor_state.cursor_position
@@ -796,7 +796,7 @@ pub fn handle_text_mode_keyboard(
             keyboard_input.clear_just_pressed(KeyCode::ArrowUp);
         }
         if keyboard_input.just_pressed(KeyCode::ArrowDown) {
-            text_editor_state.move_cursor_down();
+            text_editor_state.move_cursor_down_multiline();
             debug!(
                 "Text mode: moved cursor down to position {}",
                 text_editor_state.cursor_position
@@ -844,6 +844,22 @@ pub fn handle_text_mode_keyboard(
                 text_editor_state.cursor_position
             );
             keyboard_input.clear_just_pressed(KeyCode::ArrowRight);
+        }
+        if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+            text_editor_state.move_cursor_up_multiline();
+            debug!(
+                "Insert mode: moved cursor up to position {}",
+                text_editor_state.cursor_position
+            );
+            keyboard_input.clear_just_pressed(KeyCode::ArrowUp);
+        }
+        if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+            text_editor_state.move_cursor_down_multiline();
+            debug!(
+                "Insert mode: moved cursor down to position {}",
+                text_editor_state.cursor_position
+            );
+            keyboard_input.clear_just_pressed(KeyCode::ArrowDown);
         }
         if keyboard_input.just_pressed(KeyCode::Home) {
             text_editor_state.move_cursor_to(0);
