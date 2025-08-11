@@ -50,6 +50,7 @@ pub struct FileInfo {
     pub designspace_path: String,
     pub current_ufo: String,
     pub last_saved: Option<SystemTime>,
+    pub last_exported: Option<SystemTime>,
     pub masters: Vec<UFOMaster>,
     pub current_master_index: usize,
 }
@@ -76,6 +77,9 @@ pub struct CurrentUFOText;
 
 #[derive(Component, Default)]
 pub struct LastSavedText;
+
+#[derive(Component, Default)]
+pub struct LastExportedText;
 
 /// Component for master selection buttons
 #[derive(Component)]
@@ -269,6 +273,7 @@ pub fn spawn_file_pane(
                 .spawn(Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
+                    margin: UiRect::bottom(Val::Px(ROW_SPACING)),
                     ..default()
                 })
                 .with_children(|row| {
@@ -296,6 +301,41 @@ pub fn spawn_file_pane(
                         },
                         TextColor(ON_CURVE_PRIMARY_COLOR),
                         LastSavedText,
+                    ));
+                });
+
+            // Last exported row
+            parent
+                .spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    ..default()
+                })
+                .with_children(|row| {
+                    // Label
+                    row.spawn((
+                        Node {
+                            margin: UiRect::right(Val::Px(LABEL_VALUE_SPACING)),
+                            ..default()
+                        },
+                        Text::new("Exported:"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(SECONDARY_TEXT_COLOR),
+                    ));
+                    // Value
+                    row.spawn((
+                        Text::new("never"),
+                        TextFont {
+                            font: asset_server.load(MONO_FONT_PATH),
+                            font_size: WIDGET_TEXT_FONT_SIZE,
+                            ..default()
+                        },
+                        TextColor(ON_CURVE_PRIMARY_COLOR),
+                        LastExportedText,
                     ));
                 });
         });
@@ -479,9 +519,10 @@ fn update_master_buttons(
 /// Updates the displayed file information
 fn update_file_display(
     file_info: Res<FileInfo>,
-    mut designspace_query: Query<&mut Text, (With<DesignspacePathText>, Without<CurrentUFOText>, Without<LastSavedText>)>,
-    mut ufo_query: Query<&mut Text, (With<CurrentUFOText>, Without<DesignspacePathText>, Without<LastSavedText>)>,
-    mut saved_query: Query<&mut Text, (With<LastSavedText>, Without<DesignspacePathText>, Without<CurrentUFOText>)>,
+    mut designspace_query: Query<&mut Text, (With<DesignspacePathText>, Without<CurrentUFOText>, Without<LastSavedText>, Without<LastExportedText>)>,
+    mut ufo_query: Query<&mut Text, (With<CurrentUFOText>, Without<DesignspacePathText>, Without<LastSavedText>, Without<LastExportedText>)>,
+    mut saved_query: Query<&mut Text, (With<LastSavedText>, Without<DesignspacePathText>, Without<CurrentUFOText>, Without<LastExportedText>)>,
+    mut exported_query: Query<&mut Text, (With<LastExportedText>, Without<DesignspacePathText>, Without<CurrentUFOText>, Without<LastSavedText>)>,
 ) {
     // Update designspace path
     if let Ok(mut text) = designspace_query.single_mut() {
@@ -503,6 +544,18 @@ fn update_file_display(
             "unsaved".to_string()
         };
         *text = Text::new(saved_text);
+    }
+
+    // Update last exported time
+    if let Ok(mut text) = exported_query.single_mut() {
+        let exported_text = if let Some(export_time) = file_info.last_exported {
+            // Convert SystemTime to DateTime<Local> for human-readable formatting
+            let datetime: DateTime<Local> = export_time.into();
+            datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+        } else {
+            "never".to_string()
+        };
+        *text = Text::new(exported_text);
     }
 }
 

@@ -13,6 +13,7 @@ lyon = "1.0"
 fontir = "0.2.1"
 ufo2fontir = "0.2.1"
 fontdrasil = "0.2.1"
+fontc = "0.3.0"
 smol_str = "0.2"
 anyhow = "1.0.86"
 spline = { git = "https://github.com/eliheuer/spline.git", rev = "229f7e7" }

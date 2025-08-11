@@ -20,6 +20,10 @@ use kurbo::PathEl;
 #[derive(Event)]
 pub struct SaveFileEvent;
 
+/// Event fired when the user triggers an export to TTF action
+#[derive(Event)]
+pub struct ExportTTFEvent;
+
 /// Resource to track the file menu state
 #[derive(Resource)]
 pub struct FileMenuState {
@@ -35,11 +39,13 @@ pub struct FileMenuPlugin;
 impl Plugin for FileMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<SaveFileEvent>()
+            .add_event::<ExportTTFEvent>()
             .insert_resource(FileMenuState { initialized: false })
             .add_systems(Startup, setup_file_menu)
             .add_systems(Update, (
                 handle_keyboard_shortcuts,
                 handle_save_file_events,
+                handle_export_ttf_events,
                 update_save_state,
             ));
     }
@@ -61,6 +67,7 @@ fn setup_file_menu(
         // Initialize keyboard-based file menu
         info!("✅ File menu initialized with cross-platform keyboard shortcuts:");
         info!("   💾 Save: Cmd+S (macOS) or Ctrl+S (Windows/Linux)");
+        info!("   📦 Export TTF: Cmd+E (macOS) or Ctrl+E (Windows/Linux)");
         info!("   ⚡ Reliable keyboard shortcuts work on all platforms");
         
         file_menu_state.initialized = true;
@@ -74,6 +81,7 @@ fn setup_file_menu(
 /// Handles keyboard shortcuts for file operations
 fn handle_keyboard_shortcuts(
     mut save_events: EventWriter<SaveFileEvent>,
+    mut export_events: EventWriter<ExportTTFEvent>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     file_menu_state: Res<FileMenuState>,
 ) {
@@ -90,6 +98,12 @@ fn handle_keyboard_shortcuts(
     if cmd_or_ctrl && keyboard_input.just_pressed(KeyCode::KeyS) {
         info!("💾 Save shortcut triggered (Cmd+S/Ctrl+S)");
         save_events.write(SaveFileEvent);
+    }
+    
+    // Handle Cmd+E (macOS) or Ctrl+E (Windows/Linux) for export
+    if cmd_or_ctrl && keyboard_input.just_pressed(KeyCode::KeyE) {
+        info!("📦 Export TTF shortcut triggered (Cmd+E/Ctrl+E)");
+        export_events.write(ExportTTFEvent);
     }
 }
 
@@ -320,4 +334,131 @@ fn convert_bezpath_to_ufo_contour(bez_path: &kurbo::BezPath) -> norad::Contour {
     }
     
     norad::Contour::new(points, None)
+}
+
+/// Handles export to TTF events
+fn handle_export_ttf_events(
+    mut export_events: EventReader<ExportTTFEvent>,
+    mut file_info: ResMut<FileInfo>,
+) {
+    for _ in export_events.read() {
+        if file_info.designspace_path.is_empty() {
+            warn!("Cannot export: No designspace file loaded");
+            continue;
+        }
+
+        info!("🚀 Starting TTF export from designspace: {}", file_info.designspace_path);
+        
+        // Get the directory of the designspace file
+        let designspace_path = PathBuf::from(&file_info.designspace_path);
+        let default_dir = PathBuf::from(".");
+        let output_dir = designspace_path.parent().unwrap_or(&default_dir);
+        
+        // Create temporary build directory
+        let build_dir = output_dir.join(".fontc-build");
+        if !build_dir.exists() {
+            if let Err(e) = std::fs::create_dir(&build_dir) {
+                error!("Failed to create build directory: {}", e);
+                return;
+            }
+        }
+        
+        // Load the designspace to understand what instances we expect
+        let ds = match DesignSpaceDocument::load(&designspace_path) {
+            Ok(ds) => ds,
+            Err(e) => {
+                error!("Failed to load designspace: {}", e);
+                return;
+            }
+        };
+        
+        info!("📋 Found {} instances in designspace", ds.instances.len());
+        for instance in &ds.instances {
+            let style_name = instance.stylename
+                .as_ref()
+                .map(|s| s.as_str())
+                .unwrap_or("Regular");
+            info!("   - {}", style_name);
+        }
+        
+        // Create input from the designspace path
+        let input = match fontc::Input::new(&designspace_path) {
+            Ok(input) => input,
+            Err(e) => {
+                error!("Failed to create fontc input: {}", e);
+                return;
+            }
+        };
+        
+        // Create compilation flags with default settings
+        let flags = fontc::Flags::default();
+        
+        // fontc generates all instances at once when given a designspace
+        // The output_file parameter is actually for variable fonts
+        // For static instances, fontc will generate files based on instance definitions
+        info!("🔨 Compiling font instances with fontc...");
+        
+        // Run fontc compilation - it will generate all instances
+        match fontc::generate_font(
+            &input,
+            &build_dir,
+            None, // Let fontc decide output names based on instances
+            flags,
+            false, // don't skip features
+        ) {
+            Ok(font_bytes) => {
+                // fontc returns the variable font bytes, but also writes instance files
+                info!("✅ Font compilation completed!");
+                
+                // Check what files were actually generated in the output directory
+                let mut exported_files = Vec::new();
+                if let Ok(entries) = std::fs::read_dir(&output_dir) {
+                    for entry in entries.flatten() {
+                        if let Some(ext) = entry.path().extension() {
+                            if ext == "ttf" || ext == "otf" {
+                                exported_files.push(entry.file_name());
+                            }
+                        }
+                    }
+                }
+                
+                // Also check the build directory for generated files
+                if let Ok(entries) = std::fs::read_dir(&build_dir) {
+                    for entry in entries.flatten() {
+                        if let Some(ext) = entry.path().extension() {
+                            if ext == "ttf" || ext == "otf" {
+                                // Move files from build dir to output dir
+                                let dest = output_dir.join(entry.file_name());
+                                if let Err(e) = std::fs::rename(entry.path(), &dest) {
+                                    // If rename fails (cross-filesystem), try copy
+                                    if let Err(e) = std::fs::copy(entry.path(), &dest) {
+                                        error!("Failed to move font file: {}", e);
+                                    }
+                                }
+                                exported_files.push(entry.file_name());
+                            }
+                        }
+                    }
+                }
+                
+                if !exported_files.is_empty() {
+                    info!("📁 Exported {} font file(s) to: {}", exported_files.len(), output_dir.display());
+                    for file in exported_files {
+                        info!("   - {}", file.to_string_lossy());
+                    }
+                    
+                    // Update the last exported time
+                    file_info.last_exported = Some(std::time::SystemTime::now());
+                } else {
+                    warn!("⚠️ Compilation succeeded but no font files were found");
+                }
+            }
+            Err(e) => {
+                error!("❌ TTF export failed: {}", e);
+            }
+        }
+        
+        // Clean up build directory
+        let _ = std::fs::remove_dir_all(&build_dir);
+    }
 }
