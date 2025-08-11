@@ -29,10 +29,10 @@ const MASTER_BUTTON_GAP: f32 = 8.0;
 const LABEL_VALUE_SPACING: f32 = 8.0;
 
 /// Spacing between file info rows
-const ROW_SPACING: f32 = WIDGET_ROW_GAP;
+const ROW_SPACING: f32 = WIDGET_ROW_LEADING;
 
-/// Extra spacing before master selector (same as row spacing)
-const MASTER_SELECTOR_MARGIN: f32 = WIDGET_ROW_GAP;
+/// Extra spacing after master selector (between circles and text)
+const MASTER_SELECTOR_MARGIN: f32 = 16.0;
 
 /// File pane internal padding 
 const FILE_PANE_PADDING: f32 = 16.0;
@@ -152,7 +152,7 @@ pub fn spawn_file_pane(
                 padding: UiRect::all(Val::Px(FILE_PANE_PADDING)),
                 margin: UiRect::all(Val::Px(0.0)),
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(WIDGET_ROW_GAP),
+                row_gap: Val::Px(WIDGET_ROW_LEADING),
                 border: UiRect::all(Val::Px(FILE_PANE_BORDER)),
                 width: Val::Auto,  // Auto-size to content
                 height: Val::Auto,
@@ -192,7 +192,7 @@ pub fn spawn_file_pane(
 
             // ============ FILE INFO ROWS ============
 
-            // File path row  
+            // Designspace path row (first text row, below master selector)
             parent
                 .spawn(Node {
                     flex_direction: FlexDirection::Row,
@@ -207,7 +207,7 @@ pub fn spawn_file_pane(
                             margin: UiRect::right(Val::Px(LABEL_VALUE_SPACING)),
                             ..default()
                         },
-                        Text::new("File:"),
+                        Text::new("DS:"),
                         TextFont {
                             font: asset_server.load(MONO_FONT_PATH),
                             font_size: WIDGET_TEXT_FONT_SIZE,

@@ -39,7 +39,7 @@ const BUTTON_POSITIONS: [f32; 3] = [12.0, 44.0, 76.0];
 const LABEL_VALUE_SPACING: f32 = 8.0;
 
 /// Spacing between coordinate rows (use theme constant)
-const ROW_SPACING: f32 = WIDGET_ROW_GAP;
+const ROW_SPACING: f32 = WIDGET_ROW_LEADING;
 
 /// Extra spacing before quadrant selector
 const QUADRANT_SELECTOR_MARGIN: f32 = 16.0;

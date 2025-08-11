@@ -241,7 +241,7 @@ pub fn spawn_glyph_pane(
                     align_items: AlignItems::Center,
                     width: Val::Auto,
                     height: Val::Auto,
-                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_GAP)),
+                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_LEADING)),
                     ..default()
                 },))
                 .with_children(|row| {
@@ -281,7 +281,7 @@ pub fn spawn_glyph_pane(
                     align_items: AlignItems::Center,
                     width: Val::Auto,
                     height: Val::Auto,
-                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_GAP)),
+                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_LEADING)),
                     ..default()
                 },))
                 .with_children(|row| {
@@ -319,7 +319,7 @@ pub fn spawn_glyph_pane(
                 .spawn((Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_GAP)),
+                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_LEADING)),
                     width: Val::Auto,
                     height: Val::Auto,
                     ..default()
@@ -359,7 +359,7 @@ pub fn spawn_glyph_pane(
                 .spawn((Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_GAP)),
+                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_LEADING)),
                     width: Val::Auto,
                     height: Val::Auto,
                     ..default()
@@ -399,7 +399,7 @@ pub fn spawn_glyph_pane(
                 .spawn((Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_GAP)),
+                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_LEADING)),
                     width: Val::Auto,
                     height: Val::Auto,
                     ..default()
@@ -439,7 +439,7 @@ pub fn spawn_glyph_pane(
                 .spawn((Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_GAP)),
+                    margin: UiRect::bottom(Val::Px(WIDGET_ROW_LEADING)),
                     width: Val::Auto,
                     height: Val::Auto,
                     ..default()
