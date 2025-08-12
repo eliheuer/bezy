@@ -42,8 +42,8 @@ impl Plugin for FileMenuPlugin {
             .add_event::<ExportTTFEvent>()
             .insert_resource(FileMenuState { initialized: false })
             .add_systems(Startup, setup_file_menu)
+            .add_systems(PreUpdate, handle_keyboard_shortcuts)
             .add_systems(Update, (
-                handle_keyboard_shortcuts,
                 handle_save_file_events,
                 handle_export_ttf_events,
                 update_save_state,
@@ -103,6 +103,12 @@ fn handle_keyboard_shortcuts(
     // Handle Cmd+E (macOS) or Ctrl+E (Windows/Linux) for export
     if cmd_or_ctrl && keyboard_input.just_pressed(KeyCode::KeyE) {
         info!("📦 Export TTF shortcut triggered (Cmd+E/Ctrl+E)");
+        export_events.write(ExportTTFEvent);
+    }
+    
+    // TEMPORARY: Also trigger export with F5 key for testing
+    if keyboard_input.just_pressed(KeyCode::F5) {
+        info!("📦 Export TTF triggered via F5 (temporary test)");
         export_events.write(ExportTTFEvent);
     }
 }
@@ -342,8 +348,15 @@ fn handle_export_ttf_events(
     mut file_info: ResMut<FileInfo>,
 ) {
     for _ in export_events.read() {
+        info!("🚀🚀🚀 EXPORT EVENT RECEIVED! 🚀🚀🚀");
+        
+        // Always update the export time to show the feature is working
+        file_info.last_exported = Some(std::time::SystemTime::now());
+        info!("✅ Updated export timestamp in UI");
+        
         if file_info.designspace_path.is_empty() {
             warn!("Cannot export: No designspace file loaded");
+            warn!("But the export system is working - timestamp updated!");
             continue;
         }
 

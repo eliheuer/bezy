@@ -102,16 +102,6 @@ pub fn export_theme_to_toml(
     keyboard: Res<ButtonInput<KeyCode>>,
     current_theme: Res<CurrentTheme>,
 ) {
-    // Press Ctrl/Cmd + E to export current theme
-    let ctrl_held = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
-    
-    if ctrl_held && keyboard.just_pressed(KeyCode::KeyE) {
-        let config = create_theme_config(current_theme.theme());
-        let path = PathBuf::from(format!("theme_{}.toml", current_theme.variant.name()));
-        
-        match config.save_to_file(&path) {
-            Ok(_) => info!("Theme exported to {:?}", path),
-            Err(e) => error!("Failed to export theme: {}", e),
-        }
-    }
+    // Theme export functionality disabled - using Cmd+E for TTF export instead
+    // If theme export is needed in the future, use a different shortcut like Cmd+Shift+T
 }
