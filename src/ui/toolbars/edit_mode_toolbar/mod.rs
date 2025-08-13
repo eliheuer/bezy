@@ -1,15 +1,41 @@
-//! # Edit Mode Toolbar Module
+//! # Toolbar UI & Registration System (`/src/ui/toolbars/edit_mode_toolbar/`)
 //!
-//! This is the main module for the edit mode toolbar system, which provides a
-//! comprehensive tool switching interface for graphics and design applications.
-//! It orchestrates all the
-//! different editing modes and their associated UI components.
+//! This module manages the **visual toolbar interface and tool registration** for Bezy.
+//! This is where tools are configured, displayed, and switching between tools is handled.
 //!
 //! ## Architecture Overview
 //!
-//! The module uses a dynamic tool registration system that allows tools to be
-//! easily added by simply implementing the `EditTool` trait and registering with
-//! the `ToolRegistry`.
+//! ```
+//! /src/tools/          ← Core tool behavior & logic  
+//! /src/ui/toolbars/    ← YOU ARE HERE - Visual toolbar UI, registration, configuration
+//! ```
+//!
+//! ## Separation of Concerns
+//!
+//! - **`/src/tools/`**: **WHAT tools do** - business logic, input handling, glyph modification
+//! - **`/src/ui/toolbars/`** (this module): **HOW tools appear** - UI rendering, icons, shortcuts, registration
+//! - **`toolbar_config.rs`**: **Single source of truth** for toolbar configuration
+//!
+//! ## Current System (Config-Based - RECOMMENDED)
+//!
+//! The toolbar now uses a **centralized configuration system** that automatically handles everything:
+//!
+//! 1. **Edit `toolbar_config.rs`** - Define tools with icons, shortcuts, ordering
+//! 2. **`ConfigBasedToolbarPlugin`** - Automatically registers tools from config  
+//! 3. **Tools appear in toolbar** - No manual registration needed
+//!
+//! ## Key Files
+//!
+//! - **`toolbar_config.rs`** - ✅ **EDIT THIS** to modify toolbar (icons, shortcuts, ordering)
+//! - **`config_loader.rs`** - ✅ Automatic tool registration from config
+//! - **`ui.rs`** - ✅ Visual toolbar rendering and interaction
+//! - **`adapters.rs`** - ❌ **LEGACY** - being phased out
+//!
+//! ## How to Modify the Toolbar
+//!
+//! **To add/remove/reorder tools**: Edit `toolbar_config.rs:75-166`
+//! **To change tool behavior**: Edit the tool's file in `/src/tools/`
+//! **To change toolbar appearance**: Edit `ui.rs`
 //!
 //! ### Core Components
 //! - **Tool Registry**: Dynamic registration system for edit tools
@@ -538,12 +564,26 @@ fn initialize_default_tool(
     );
 }
 
-/// Plugin that adds all the toolbar functionality
+/// ✅ UNIFIED TOOLBAR SYSTEM - Main Plugin
+/// 
+/// This plugin provides the complete toolbar system using the new config-based architecture.
+/// 
+/// ## What This Plugin Includes:
+/// - **ConfigBasedToolbarPlugin**: Automatically registers all tools from `toolbar_config.rs`
+/// - **Tool behavior plugins**: Pan, Measure, Text (provide ECS systems for tool behavior)
+/// - **UI systems**: Toolbar rendering, button interactions, tool switching
+/// - **Spacebar toggle**: Temporary pan mode when holding spacebar
+/// 
+/// ## No Manual Registration Needed:
+/// Just add `EditModeToolbarPlugin` to your app - it handles everything automatically!
+///
+/// ## To Modify Toolbar:
+/// Edit `toolbar_config.rs` - all tools, icons, shortcuts, and ordering are configured there.
 pub struct EditModeToolbarPlugin;
 
 impl Plugin for EditModeToolbarPlugin {
     fn build(&self, app: &mut App) {
-        info!("Building EditModeToolbarPlugin!");
+        info!("🚀 Building EditModeToolbarPlugin with unified config-based system!");
         app
             // Initialize the new tool system
             .init_resource::<ToolRegistry>()
@@ -555,13 +595,17 @@ impl Plugin for EditModeToolbarPlugin {
             // .init_resource::<CurrentCornerRadius>()  // Will be added when shapes is ported
             // .init_resource::<UiInteractionState>()  // Will be added when shapes is ported
             .init_resource::<SpacebarToggleState>()
-            // 🎉 NEW: Use centralized configuration system instead of manual registrations
+            // ✅ NEW SYSTEM: Centralized configuration system handles all tool registration
             .add_plugins(config_loader::ConfigBasedToolbarPlugin)
-            // Legacy tool plugins for behavior (still needed for now)
-            .add_plugins(PanToolPlugin)
-            .add_plugins(MeasureToolPlugin)
-            .add_plugins(TextToolPlugin) // Re-enabled for submenu functionality
-            // All individual tool registration is now handled by ConfigBasedToolbarPlugin!
+            
+            // ✅ BEHAVIOR PLUGINS: These provide the actual tool behavior (systems, input handling)
+            // These are still needed because they contain the ECS systems that make tools work
+            .add_plugins(PanToolPlugin)     // Pan tool input handling and behavior
+            .add_plugins(MeasureToolPlugin) // Measure tool rendering and interaction  
+            .add_plugins(TextToolPlugin)    // Text tool with submenu functionality
+            
+            // ✅ NOTE: Tool registration (toolbar buttons) is automatic via ConfigBasedToolbarPlugin
+            // ✅ NOTE: Tool behavior (what tools do) still needs these individual behavior plugins
             .add_systems(
                 PostStartup,
                 (

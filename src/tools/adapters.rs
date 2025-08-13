@@ -1,8 +1,18 @@
-//! Adapters to bridge new clean tools with the legacy toolbar system
+//! # Legacy Adapter System (DEPRECATED)
 //!
-//! This allows us to use the new clean EditTool trait while still working
-//! with the existing toolbar infrastructure. Eventually we'll remove these
-//! adapters and fully migrate to the new system.
+//! ⚠️  **THIS MODULE IS DEPRECATED AND WILL BE REMOVED**
+//!
+//! These adapters were used to bridge tools with the old manual registration system.
+//! The new config-based system in `toolbar_config.rs` + `config_loader.rs` handles
+//! everything automatically now.
+//!
+//! ## Migration Status
+//! - ✅ **NEW SYSTEM**: `ConfigBasedToolbarPlugin` automatically registers tools from `toolbar_config.rs`
+//! - ❌ **OLD SYSTEM**: Manual adapter registration (this file) - no longer used
+//!
+//! ## What to do instead
+//! - **To modify toolbar**: Edit `/src/ui/toolbars/edit_mode_toolbar/toolbar_config.rs`
+//! - **To add new tools**: Add to config, no manual adapters needed
 
 use super::*;
 use crate::ui::toolbars::edit_mode_toolbar::{
@@ -136,18 +146,19 @@ impl LegacyEditTool for TextToolAdapter {
     }
 }
 
-/// Plugin to register all the clean tool adapters
+/// ⚠️ DEPRECATED: Plugin to register all the clean tool adapters
+/// 
+/// This plugin is now a no-op since the config-based system handles registration.
+/// It remains only for backward compatibility and will be removed.
 pub struct CleanToolsPlugin;
 
 impl Plugin for CleanToolsPlugin {
     fn build(&self, _app: &mut App) {
         // 🎉 NEW SYSTEM: Tools are now registered automatically by ConfigBasedToolbarPlugin
-        // No manual registration needed - just edit toolbar_config.rs!
+        // This plugin is now redundant - all registration happens via toolbar_config.rs
 
-        // Old system disabled:
-        // app.add_systems(Startup, register_clean_tools);
-
-        info!("🎛️  CleanToolsPlugin: Using new config-based toolbar system");
+        warn!("⚠️  CleanToolsPlugin is DEPRECATED - remove from your app.add_plugins()");
+        info!("✅ Use ConfigBasedToolbarPlugin instead (already included in EditModeToolbarPlugin)");
         info!("📝 To modify toolbar: Edit src/ui/toolbars/edit_mode_toolbar/toolbar_config.rs");
     }
 }

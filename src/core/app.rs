@@ -83,14 +83,17 @@ impl PluginGroup for EditorPluginGroup {
             .add(FilePanePlugin)
             .add(GlyphPanePlugin)
             .add(CoordinatePanePlugin)
-            .add(EditModeToolbarPlugin)
+            .add(EditModeToolbarPlugin) // ✅ Includes ConfigBasedToolbarPlugin - handles all tools automatically
             .add(FileMenuPlugin)
             .add(HudPlugin)
-            // Add clean tools plugin and supporting plugins
-            .add(crate::tools::CleanToolsPlugin)
-            .add(crate::tools::SelectToolPlugin)
-            .add(crate::tools::PenToolPlugin)
-        // .add(crate::tools::TextToolPlugin) // Disabled - handled by legacy text tool with submenu
+            // ✅ NEW SYSTEM: All tools are now automatically registered via EditModeToolbarPlugin
+            // No need for manual tool plugin registration - everything is handled by toolbar_config.rs
+            
+            // ❌ OLD SYSTEM (REMOVED): Manual tool plugin registration
+            // .add(crate::tools::CleanToolsPlugin)     // DEPRECATED - now handled by config system
+            // .add(crate::tools::SelectToolPlugin)     // DEPRECATED - now handled by config system  
+            // .add(crate::tools::PenToolPlugin)        // DEPRECATED - now handled by config system
+            // .add(crate::tools::TextToolPlugin)       // DEPRECATED - now handled by config system
     }
 }
 

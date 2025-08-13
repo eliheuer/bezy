@@ -1,7 +1,43 @@
-//! Font editing tools
+//! # Core Tool Logic Module (`/src/tools/`)
 //!
-//! This module contains all the tools for editing fonts in Bezy.
-//! Each tool implements the EditTool trait and provides specific functionality.
+//! This module contains the **business logic and behavior** for all editing tools in Bezy.
+//! This is where tools actually *do* their work - handling input, modifying glyphs, managing state, etc.
+//!
+//! ## Architecture Overview
+//!
+//! ```
+//! /src/tools/          ← YOU ARE HERE - Core tool behavior & logic
+//! /src/ui/toolbars/    ← Visual toolbar UI, registration, configuration
+//! ```
+//!
+//! ## Separation of Concerns
+//!
+//! - **`/src/tools/`** (this module): **WHAT tools do** - business logic, input handling, glyph modification
+//! - **`/src/ui/toolbars/`**: **HOW tools appear** - UI rendering, icons, shortcuts, registration
+//! - **`toolbar_config.rs`**: **Single source of truth** for toolbar configuration
+//!
+//! ## Tool Implementation Pattern
+//!
+//! Each tool file (e.g., `select.rs`, `pen.rs`) contains:
+//! 1. **Core tool struct** implementing the `EditTool` trait
+//! 2. **ECS systems** for input handling and behavior
+//! 3. **State management** (resources, components)
+//! 4. **Plugin** that registers the tool's systems with Bevy
+//!
+//! ## How Tools Work Together
+//!
+//! 1. **Tool behavior** defined here in `/src/tools/`
+//! 2. **Tool configuration** defined in `/src/ui/toolbars/edit_mode_toolbar/toolbar_config.rs`
+//! 3. **Automatic registration** via `ConfigBasedToolbarPlugin` bridges the two
+//! 4. **User clicks toolbar** → tool activated → systems here handle the behavior
+//!
+//! ## Adding New Tools
+//!
+//! 1. **Create tool file** in this module (e.g., `my_tool.rs`)
+//! 2. **Add to `toolbar_config.rs`** with icon, shortcut, ordering
+//! 3. **Tool automatically appears** in toolbar and works
+//!
+//! This clean separation makes tools easy to understand, test, and maintain.
 
 pub mod adapters;
 pub mod hyper;
@@ -62,4 +98,7 @@ pub trait EditTool: Send + Sync {
     }
 }
 
-// Note: Tools are now registered via adapters.rs to bridge with legacy system
+// ✅ NEW SYSTEM: Tools are now automatically registered from toolbar_config.rs
+// No need for manual registration - just add tools to the config and they appear in the toolbar!
+// 
+// ❌ OLD SYSTEM (DEPRECATED): Manual adapters in adapters.rs - no longer needed
