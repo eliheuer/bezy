@@ -20,7 +20,7 @@ use crate::ui::theme::{
     CHECKERBOARD_SCALE_FACTOR, WINDOW_HEIGHT, WINDOW_WIDTH,
 };
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
+use bevy::window::{PrimaryWindow, WindowResized};
 use bevy_pancam::PanCam;
 use std::collections::HashSet;
 
@@ -84,6 +84,8 @@ pub struct CheckerboardState {
     last_camera_state: Option<(Vec2, f32)>,
     /// Last grid size used to detect when we need to respawn all squares
     last_grid_size: Option<f32>,
+    /// Last window size to detect window resize events
+    last_window_size: Option<Vec2>,
 }
 
 // Systems -----------------
@@ -294,6 +296,29 @@ pub fn update_checkerboard(
         // Fallback to theme constants if window query fails
         Vec2::new(WINDOW_WIDTH, WINDOW_HEIGHT)
     };
+
+    // Check if window size changed (e.g., fullscreen toggle)
+    let window_size_changed = state.last_window_size.is_none_or(|last_size| {
+        let size_diff = (window_size - last_size).length();
+        size_diff > 1.0 // If window size changed by more than 1 pixel
+    });
+
+    if window_size_changed {
+        info!(
+            "🖥️ WINDOW SIZE CHANGED! Forcing checkerboard recalculation: \
+               old={:?} → new=({:.0}x{:.0})",
+            state.last_window_size, window_size.x, window_size.y
+        );
+        // Clear all existing squares and force recalculation
+        despawn_all_squares(&mut commands, &mut state, &square_query);
+        state.last_window_size = Some(window_size);
+        state.last_camera_state = None; // Force camera update
+        // Don't update visible squares this frame - let the next frame handle spawning
+        return;
+    }
+
+    // Update window size tracking
+    state.last_window_size = Some(window_size);
 
     update_visible_squares(
         &mut commands,
