@@ -320,11 +320,21 @@ pub fn render_pen_preview(
     let line_width = camera_scale.adjusted_line_width() * 2.0;
     
     // Check if cursor is hovering over start point for closure
-    let cursor_pos = Vec2::new(pointer_info.design.x, pointer_info.design.y);
+    // Use same method as click handler: to_raw()
+    let cursor_pos = pointer_info.design.to_raw();
+    
+    // Calculate final position with grid snap and axis locking for closure check
+    let final_position_for_closure = calculate_final_position(
+        cursor_pos,
+        &keyboard_input,
+        &pen_state,
+        &settings,
+    );
+    
     let hovering_start_point = if pen_state.current_path.len() > 2 {
         if let Some(first_point) = pen_state.current_path.first() {
             let first_pos = Vec2::new(first_point.x, first_point.y);
-            let distance = cursor_pos.distance(first_pos);
+            let distance = final_position_for_closure.distance(first_pos);
             distance < CLOSE_PATH_THRESHOLD
         } else {
             false
@@ -363,37 +373,31 @@ pub fn render_pen_preview(
         }
     }
 
+    // Always show preview point at cursor position (with grid snap)
+    // Use the already calculated final_position_for_closure (which is grid-snapped)
+    let final_position = final_position_for_closure;
+    
+    spawn_pen_preview_point(
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+        final_position,
+        action_color,  // Same color as placed points (no alpha)
+        camera_scale.adjusted_point_size(POINT_PREVIEW_SIZE),  // Same size as placed points
+    );
+
     // Draw dashed preview line to cursor if we have at least one point
     if let Some(&last_point) = pen_state.current_path.last() {
         let last_pos = Vec2::new(last_point.x, last_point.y);
-        let cursor_pos = Vec2::new(pointer_info.design.x, pointer_info.design.y);
-        
-        // Calculate final position with grid snap and axis locking for preview
-        let final_position = calculate_final_position(
-            cursor_pos,
-            &keyboard_input,
-            &pen_state,
-            &settings,
-        );
         
         spawn_pen_preview_dashed_line(
             &mut commands,
             &mut meshes,
             &mut materials,
             last_pos,
-            final_position,
+            final_position, // Use the already calculated final_position
             action_color.with_alpha(0.5),
             line_width * 0.5,
-        );
-        
-        // Show a preview point at the final position
-        spawn_pen_preview_point(
-            &mut commands,
-            &mut meshes,
-            &mut materials,
-            final_position,
-            action_color.with_alpha(0.7),
-            camera_scale.adjusted_point_size(POINT_PREVIEW_SIZE) * 0.8,
         );
     }
 
@@ -412,16 +416,6 @@ pub fn render_pen_preview(
             );
         }
     }
-    
-    // Draw cursor indicator using orange ACTION color
-    spawn_pen_preview_point(
-        &mut commands,
-        &mut meshes,
-        &mut materials,
-        cursor_pos,
-        action_color.with_alpha(0.7),
-        camera_scale.adjusted_point_size(CURSOR_INDICATOR_SIZE),
-    );
 }
 
 /// System to reset pen mode when it becomes inactive
