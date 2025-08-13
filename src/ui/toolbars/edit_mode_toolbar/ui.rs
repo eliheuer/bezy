@@ -193,7 +193,7 @@ pub fn create_button_icon_text(
     parent.spawn((
         Node {
             // Vertical centering adjustment - ensures icons are properly centered in buttons
-            margin: UiRect::top(Val::Px(8.0)),
+            margin: UiRect::top(Val::Px(4.0)),
             ..default()
         },
         Text::new(icon.to_string()),

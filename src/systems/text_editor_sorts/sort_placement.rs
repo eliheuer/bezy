@@ -16,7 +16,7 @@ pub fn handle_sort_placement_input(
     >,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
-    mut current_placement_mode: ResMut<
+    current_placement_mode: ResMut<
         crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode,
     >,
     mut text_editor_state: ResMut<crate::core::state::TextEditorState>,
@@ -140,7 +140,7 @@ pub fn handle_sort_placement_input(
 fn create_independent_sort_with_fontir(
     text_editor_state: &mut crate::core::state::TextEditorState,
     world_position: bevy::math::Vec2,
-    layout_mode: crate::core::state::text_editor::SortLayoutMode,
+    _layout_mode: crate::core::state::text_editor::SortLayoutMode,
     fontir_app_state: Option<&crate::core::state::FontIRAppState>,
 ) {
     use crate::core::state::text_editor::{SortEntry, SortKind};

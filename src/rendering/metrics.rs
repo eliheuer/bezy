@@ -1434,8 +1434,7 @@ pub fn cleanup_orphaned_metrics(
         let sort_in_buffer = buffer_entities.entities.values().any(|&e| e == sort_entity);
         
         debug_info.push(format!(
-            "Metrics {:?} -> Sort {:?} (exists: {}, in_buffer: {})",
-            metrics_entity, sort_entity, sort_exists, sort_in_buffer
+            "Metrics {metrics_entity:?} -> Sort {sort_entity:?} (exists: {sort_exists}, in_buffer: {sort_in_buffer})"
         ));
         
         // Only cleanup if sort doesn't exist AND is not in buffer

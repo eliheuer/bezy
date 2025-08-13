@@ -193,7 +193,7 @@ fn save_font_files(
             let ufo_path = designspace_dir.join(&source.filename);
             
             // Check if any modified glyphs belong to this UFO source
-            let source_has_changes = modified_glyphs.iter().any(|((_, location), _)| {
+            let source_has_changes = modified_glyphs.iter().any(|((_, _location), _)| {
                 // For now, save to first UFO (regular). In a full implementation,
                 // you'd match the location to the correct UFO source
                 ufo_path.file_name() == Some(std::ffi::OsStr::new("bezy-grotesk-regular.ufo"))
@@ -387,9 +387,7 @@ fn handle_export_ttf_events(
         
         info!("📋 Found {} instances in designspace", ds.instances.len());
         for instance in &ds.instances {
-            let style_name = instance.stylename
-                .as_ref()
-                .map(|s| s.as_str())
+            let style_name = instance.stylename.as_deref()
                 .unwrap_or("Regular");
             info!("   - {}", style_name);
         }
@@ -451,9 +449,7 @@ fn handle_export_ttf_events(
         
         // For each desired static instance (Regular and Bold)
         for instance in &ds.instances {
-            let style_name = instance.stylename
-                .as_ref()
-                .map(|s| s.as_str())
+            let style_name = instance.stylename.as_deref()
                 .unwrap_or("Regular");
             
             // Only export Regular and Bold static instances

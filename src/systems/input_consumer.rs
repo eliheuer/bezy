@@ -54,11 +54,11 @@ impl InputConsumer for SelectionInputConsumer {
             InputEvent::MouseClick {
                 button,
                 position,
-                modifiers,
+                modifiers: _,
             } => {
                 debug!(
-                    "[SELECTION] Mouse click: {:?} at {:?} with {:?}",
-                    button, position, modifiers
+                    "[SELECTION] Mouse click: {:?} at {:?}",
+                    button, position
                 );
                 // Selection logic would go here
             }
@@ -66,12 +66,12 @@ impl InputConsumer for SelectionInputConsumer {
                 button,
                 start_position,
                 current_position,
-                modifiers,
+                modifiers: _,
                 delta: _,
             } => {
                 debug!(
-                    "[SELECTION] Mouse drag: {:?} from {:?} to {:?} with {:?}",
-                    button, start_position, current_position, modifiers
+                    "[SELECTION] Mouse drag: {:?} from {:?} to {:?}",
+                    button, start_position, current_position
                 );
                 // Drag selection logic would go here
             }
@@ -81,7 +81,7 @@ impl InputConsumer for SelectionInputConsumer {
 }
 
 /// Input consumer for pen tool functionality
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct PenInputConsumer {
     /// Points that have been placed in the current path
     pub current_path: Vec<DPoint>,
@@ -89,16 +89,6 @@ pub struct PenInputConsumer {
     pub should_close_path: bool,
     /// Whether we are currently placing a path
     pub is_drawing: bool,
-}
-
-impl Default for PenInputConsumer {
-    fn default() -> Self {
-        Self {
-            current_path: Vec::new(),
-            should_close_path: false,
-            is_drawing: false,
-        }
-    }
 }
 
 impl InputConsumer for PenInputConsumer {
@@ -120,12 +110,12 @@ impl InputConsumer for PenInputConsumer {
         should_handle
     }
 
-    fn handle_input(&mut self, event: &InputEvent, input_state: &InputState) {
+    fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
         match event {
             InputEvent::MouseClick {
                 button,
                 position,
-                modifiers,
+                modifiers: _,
             } => {
                 println!("🖊️ PEN_DEBUG: Processing mouse click at ({:.1}, {:.1})", position.x, position.y);
                 
@@ -136,7 +126,7 @@ impl InputConsumer for PenInputConsumer {
                     if self.current_path.len() > 2 {
                         if let Some(first_point) = self.current_path.first() {
                             let distance = click_position.to_raw().distance(first_point.to_raw());
-                            println!("🖊️ PEN_DEBUG: Distance to first point: {:.1} (threshold: 16.0)", distance);
+                            println!("🖊️ PEN_DEBUG: Distance to first point: {distance:.1} (threshold: 16.0)");
                             if distance < 16.0 { // CLOSE_PATH_THRESHOLD
                                 self.should_close_path = true;
                                 self.is_drawing = false; // Stop drawing to trigger finalization
@@ -176,57 +166,6 @@ impl InputConsumer for PenInputConsumer {
 }
 
 impl PenInputConsumer {
-    /// Handle input with sort position for coordinate conversion
-    fn handle_input_with_sort_position(&mut self, event: &InputEvent, _input_state: &InputState, sort_position: Vec2) {
-        match event {
-            InputEvent::MouseClick {
-                button,
-                position,
-                modifiers: _,
-            } => {
-                println!("🖊️ PEN_DEBUG: Processing mouse click at ({:.1}, {:.1}), sort_pos=({:.1}, {:.1})", 
-                         position.x, position.y, sort_position.x, sort_position.y);
-                
-                if *button == bevy::input::mouse::MouseButton::Left {
-                    // Convert world coordinates to relative coordinates
-                    let position_vec2 = Vec2::new(position.x, position.y);
-                    let relative_pos = position_vec2 - sort_position;
-                    let click_position = DPoint::new(relative_pos.x, relative_pos.y);
-                    
-                    info!("🔍 COORD CONVERSION: world=({:.1}, {:.1}) -> relative=({:.1}, {:.1})", 
-                          position.x, position.y, relative_pos.x, relative_pos.y);
-                    
-                    // Check if we should close the path
-                    if self.current_path.len() > 2 {
-                        if let Some(first_point) = self.current_path.first() {
-                            let distance = click_position.to_raw().distance(first_point.to_raw());
-                            println!("🖊️ PEN_DEBUG: Distance to first point: {:.1} (threshold: 16.0)", distance);
-                            if distance < 16.0 { // CLOSE_PATH_THRESHOLD
-                                self.should_close_path = true;
-                                self.is_drawing = false; // Stop drawing to trigger finalization
-                                println!("🖊️ PEN_DEBUG: CLOSING PATH - should_close_path={}, is_drawing={}", self.should_close_path, self.is_drawing);
-                                info!("🖊️ [PEN] Closing path - clicked near start point");
-                                return;
-                            }
-                        }
-                    }
-
-                    // Add relative point to current path
-                    self.current_path.push(click_position);
-                    self.is_drawing = true;
-
-                    println!("🖊️ PEN_DEBUG: Added relative point at ({:.1}, {:.1}), total points: {}", 
-                             click_position.x, click_position.y, self.current_path.len());
-                } else if *button == bevy::input::mouse::MouseButton::Right {
-                    info!("🖊️ [PEN] Right click - finishing open path");
-                    if self.current_path.len() > 1 {
-                        self.is_drawing = false; // This will trigger finalization
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
 
     /// Finalize the current path and add it to the glyph
     fn finalize_path(
@@ -340,12 +279,12 @@ impl InputConsumer for KnifeInputConsumer {
         if let InputEvent::MouseClick {
             button,
             position,
-            modifiers,
+            modifiers: _,
         } = event
         {
             debug!(
-                "[KNIFE] Mouse click: {:?} at {:?} with {:?}",
-                button, position, modifiers
+                "[KNIFE] Mouse click: {:?} at {:?}",
+                button, position
             );
             // Knife tool logic would go here
         }
@@ -373,12 +312,12 @@ impl InputConsumer for ShapeInputConsumer {
         if let InputEvent::MouseClick {
             button,
             position,
-            modifiers,
+            modifiers: _,
         } = event
         {
             debug!(
-                "[SHAPE] Mouse click: {:?} at {:?} with {:?}",
-                button, position, modifiers
+                "[SHAPE] Mouse click: {:?} at {:?}",
+                button, position
             );
             // Shape tool logic would go here
         }
@@ -406,12 +345,12 @@ impl InputConsumer for HyperInputConsumer {
         if let InputEvent::MouseClick {
             button,
             position,
-            modifiers,
+            modifiers: _,
         } = event
         {
             debug!(
-                "[HYPER] Mouse click: {:?} at {:?} with {:?}",
-                button, position, modifiers
+                "[HYPER] Mouse click: {:?} at {:?}",
+                button, position
             );
             // Hyper tool logic would go here
         }
@@ -437,8 +376,8 @@ impl InputConsumer for TextInputConsumer {
 
     fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
         match event {
-            InputEvent::KeyPress { key, modifiers } => {
-                debug!("[TEXT] Key press: {:?} with {:?}", key, modifiers);
+            InputEvent::KeyPress { key, modifiers: _ } => {
+                debug!("[TEXT] Key press: {:?}", key);
                 // Text editing logic would go here
             }
             InputEvent::TextInput { text } => {
@@ -473,12 +412,12 @@ impl InputConsumer for CameraInputConsumer {
                 button,
                 start_position,
                 current_position,
-                modifiers,
+                modifiers: _,
                 delta: _,
             } => {
                 if *button == MouseButton::Middle {
-                    debug!("[CAMERA] Middle mouse drag: from {:?} to {:?} with {:?}", 
-                           start_position, current_position, modifiers);
+                    debug!("[CAMERA] Middle mouse drag: from {:?} to {:?}", 
+                           start_position, current_position);
                     // Camera pan logic would go here
                 }
             }
@@ -512,12 +451,12 @@ impl InputConsumer for MeasurementToolInputConsumer {
         if let InputEvent::MouseClick {
             button,
             position,
-            modifiers,
+            modifiers: _,
         } = event
         {
             debug!(
-                "[MEASURE] Mouse click: {:?} at {:?} with {:?}",
-                button, position, modifiers
+                "[MEASURE] Mouse click: {:?} at {:?}",
+                button, position
             );
             // Measurement tool logic would go here
         }

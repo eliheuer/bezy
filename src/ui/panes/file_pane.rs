@@ -139,7 +139,7 @@ impl Plugin for FilePanePlugin {
 /// Spawns the file pane in the upper-left corner
 pub fn spawn_file_pane(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    _asset_server: Res<AssetServer>,
     theme: Res<CurrentTheme>,
 ) {
     // Position to visually align with toolbar content, accounting for our border and padding
@@ -222,7 +222,7 @@ pub fn spawn_file_pane(
                         },
                         Text::new("DS:"),
                         TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
+                            font: _asset_server.load(MONO_FONT_PATH),
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
@@ -232,7 +232,7 @@ pub fn spawn_file_pane(
                     row.spawn((
                         Text::new("Loading..."),
                         TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
+                            font: _asset_server.load(MONO_FONT_PATH),
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
@@ -258,7 +258,7 @@ pub fn spawn_file_pane(
                         },
                         Text::new("UFO:"),
                         TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
+                            font: _asset_server.load(MONO_FONT_PATH),
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
@@ -268,7 +268,7 @@ pub fn spawn_file_pane(
                     row.spawn((
                         Text::new("Loading..."),
                         TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
+                            font: _asset_server.load(MONO_FONT_PATH),
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
@@ -298,7 +298,7 @@ pub fn spawn_file_pane(
                         },
                         Text::new("Saved:"),
                         TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
+                            font: _asset_server.load(MONO_FONT_PATH),
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
@@ -308,7 +308,7 @@ pub fn spawn_file_pane(
                     row.spawn((
                         Text::new(""),
                         TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
+                            font: _asset_server.load(MONO_FONT_PATH),
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
@@ -337,7 +337,7 @@ pub fn spawn_file_pane(
                         },
                         Text::new("Exported:"),
                         TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
+                            font: _asset_server.load(MONO_FONT_PATH),
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
@@ -347,7 +347,7 @@ pub fn spawn_file_pane(
                     row.spawn((
                         Text::new(""),
                         TextFont {
-                            font: asset_server.load(MONO_FONT_PATH),
+                            font: _asset_server.load(MONO_FONT_PATH),
                             font_size: WIDGET_TEXT_FONT_SIZE,
                             ..default()
                         },
@@ -371,7 +371,7 @@ fn update_file_info(
     if let Some(state) = fontir_state {
         // Check if we should show full path (fullscreen or large window)
         let show_full_path = windows
-            .get_single()
+            .single()
             .ok()
             .map(|window| {
                 let is_fullscreen = window.mode != bevy::window::WindowMode::Windowed;
@@ -471,7 +471,7 @@ fn load_masters_from_designspace(source_path: &PathBuf) -> Result<Vec<UFOMaster>
 /// Updates master buttons based on loaded masters
 fn update_master_buttons(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    _asset_server: Res<AssetServer>,
     theme: Res<CurrentTheme>,
     file_info: Res<FileInfo>,
     container_query: Query<Entity, With<MasterButtonContainer>>,
@@ -533,13 +533,19 @@ fn update_master_buttons(
     }
 }
 
+// Type aliases for complex query types
+type DesignspaceTextQuery<'w, 's> = Query<'w, 's, &'static mut Text, (With<DesignspacePathText>, Without<CurrentUFOText>, Without<LastSavedText>, Without<LastExportedText>)>;
+type CurrentUFOTextQuery<'w, 's> = Query<'w, 's, &'static mut Text, (With<CurrentUFOText>, Without<DesignspacePathText>, Without<LastSavedText>, Without<LastExportedText>)>;
+type LastSavedTextQuery<'w, 's> = Query<'w, 's, &'static mut Text, (With<LastSavedText>, Without<DesignspacePathText>, Without<CurrentUFOText>, Without<LastExportedText>)>;
+type LastExportedTextQuery<'w, 's> = Query<'w, 's, &'static mut Text, (With<LastExportedText>, Without<DesignspacePathText>, Without<CurrentUFOText>, Without<LastSavedText>)>;
+
 /// Updates the displayed file information
 fn update_file_display(
     file_info: Res<FileInfo>,
-    mut designspace_query: Query<&mut Text, (With<DesignspacePathText>, Without<CurrentUFOText>, Without<LastSavedText>, Without<LastExportedText>)>,
-    mut ufo_query: Query<&mut Text, (With<CurrentUFOText>, Without<DesignspacePathText>, Without<LastSavedText>, Without<LastExportedText>)>,
-    mut saved_query: Query<&mut Text, (With<LastSavedText>, Without<DesignspacePathText>, Without<CurrentUFOText>, Without<LastExportedText>)>,
-    mut exported_query: Query<&mut Text, (With<LastExportedText>, Without<DesignspacePathText>, Without<CurrentUFOText>, Without<LastSavedText>)>,
+    mut designspace_query: DesignspaceTextQuery,
+    mut ufo_query: CurrentUFOTextQuery,
+    mut saved_query: LastSavedTextQuery,
+    mut exported_query: LastExportedTextQuery,
     mut saved_row_query: Query<&mut Node, (With<SavedRowContainer>, Without<ExportedRowContainer>)>,
     mut exported_row_query: Query<&mut Node, (With<ExportedRowContainer>, Without<SavedRowContainer>)>,
 ) {

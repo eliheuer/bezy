@@ -17,6 +17,7 @@ use kurbo::{PathEl, Point};
 pub struct PointSortParent(pub Entity);
 
 /// Spawn active sort points optimized
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_active_sort_points_optimized(
     mut commands: Commands,
     active_sort_query: Query<(Entity, &Sort, &Transform), With<ActiveSort>>,
@@ -293,7 +294,7 @@ pub fn regenerate_points_on_fontir_change(
     active_sort_query: Query<(Entity, &crate::editing::sort::Sort, &Transform), With<crate::editing::sort::ActiveSort>>,
     existing_point_query: Query<(Entity, &PointSortParent)>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
-    app_state: Option<Res<crate::core::state::AppState>>,
+    _app_state: Option<Res<crate::core::state::AppState>>,
     mut selection_state: ResMut<crate::editing::selection::SelectionState>,
 ) {
     // Only run when FontIR data changes

@@ -580,24 +580,7 @@ pub fn despawn_missing_buffer_sort_entities(
                     }
                 }
 
-                // Despawn all sort handle entities associated with this sort
-                let mut handle_count = 0;
-                if let Some(handle_entity_list) = handle_entities.handles.get(&entity) {
-                    for &handle_entity in handle_entity_list.iter() {
-                        commands.entity(handle_entity).despawn();
-                        handle_count += 1;
-                        despawn_operations += 1;
-                    }
-                }
-
-                info!("🗑️ Despawned {} unified elements, {} point entities, {} metrics line entities, {} label entities, and {} handle entities for sort {:?} (total operations: {})", 
-                      unified_count, point_count, metrics_count, label_count, handle_count, entity, despawn_operations);
-
-                // Remove from unified tracking
-                unified_entities.elements.remove(&entity);
-
                 // Despawn all metrics line entities associated with this sort
-                let mut metrics_count = 0;
                 if let Some(metrics_entity_list) = metrics_entities.lines.get(&entity) {
                     info!(
                         "🗑️ CLEANING UP METRICS: Found {} metrics entities for sort {:?}",
@@ -615,6 +598,22 @@ pub fn despawn_missing_buffer_sort_entities(
                         entity
                     );
                 }
+
+                // Despawn all sort handle entities associated with this sort
+                let mut handle_count = 0;
+                if let Some(handle_entity_list) = handle_entities.handles.get(&entity) {
+                    for &handle_entity in handle_entity_list.iter() {
+                        commands.entity(handle_entity).despawn();
+                        handle_count += 1;
+                        despawn_operations += 1;
+                    }
+                }
+
+                info!("🗑️ Despawned {} unified elements, {} point entities, {} metrics line entities, {} label entities, and {} handle entities for sort {:?} (total operations: {})", 
+                      unified_count, point_count, metrics_count, label_count, handle_count, entity, despawn_operations);
+
+                // Remove from unified tracking
+                unified_entities.elements.remove(&entity);
 
                 // Remove from metrics tracking
                 metrics_entities.lines.remove(&entity);

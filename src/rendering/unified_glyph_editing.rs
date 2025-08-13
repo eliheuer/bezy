@@ -1239,11 +1239,15 @@ fn spawn_unified_line_mesh(
         .id()
 }
 
+// Type aliases for complex query types
+type ActiveSortChangeQuery<'w, 's> = Query<'w, 's, Entity, (With<ActiveSort>, Or<(Changed<ActiveSort>, Added<ActiveSort>)>)>;
+type InactiveSortChangeQuery<'w, 's> = Query<'w, 's, Entity, (With<crate::editing::sort::InactiveSort>, Or<(Changed<crate::editing::sort::InactiveSort>, Added<crate::editing::sort::InactiveSort>)>)>;
+
 /// System to detect when sorts change and trigger visual updates
 fn detect_sort_changes(
     mut update_tracker: ResMut<SortVisualUpdateTracker>,
-    active_sort_query: Query<Entity, (With<ActiveSort>, Or<(Changed<ActiveSort>, Added<ActiveSort>)>)>,
-    inactive_sort_query: Query<Entity, (With<crate::editing::sort::InactiveSort>, Or<(Changed<crate::editing::sort::InactiveSort>, Added<crate::editing::sort::InactiveSort>)>)>,
+    active_sort_query: ActiveSortChangeQuery,
+    inactive_sort_query: InactiveSortChangeQuery,
     removed_active: RemovedComponents<ActiveSort>,
     removed_inactive: RemovedComponents<crate::editing::sort::InactiveSort>,
     // CRITICAL FIX: Also trigger updates when points are available for active sorts
@@ -1295,24 +1299,3 @@ impl Plugin for UnifiedGlyphEditingPlugin {
     }
 }
 
-/// Run condition to only update unified rendering when sorts change
-fn should_update_unified_rendering(
-    active_sort_query: Query<Entity, (With<ActiveSort>, Or<(Changed<ActiveSort>, Added<ActiveSort>)>)>,
-    inactive_sort_query: Query<Entity, (With<crate::editing::sort::InactiveSort>, Or<(Changed<crate::editing::sort::InactiveSort>, Added<crate::editing::sort::InactiveSort>)>)>,
-    removed_active: RemovedComponents<ActiveSort>,
-    removed_inactive: RemovedComponents<crate::editing::sort::InactiveSort>,
-) -> bool {
-    let active_changed = !active_sort_query.is_empty();
-    let inactive_changed = !inactive_sort_query.is_empty();
-    let removed_active_count = removed_active.len();
-    let removed_inactive_count = removed_inactive.len();
-    
-    let should_run = active_changed || inactive_changed || removed_active_count > 0 || removed_inactive_count > 0;
-    
-    if should_run {
-        info!("🔄 UNIFIED RENDERING: Running due to changes - active_changed: {}, inactive_changed: {}, removed_active: {}, removed_inactive: {}", 
-              active_changed, inactive_changed, removed_active_count, removed_inactive_count);
-    }
-    
-    should_run
-}

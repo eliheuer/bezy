@@ -182,8 +182,8 @@ pub fn handle_pen_mouse_events(
     ui_hover_state: Res<UiHoverState>,
 ) {
     // Check if pen tool is active via multiple methods
-    let pen_is_active = pen_mode_active.as_ref().map_or(false, |p| p.0) 
-        || current_tool.as_ref().and_then(|t| t.get_current()).map_or(false, |tool| tool == "pen");
+    let pen_is_active = pen_mode_active.as_ref().is_some_and(|p| p.0) 
+        || (current_tool.as_ref().and_then(|t| t.get_current()) == Some("pen"));
     
     // Debug: Always log current state during mouse button presses (ALWAYS LOG REGARDLESS OF PEN STATE)
     if mouse_button_input.just_pressed(MouseButton::Left) || mouse_button_input.just_pressed(MouseButton::Right) {
@@ -288,8 +288,8 @@ pub fn render_pen_preview(
     }
 
     // Check if pen tool is active via multiple methods
-    let pen_is_active = pen_mode_active.as_ref().map_or(false, |p| p.0) 
-        || current_tool.as_ref().and_then(|t| t.get_current()).map_or(false, |tool| tool == "pen");
+    let pen_is_active = pen_mode_active.as_ref().is_some_and(|p| p.0) 
+        || (current_tool.as_ref().and_then(|t| t.get_current()) == Some("pen"));
     
     if !pen_is_active {
         return;
@@ -563,6 +563,7 @@ fn spawn_pen_preview_point(
 }
 
 /// Create a mesh-based line for pen tool preview
+#[allow(dead_code)]
 fn spawn_pen_preview_line(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
