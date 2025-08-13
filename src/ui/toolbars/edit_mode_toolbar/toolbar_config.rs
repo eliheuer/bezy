@@ -51,6 +51,7 @@ pub enum ToolBehavior {
     Hyper,
     Measure,
     Metaballs,
+    Ai,
 }
 
 /// ============================================================================
@@ -162,6 +163,16 @@ pub const TOOLBAR_TOOLS: &[ToolConfig] = &[
         enabled: false, // ❌ This is the circle button you want to disable
         behavior: ToolBehavior::Metaballs,
         description: "Create organic shapes with metaball effects",
+    },
+    ToolConfig {
+        order: 90,
+        id: "ai",
+        name: "AI",
+        icon: "\u{E022}", // AI brain icon
+        shortcut: Some('a'),
+        enabled: true,
+        behavior: ToolBehavior::Ai,
+        description: "AI-powered font editing tools (Tab for submenu)",
     },
 ];
 

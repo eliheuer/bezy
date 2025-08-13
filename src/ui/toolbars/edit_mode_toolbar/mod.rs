@@ -142,8 +142,9 @@ mod spacebar_toggle;
 // Re-export the new tool system
 pub use spacebar_toggle::{handle_spacebar_toggle, SpacebarToggleState};
 pub use ui::{
-    handle_toolbar_mode_selection, spawn_edit_mode_toolbar,
+    create_unified_toolbar_button, handle_toolbar_mode_selection, spawn_edit_mode_toolbar,
     update_current_edit_mode, update_toolbar_button_appearances,
+    update_unified_button_colors, update_unified_button_text_colors,
 };
 
 // NEW: Re-export centralized configuration system
@@ -603,6 +604,7 @@ impl Plugin for EditModeToolbarPlugin {
             .add_plugins(PanToolPlugin)     // Pan tool input handling and behavior
             .add_plugins(MeasureToolPlugin) // Measure tool rendering and interaction  
             .add_plugins(TextToolPlugin)    // Text tool with submenu functionality
+            .add_plugins(crate::tools::ai::AiToolPlugin) // AI tool with submenu functionality
             
             // ✅ NOTE: Tool registration (toolbar buttons) is automatic via ConfigBasedToolbarPlugin
             // ✅ NOTE: Tool behavior (what tools do) still needs these individual behavior plugins

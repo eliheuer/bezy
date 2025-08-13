@@ -672,5 +672,17 @@
 	<string>zero.glif</string>
 	<key>zero-ar</key>
 	<string>zero-ar.glif</string>
+	<key>E022</key>
+	<string>E_022.glif</string>
+	<key>E023</key>
+	<string>E_023.glif</string>
+	<key>E024</key>
+	<string>E_024.glif</string>
+	<key>E025</key>
+	<string>E_025.glif</string>
+	<key>E026</key>
+	<string>E_026.glif</string>
+	<key>E027</key>
+	<string>E_027.glif</string>
 </dict>
 </plist>

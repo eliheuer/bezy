@@ -103,6 +103,14 @@ impl EditTool for ConfigurableTool {
                 // Deactivate pen mode when switching to other tools
                 commands.insert_resource(crate::tools::pen::PenModeActive(false));
             }
+            ToolBehavior::Ai => {
+                // Set input mode for AI tool
+                commands.insert_resource(InputMode::Normal);
+                // Deactivate pen mode when switching to other tools
+                commands.insert_resource(crate::tools::pen::PenModeActive(false));
+                // Activate AI mode
+                commands.insert_resource(crate::tools::ai::AiModeActive(true));
+            }
         }
 
         debug!("{} tool activated", self.config.name);
