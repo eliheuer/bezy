@@ -27,7 +27,13 @@ pub fn render_selection_marquee(
     drag_state: Res<DragSelectionState>,
     marquee_query: Query<&SelectionRect>,
     theme: Res<CurrentTheme>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
 ) {
+    // Only render marquee when in select mode
+    if current_tool.get_current() != Some("select") {
+        return;
+    }
+
     if !drag_state.is_dragging {
         return;
     }
