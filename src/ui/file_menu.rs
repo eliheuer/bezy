@@ -403,72 +403,127 @@ fn handle_export_ttf_events(
             }
         };
         
-        // Create compilation flags with default settings
+        // Extract family name from the first source or instance
+        let family_name = ds.sources
+            .first()
+            .and_then(|s| s.familyname.as_ref())
+            .or_else(|| ds.instances.first().and_then(|i| i.familyname.as_ref()))
+            .cloned()
+            .unwrap_or_else(|| "Font".to_string());
+        
+        let mut exported_files = Vec::new();
+        
+        // First, compile the variable font
+        info!("🔨 Compiling variable font with fontc...");
         let flags = fontc::Flags::default();
         
-        // fontc generates all instances at once when given a designspace
-        // The output_file parameter is actually for variable fonts
-        // For static instances, fontc will generate files based on instance definitions
-        info!("🔨 Compiling font instances with fontc...");
-        
-        // Run fontc compilation - it will generate all instances
         match fontc::generate_font(
             &input,
             &build_dir,
-            None, // Let fontc decide output names based on instances
+            None,
             flags,
-            false, // don't skip features
+            false,
         ) {
             Ok(font_bytes) => {
-                // fontc returns the variable font bytes, but also writes instance files
-                info!("✅ Font compilation completed!");
+                info!("✅ Variable font compilation completed!");
                 
-                // Check what files were actually generated in the output directory
-                let mut exported_files = Vec::new();
-                if let Ok(entries) = std::fs::read_dir(&output_dir) {
-                    for entry in entries.flatten() {
-                        if let Some(ext) = entry.path().extension() {
-                            if ext == "ttf" || ext == "otf" {
-                                exported_files.push(entry.file_name());
-                            }
-                        }
-                    }
-                }
+                let output_filename = format!("{}-Variable.ttf", family_name.replace(" ", ""));
+                let output_path = output_dir.join(&output_filename);
                 
-                // Also check the build directory for generated files
-                if let Ok(entries) = std::fs::read_dir(&build_dir) {
-                    for entry in entries.flatten() {
-                        if let Some(ext) = entry.path().extension() {
-                            if ext == "ttf" || ext == "otf" {
-                                // Move files from build dir to output dir
-                                let dest = output_dir.join(entry.file_name());
-                                if let Err(e) = std::fs::rename(entry.path(), &dest) {
-                                    // If rename fails (cross-filesystem), try copy
-                                    if let Err(e) = std::fs::copy(entry.path(), &dest) {
-                                        error!("Failed to move font file: {}", e);
-                                    }
-                                }
-                                exported_files.push(entry.file_name());
-                            }
-                        }
+                // Write the variable font bytes to file
+                match std::fs::write(&output_path, &font_bytes) {
+                    Ok(_) => {
+                        info!("📁 Exported variable font: {}", output_filename);
+                        exported_files.push(output_filename);
                     }
-                }
-                
-                if !exported_files.is_empty() {
-                    info!("📁 Exported {} font file(s) to: {}", exported_files.len(), output_dir.display());
-                    for file in exported_files {
-                        info!("   - {}", file.to_string_lossy());
+                    Err(e) => {
+                        error!("Failed to write variable font file: {}", e);
                     }
-                    
-                    // Update the last exported time
-                    file_info.last_exported = Some(std::time::SystemTime::now());
-                } else {
-                    warn!("⚠️ Compilation succeeded but no font files were found");
                 }
             }
             Err(e) => {
-                error!("❌ TTF export failed: {}", e);
+                error!("❌ Variable font compilation failed: {}", e);
             }
+        }
+        
+        // Now generate static instances for Regular and Bold
+        info!("🔨 Generating static font instances...");
+        
+        // For each desired static instance (Regular and Bold)
+        for instance in &ds.instances {
+            let style_name = instance.stylename
+                .as_ref()
+                .map(|s| s.as_str())
+                .unwrap_or("Regular");
+            
+            // Only export Regular and Bold static instances
+            if style_name != "Regular" && style_name != "Bold" {
+                continue;
+            }
+            
+            info!("   Generating static instance: {}", style_name);
+            
+            // Create a temporary UFO by interpolating at the instance location
+            // For now, we'll just copy the appropriate source UFO
+            let source_ufo_path = if style_name == "Regular" {
+                output_dir.join("bezy-grotesk-regular.ufo")
+            } else if style_name == "Bold" {
+                output_dir.join("bezy-grotesk-bold.ufo")
+            } else {
+                continue;
+            };
+            
+            // If the source UFO exists, compile it directly
+            if source_ufo_path.exists() {
+                match fontc::Input::new(&source_ufo_path) {
+                    Ok(static_input) => {
+                        match fontc::generate_font(
+                            &static_input,
+                            &build_dir,
+                            None,
+                            flags,
+                            false,
+                        ) {
+                            Ok(static_font_bytes) => {
+                                let instance_filename = format!("{}-{}.ttf", 
+                                    family_name.replace(" ", ""), 
+                                    style_name.replace(" ", ""));
+                                let instance_path = output_dir.join(&instance_filename);
+                                
+                                match std::fs::write(&instance_path, &static_font_bytes) {
+                                    Ok(_) => {
+                                        info!("   ✅ Exported static instance: {}", instance_filename);
+                                        exported_files.push(instance_filename);
+                                    }
+                                    Err(e) => {
+                                        error!("   Failed to write static font: {}", e);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                error!("   Failed to compile static instance {}: {}", style_name, e);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("   Failed to create input for static instance: {}", e);
+                    }
+                }
+            } else {
+                info!("   Source UFO not found for {}, skipping static instance", style_name);
+            }
+        }
+        
+        if !exported_files.is_empty() {
+            info!("📁 Successfully exported {} font file(s) to: {}", exported_files.len(), output_dir.display());
+            for file in &exported_files {
+                info!("   - {}", file);
+            }
+            
+            // Update the last exported time
+            file_info.last_exported = Some(std::time::SystemTime::now());
+        } else {
+            warn!("⚠️ No font files were exported");
         }
         
         // Clean up build directory

@@ -9,6 +9,7 @@ use crate::systems::text_editor_sorts::sort_entities::BufferSortEntities;
 use crate::ui::theme::*;
 use crate::ui::themes::{CurrentTheme, UiBorderRadius};
 use bevy::prelude::*;
+use bevy::ui::Display;
 use bevy::window::{PrimaryWindow, Window, WindowMode};
 use norad::designspace::DesignSpaceDocument;
 use std::path::PathBuf;
@@ -80,6 +81,14 @@ pub struct LastSavedText;
 
 #[derive(Component, Default)]
 pub struct LastExportedText;
+
+/// Component marker for the saved row container
+#[derive(Component, Default)]
+pub struct SavedRowContainer;
+
+/// Component marker for the exported row container
+#[derive(Component, Default)]
+pub struct ExportedRowContainer;
 
 /// Component for master selection buttons
 #[derive(Component)]
@@ -268,14 +277,18 @@ pub fn spawn_file_pane(
                     ));
                 });
 
-            // Last saved row
+            // Last saved row (initially hidden)
             parent
-                .spawn(Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(ROW_SPACING)),
-                    ..default()
-                })
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        margin: UiRect::bottom(Val::Px(ROW_SPACING)),
+                        display: Display::None,  // Initially hidden
+                        ..default()
+                    },
+                    SavedRowContainer,
+                ))
                 .with_children(|row| {
                     // Label
                     row.spawn((
@@ -293,7 +306,7 @@ pub fn spawn_file_pane(
                     ));
                     // Value
                     row.spawn((
-                        Text::new("unsaved"),
+                        Text::new(""),
                         TextFont {
                             font: asset_server.load(MONO_FONT_PATH),
                             font_size: WIDGET_TEXT_FONT_SIZE,
@@ -304,13 +317,17 @@ pub fn spawn_file_pane(
                     ));
                 });
 
-            // Last exported row
+            // Last exported row (initially hidden)
             parent
-                .spawn(Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    ..default()
-                })
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        display: Display::None,  // Initially hidden
+                        ..default()
+                    },
+                    ExportedRowContainer,
+                ))
                 .with_children(|row| {
                     // Label
                     row.spawn((
@@ -328,7 +345,7 @@ pub fn spawn_file_pane(
                     ));
                     // Value
                     row.spawn((
-                        Text::new("never"),
+                        Text::new(""),
                         TextFont {
                             font: asset_server.load(MONO_FONT_PATH),
                             font_size: WIDGET_TEXT_FONT_SIZE,
@@ -523,6 +540,8 @@ fn update_file_display(
     mut ufo_query: Query<&mut Text, (With<CurrentUFOText>, Without<DesignspacePathText>, Without<LastSavedText>, Without<LastExportedText>)>,
     mut saved_query: Query<&mut Text, (With<LastSavedText>, Without<DesignspacePathText>, Without<CurrentUFOText>, Without<LastExportedText>)>,
     mut exported_query: Query<&mut Text, (With<LastExportedText>, Without<DesignspacePathText>, Without<CurrentUFOText>, Without<LastSavedText>)>,
+    mut saved_row_query: Query<&mut Node, (With<SavedRowContainer>, Without<ExportedRowContainer>)>,
+    mut exported_row_query: Query<&mut Node, (With<ExportedRowContainer>, Without<SavedRowContainer>)>,
 ) {
     // Update designspace path
     if let Ok(mut text) = designspace_query.single_mut() {
@@ -534,28 +553,32 @@ fn update_file_display(
         *text = Text::new(file_info.current_ufo.clone());
     }
 
-    // Update last saved time
+    // Update last saved time and visibility
     if let Ok(mut text) = saved_query.single_mut() {
-        let saved_text = if let Some(save_time) = file_info.last_saved {
+        if let Some(save_time) = file_info.last_saved {
             // Convert SystemTime to DateTime<Local> for human-readable formatting
             let datetime: DateTime<Local> = save_time.into();
-            datetime.format("%Y-%m-%d %H:%M:%S").to_string()
-        } else {
-            "unsaved".to_string()
-        };
-        *text = Text::new(saved_text);
+            *text = Text::new(datetime.format("%Y-%m-%d %H:%M:%S").to_string());
+            
+            // Show the saved row
+            if let Ok(mut node) = saved_row_query.single_mut() {
+                node.display = Display::Flex;
+            }
+        }
     }
 
-    // Update last exported time
+    // Update last exported time and visibility
     if let Ok(mut text) = exported_query.single_mut() {
-        let exported_text = if let Some(export_time) = file_info.last_exported {
+        if let Some(export_time) = file_info.last_exported {
             // Convert SystemTime to DateTime<Local> for human-readable formatting
             let datetime: DateTime<Local> = export_time.into();
-            datetime.format("%Y-%m-%d %H:%M:%S").to_string()
-        } else {
-            "never".to_string()
-        };
-        *text = Text::new(exported_text);
+            *text = Text::new(datetime.format("%Y-%m-%d %H:%M:%S").to_string());
+            
+            // Show the exported row
+            if let Ok(mut node) = exported_row_query.single_mut() {
+                node.display = Display::Flex;
+            }
+        }
     }
 }
 
