@@ -129,7 +129,7 @@ impl InputConsumer for PenInputConsumer {
                             println!("🖊️ PEN_DEBUG: Distance to first point: {distance:.1} (threshold: 16.0)");
                             if distance < 16.0 { // CLOSE_PATH_THRESHOLD
                                 self.should_close_path = true;
-                                self.is_drawing = false; // Stop drawing to trigger finalization
+                                // Don't add this click as a new point since we're closing
                                 println!("🖊️ PEN_DEBUG: CLOSING PATH - should_close_path={}, is_drawing={}", self.should_close_path, self.is_drawing);
                                 info!("🖊️ [PEN] Closing path - clicked near start point");
                                 // Mark for finalization - actual finalization happens in process_input_events
@@ -168,6 +168,7 @@ impl InputConsumer for PenInputConsumer {
 impl PenInputConsumer {
 
     /// Finalize the current path and add it to the glyph
+    #[allow(dead_code)]
     fn finalize_path(
         &mut self, 
         fontir_app_state: &mut Option<&mut crate::core::state::FontIRAppState>,
@@ -469,27 +470,27 @@ fn process_input_events(
     mut input_events: EventReader<InputEvent>,
     input_state: Res<InputState>,
     mut selection_consumer: ResMut<SelectionInputConsumer>,
-    mut pen_consumer: ResMut<PenInputConsumer>,
+    _pen_consumer: ResMut<PenInputConsumer>,
     mut knife_consumer: ResMut<KnifeInputConsumer>,
     mut shape_consumer: ResMut<ShapeInputConsumer>,
     mut hyper_consumer: ResMut<HyperInputConsumer>,
     mut text_consumer: ResMut<TextInputConsumer>,
     mut camera_consumer: ResMut<CameraInputConsumer>,
     mut measurement_consumer: ResMut<MeasurementToolInputConsumer>,
-    mut pen_tool_state: Option<ResMut<crate::tools::pen::PenToolState>>,
-    mut fontir_app_state: Option<ResMut<crate::core::state::FontIRAppState>>,
-    mut app_state_changed: bevy::ecs::event::EventWriter<crate::editing::selection::events::AppStateChanged>,
-    active_sort_query: Query<(Entity, &crate::editing::sort::Sort, &Transform), With<crate::editing::sort::ActiveSort>>,
+    _pen_tool_state: Option<ResMut<crate::tools::pen::PenToolState>>,
+    _fontir_app_state: Option<ResMut<crate::core::state::FontIRAppState>>,
+    _app_state_changed: bevy::ecs::event::EventWriter<crate::editing::selection::events::AppStateChanged>,
+    _active_sort_query: Query<(Entity, &crate::editing::sort::Sort, &Transform), With<crate::editing::sort::ActiveSort>>,
 ) {
     let events: Vec<_> = input_events.read().collect();
     if !events.is_empty() {
         println!("🖊️ PEN_DEBUG: Processing {} input events", events.len());
     }
 
-    // Get active sort position for coordinate conversion
-    let active_sort_position = active_sort_query.iter().next()
-        .map(|(_, _, transform)| transform.translation.truncate())
-        .unwrap_or(Vec2::ZERO);
+    // Get active sort position for coordinate conversion - disabled since pen tool doesn't use InputConsumer anymore
+    // let _active_sort_position = active_sort_query.iter().next()
+    //     .map(|(_, _, transform)| transform.translation.truncate())
+    //     .unwrap_or(Vec2::ZERO);
 
     for event in events {
         if matches!(event, InputEvent::MouseClick { .. }) {
@@ -504,46 +505,12 @@ fn process_input_events(
         }
 
         // Mode-specific consumers
-        if pen_consumer.should_handle_input(event, &input_state) {
-            pen_consumer.handle_input(event, &input_state);
-            
-            // Sync with PenToolState for rendering BEFORE finalization
-            if let Some(ref mut pen_state) = pen_tool_state {
-                pen_state.current_path = pen_consumer.current_path.clone();
-                pen_state.should_close_path = pen_consumer.should_close_path;
-                pen_state.is_drawing = pen_consumer.is_drawing;
-                info!("🖊️ [INPUT CONSUMER] Synced PenToolState: {} points", pen_state.current_path.len());
-            } else {
-                warn!("🖊️ [INPUT CONSUMER] PenToolState not available for sync!");
-            }
-            
-            // Check if path should be finalized (after sync)
-            let should_finalize = pen_consumer.should_close_path || 
-                                 (!pen_consumer.is_drawing && pen_consumer.current_path.len() >= 2);
-            
-            // Only log finalization checks when something interesting happens
-            if should_finalize || pen_consumer.should_close_path {
-                println!("🖊️ PEN_DEBUG: Finalization check - should_close_path={}, is_drawing={}, path_len={}, should_finalize={}", 
-                         pen_consumer.should_close_path, pen_consumer.is_drawing, pen_consumer.current_path.len(), should_finalize);
-            }
-                                 
-            if should_finalize {
-                info!("🖊️ [INPUT CONSUMER] Finalizing pen path");
-                // Get mutable reference to FontIR state
-                let mut fontir_state_opt = fontir_app_state.as_deref_mut();
-                pen_consumer.finalize_path(&mut fontir_state_opt, &mut app_state_changed, active_sort_position);
-                
-                // Sync again after finalization to clear the preview
-                if let Some(ref mut pen_state) = pen_tool_state {
-                    pen_state.current_path = pen_consumer.current_path.clone(); // Now empty
-                    pen_state.should_close_path = pen_consumer.should_close_path; // Now false
-                    pen_state.is_drawing = pen_consumer.is_drawing; // Now false
-                    info!("🖊️ [INPUT CONSUMER] Synced PenToolState after finalization: {} points", pen_state.current_path.len());
-                }
-            }
-            
-            continue;
-        }
+        // DISABLED: Pen tool now uses its own handle_pen_mouse_events system
+        // if pen_consumer.should_handle_input(event, &input_state) {
+        //     pen_consumer.handle_input(event, &input_state);
+        //     ... pen handling logic ...
+        //     continue;
+        // }
 
         if knife_consumer.should_handle_input(event, &input_state) {
             knife_consumer.handle_input(event, &input_state);

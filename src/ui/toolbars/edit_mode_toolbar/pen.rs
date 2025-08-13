@@ -64,6 +64,7 @@ impl EditTool for PenTool {
         // Ensure pen mode is active
         commands.insert_resource(PenModeActive(true));
         commands.insert_resource(SelectModeActive(false));
+        commands.insert_resource(crate::core::io::input::InputMode::Pen);
     }
 
     fn on_enter(&self) {
@@ -104,15 +105,9 @@ impl Plugin for PenModePlugin {
         app.init_resource::<PenToolState>()
             .init_resource::<PenModeActive>()
             .add_systems(Startup, register_pen_tool)
-            .add_systems(
-                Update,
-                (
-                    handle_pen_mouse_events,
-                    handle_pen_keyboard_events,
-                    render_pen_preview,
-                    reset_pen_mode_when_inactive,
-                ),
-            );
+            // Business logic is handled by /src/tools/pen.rs PenToolPlugin
+            // This UI module only handles toolbar integration
+            .add_systems(Update, reset_pen_mode_when_inactive);
     }
 }
 

@@ -133,7 +133,7 @@ impl Plugin for PenToolPlugin {
             .add_systems(
                 Update,
                 (
-                    // handle_pen_mouse_events, // DISABLED - using InputConsumer system instead
+                    handle_pen_mouse_events, // Re-enabled to fix pen tool functionality
                     handle_pen_keyboard_events,
                     render_pen_preview,
                     reset_pen_mode_when_inactive,
@@ -178,8 +178,10 @@ pub fn handle_pen_mouse_events(
     mut fontir_app_state: Option<ResMut<crate::core::state::FontIRAppState>>,
     mut app_state_changed: EventWriter<AppStateChanged>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     pointer_info: Res<PointerInfo>,
     ui_hover_state: Res<UiHoverState>,
+    settings: Res<crate::core::settings::BezySettings>,
 ) {
     // Check if pen tool is active via multiple methods
     let pen_is_active = pen_mode_active.as_ref().is_some_and(|p| p.0) 
@@ -201,14 +203,24 @@ pub fn handle_pen_mouse_events(
     info!("Pen tool: Mouse input system active and processing clicks");
 
     if mouse_button_input.just_pressed(MouseButton::Left) {
-        let click_position = pointer_info.design;
-        info!("Pen tool: Left click detected at ({:.1}, {:.1})", click_position.x, click_position.y);
+        let raw_position = pointer_info.design.to_raw();
+        
+        // Calculate final position with grid snap and axis locking
+        let final_position = calculate_final_position(
+            raw_position,
+            &keyboard_input,
+            &pen_state,
+            &settings,
+        );
+        let final_dpoint = DPoint::new(final_position.x, final_position.y);
+        
+        info!("Pen tool: Left click at ({:.1}, {:.1}) -> final ({:.1}, {:.1})", 
+              raw_position.x, raw_position.y, final_position.x, final_position.y);
 
         // Check if we should close the path
         if pen_state.current_path.len() > 2 {
             if let Some(first_point) = pen_state.current_path.first() {
-                let distance =
-                    click_position.to_raw().distance(first_point.to_raw());
+                let distance = final_position.distance(first_point.to_raw());
                 if distance < CLOSE_PATH_THRESHOLD {
                     pen_state.should_close_path = true;
                     info!("Pen tool: Closing path - clicked near start point");
@@ -224,13 +236,13 @@ pub fn handle_pen_mouse_events(
         }
 
         // Add point to current path
-        pen_state.current_path.push(click_position);
+        pen_state.current_path.push(final_dpoint);
         pen_state.is_drawing = true;
 
         info!(
             "Pen tool: Added point at ({:.1}, {:.1}), total points: {}",
-            click_position.x,
-            click_position.y,
+            final_position.x,
+            final_position.y,
             pen_state.current_path.len()
         );
     }
@@ -278,6 +290,8 @@ pub fn render_pen_preview(
     pen_mode_active: Option<Res<PenModeActive>>,
     current_tool: Option<Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>>,
     pointer_info: Res<PointerInfo>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    settings: Res<crate::core::settings::BezySettings>,
     camera_scale: Res<CameraResponsiveScale>,
     existing_preview_query: Query<Entity, With<PenPreviewElement>>,
     theme: Res<crate::ui::themes::CurrentTheme>,
@@ -353,14 +367,33 @@ pub fn render_pen_preview(
     if let Some(&last_point) = pen_state.current_path.last() {
         let last_pos = Vec2::new(last_point.x, last_point.y);
         let cursor_pos = Vec2::new(pointer_info.design.x, pointer_info.design.y);
+        
+        // Calculate final position with grid snap and axis locking for preview
+        let final_position = calculate_final_position(
+            cursor_pos,
+            &keyboard_input,
+            &pen_state,
+            &settings,
+        );
+        
         spawn_pen_preview_dashed_line(
             &mut commands,
             &mut meshes,
             &mut materials,
             last_pos,
-            cursor_pos,
+            final_position,
             action_color.with_alpha(0.5),
             line_width * 0.5,
+        );
+        
+        // Show a preview point at the final position
+        spawn_pen_preview_point(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            final_position,
+            action_color.with_alpha(0.7),
+            camera_scale.adjusted_point_size(POINT_PREVIEW_SIZE) * 0.8,
         );
     }
 
@@ -725,4 +758,44 @@ fn spawn_pen_closure_indicator(
         Transform::from_translation(position.extend(12.0)), // Z=12 to render above points
         PenPreviewElement,
     ));
+}
+
+// ================================================================
+// HELPER FUNCTIONS (ported from pen_full.rs)
+// ================================================================
+
+/// Calculate the final position after applying snap-to-grid and axis locking
+fn calculate_final_position(
+    cursor_pos: Vec2,
+    keyboard: &Res<ButtonInput<KeyCode>>,
+    pen_state: &PenToolState,
+    settings: &crate::core::settings::BezySettings,
+) -> Vec2 {
+    // Apply snap to grid first
+    let snapped_pos = settings.apply_grid_snap(cursor_pos);
+
+    // Apply axis locking if shift is held and we have points
+    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft)
+        || keyboard.pressed(KeyCode::ShiftRight);
+
+    if shift_pressed && !pen_state.current_path.is_empty() {
+        if let Some(last_point) = pen_state.current_path.last() {
+            axis_lock_position(snapped_pos, last_point.to_raw())
+        } else {
+            snapped_pos
+        }
+    } else {
+        snapped_pos
+    }
+}
+
+/// Lock a position to horizontal or vertical axis relative to another point
+/// (used when shift is held to constrain movement)
+fn axis_lock_position(pos: Vec2, relative_to: Vec2) -> Vec2 {
+    let dxy = pos - relative_to;
+    if dxy.x.abs() > dxy.y.abs() {
+        Vec2::new(pos.x, relative_to.y)
+    } else {
+        Vec2::new(relative_to.x, pos.y)
+    }
 }

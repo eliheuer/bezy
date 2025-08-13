@@ -92,7 +92,7 @@ impl PluginGroup for EditorPluginGroup {
             // ❌ OLD SYSTEM (REMOVED): Manual tool plugin registration
             // .add(crate::tools::CleanToolsPlugin)     // DEPRECATED - now handled by config system
             // .add(crate::tools::SelectToolPlugin)     // DEPRECATED - now handled by config system  
-            // .add(crate::tools::PenToolPlugin)        // DEPRECATED - now handled by config system
+            .add(crate::tools::PenToolPlugin)        // Re-enabled - pen tool needs its business logic plugin
             // .add(crate::tools::TextToolPlugin)       // DEPRECATED - now handled by config system
     }
 }
