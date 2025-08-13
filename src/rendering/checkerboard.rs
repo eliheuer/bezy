@@ -137,10 +137,14 @@ pub fn update_checkerboard(
     square_query: Query<(Entity, &CheckerboardSquare)>,
     checkerboard_enabled: Res<CheckerboardEnabled>,
     window_query: Query<&Window, With<PrimaryWindow>>,
+    presentation_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::PresentationMode>>,
 ) {
-    // If checkerboard is disabled, despawn all squares and return early for
-    // performance
-    if !checkerboard_enabled.enabled {
+    // If checkerboard is disabled OR we're in presentation mode, despawn all squares and return early
+    let presentation_active = presentation_mode.map_or(false, |pm| pm.active);
+    if !checkerboard_enabled.enabled || presentation_active {
+        if presentation_active {
+            debug!("🎭 Checkerboard hidden for presentation mode");
+        }
         despawn_all_squares(&mut commands, &mut state, &square_query);
         return;
     }

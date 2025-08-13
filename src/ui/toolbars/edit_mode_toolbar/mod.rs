@@ -498,7 +498,7 @@ pub use text::TextToolPlugin;
 // Legacy compatibility exports (will be removed after migration)
 pub use hyper::HyperTool;
 pub use knife::KnifeTool;
-pub use pan::{PanMode, PanToolPlugin};
+pub use pan::{PanMode, PanToolPlugin, PresentationMode};
 pub use pen::{PenMode, PenModePlugin};
 pub use shapes::ShapesToolPlugin;
 

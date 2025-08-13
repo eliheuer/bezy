@@ -262,13 +262,45 @@ pub fn render_mesh_metrics_lines(
     _existing_metrics: Query<Entity, With<MetricsLine>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     camera_scale: Res<CameraResponsiveScale>,
+    presentation_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::PresentationMode>>,
 ) {
-    // CHANGE DETECTION: Early return if no sorts have changed
+    // Check presentation mode state
+    let presentation_active = presentation_mode.as_ref().map_or(false, |pm| pm.active);
+    let presentation_changed = presentation_mode.as_ref().map_or(false, |pm| pm.is_changed());
+    
+    // Hide metrics in presentation mode OR if presentation mode just activated
+    if presentation_active || presentation_changed {
+        if presentation_active {
+            info!("🎭 Metrics hidden for presentation mode - clearing all metrics entities");
+            // Despawn ALL metrics entities from the tracking resource
+            for (sort_entity, line_entities) in metrics_entities.lines.drain() {
+                info!("🎭 Clearing {} metrics entities for sort {:?}", line_entities.len(), sort_entity);
+                for line_entity in line_entities {
+                    if let Ok(mut entity_commands) = commands.get_entity(line_entity) {
+                        entity_commands.despawn();
+                    }
+                }
+            }
+            // Also despawn any orphaned metrics not in the tracking
+            for entity in _existing_metrics.iter() {
+                if let Ok(mut entity_commands) = commands.get_entity(entity) {
+                    entity_commands.despawn();
+                }
+            }
+            metrics_entities.lines.clear();
+        }
+        // Skip rendering if in presentation mode
+        if presentation_active {
+            return;
+        }
+    }
+
+    // CHANGE DETECTION: Early return if no sorts have changed and presentation mode hasn't changed
     let sort_count = sort_query.iter().count();
     let active_buffer_count = active_buffer_sort_query.iter().count();
     let inactive_buffer_count = inactive_buffer_sort_query.iter().count();
 
-    if sort_count == 0 && active_buffer_count == 0 && inactive_buffer_count == 0
+    if sort_count == 0 && active_buffer_count == 0 && inactive_buffer_count == 0 && !presentation_changed
     {
         debug!("Metrics rendering skipped - no changed sorts");
         return;

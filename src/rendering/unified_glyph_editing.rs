@@ -98,10 +98,25 @@ pub fn render_unified_glyph_editing(
     // Debug: Check entities with just SortPointEntity
     existing_sort_points: Query<Entity, With<SortPointEntity>>,
     theme: Res<CurrentTheme>,
+    presentation_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::PresentationMode>>,
 ) {
     // PERFORMANCE: Early exit if no sorts to render
     let active_count = active_sort_query.iter().count();
     let inactive_count = inactive_sort_query.iter().count();
+    
+    // Check if we're in presentation mode
+    let presentation_active = presentation_mode.as_ref().map_or(false, |pm| pm.active);
+    let presentation_changed = presentation_mode.as_ref().map_or(false, |pm| pm.is_changed());
+    
+    if presentation_active {
+        info!("🎭 Unified rendering in presentation mode - only filled outlines will be shown");
+    }
+    
+    // Force update if presentation mode changed
+    if presentation_changed {
+        info!("🎭 Presentation mode changed - forcing unified rendering update");
+        update_tracker.needs_update = true;
+    }
     
     // Only rebuild if we actually need to update (prevents flash)
     if !update_tracker.needs_update {
@@ -196,6 +211,7 @@ pub fn render_unified_glyph_editing(
     }
 
     // Process ACTIVE sorts (with editing capabilities) - only those that changed
+    // In presentation mode, render active sorts as filled outlines like inactive sorts
     for (sort_entity, sort, sort_transform) in active_sort_query.iter() {
         // Skip sorts that don't need re-rendering (selective update)
         if !sorts_to_clear.contains(&sort_entity) && !sorts_to_clear.is_empty() {
@@ -205,7 +221,27 @@ pub fn render_unified_glyph_editing(
         let sort_position = sort_transform.translation.truncate();
         let mut element_entities = Vec::new();
 
-        // Collect all points for this specific sort entity (prevents cross contamination)
+        // In presentation mode, skip all editing helpers and render as filled
+        if presentation_active {
+            info!("🎭 Rendering active sort '{}' as filled outline (presentation mode)", sort.glyph_name);
+            render_filled_outline(
+                &mut commands,
+                &mut meshes,
+                &mut materials,
+                &mut element_entities,
+                sort_entity,
+                &sort.glyph_name,
+                sort_position,
+                fontir_app_state.as_deref(),
+                app_state.as_deref(),
+                &camera_scale,
+                &theme,
+            );
+            unified_entities.elements.insert(sort_entity, element_entities);
+            continue;
+        }
+
+        // Normal editing mode: collect all points for this specific sort entity (prevents cross contamination)
         let mut sort_points = Vec::new();
         let mut checked_points = 0;
         let mut matching_points = 0;
