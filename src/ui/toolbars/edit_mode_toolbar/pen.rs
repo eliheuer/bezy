@@ -27,6 +27,8 @@ use crate::systems::sort_manager::SortPointEntity;
 use crate::systems::ui_interaction::UiHoverState;
 use crate::ui::toolbars::edit_mode_toolbar::select::SelectModeActive;
 use crate::ui::toolbars::edit_mode_toolbar::{EditTool, ToolRegistry};
+use crate::ui::themes::{CurrentTheme, ToolbarBorderRadius};
+use crate::ui::theme::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
@@ -104,10 +106,19 @@ impl Plugin for PenModePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PenToolState>()
             .init_resource::<PenModeActive>()
+            .init_resource::<PenDrawingMode>() // Default is Regular
             .add_systems(Startup, register_pen_tool)
             // Business logic is handled by /src/tools/pen.rs PenToolPlugin
             // This UI module only handles toolbar integration
-            .add_systems(Update, reset_pen_mode_when_inactive);
+            .add_systems(
+                Update,
+                (
+                    reset_pen_mode_when_inactive,
+                    toggle_pen_submenu_visibility,
+                    handle_pen_submenu_selection,
+                )
+            )
+            .add_systems(PostStartup, spawn_pen_submenu);
     }
 }
 
@@ -227,6 +238,52 @@ pub(crate) enum PenState {
     Ready,
     /// Currently drawing a path (at least one point placed)
     Drawing,
+}
+
+/// Pen drawing modes for the submenu
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Resource)]
+pub enum PenDrawingMode {
+    /// Regular pen tool (default)
+    #[default]
+    Regular,
+    /// Hyperbezier pen tool for smooth curves
+    Hyperbezier,
+}
+
+impl PenDrawingMode {
+    /// Get the icon for each pen submenu mode
+    pub fn get_icon(&self) -> &'static str {
+        match self {
+            PenDrawingMode::Regular => "\u{E011}", // Pen nib icon
+            PenDrawingMode::Hyperbezier => "\u{E012}", // Spiral icon
+        }
+    }
+
+    /// Get the name for each pen submenu mode
+    pub fn get_name(&self) -> &'static str {
+        match self {
+            PenDrawingMode::Regular => "Pen",
+            PenDrawingMode::Hyperbezier => "Hyper",
+        }
+    }
+
+    /// Get the description for each pen submenu mode
+    pub fn get_description(&self) -> &'static str {
+        match self {
+            PenDrawingMode::Regular => "Draw regular Bézier curves",
+            PenDrawingMode::Hyperbezier => "Draw smooth hyperbezier curves",
+        }
+    }
+}
+
+/// Component to mark pen submenu buttons
+#[derive(Component)]
+pub struct PenSubMenuButton;
+
+/// Component to identify which pen mode button this is
+#[derive(Component)]
+pub struct PenModeButton {
+    pub mode: PenDrawingMode,
 }
 
 // ================================================================
@@ -802,4 +859,161 @@ fn create_contour_from_points(
     }
 
     Some(Contour::new(contour_points, None))
+}
+
+// ================================================================
+// PEN SUBMENU SYSTEMS (following text tool pattern)
+// ================================================================
+
+/// Helper function to spawn a single pen mode button using the unified system
+fn spawn_pen_mode_button(
+    parent: &mut ChildSpawnerCommands,
+    mode: PenDrawingMode,
+    asset_server: &Res<AssetServer>,
+    theme: &Res<CurrentTheme>,
+) {
+    // Use the unified toolbar button creation system for consistent styling
+    crate::ui::toolbars::edit_mode_toolbar::ui::create_unified_toolbar_button(
+        parent,
+        mode.get_icon(),
+        (PenSubMenuButton, PenModeButton { mode }),
+        asset_server,
+        theme,
+    );
+}
+
+pub fn spawn_pen_submenu(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    theme: Res<CurrentTheme>,
+) {
+    info!("🖊️ Spawning pen submenu with Regular and Hyperbezier modes");
+    info!("🖊️ Default pen mode is: {:?}", PenDrawingMode::default());
+    
+    let modes = [
+        PenDrawingMode::Regular,
+        PenDrawingMode::Hyperbezier,
+    ];
+
+    // Create the parent submenu node (left-aligned to match main toolbar)
+    let submenu_node = Node {
+        position_type: PositionType::Absolute,
+        top: Val::Px(TOOLBAR_CONTAINER_MARGIN + 74.0),
+        left: Val::Px(TOOLBAR_CONTAINER_MARGIN),  // Left-aligned to match toolbar
+        flex_direction: FlexDirection::Row,
+        padding: UiRect::all(Val::Px(TOOLBAR_PADDING)),
+        margin: UiRect::all(Val::ZERO),
+        row_gap: Val::Px(TOOLBAR_PADDING),
+        display: Display::None, // Hidden by default
+        ..default()
+    };
+
+    // Spawn the submenu with all buttons
+    commands
+        .spawn((submenu_node, Name::new("PenSubMenu")))
+        .with_children(|parent| {
+            for mode in modes {
+                spawn_pen_mode_button(parent, mode, &asset_server, &theme);
+            }
+        });
+        
+    info!("🖊️ Pen submenu spawned successfully");
+}
+
+/// Auto-show pen submenu when pen tool is active (like text tool)
+pub fn toggle_pen_submenu_visibility(
+    current_tool: Option<Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>>,
+    mut submenu_query: Query<(&mut Node, &Name)>,
+) {
+    let is_pen_tool_active = current_tool.as_ref()
+        .and_then(|tool| tool.get_current()) == Some("pen");
+    
+    for (mut node, name) in submenu_query.iter_mut() {
+        if name.as_str() == "PenSubMenu" {
+            let new_display = if is_pen_tool_active {
+                Display::Flex
+            } else {
+                Display::None
+            };
+            
+            if node.display != new_display {
+                node.display = new_display;
+                info!("🖊️ Pen submenu visibility changed: tool_active={}, display={:?}", 
+                      is_pen_tool_active, new_display);
+            }
+        }
+    }
+}
+
+/// Handle pen submenu selection and visual feedback (following text tool pattern)
+pub fn handle_pen_submenu_selection(
+    mut interaction_query: Query<
+        (
+            &Interaction,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &PenModeButton,
+            Entity,
+        ),
+        With<PenSubMenuButton>,
+    >,
+    mut current_mode: ResMut<PenDrawingMode>,
+) {
+    // Debug: Log if we find any submenu buttons
+    let button_count = interaction_query.iter().len();
+    if button_count > 0 {
+        static mut LAST_LOG: f32 = 0.0;
+        unsafe {
+            let current_time = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs_f32();
+            if current_time - LAST_LOG > 2.0 {
+                LAST_LOG = current_time;
+                info!("🖊️ Pen submenu selection system: found {} buttons", button_count);
+            }
+        }
+    }
+    for (interaction, mut color, mut border_color, mode_button, entity) in
+        &mut interaction_query
+    {
+        let is_current_mode = *current_mode == mode_button.mode;
+        
+        // Debug: Log interactions for debugging
+        if *interaction != Interaction::None {
+            info!("🖊️ Button interaction: {:?} for mode {:?} (current: {:?})", 
+                  interaction, mode_button.mode, *current_mode);
+        }
+        
+        if *interaction == Interaction::Pressed && !is_current_mode {
+            *current_mode = mode_button.mode;
+            info!("🖊️ Switched to pen mode: {:?}", mode_button.mode);
+        }
+
+        // Visual feedback based on current mode
+        match *interaction {
+            Interaction::Pressed => {
+                *color = PRESSED_BUTTON_COLOR.into();
+                *border_color = PRESSED_BUTTON_OUTLINE_COLOR.into();
+            }
+            Interaction::Hovered => {
+                if is_current_mode {
+                    *color = PRESSED_BUTTON_COLOR.into();
+                    *border_color = PRESSED_BUTTON_OUTLINE_COLOR.into();
+                } else {
+                    *color = HOVERED_BUTTON_COLOR.into();
+                    *border_color = HOVERED_BUTTON_OUTLINE_COLOR.into();
+                }
+            }
+            Interaction::None => {
+                if is_current_mode {
+                    *color = PRESSED_BUTTON_COLOR.into();
+                    *border_color = PRESSED_BUTTON_OUTLINE_COLOR.into();
+                } else {
+                    *color = NORMAL_BUTTON_COLOR.into();
+                    *border_color = NORMAL_BUTTON_OUTLINE_COLOR.into();
+                }
+            }
+        }
+    }
 }

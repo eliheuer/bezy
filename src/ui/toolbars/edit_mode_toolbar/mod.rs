@@ -130,7 +130,7 @@ pub mod knife;
 mod measure;
 mod metaballs;
 mod pan;
-mod pen;
+pub mod pen;
 pub mod select;
 mod shapes;
 pub mod text;

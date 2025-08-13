@@ -102,7 +102,7 @@ pub const TOOLBAR_TOOLS: &[ToolConfig] = &[
         shortcut: Some('p'),
         enabled: true,
         behavior: ToolBehavior::Pen,
-        description: "Draw and edit Bézier curves",
+        description: "Draw and edit Bézier curves (Tab for modes)",
     },
     ToolConfig {
         order: 30,
@@ -140,7 +140,7 @@ pub const TOOLBAR_TOOLS: &[ToolConfig] = &[
         name: "Hyper",
         icon: "\u{E012}", // Spiral icon
         shortcut: Some('h'),
-        enabled: true,
+        enabled: false, // ❌ Moved to pen tool submenu
         behavior: ToolBehavior::Hyper,
         description: "Draw smooth hyperbezier curves",
     },
@@ -168,7 +168,7 @@ pub const TOOLBAR_TOOLS: &[ToolConfig] = &[
         order: 90,
         id: "ai",
         name: "AI",
-        icon: "\u{E022}", // AI brain icon
+        icon: "\u{E012}", // Spiral icon (same as hyperbezier)
         shortcut: Some('a'),
         enabled: true,
         behavior: ToolBehavior::Ai,
