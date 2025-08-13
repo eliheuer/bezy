@@ -61,7 +61,6 @@ impl EditTool for PenTool {
 const CLOSE_PATH_THRESHOLD: f32 = 16.0;
 /// Size of drawn points in the preview
 const POINT_PREVIEW_SIZE: f32 = 4.0;
-const CURSOR_INDICATOR_SIZE: f32 = 4.0;
 
 // ================================================================
 // RESOURCES AND STATE

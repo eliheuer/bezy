@@ -232,7 +232,7 @@ impl Default for PenToolState {
 
 /// The two states the pen tool can be in
 #[derive(Debug, Clone, PartialEq, Default)]
-pub(crate) enum PenState {
+pub enum PenState {
     /// Ready to start a new path (no points placed yet)
     #[default]
     Ready,
@@ -974,7 +974,7 @@ pub fn handle_pen_submenu_selection(
             }
         }
     }
-    for (interaction, mut color, mut border_color, mode_button, entity) in
+    for (interaction, mut color, mut border_color, mode_button, _entity) in
         &mut interaction_query
     {
         let is_current_mode = *current_mode == mode_button.mode;
