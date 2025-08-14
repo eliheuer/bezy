@@ -230,12 +230,12 @@ pub fn create_unified_toolbar_button<T: Bundle>(
 pub fn create_unified_toolbar_button_with_hover_text<T: Bundle>(
     parent: &mut ChildSpawnerCommands,
     icon: &str,
-    hover_text: Option<&str>,
+    _hover_text: Option<&str>,
     additional_components: T,
     asset_server: &AssetServer,
     theme: &Res<CurrentTheme>,
 ) {
-    // Note: hover_text parameter is now ignored since hover text is handled dynamically
+    // Note: _hover_text parameter is now ignored since hover text is handled dynamically
     parent
         .spawn(Node {
             margin: UiRect::all(Val::Px(TOOLBAR_ITEM_SPACING)),
@@ -454,12 +454,11 @@ pub fn update_hover_text_visibility(
     asset_server: Res<AssetServer>,
 ) {
     let mut hovered_text: Option<String> = None;
-    let mut is_submenu_hovered = false;
     
     // Check main toolbar buttons
     for (interaction, _button_entity, tool_data) in toolbar_button_query.iter() {
         if *interaction == Interaction::Hovered {
-            if let Some(tool) = tool_registry.get_tool(&tool_data.tool_id) {
+            if let Some(tool) = tool_registry.get_tool(tool_data.tool_id) {
                 hovered_text = Some(tool.name().to_string());
                 break;
             }
@@ -471,7 +470,6 @@ pub fn update_hover_text_visibility(
         for (interaction, pen_mode_button) in pen_button_query.iter() {
             if *interaction == Interaction::Hovered {
                 hovered_text = Some(pen_mode_button.mode.get_name().to_string());
-                is_submenu_hovered = true;
                 break;
             }
         }
@@ -482,14 +480,13 @@ pub fn update_hover_text_visibility(
         for (interaction, text_mode_button) in text_button_query.iter() {
             if *interaction == Interaction::Hovered {
                 hovered_text = Some(text_mode_button.mode.display_name().to_string());
-                is_submenu_hovered = true;
                 break;
             }
         }
     }
     
     // Calculate vertical position based on submenu visibility
-    let mut vertical_offset = TOOLBAR_BUTTON_SIZE + TOOLBAR_PADDING * 2.0 + 8.0; // Position below main toolbar
+    let base_offset = TOOLBAR_BUTTON_SIZE + TOOLBAR_PADDING * 2.0 + 32.0; // Distance below bottom buttons
     
     // Check if any submenu is visible
     let mut submenu_visible = false;
@@ -500,10 +497,14 @@ pub fn update_hover_text_visibility(
         }
     }
     
-    // If submenu is visible, position below it
-    if submenu_visible {
-        vertical_offset += TOOLBAR_BUTTON_SIZE + TOOLBAR_PADDING + 8.0; // Add submenu height
-    }
+    // Calculate position: if submenu visible, position below submenu; otherwise below main toolbar
+    let vertical_offset = if submenu_visible {
+        // Position below submenu: main toolbar height + submenu height + consistent spacing
+        (TOOLBAR_BUTTON_SIZE + TOOLBAR_PADDING * 2.0) + (TOOLBAR_BUTTON_SIZE + TOOLBAR_PADDING * 2.0) + 32.0
+    } else {
+        // Position below main toolbar with consistent spacing
+        base_offset
+    };
     
     // Create or update hover text
     if let Some(text_content) = hovered_text {
@@ -525,7 +526,7 @@ pub fn update_hover_text_visibility(
                 Node {
                     position_type: PositionType::Absolute,
                     top: Val::Px(vertical_offset),
-                    left: Val::Px(TOOLBAR_CONTAINER_MARGIN), // Align with toolbar left edge
+                    left: Val::Px(TOOLBAR_CONTAINER_MARGIN + 8.0), // Add extra left margin
                     display: Display::Flex, // Show immediately
                     ..default()
                 },
