@@ -193,7 +193,7 @@ pub fn render_mesh_sort_handles(
     handle_entities.handles.clear();
     
     // Hide sort handles in presentation mode
-    let presentation_active = presentation_mode.map_or(false, |pm| pm.active);
+    let presentation_active = presentation_mode.is_some_and(|pm| pm.active);
     if presentation_active {
         info!("🎭 Sort handles hidden for presentation mode");
         return;

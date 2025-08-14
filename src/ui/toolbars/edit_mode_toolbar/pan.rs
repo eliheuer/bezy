@@ -120,7 +120,7 @@ pub fn manage_presentation_mode(
     // Only run this system when the current tool changes
     if current_tool.is_changed() {
         let is_pan_active = current_tool.get_current() == Some("pan");
-        let current_mode = presentation_mode.as_ref().map_or(false, |pm| pm.active);
+        let current_mode = presentation_mode.as_ref().is_some_and(|pm| pm.active);
         
         info!("🎭 TOOL CHANGED: current_tool={:?}, is_pan_active={}, current_presentation_mode={}", 
               current_tool.get_current(), is_pan_active, current_mode);
@@ -135,18 +135,23 @@ pub fn manage_presentation_mode(
     }
 }
 
+// Type alias for complex pane query to reduce complexity
+type PaneQuery<'w, 's> = Query<
+    'w,
+    's,
+    (Entity, &'static mut Node, Option<&'static Name>),
+    Or<(
+        With<crate::ui::panes::coord_pane::CoordPane>,
+        With<crate::ui::panes::file_pane::FilePane>,
+        With<crate::ui::panes::glyph_pane::GlyphPane>,
+    )>,
+>;
+
 // System to hide/show panes based on presentation mode - DISPLAY APPROACH
 pub fn manage_pane_visibility(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
-    mut pane_query: Query<
-        (Entity, &mut Node, Option<&Name>),
-        Or<(
-            With<crate::ui::panes::coord_pane::CoordPane>,
-            With<crate::ui::panes::file_pane::FilePane>,
-            With<crate::ui::panes::glyph_pane::GlyphPane>,
-        )>,
-    >,
+    mut pane_query: PaneQuery,
 ) {
     // Always log current state for debugging
     let spacebar_pressed = keyboard_input.pressed(KeyCode::Space);
@@ -177,7 +182,7 @@ pub fn manage_pane_visibility(
     };
     
     // Update the main pane entities using Display property
-    for (entity, mut node, name) in pane_query.iter_mut() {
+    for (_entity, mut node, name) in pane_query.iter_mut() {
         let pane_name = name.map(|n| n.as_str()).unwrap_or("Unknown");
         
         if node.display != target_display {

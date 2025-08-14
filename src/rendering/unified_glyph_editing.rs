@@ -105,8 +105,8 @@ pub fn render_unified_glyph_editing(
     let inactive_count = inactive_sort_query.iter().count();
     
     // Check if we're in presentation mode
-    let presentation_active = presentation_mode.as_ref().map_or(false, |pm| pm.active);
-    let presentation_changed = presentation_mode.as_ref().map_or(false, |pm| pm.is_changed());
+    let presentation_active = presentation_mode.as_ref().is_some_and(|pm| pm.active);
+    let presentation_changed = presentation_mode.as_ref().is_some_and(|pm| pm.is_changed());
     
     if presentation_active {
         info!("🎭 Unified rendering in presentation mode - only filled outlines will be shown");

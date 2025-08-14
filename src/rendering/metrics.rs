@@ -265,8 +265,8 @@ pub fn render_mesh_metrics_lines(
     presentation_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::PresentationMode>>,
 ) {
     // Check presentation mode state
-    let presentation_active = presentation_mode.as_ref().map_or(false, |pm| pm.active);
-    let presentation_changed = presentation_mode.as_ref().map_or(false, |pm| pm.is_changed());
+    let presentation_active = presentation_mode.as_ref().is_some_and(|pm| pm.active);
+    let presentation_changed = presentation_mode.as_ref().is_some_and(|pm| pm.is_changed());
     
     // Hide metrics in presentation mode OR if presentation mode just activated
     if presentation_active || presentation_changed {

@@ -142,7 +142,7 @@ pub fn update_checkerboard(
     presentation_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::PresentationMode>>,
 ) {
     // If checkerboard is disabled OR we're in presentation mode, despawn all squares and return early
-    let presentation_active = presentation_mode.map_or(false, |pm| pm.active);
+    let presentation_active = presentation_mode.is_some_and(|pm| pm.active);
     if !checkerboard_enabled.enabled || presentation_active {
         if presentation_active {
             debug!("🎭 Checkerboard hidden for presentation mode");
