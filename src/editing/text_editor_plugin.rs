@@ -7,6 +7,7 @@ use crate::systems::text_editor_sorts::{
     debug_text_editor_state,
     despawn_inactive_sort_points_optimized, // NEW: Optimized instant point despawning
     despawn_missing_buffer_sort_entities,   // NEW: Despawn deleted buffer sorts
+    detect_sort_glyph_changes, // NEW: Detect glyph changes and force point regeneration
     // handle_text_input_with_cosmic, // DISABLED: Legacy system causing double input
     handle_arabic_text_input, // NEW: Arabic and Unicode text input
     regenerate_points_on_fontir_change, // NEW: Regenerate points when FontIR data changes
@@ -50,6 +51,7 @@ impl Plugin for TextEditorPlugin {
             ).chain().in_set(super::FontEditorSets::EntitySync))
             // Entity spawning/despawning 
             .add_systems(Update, (
+                detect_sort_glyph_changes, // Detect glyph changes and trigger point regeneration
                 spawn_active_sort_points_optimized,
                 despawn_inactive_sort_points_optimized,
                 regenerate_points_on_fontir_change, // Regenerate when FontIR data changes

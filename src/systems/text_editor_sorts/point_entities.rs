@@ -11,6 +11,7 @@ use crate::geometry::point::EditPoint;
 use crate::systems::sort_manager::SortPointEntity;
 use bevy::prelude::*;
 use kurbo::{PathEl, Point};
+use std::collections::HashMap;
 
 /// Component to track which sort entity a point belongs to
 #[derive(Component)]
@@ -419,6 +420,58 @@ pub fn despawn_inactive_sort_points_optimized(
 
         if despawn_count > 0 {
             debug!("Despawned {} points for inactive sort", despawn_count);
+        }
+    }
+}
+
+/// Detect when active sorts change glyph and force point regeneration
+pub fn detect_sort_glyph_changes(
+    mut commands: Commands,
+    changed_sorts: Query<(Entity, &Sort), (With<ActiveSort>, Changed<Sort>)>,
+    existing_point_query: Query<(Entity, &SortPointEntity)>,
+    mut visual_update_tracker: ResMut<crate::rendering::unified_glyph_editing::SortVisualUpdateTracker>,
+    mut local_previous_glyphs: Local<HashMap<Entity, String>>,
+) {
+    for (sort_entity, sort) in changed_sorts.iter() {
+        let current_glyph_name = &sort.glyph_name;
+        
+        // Check if the glyph name actually changed
+        let glyph_changed = local_previous_glyphs
+            .get(&sort_entity)
+            .map_or(true, |prev_name| prev_name != current_glyph_name);
+            
+        if glyph_changed {
+            debug!(
+                "Detected glyph change for sort {:?}: switching to '{}'",
+                sort_entity, current_glyph_name
+            );
+            
+            // Despawn all existing point entities for this sort
+            let mut despawn_count = 0;
+            for (point_entity, sort_point) in existing_point_query.iter() {
+                if sort_point.sort_entity == sort_entity {
+                    commands.entity(point_entity).despawn();
+                    despawn_count += 1;
+                }
+            }
+            
+            if despawn_count > 0 {
+                debug!(
+                    "Despawned {} existing point entities for sort {:?}",
+                    despawn_count, sort_entity
+                );
+            }
+            
+            // Update the previous glyph name
+            local_previous_glyphs.insert(sort_entity, current_glyph_name.clone());
+            
+            // Trigger visual update to ensure new points are rendered
+            visual_update_tracker.needs_update = true;
+            
+            debug!(
+                "Sort {:?} glyph changed to '{}', triggered point regeneration",
+                sort_entity, current_glyph_name
+            );
         }
     }
 }

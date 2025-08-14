@@ -296,14 +296,29 @@ fn save_font_files(
 /// Convert BezPath directly to norad Contour
 fn convert_bezpath_to_ufo_contour(bez_path: &kurbo::BezPath) -> norad::Contour {
     let mut points = Vec::new();
+    let mut is_closed = false;
+    
+    // First pass: detect if the path is closed
+    let elements: Vec<_> = bez_path.elements().into_iter().collect();
+    
+    for element in &elements {
+        if matches!(element, PathEl::ClosePath) {
+            is_closed = true;
+            break;
+        }
+    }
     
     // Convert BezPath elements to UFO points
-    for element in bez_path.elements() {
+    
+    for element in &elements {
         match element {
             PathEl::MoveTo(pt) => {
-                points.push(norad::ContourPoint::new(
-                    pt.x, pt.y, norad::PointType::Move, false, None, None
-                ));
+                if !is_closed {
+                    // Only add MoveTo for open contours
+                    points.push(norad::ContourPoint::new(
+                        pt.x, pt.y, norad::PointType::Move, false, None, None
+                    ));
+                }
             }
             PathEl::LineTo(pt) => {
                 points.push(norad::ContourPoint::new(
@@ -334,12 +349,95 @@ fn convert_bezpath_to_ufo_contour(bez_path: &kurbo::BezPath) -> norad::Contour {
                 ));
             }
             PathEl::ClosePath => {
-                // ClosePath is handled automatically by UFO format
+                // For closed contours, UFO format handles closure automatically
+                // Don't add duplicate closing point
             }
         }
     }
     
     norad::Contour::new(points, None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kurbo::{BezPath, Point};
+    
+    #[test]
+    fn test_closed_contour_conversion() {
+        // Create a simple closed square path
+        let mut bez_path = BezPath::new();
+        bez_path.move_to(Point::new(0.0, 0.0));
+        bez_path.line_to(Point::new(100.0, 0.0));
+        bez_path.line_to(Point::new(100.0, 100.0));
+        bez_path.line_to(Point::new(0.0, 100.0));
+        bez_path.close_path();
+        
+        let contour = convert_bezpath_to_ufo_contour(&bez_path);
+        
+        // Should have 3 points (no MoveTo, no duplicate closing point)
+        // UFO format implicitly closes the contour
+        assert_eq!(contour.points.len(), 3, "Closed contour should have 3 line points");
+        
+        // First point should be Line, not Move
+        assert_eq!(contour.points[0].typ, norad::PointType::Line, "First point should be Line type");
+        assert_eq!(contour.points[0].x, 100.0);
+        assert_eq!(contour.points[0].y, 0.0);
+        
+        // Check all points are line points
+        assert_eq!(contour.points[1].typ, norad::PointType::Line);
+        assert_eq!(contour.points[2].typ, norad::PointType::Line);
+        
+        // Verify coordinates
+        assert_eq!((contour.points[1].x, contour.points[1].y), (100.0, 100.0));
+        assert_eq!((contour.points[2].x, contour.points[2].y), (0.0, 100.0));
+    }
+    
+    #[test] 
+    fn test_open_contour_conversion() {
+        // Create an open path
+        let mut bez_path = BezPath::new();
+        bez_path.move_to(Point::new(0.0, 0.0));
+        bez_path.line_to(Point::new(100.0, 0.0));
+        bez_path.line_to(Point::new(100.0, 100.0));
+        // No close_path()
+        
+        let contour = convert_bezpath_to_ufo_contour(&bez_path);
+        
+        // Should have 3 points (MoveTo + 2 LineTo)
+        assert_eq!(contour.points.len(), 3, "Open contour should have 3 points");
+        
+        // First point should be Move
+        assert_eq!(contour.points[0].typ, norad::PointType::Move, "First point should be Move type");
+        assert_eq!(contour.points[0].x, 0.0);
+        assert_eq!(contour.points[0].y, 0.0);
+    }
+    
+    #[test]
+    fn test_curve_contour_conversion() {
+        // Create a closed path with curves (like the 'a' glyph)
+        let mut bez_path = BezPath::new();
+        bez_path.move_to(Point::new(224.0, -16.0));
+        bez_path.curve_to(Point::new(306.0, -16.0), Point::new(374.0, 16.0), Point::new(416.0, 72.0));
+        bez_path.close_path();
+        
+        let contour = convert_bezpath_to_ufo_contour(&bez_path);
+        
+        // Should have 3 points: 2 off-curve + 1 curve point
+        assert_eq!(contour.points.len(), 3, "Curve contour should have 3 points");
+        
+        // First point should be OffCurve (first control point)
+        assert_eq!(contour.points[0].typ, norad::PointType::OffCurve);
+        assert_eq!((contour.points[0].x, contour.points[0].y), (306.0, -16.0));
+        
+        // Second point should be OffCurve (second control point)
+        assert_eq!(contour.points[1].typ, norad::PointType::OffCurve);
+        assert_eq!((contour.points[1].x, contour.points[1].y), (374.0, 16.0));
+        
+        // Third point should be Curve (end point)
+        assert_eq!(contour.points[2].typ, norad::PointType::Curve);
+        assert_eq!((contour.points[2].x, contour.points[2].y), (416.0, 72.0));
+    }
 }
 
 /// Handles export to TTF events

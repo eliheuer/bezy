@@ -8,7 +8,7 @@
 use crate::editing::selection::components::{
     GlyphPointReference, PointType, Selected,
 };
-use crate::editing::sort::ActiveSort;
+use crate::editing::sort::{ActiveSort, Sort};
 use crate::rendering::camera_responsive::CameraResponsiveScale;
 use crate::systems::sort_manager::SortPointEntity;
 use crate::ui::theme::*;
@@ -1276,8 +1276,8 @@ fn spawn_unified_line_mesh(
 }
 
 // Type aliases for complex query types
-type ActiveSortChangeQuery<'w, 's> = Query<'w, 's, Entity, (With<ActiveSort>, Or<(Changed<ActiveSort>, Added<ActiveSort>)>)>;
-type InactiveSortChangeQuery<'w, 's> = Query<'w, 's, Entity, (With<crate::editing::sort::InactiveSort>, Or<(Changed<crate::editing::sort::InactiveSort>, Added<crate::editing::sort::InactiveSort>)>)>;
+type ActiveSortChangeQuery<'w, 's> = Query<'w, 's, Entity, (With<ActiveSort>, Or<(Changed<ActiveSort>, Added<ActiveSort>, Changed<Sort>)>)>;
+type InactiveSortChangeQuery<'w, 's> = Query<'w, 's, Entity, (With<crate::editing::sort::InactiveSort>, Or<(Changed<crate::editing::sort::InactiveSort>, Added<crate::editing::sort::InactiveSort>, Changed<Sort>)>)>;
 
 /// System to detect when sorts change and trigger visual updates
 fn detect_sort_changes(
