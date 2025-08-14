@@ -42,6 +42,7 @@ pub enum UnifiedElementType {
     },
     OutlineSegment,
     Handle,
+    ContourStartArrow,
 }
 
 /// Resource to track unified editing entities
@@ -1014,18 +1015,54 @@ fn render_fontir_outline_unified(
         let mut element_point_index = 0;
         let mut current_pos = None;
 
-        for element in elements {
+        for (element_idx, element) in elements.iter().enumerate() {
             match element {
                 kurbo::PathEl::MoveTo(_) => {
-                    if let Some((live_pos, _)) =
+                    // Get the start position
+                    let start_pos = if let Some((live_pos, _)) =
                         live_positions.get(&(contour_idx, element_point_index))
                     {
-                        current_pos = Some(*live_pos + sort_position);
+                        *live_pos + sort_position
                     } else if let kurbo::PathEl::MoveTo(pt) = element {
-                        current_pos = Some(
-                            Vec2::new(pt.x as f32, pt.y as f32) + sort_position,
+                        Vec2::new(pt.x as f32, pt.y as f32) + sort_position
+                    } else {
+                        Vec2::ZERO
+                    };
+                    
+                    current_pos = Some(start_pos);
+                    
+                    // Add arrow indicator at contour start point
+                    // Find the direction by looking at the next element
+                    if let Some(next_element) = elements.get(element_idx + 1) {
+                        let direction = match next_element {
+                            kurbo::PathEl::LineTo(pt) => {
+                                let next_pos = Vec2::new(pt.x as f32, pt.y as f32) + sort_position;
+                                (next_pos - start_pos).normalize_or_zero()
+                            }
+                            kurbo::PathEl::CurveTo(cp1, _, _) => {
+                                let cp1_pos = Vec2::new(cp1.x as f32, cp1.y as f32) + sort_position;
+                                (cp1_pos - start_pos).normalize_or_zero()
+                            }
+                            kurbo::PathEl::QuadTo(cp, _) => {
+                                let cp_pos = Vec2::new(cp.x as f32, cp.y as f32) + sort_position;
+                                (cp_pos - start_pos).normalize_or_zero()
+                            }
+                            _ => Vec2::X,
+                        };
+                        
+                        // Spawn arrow indicator
+                        let arrow_entity = spawn_contour_start_arrow(
+                            commands,
+                            meshes,
+                            materials,
+                            start_pos,
+                            direction,
+                            sort_entity,
+                            camera_scale,
                         );
+                        element_entities.push(arrow_entity);
                     }
+                    
                     element_point_index += 1;
                 }
                 kurbo::PathEl::LineTo(_) => {
@@ -1317,6 +1354,74 @@ fn detect_sort_changes(
                   active_changed, inactive_changed, removed_active_count, removed_inactive_count);
         }
     }
+}
+
+/// Spawn an arrow indicator at the contour start point
+fn spawn_contour_start_arrow(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    position: Vec2,
+    direction: Vec2,
+    sort_entity: Entity,
+    camera_scale: &CameraResponsiveScale,
+) -> Entity {
+    // Create arrow shape - tall and narrow
+    let arrow_height = 16.0 * camera_scale.scale_factor;  // Height (how far the arrow extends)
+    let arrow_width = 16.0 * camera_scale.scale_factor;   // Width (base of the triangle)
+    let gap = 8.0 * camera_scale.scale_factor;  // Gap between point and arrow
+    
+    // Arrow points in the direction of the contour
+    let perpendicular = Vec2::new(-direction.y, direction.x) * arrow_width * 0.5;
+    
+    // Position arrow with gap from the point
+    let arrow_base = position + direction * gap;
+    
+    // Create arrow triangle pointing forward
+    let tip = arrow_base + direction * arrow_height;
+    let base1 = arrow_base - perpendicular;
+    let base2 = arrow_base + perpendicular;
+    
+    // Create mesh for the arrow
+    let mut mesh = Mesh::new(
+        bevy::render::mesh::PrimitiveTopology::TriangleList,
+        bevy::render::render_asset::RenderAssetUsages::RENDER_WORLD,
+    );
+    
+    // Vertices for the arrow triangle
+    let vertices = vec![
+        [tip.x, tip.y, 0.0],
+        [base1.x, base1.y, 0.0],
+        [base2.x, base2.y, 0.0],
+    ];
+    
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+    mesh.insert_attribute(
+        Mesh::ATTRIBUTE_NORMAL,
+        vec![[0.0, 0.0, 1.0]; 3],
+    );
+    mesh.insert_attribute(
+        Mesh::ATTRIBUTE_UV_0,
+        vec![[0.0, 0.0], [1.0, 0.0], [0.5, 1.0]],
+    );
+    
+    // Indices for the triangle
+    mesh.insert_indices(bevy::render::mesh::Indices::U32(vec![0, 1, 2]));
+    
+    // Use the theme's active orange color
+    let arrow_color = PRESSED_BUTTON_COLOR; // Active orange from theme
+    
+    commands
+        .spawn((
+            Mesh2d(meshes.add(mesh)),
+            MeshMaterial2d(materials.add(ColorMaterial::from_color(arrow_color))),
+            Transform::from_xyz(0.0, 0.0, UNIFIED_OUTLINE_Z + 0.1), // Slightly above outlines
+            UnifiedGlyphElement {
+                element_type: UnifiedElementType::ContourStartArrow,
+                sort_entity,
+            },
+        ))
+        .id()
 }
 
 /// Plugin for unified glyph editing rendering

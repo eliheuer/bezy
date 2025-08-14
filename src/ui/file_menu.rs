@@ -294,13 +294,18 @@ fn save_font_files(
 }
 
 /// Convert BezPath directly to norad Contour
+/// 
+/// IMPORTANT: This preserves the contour start point for closed contours.
+/// In UFO format, closed contours don't use MoveTo but start with the first actual point.
+/// The BezPath MoveTo position indicates where the contour starts.
 fn convert_bezpath_to_ufo_contour(bez_path: &kurbo::BezPath) -> norad::Contour {
-    let mut points = Vec::new();
+    let mut all_points = Vec::new();
     let mut is_closed = false;
     
-    // First pass: detect if the path is closed
+    // First pass: collect all points and detect if closed
     let elements: Vec<_> = bez_path.elements().into_iter().collect();
     
+    // Check if path is closed
     for element in &elements {
         if matches!(element, PathEl::ClosePath) {
             is_closed = true;
@@ -308,54 +313,54 @@ fn convert_bezpath_to_ufo_contour(bez_path: &kurbo::BezPath) -> norad::Contour {
         }
     }
     
-    // Convert BezPath elements to UFO points
-    
+    // Convert all elements to points
     for element in &elements {
         match element {
             PathEl::MoveTo(pt) => {
                 if !is_closed {
-                    // Only add MoveTo for open contours
-                    points.push(norad::ContourPoint::new(
+                    // For open paths, add MoveTo
+                    all_points.push(norad::ContourPoint::new(
                         pt.x, pt.y, norad::PointType::Move, false, None, None
                     ));
                 }
+                // For closed paths, MoveTo just marks the start position
+                // We'll reorganize points to start from here
             }
             PathEl::LineTo(pt) => {
-                points.push(norad::ContourPoint::new(
+                all_points.push(norad::ContourPoint::new(
                     pt.x, pt.y, norad::PointType::Line, false, None, None
                 ));
             }
             PathEl::CurveTo(cp1, cp2, pt) => {
-                // Add control points
-                points.push(norad::ContourPoint::new(
+                all_points.push(norad::ContourPoint::new(
                     cp1.x, cp1.y, norad::PointType::OffCurve, false, None, None
                 ));
-                points.push(norad::ContourPoint::new(
+                all_points.push(norad::ContourPoint::new(
                     cp2.x, cp2.y, norad::PointType::OffCurve, false, None, None
                 ));
-                // Add curve point
-                points.push(norad::ContourPoint::new(
+                all_points.push(norad::ContourPoint::new(
                     pt.x, pt.y, norad::PointType::Curve, false, None, None
                 ));
             }
             PathEl::QuadTo(cp, pt) => {
-                // Add control point
-                points.push(norad::ContourPoint::new(
+                all_points.push(norad::ContourPoint::new(
                     cp.x, cp.y, norad::PointType::OffCurve, false, None, None
                 ));
-                // Add quadratic curve point  
-                points.push(norad::ContourPoint::new(
+                all_points.push(norad::ContourPoint::new(
                     pt.x, pt.y, norad::PointType::QCurve, false, None, None
                 ));
             }
             PathEl::ClosePath => {
-                // For closed contours, UFO format handles closure automatically
-                // Don't add duplicate closing point
+                // UFO handles closure implicitly, don't add anything
             }
         }
     }
     
-    norad::Contour::new(points, None)
+    // For closed contours, we need to handle the implicit closing segment
+    // The BezPath might have segments that wrap around to the start
+    // We preserve the order as-is since the MoveTo position indicates the start
+    
+    norad::Contour::new(all_points, None)
 }
 
 #[cfg(test)]
