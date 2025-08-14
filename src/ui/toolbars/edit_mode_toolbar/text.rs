@@ -193,10 +193,11 @@ fn spawn_text_mode_button(
     asset_server: &Res<AssetServer>,
     theme: &Res<CurrentTheme>,
 ) {
-    // Use the unified toolbar button creation system for consistent styling
-    crate::ui::toolbars::edit_mode_toolbar::ui::create_unified_toolbar_button(
+    // Use the unified toolbar button creation system for consistent styling with hover text
+    crate::ui::toolbars::edit_mode_toolbar::ui::create_unified_toolbar_button_with_hover_text(
         parent,
         mode.get_icon(),
+        Some(mode.display_name()), // Show the mode name on hover
         (TextSubMenuButton, TextModeButton { mode }),
         asset_server,
         theme,

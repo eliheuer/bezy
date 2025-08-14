@@ -55,11 +55,12 @@
 
 use crate::ui::theme::{
     BUTTON_ICON_SIZE, GROTESK_FONT_PATH, HOVERED_BUTTON_COLOR,
-    HOVERED_BUTTON_OUTLINE_COLOR, NORMAL_BUTTON_COLOR,
+    HOVERED_BUTTON_OUTLINE_COLOR, MONO_FONT_PATH, NORMAL_BUTTON_COLOR,
     NORMAL_BUTTON_OUTLINE_COLOR, PRESSED_BUTTON_COLOR,
     PRESSED_BUTTON_ICON_COLOR, PRESSED_BUTTON_OUTLINE_COLOR,
     TOOLBAR_BORDER_WIDTH, TOOLBAR_BUTTON_SIZE, TOOLBAR_CONTAINER_MARGIN,
     TOOLBAR_ICON_COLOR, TOOLBAR_ITEM_SPACING, TOOLBAR_PADDING,
+    WIDGET_TEXT_FONT_SIZE,
 };
 use crate::ui::themes::{CurrentTheme, ToolbarBorderRadius};
 use crate::ui::toolbars::edit_mode_toolbar::*;
@@ -76,6 +77,10 @@ pub struct EditModeToolbarButton;
 pub struct ToolButtonData {
     pub tool_id: ToolId,
 }
+
+/// Component marker for hover text entities
+#[derive(Component)]
+pub struct ButtonHoverText;
 
 // TOOLBAR CREATION ------------------------------------------------------------
 
@@ -137,13 +142,14 @@ fn create_tool_button(
         });
 }
 
+
 /// Creates the button entity with all required components
 fn create_button_entity(
     parent: &mut ChildSpawnerCommands,
     tool: &dyn EditTool,
     asset_server: &AssetServer,
     theme: &Res<CurrentTheme>,
-) {
+) -> Entity {
     parent
         .spawn((
             Button,
@@ -157,7 +163,8 @@ fn create_button_entity(
         ))
         .with_children(|button| {
             create_button_text(button, tool, asset_server);
-        });
+        })
+        .id()
 }
 
 /// Creates the button styling configuration
@@ -215,6 +222,20 @@ pub fn create_unified_toolbar_button<T: Bundle>(
     asset_server: &AssetServer,
     theme: &Res<CurrentTheme>,
 ) {
+    create_unified_toolbar_button_with_hover_text(parent, icon, None, additional_components, asset_server, theme);
+}
+
+/// Creates a unified toolbar button with hover text support
+/// This version allows specifying the hover text to display when the button is hovered
+pub fn create_unified_toolbar_button_with_hover_text<T: Bundle>(
+    parent: &mut ChildSpawnerCommands,
+    icon: &str,
+    hover_text: Option<&str>,
+    additional_components: T,
+    asset_server: &AssetServer,
+    theme: &Res<CurrentTheme>,
+) {
+    // Note: hover_text parameter is now ignored since hover text is handled dynamically
     parent
         .spawn(Node {
             margin: UiRect::all(Val::Px(TOOLBAR_ITEM_SPACING)),
@@ -236,6 +257,7 @@ pub fn create_unified_toolbar_button<T: Bundle>(
                 });
         });
 }
+
 
 /// Updates button colors using the unified color system
 /// This should be used by all button color update systems for consistency
@@ -413,6 +435,109 @@ fn update_button_text_color(
 ) {
     // Use the unified text color system for consistency
     update_unified_button_text_colors(entity, is_current_tool, children_query, text_query);
+}
+
+/// Updates hover text visibility based on button interaction states
+/// This works for any button with the Button component, not just main toolbar buttons
+pub fn update_hover_text_visibility(
+    mut commands: Commands,
+    // Main toolbar buttons
+    toolbar_button_query: Query<(&Interaction, Entity, &ToolButtonData), With<Button>>,
+    // Pen submenu buttons
+    pen_button_query: Query<(&Interaction, &crate::ui::toolbars::edit_mode_toolbar::pen::PenModeButton), (With<Button>, Without<ToolButtonData>)>,
+    // Text submenu buttons
+    text_button_query: Query<(&Interaction, &crate::ui::toolbars::edit_mode_toolbar::text::TextModeButton), (With<Button>, Without<ToolButtonData>, Without<crate::ui::toolbars::edit_mode_toolbar::pen::PenModeButton>)>,
+    // Check submenu visibility by name (exclude hover text entities)
+    submenu_query: Query<(&Node, &Name), Without<ButtonHoverText>>,
+    mut hover_text_query: Query<(Entity, &mut Text, &mut Node), With<ButtonHoverText>>,
+    tool_registry: Res<ToolRegistry>,
+    asset_server: Res<AssetServer>,
+) {
+    let mut hovered_text: Option<String> = None;
+    let mut is_submenu_hovered = false;
+    
+    // Check main toolbar buttons
+    for (interaction, _button_entity, tool_data) in toolbar_button_query.iter() {
+        if *interaction == Interaction::Hovered {
+            if let Some(tool) = tool_registry.get_tool(&tool_data.tool_id) {
+                hovered_text = Some(tool.name().to_string());
+                break;
+            }
+        }
+    }
+    
+    // Check pen submenu buttons
+    if hovered_text.is_none() {
+        for (interaction, pen_mode_button) in pen_button_query.iter() {
+            if *interaction == Interaction::Hovered {
+                hovered_text = Some(pen_mode_button.mode.get_name().to_string());
+                is_submenu_hovered = true;
+                break;
+            }
+        }
+    }
+    
+    // Check text submenu buttons
+    if hovered_text.is_none() {
+        for (interaction, text_mode_button) in text_button_query.iter() {
+            if *interaction == Interaction::Hovered {
+                hovered_text = Some(text_mode_button.mode.display_name().to_string());
+                is_submenu_hovered = true;
+                break;
+            }
+        }
+    }
+    
+    // Calculate vertical position based on submenu visibility
+    let mut vertical_offset = TOOLBAR_BUTTON_SIZE + TOOLBAR_PADDING * 2.0 + 8.0; // Position below main toolbar
+    
+    // Check if any submenu is visible
+    let mut submenu_visible = false;
+    for (node, name) in submenu_query.iter() {
+        if (name.as_str() == "PenSubMenu" || name.as_str() == "TextSubMenu") && node.display != Display::None {
+            submenu_visible = true;
+            break;
+        }
+    }
+    
+    // If submenu is visible, position below it
+    if submenu_visible {
+        vertical_offset += TOOLBAR_BUTTON_SIZE + TOOLBAR_PADDING + 8.0; // Add submenu height
+    }
+    
+    // Create or update hover text
+    if let Some(text_content) = hovered_text {
+        if let Ok((_, mut text, mut style)) = hover_text_query.single_mut() {
+            // Update existing hover text
+            text.0 = text_content;
+            style.top = Val::Px(vertical_offset);
+            style.display = Display::Flex;
+        } else {
+            // Create new hover text if none exists
+            commands.spawn((
+                Text::new(text_content),
+                TextFont {
+                    font: asset_server.load(MONO_FONT_PATH),
+                    font_size: WIDGET_TEXT_FONT_SIZE,
+                    ..default()
+                },
+                TextColor(PRESSED_BUTTON_COLOR), // Orange active color
+                Node {
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(vertical_offset),
+                    left: Val::Px(TOOLBAR_CONTAINER_MARGIN), // Align with toolbar left edge
+                    display: Display::Flex, // Show immediately
+                    ..default()
+                },
+                ButtonHoverText,
+            ));
+        }
+    } else {
+        // Hide hover text when nothing is hovered
+        for (_hover_entity, _text, mut style) in hover_text_query.iter_mut() {
+            style.display = Display::None;
+        }
+    }
 }
 
 // ============================================================================

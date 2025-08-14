@@ -143,9 +143,11 @@ mod spacebar_toggle;
 // Re-export the new tool system
 pub use spacebar_toggle::{handle_spacebar_toggle, SpacebarToggleState};
 pub use ui::{
-    create_unified_toolbar_button, handle_toolbar_mode_selection, spawn_edit_mode_toolbar,
+    create_unified_toolbar_button, create_unified_toolbar_button_with_hover_text,
+    handle_toolbar_mode_selection, spawn_edit_mode_toolbar,
     update_current_edit_mode, update_toolbar_button_appearances,
     update_unified_button_colors, update_unified_button_text_colors,
+    update_hover_text_visibility,
 };
 
 // NEW: Re-export centralized configuration system
@@ -623,6 +625,7 @@ impl Plugin for EditModeToolbarPlugin {
                 (
                     handle_toolbar_mode_selection,
                     update_toolbar_button_appearances,
+                    update_hover_text_visibility,
                 ),
             )
             .add_systems(Update, update_current_edit_mode);
