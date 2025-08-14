@@ -260,10 +260,19 @@ pub fn handle_ai_tool_shortcuts(
     mut keyboard_input: ResMut<ButtonInput<KeyCode>>,
     mut current_tool: ResMut<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
     mut current_operation: ResMut<CurrentAiOperation>,
+    text_mode_active: Option<Res<crate::ui::toolbars::edit_mode_toolbar::text::TextModeActive>>,
+    current_text_placement_mode: Option<Res<crate::ui::toolbars::edit_mode_toolbar::text::CurrentTextPlacementMode>>,
 ) {
-    // Activate AI tool with 'A' key
+    // Check if single-char hotkeys should be disabled for text input
+    let should_disable = crate::ui::toolbars::edit_mode_toolbar::keyboard_utils::should_disable_single_char_hotkeys(
+        text_mode_active.as_ref(),
+        current_text_placement_mode.as_ref(),
+    );
+    
+    // Activate AI tool with 'A' key (but not when in text insert mode)
     if keyboard_input.just_pressed(KeyCode::KeyA)
         && current_tool.get_current() != Some("ai")
+        && !should_disable
     {
         current_tool.switch_to("ai");
         info!("Activated AI tool via keyboard shortcut");

@@ -126,6 +126,7 @@ pub mod config_loader;
 pub mod toolbar_config;
 
 mod hyper;
+pub mod keyboard_utils;
 pub mod knife;
 mod measure;
 mod metaballs;

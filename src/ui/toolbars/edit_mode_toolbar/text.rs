@@ -629,9 +629,18 @@ pub fn handle_text_tool_shortcuts(
     mut current_placement_mode: ResMut<CurrentTextPlacementMode>,
     mut text_mode_config: ResMut<TextModeConfig>,
     text_editor_state: Option<Res<TextEditorState>>,
+    text_mode_active: Res<TextModeActive>,
 ) {
+    // Check if single-char hotkeys should be disabled for text input
+    let should_disable = super::keyboard_utils::should_disable_single_char_hotkeys(
+        Some(&text_mode_active),
+        Some(&current_placement_mode),
+    );
+    
+    // Only activate text tool with 'T' key when not in insert mode
     if keyboard_input.just_pressed(KeyCode::KeyT)
         && current_tool.get_current() != Some("text")
+        && !should_disable
     {
         current_tool.switch_to("text");
         info!("Activated text tool via keyboard shortcut");
