@@ -7,10 +7,7 @@ use bevy::prelude::*;
 use bevy_pancam::{PanCam, PanCamPlugin};
 
 // Constants
-const MIN_ALLOWED_ZOOM_SCALE: f32 = 0.1; // Don't zoom in beyond 8-unit grid usefulness
-const MAX_ALLOWED_ZOOM_SCALE: f32 = 64.0; // Stop before 256-unit grid becomes too large
 const INITIAL_ZOOM_SCALE: f32 = 1.0; // Start at 32-unit grid level
-const KEYBOARD_ZOOM_STEP: f32 = 0.9; // Smaller number = faster zoom (0.9 = 10% change per step)
 
 // Component to mark the main design camera
 #[derive(Component)]
@@ -50,8 +47,8 @@ pub fn setup_camera(mut commands: Commands) {
             grab_buttons: vec![MouseButton::Left, MouseButton::Middle],
             enabled: true,
             zoom_to_cursor: true,
-            min_scale: MIN_ALLOWED_ZOOM_SCALE,
-            max_scale: MAX_ALLOWED_ZOOM_SCALE,
+            min_scale: crate::ui::theme::MIN_ALLOWED_ZOOM_SCALE,
+            max_scale: crate::ui::theme::MAX_ALLOWED_ZOOM_SCALE,
             ..default()
         },
         DesignCamera,
@@ -80,12 +77,12 @@ fn zoom_camera(
 
 /// Handles keyboard shortcuts for camera control
 fn toggle_camera_controls(
-    mut query: Query<(&mut PanCam, &mut Transform)>,
+    mut query: Query<&mut PanCam>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
     // Handle zoom to cursor toggle
     if keys.just_pressed(KeyCode::KeyT) {
-        for (mut pancam, _) in query.iter_mut() {
+        for mut pancam in query.iter_mut() {
             pancam.zoom_to_cursor = !pancam.zoom_to_cursor;
             let status = if pancam.zoom_to_cursor {
                 "enabled"
@@ -93,31 +90,6 @@ fn toggle_camera_controls(
                 "disabled"
             };
             info!("Camera zoom to cursor {}", status);
-        }
-    }
-
-    // Handle keyboard zoom
-    let modifier_pressed = keys.pressed(KeyCode::SuperLeft)
-        || keys.pressed(KeyCode::SuperRight)
-        || keys.pressed(KeyCode::ControlLeft)
-        || keys.pressed(KeyCode::ControlRight);
-
-    if !modifier_pressed {
-        return;
-    }
-
-    for (_, mut transform) in query.iter_mut() {
-        let current_scale = transform.scale.x;
-        if keys.just_pressed(KeyCode::Equal) {
-            // Zoom in
-            let new_scale = (current_scale * KEYBOARD_ZOOM_STEP)
-                .max(MIN_ALLOWED_ZOOM_SCALE);
-            transform.scale = Vec3::splat(new_scale);
-        } else if keys.just_pressed(KeyCode::Minus) {
-            // Zoom out
-            let new_scale = (current_scale / KEYBOARD_ZOOM_STEP)
-                .min(MAX_ALLOWED_ZOOM_SCALE);
-            transform.scale = Vec3::splat(new_scale);
         }
     }
 }

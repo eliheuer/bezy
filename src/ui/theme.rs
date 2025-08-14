@@ -127,7 +127,6 @@ pub const SELECTION_MARGIN: f32 = 16.0;
 pub const MIN_ALLOWED_ZOOM_SCALE: f32 = 0.1;
 pub const MAX_ALLOWED_ZOOM_SCALE: f32 = 64.0;
 pub const INITIAL_ZOOM_SCALE: f32 = 1.0;
-pub const KEYBOARD_ZOOM_STEP: f32 = 0.9;
 
 // =================================================================
 // THEME-DEPENDENT CONSTANTS
