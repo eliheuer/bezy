@@ -607,6 +607,7 @@ impl Plugin for EditModeToolbarPlugin {
             .add_plugins(PanToolPlugin)     // Pan tool input handling and behavior
             .add_plugins(MeasureToolPlugin) // Measure tool rendering and interaction  
             .add_plugins(TextToolPlugin)    // Text tool with submenu functionality
+            .add_plugins(ShapesToolPlugin)  // Shapes tool with submenu functionality  
             .add_plugins(crate::tools::ai::AiToolPlugin) // AI tool with submenu functionality
             
             // ✅ NOTE: Tool registration (toolbar buttons) is automatic via ConfigBasedToolbarPlugin

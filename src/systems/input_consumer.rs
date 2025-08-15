@@ -302,25 +302,37 @@ impl InputConsumer for ShapeInputConsumer {
         event: &InputEvent,
         input_state: &InputState,
     ) -> bool {
-        // Handle shape tool events
-        matches!(
+        let is_shape_event = matches!(
             event,
             InputEvent::MouseClick { .. } | InputEvent::MouseDrag { .. }
-        ) && helpers::is_input_mode(input_state, InputMode::Shape)
+        );
+        let is_shape_mode = helpers::is_input_mode(input_state, InputMode::Shape);
+        
+        // Debug: Log when we should handle input
+        if is_shape_event {
+            info!("🔧 SHAPE INPUT CONSUMER: Mouse event - input_mode: {:?}, should_handle: {}", 
+                  input_state.mode, is_shape_event && is_shape_mode);
+        }
+        
+        is_shape_event && is_shape_mode
     }
 
     fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
+        info!("🔧 SHAPE INPUT CONSUMER: Handling input event: {:?}", event);
         if let InputEvent::MouseClick {
             button,
             position,
             modifiers: _,
         } = event
         {
-            debug!(
-                "[SHAPE] Mouse click: {:?} at {:?}",
+            info!(
+                "🔧 SHAPE INPUT CONSUMER: Mouse click: {:?} at {:?} - EVENT CONSUMED",
                 button, position
             );
             // Shape tool logic would go here
+        }
+        if let InputEvent::MouseDrag { .. } = event {
+            info!("🔧 SHAPE INPUT CONSUMER: Mouse drag - EVENT CONSUMED");
         }
     }
 }
@@ -517,9 +529,10 @@ fn process_input_events(
             continue;
         }
 
+        // Shape tool input consumption
         if shape_consumer.should_handle_input(event, &input_state) {
             shape_consumer.handle_input(event, &input_state);
-            continue;
+            continue; // Consume the event - don't let it fall through to selection
         }
 
         if hyper_consumer.should_handle_input(event, &input_state) {

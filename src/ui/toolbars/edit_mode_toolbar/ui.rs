@@ -447,6 +447,8 @@ pub fn update_hover_text_visibility(
     pen_button_query: Query<(&Interaction, &crate::ui::toolbars::edit_mode_toolbar::pen::PenModeButton), (With<Button>, Without<ToolButtonData>)>,
     // Text submenu buttons
     text_button_query: Query<(&Interaction, &crate::ui::toolbars::edit_mode_toolbar::text::TextModeButton), (With<Button>, Without<ToolButtonData>, Without<crate::ui::toolbars::edit_mode_toolbar::pen::PenModeButton>)>,
+    // Shapes submenu buttons
+    shapes_button_query: Query<(&Interaction, &crate::ui::toolbars::edit_mode_toolbar::shapes::ShapeModeButton), (With<Button>, Without<ToolButtonData>, Without<crate::ui::toolbars::edit_mode_toolbar::pen::PenModeButton>, Without<crate::ui::toolbars::edit_mode_toolbar::text::TextModeButton>)>,
     // Check submenu visibility by name (exclude hover text entities)
     submenu_query: Query<(&Node, &Name), Without<ButtonHoverText>>,
     mut hover_text_query: Query<(Entity, &mut Text, &mut Node), With<ButtonHoverText>>,
@@ -485,13 +487,23 @@ pub fn update_hover_text_visibility(
         }
     }
     
+    // Check shapes submenu buttons
+    if hovered_text.is_none() {
+        for (interaction, shape_mode_button) in shapes_button_query.iter() {
+            if *interaction == Interaction::Hovered {
+                hovered_text = Some(shape_mode_button.shape_type.get_name().to_string());
+                break;
+            }
+        }
+    }
+    
     // Calculate vertical position based on submenu visibility
     let base_offset = TOOLBAR_BUTTON_SIZE + TOOLBAR_PADDING * 2.0 + 32.0; // Distance below bottom buttons
     
     // Check if any submenu is visible
     let mut submenu_visible = false;
     for (node, name) in submenu_query.iter() {
-        if (name.as_str() == "PenSubMenu" || name.as_str() == "TextSubMenu") && node.display != Display::None {
+        if (name.as_str() == "PenSubMenu" || name.as_str() == "TextSubMenu" || name.as_str() == "ShapesSubMenu") && node.display != Display::None {
             submenu_visible = true;
             break;
         }
