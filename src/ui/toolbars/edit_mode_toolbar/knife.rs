@@ -347,7 +347,7 @@ pub fn render_knife_preview(
                 dash_end,
                 line_width,
                 line_color,
-                1.0, // z-order
+                18.0, // z-order (below intersection points but above other elements)
             );
             knife_entities.push(entity);
 
@@ -364,7 +364,7 @@ pub fn render_knife_preview(
             start,
             point_size,
             start_color,
-            1.1, // z-order above line
+            19.0, // z-order above line but below intersection points
         );
         knife_entities.push(point_entity);
         
@@ -382,7 +382,7 @@ pub fn render_knife_preview(
             Vec2::new(end.x + cross_size, end.y),
             cross_width,
             end_color,
-            1.2, // z-order above everything
+            19.0, // z-order above line but below intersection points
         );
         knife_entities.push(cross_h_entity);
         
@@ -395,7 +395,7 @@ pub fn render_knife_preview(
             Vec2::new(end.x, end.y + cross_size),
             cross_width,
             end_color,
-            1.2, // z-order above everything
+            19.0, // z-order above line but below intersection points
         );
         knife_entities.push(cross_v_entity);
         
@@ -421,7 +421,7 @@ pub fn render_knife_preview(
                 intersection,
                 point_size,
                 intersection_color,
-                1.2, // z-order above everything else
+                20.0, // z-order above everything else (higher than cursor at 15.0)
             );
             knife_entities.push(intersection_entity);
         }
