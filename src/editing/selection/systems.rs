@@ -613,6 +613,13 @@ pub fn process_selection_input_events(
     app_state: Res<crate::core::state::AppState>,
 ) {
     debug!("[process_selection_input_events] Called");
+    
+    // Check if select tool is active by checking InputMode
+    if !crate::core::io::input::helpers::is_input_mode(&input_state, crate::core::io::input::InputMode::Select) {
+        debug!("[process_selection_input_events] Not in Select input mode, returning early");
+        return;
+    }
+    
     // Only process if in select mode
     if let Some(select_mode) = select_mode {
         if !select_mode.0 {

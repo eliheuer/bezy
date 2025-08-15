@@ -261,7 +261,24 @@ impl PenInputConsumer {
 
 /// Input consumer for knife tool functionality
 #[derive(Resource, Default)]
-pub struct KnifeInputConsumer;
+pub struct KnifeInputConsumer {
+    /// The current gesture state
+    pub gesture: KnifeGestureState,
+    /// Whether shift key is pressed (for axis-aligned cuts)
+    pub shift_locked: bool,
+    /// Intersection points for visualization
+    pub intersections: Vec<Vec2>,
+}
+
+/// The state of the knife gesture
+#[derive(Debug, Clone, PartialEq, Default, Copy)]
+pub enum KnifeGestureState {
+    /// Ready to start cutting
+    #[default]
+    Ready,
+    /// Currently dragging a cut line
+    Cutting { start: Vec2, current: Vec2 },
+}
 
 impl InputConsumer for KnifeInputConsumer {
     fn should_handle_input(
@@ -269,25 +286,98 @@ impl InputConsumer for KnifeInputConsumer {
         event: &InputEvent,
         input_state: &InputState,
     ) -> bool {
-        // Handle knife tool events
-        matches!(
+        let is_right_event = matches!(
             event,
             InputEvent::MouseClick { .. } | InputEvent::MouseDrag { .. }
-        ) && helpers::is_input_mode(input_state, InputMode::Knife)
+        );
+        let is_knife_mode = helpers::is_input_mode(input_state, InputMode::Knife);
+        
+        if is_right_event {
+            debug!("🔪 KNIFE_INPUT_CONSUMER: should_handle_input - event: {:?}, is_knife_mode: {}, current_mode: {:?}", 
+                   event, is_knife_mode, input_state.mode);
+        }
+        
+        is_right_event && is_knife_mode
     }
 
     fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
-        if let InputEvent::MouseClick {
-            button,
-            position,
-            modifiers: _,
-        } = event
-        {
-            debug!(
-                "[KNIFE] Mouse click: {:?} at {:?}",
-                button, position
-            );
-            // Knife tool logic would go here
+        debug!("🔪 KNIFE INPUT CONSUMER: Handling event: {:?}", event);
+        
+        match event {
+            InputEvent::MouseClick { button, position, .. } => {
+                info!("🔪 KNIFE INPUT CONSUMER: Mouse click: {:?} at {:?} - EVENT CONSUMED", button, position);
+                if button == &bevy::input::mouse::MouseButton::Left {
+                    let world_position = Vec2::new(position.x as f32, position.y as f32);
+                    self.gesture = KnifeGestureState::Cutting {
+                        start: world_position,
+                        current: world_position,
+                    };
+                    self.intersections.clear();
+                    info!("🔪 KNIFE INPUT CONSUMER: Started cutting at {:?}", world_position);
+                }
+            }
+            InputEvent::MouseDrag { current_position, .. } => {
+                debug!("🔪 KNIFE INPUT CONSUMER: Mouse drag at {:?} - EVENT CONSUMED", current_position);
+                if let KnifeGestureState::Cutting { start, .. } = self.gesture {
+                    let world_position = Vec2::new(current_position.x as f32, current_position.y as f32);
+                    self.gesture = KnifeGestureState::Cutting {
+                        start,
+                        current: world_position,
+                    };
+                    
+                    // Update intersections for preview
+                    self.update_intersections(start, world_position);
+                    debug!("🔪 KNIFE INPUT CONSUMER: Dragging to {:?}", world_position);
+                }
+            }
+            InputEvent::MouseRelease { button, position, .. } => {
+                debug!("🔪 KNIFE INPUT CONSUMER: Mouse release: {:?} at {:?}", button, position);
+                if button == &bevy::input::mouse::MouseButton::Left {
+                    if let KnifeGestureState::Cutting { start, current } = self.gesture {
+                        info!("🔪 KNIFE INPUT CONSUMER: Performing knife cut from {:?} to {:?}", start, current);
+                        // TODO: Implement actual cutting logic here
+                    }
+                    
+                    // Reset state
+                    self.gesture = KnifeGestureState::Ready;
+                    self.intersections.clear();
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+impl KnifeInputConsumer {
+    /// Update intersection points for preview
+    fn update_intersections(&mut self, start: Vec2, end: Vec2) {
+        self.intersections.clear();
+        
+        // Simple preview intersection at the midpoint
+        let mid_point = (start + end) * 0.5;
+        self.intersections.push(mid_point);
+    }
+    
+    /// Get the cutting line with axis locking if shift is pressed
+    pub fn get_cutting_line(&self) -> Option<(Vec2, Vec2)> {
+        match self.gesture {
+            KnifeGestureState::Cutting { start, current } => {
+                let actual_end = if self.shift_locked {
+                    // Apply axis constraint for shift key
+                    let delta = current - start;
+                    if delta.x.abs() > delta.y.abs() {
+                        // Horizontal line
+                        Vec2::new(current.x, start.y)
+                    } else {
+                        // Vertical line
+                        Vec2::new(start.x, current.y)
+                    }
+                } else {
+                    current
+                };
+                Some((start, actual_end))
+            }
+            KnifeGestureState::Ready => None,
         }
     }
 }
@@ -525,6 +615,7 @@ fn process_input_events(
         // }
 
         if knife_consumer.should_handle_input(event, &input_state) {
+            info!("🔪 INPUT_CONSUMER: Routing event to knife consumer: {:?}", event);
             knife_consumer.handle_input(event, &input_state);
             continue;
         }

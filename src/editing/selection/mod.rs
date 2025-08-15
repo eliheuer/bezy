@@ -91,14 +91,8 @@ impl Plugin for SelectionPlugin {
             .configure_sets(PostUpdate, (SelectionSystemSet::Render,))
             // Input systems - the process_selection_input_events system handles the actual selection logic
             // It's called by the centralized input consumer system when in select mode
-            .add_systems(
-                Update,
-                (
-                    input::process_selection_input_events,
-                    input::handle_point_drag,
-                )
-                    .in_set(SelectionSystemSet::Input),
-            )
+            .add_systems(Update, input::process_selection_input_events)
+            .add_systems(Update, input::handle_point_drag)
             // Processing systems
             .add_systems(
                 Update,

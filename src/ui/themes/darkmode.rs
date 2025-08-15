@@ -175,7 +175,7 @@ impl BezyTheme for DarkModeTheme {
     }
 
     fn knife_intersection_color(&self) -> Color {
-        Color::srgba(1.0, 1.0, 0.0, 1.0)
+        self.action_color() // Orange action color instead of yellow
     }
 
     fn knife_start_point_color(&self) -> Color {

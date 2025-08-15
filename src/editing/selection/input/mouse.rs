@@ -55,6 +55,12 @@ pub fn process_selection_input_events(
         return;
     }
 
+    // Check if select tool is active by checking InputMode
+    if !crate::core::io::input::helpers::is_input_mode(&input_state, crate::core::io::input::InputMode::Select) {
+        debug!("[process_selection_input_events] Not in Select input mode, skipping all events");
+        return;
+    }
+
     // Only log when we actually have events to process
     let mode_status = select_mode.as_ref().map(|s| s.0).unwrap_or(false);
     debug!("[process_selection_input_events] System called with {} events, select_mode exists: {}, active: {}", 
@@ -63,10 +69,12 @@ pub fn process_selection_input_events(
     // Only process if in select mode
     if let Some(select_mode) = select_mode {
         if !select_mode.0 {
-            debug!("[process_selection_input_events] Select mode inactive but processing anyway");
+            debug!("[process_selection_input_events] Select mode inactive, exiting");
+            return;
         }
     } else {
-        debug!("[process_selection_input_events] SelectModeActive resource not found, processing anyway");
+        debug!("[process_selection_input_events] SelectModeActive resource not found, exiting");
+        return;
     }
 
     for event in input_events.read() {

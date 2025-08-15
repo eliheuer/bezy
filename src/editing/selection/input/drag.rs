@@ -32,6 +32,7 @@ pub fn handle_point_drag(
     mut event_writer: EventWriter<EditEvent>,
     settings: Res<BezySettings>,
 ) {
+    
     // Only drag if the resource says we are
     if !drag_point_state.is_dragging {
         return;
