@@ -352,10 +352,8 @@ impl KnifeInputConsumer {
     /// Update intersection points for preview
     fn update_intersections(&mut self, start: Vec2, end: Vec2) {
         self.intersections.clear();
-        
-        // Simple preview intersection at the midpoint
-        let mid_point = (start + end) * 0.5;
-        self.intersections.push(mid_point);
+        // Real intersection detection will be handled by the render system
+        // This is just a placeholder that gets overridden
     }
     
     /// Get the cutting line with axis locking if shift is pressed
