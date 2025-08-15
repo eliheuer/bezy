@@ -192,6 +192,7 @@ pub fn handle_shape_mouse_events(
     camera_query: Query<(&Camera, &GlobalTransform)>,
     mut app_state_changed: EventWriter<AppStateChanged>,
     mut app_state: Option<ResMut<AppState>>,
+    mut fontir_app_state: Option<ResMut<crate::core::state::FontIRAppState>>,
     glyph_navigation: Res<GlyphNavigation>,
     corner_radius: Res<CurrentCornerRadius>,
     shapes_mode: Option<Res<ShapesModeActive>>,
@@ -267,8 +268,16 @@ pub fn handle_shape_mouse_events(
                 debug!("SHAPES TOOL: Completing {:?} shape with rect: ({:.1}, {:.1}) to ({:.1}, {:.1})", 
                        active_drawing.shape_type, rect.min.x, rect.min.y, rect.max.x, rect.max.y);
 
-                // Create the shape in the current glyph
-                if let Some(mut state) = app_state.as_mut() {
+                // Create the shape in the current glyph - try FontIR first, then legacy AppState
+                if let Some(mut fontir_state) = fontir_app_state.as_mut() {
+                    create_shape_fontir(
+                        rect,
+                        active_drawing.shape_type,
+                        corner_radius.0,
+                        &mut fontir_state,
+                        &mut app_state_changed,
+                    );
+                } else if let Some(mut state) = app_state.as_mut() {
                     create_shape(
                         rect,
                         active_drawing.shape_type,
@@ -299,6 +308,8 @@ pub fn render_active_shape_drawing_with_dimensions(
     current_tool: Option<Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>>,
     camera_scale: Res<CameraResponsiveScale>,
     existing_preview_query: Query<Entity, With<ShapePreviewElement>>,
+    theme: Res<CurrentTheme>,
+    asset_server: Res<AssetServer>,
 ) {
     // Clean up existing preview elements
     for entity in existing_preview_query.iter() {
@@ -332,7 +343,7 @@ pub fn render_active_shape_drawing_with_dimensions(
         info!("SHAPES PREVIEW: Drawing preview! Rect: ({:.1}, {:.1}) to ({:.1}, {:.1}), shape_type: {:?}", 
               rect.min.x, rect.min.y, rect.max.x, rect.max.y, active_drawing.shape_type);
         
-        let preview_color = Color::srgba(0.8, 0.8, 0.8, 0.8); // More opaque for mesh
+        let preview_color = theme.theme().action_color(); // Orange action color like pen tool
         let line_width = camera_scale.adjusted_line_width() * 2.0;
 
         match active_drawing.shape_type {
@@ -368,6 +379,8 @@ pub fn render_active_shape_drawing_with_dimensions(
             &mut materials,
             rect,
             &camera_scale,
+            &theme,
+            &asset_server,
         );
     } else {
         debug!("SHAPES PREVIEW: No rect available from active_drawing.get_rect()");
@@ -444,6 +457,62 @@ fn create_shape(
 
             app_state_changed.write(AppStateChanged);
         }
+    }
+}
+
+/// Create shape using FontIR (preferred method)
+fn create_shape_fontir(
+    rect: Rect,
+    shape_type: ShapeType,
+    corner_radius: f32,
+    fontir_app_state: &mut crate::core::state::FontIRAppState,
+    app_state_changed: &mut EventWriter<AppStateChanged>,
+) {
+    let Some(current_glyph_name) = fontir_app_state.current_glyph.clone() else {
+        warn!("No current glyph selected for FontIR shape creation");
+        return;
+    };
+
+    // Create BezPath from shape type using Kurbo primitives
+    let bez_path = match shape_type {
+        ShapeType::Rectangle => create_rectangle_bezpath(rect),
+        ShapeType::Oval => create_ellipse_bezpath(rect),
+        ShapeType::RoundedRectangle => create_rounded_rectangle_bezpath(rect, corner_radius),
+    };
+
+    // Get the current location
+    let location = fontir_app_state.current_location.clone();
+    let key = (current_glyph_name.clone(), location);
+
+    // Get or create a working copy
+    let working_copy_exists = fontir_app_state.working_copies.contains_key(&key);
+    
+    if !working_copy_exists {
+        // Create working copy from original FontIR data
+        if let Some(fontir_glyph) = fontir_app_state.glyph_cache.get(&current_glyph_name) {
+            if let Some((_location, instance)) = fontir_glyph.sources().iter().next() {
+                let working_copy = crate::core::state::fontir_app_state::EditableGlyphInstance::from(instance);
+                fontir_app_state.working_copies.insert(key.clone(), working_copy);
+            }
+        }
+    }
+
+    // Add the new contour to the working copy
+    if let Some(working_copy) = fontir_app_state.working_copies.get_mut(&key) {
+        working_copy.contours.push(bez_path.clone());
+        working_copy.is_dirty = true;
+        app_state_changed.write(AppStateChanged);
+        
+        info!("Created {} shape with FontIR in glyph '{}'. Total contours: {}", 
+              match shape_type {
+                  ShapeType::Rectangle => "rectangle",
+                  ShapeType::Oval => "oval", 
+                  ShapeType::RoundedRectangle => "rounded rectangle",
+              },
+              current_glyph_name, 
+              working_copy.contours.len());
+    } else {
+        warn!("Could not create working copy for FontIR shape in glyph '{}'", current_glyph_name);
     }
 }
 
@@ -631,6 +700,43 @@ fn create_rounded_rectangle_points(
     points
 }
 
+// ================================================================
+// BEZPATH CREATION FUNCTIONS (for FontIR integration)
+// ================================================================
+
+/// Create BezPath for rectangle using Kurbo
+fn create_rectangle_bezpath(rect: Rect) -> kurbo::BezPath {
+    kurbo::Rect::new(
+        rect.min.x as f64,
+        rect.min.y as f64, 
+        rect.max.x as f64,
+        rect.max.y as f64
+    ).to_path(1e-3)
+}
+
+/// Create BezPath for ellipse using Kurbo
+fn create_ellipse_bezpath(rect: Rect) -> kurbo::BezPath {
+    let center_x = (rect.min.x + rect.max.x) / 2.0;
+    let center_y = (rect.min.y + rect.max.y) / 2.0;
+    let radius_x = (rect.max.x - rect.min.x) / 2.0;
+    let radius_y = (rect.max.y - rect.min.y) / 2.0;
+
+    let center = kurbo::Point::new(center_x as f64, center_y as f64);
+    let radii = kurbo::Vec2::new(radius_x as f64, radius_y as f64);
+    let ellipse = kurbo::Ellipse::new(center, radii, 0.0);
+    ellipse.to_path(1e-3)
+}
+
+/// Create BezPath for rounded rectangle using Kurbo  
+fn create_rounded_rectangle_bezpath(rect: Rect, corner_radius: f32) -> kurbo::BezPath {
+    kurbo::RoundedRect::new(
+        rect.min.x as f64,
+        rect.min.y as f64,
+        rect.max.x as f64, 
+        rect.max.y as f64,
+        corner_radius as f64
+    ).to_path(1e-3)
+}
 
 // ================================================================
 // MESH-BASED PREVIEW SYSTEM (Replaces Gizmos)
@@ -688,11 +794,13 @@ fn spawn_shape_dimension_lines(
     materials: &mut ResMut<Assets<ColorMaterial>>,
     rect: Rect,
     camera_scale: &CameraResponsiveScale,
+    theme: &CurrentTheme,
+    asset_server: &AssetServer,
 ) {
-    let _width = (rect.max.x - rect.min.x).abs();
-    let _height = (rect.max.y - rect.min.y).abs();
+    let width = (rect.max.x - rect.min.x).abs();
+    let height = (rect.max.y - rect.min.y).abs();
     
-    let dimension_color = Color::srgba(1.0, 1.0, 1.0, 0.9);
+    let dimension_color = theme.theme().action_color(); // Use orange action color
     let line_width = camera_scale.adjusted_line_width() * 1.0;
     
     // Width dimension (horizontal line below shape)
@@ -713,6 +821,25 @@ fn spawn_shape_dimension_lines(
         Mesh2d(meshes.add(width_line_mesh)),
         MeshMaterial2d(materials.add(ColorMaterial::from(dimension_color))),
         Transform::from_translation(Vec3::new(width_midpoint.x, width_midpoint.y, 11.0)), // Position at midpoint
+        ShapePreviewElement,
+    ));
+    
+    // Add arrows at width line ends
+    spawn_arrow(commands, meshes, materials, width_start, Vec2::new(-1.0, 0.0), dimension_color, camera_scale);
+    spawn_arrow(commands, meshes, materials, width_end, Vec2::new(1.0, 0.0), dimension_color, camera_scale);
+    
+    // Width measurement text
+    commands.spawn((
+        Text2d(format!("{:.0}", width)),
+        TextFont {
+            font: asset_server.load(MONO_FONT_PATH),
+            font_size: 10.0,
+            ..default()
+        },
+        TextColor(dimension_color),
+        bevy::sprite::Anchor::Center,
+        bevy::text::TextBounds::UNBOUNDED,
+        Transform::from_translation(Vec3::new(width_midpoint.x, width_y - 12.0, 12.0)),
         ShapePreviewElement,
     ));
     
@@ -737,8 +864,68 @@ fn spawn_shape_dimension_lines(
         ShapePreviewElement,
     ));
     
-    // TODO: Add text labels showing actual width x height values
-    // For now, the lines indicate the dimensions visually like Glyphs app
+    // Add arrows at height line ends
+    spawn_arrow(commands, meshes, materials, height_start, Vec2::new(0.0, -1.0), dimension_color, camera_scale);
+    spawn_arrow(commands, meshes, materials, height_end, Vec2::new(0.0, 1.0), dimension_color, camera_scale);
+    
+    // Height measurement text
+    commands.spawn((
+        Text2d(format!("{:.0}", height)),
+        TextFont {
+            font: asset_server.load(MONO_FONT_PATH),
+            font_size: 10.0,
+            ..default()
+        },
+        TextColor(dimension_color),
+        bevy::sprite::Anchor::Center,
+        bevy::text::TextBounds::UNBOUNDED,
+        Transform::from_translation(Vec3::new(height_x + 12.0, height_midpoint.y, 12.0)),
+        ShapePreviewElement,
+    ));
+}
+
+/// Spawn a small arrow at the given position pointing in the given direction
+fn spawn_arrow(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    position: Vec2,
+    direction: Vec2,
+    color: Color,
+    camera_scale: &CameraResponsiveScale,
+) {
+    let arrow_size = camera_scale.adjusted_line_width() * 3.0;
+    let direction = direction.normalize();
+    
+    // Create arrow vertices (triangle pointing in direction)
+    let perpendicular = Vec2::new(-direction.y, direction.x);
+    let tip = position + direction * arrow_size;
+    let base_left = position - direction * arrow_size * 0.5 + perpendicular * arrow_size * 0.5;
+    let base_right = position - direction * arrow_size * 0.5 - perpendicular * arrow_size * 0.5;
+    
+    // Create triangle mesh
+    let vertices = vec![
+        [tip.x, tip.y, 0.0],
+        [base_left.x, base_left.y, 0.0],
+        [base_right.x, base_right.y, 0.0],
+    ];
+    
+    let indices = vec![0, 1, 2];
+    let normals = vec![[0.0, 0.0, 1.0]; 3];
+    let uvs = vec![[0.5, 1.0], [0.0, 0.0], [1.0, 0.0]];
+    
+    let mut mesh = Mesh::new(bevy::render::mesh::PrimitiveTopology::TriangleList, default());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
+    
+    commands.spawn((
+        Mesh2d(meshes.add(mesh)),
+        MeshMaterial2d(materials.add(ColorMaterial::from(color))),
+        Transform::from_translation(Vec3::new(0.0, 0.0, 11.0)), // Same z as lines
+        ShapePreviewElement,
+    ));
 }
 
 /// Draw a mesh-based dashed rectangle preview
