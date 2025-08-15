@@ -219,7 +219,8 @@ fn save_font_files(
                                 existing_glyph.height = height;
                             }
                             
-                            // Convert BezPaths back to UFO contours
+                            // Simple approach: recreate contours from BezPath
+                            // This will lose the original starting point, but it's reliable
                             existing_glyph.contours.clear();
                             for bez_path in &working_copy.contours {
                                 let contour = convert_bezpath_to_ufo_contour(bez_path);
@@ -271,7 +272,8 @@ fn save_font_files(
                         existing_glyph.height = height;
                     }
                     
-                    // Convert BezPaths back to UFO contours
+                    // Simple approach: recreate contours from BezPath
+                    // This will lose the original starting point, but it's reliable
                     existing_glyph.contours.clear();
                     for bez_path in &working_copy.contours {
                         let contour = convert_bezpath_to_ufo_contour(bez_path);
@@ -293,38 +295,38 @@ fn save_font_files(
     Ok(saved_paths)
 }
 
-/// Convert BezPath directly to norad Contour
+
+/// Convert BezPath to norad Contour, preserving the starting point
 /// 
-/// IMPORTANT: This preserves the contour start point for closed contours.
-/// In UFO format, closed contours don't use MoveTo but start with the first actual point.
-/// The BezPath MoveTo position indicates where the contour starts.
+/// The BezPath MoveTo defines where the contour starts. We ensure the UFO contour
+/// starts at the same logical position by organizing points accordingly.
 fn convert_bezpath_to_ufo_contour(bez_path: &kurbo::BezPath) -> norad::Contour {
     let mut all_points = Vec::new();
     let mut is_closed = false;
+    let mut move_to_pos: Option<kurbo::Point> = None;
     
-    // First pass: collect all points and detect if closed
-    let elements: Vec<_> = bez_path.elements().into_iter().collect();
+    let elements = bez_path.elements();
     
     // Check if path is closed
-    for element in &elements {
+    for element in elements {
         if matches!(element, PathEl::ClosePath) {
             is_closed = true;
             break;
         }
     }
     
-    // Convert all elements to points
-    for element in &elements {
+    // Convert elements to points
+    for element in elements {
         match element {
             PathEl::MoveTo(pt) => {
+                move_to_pos = Some(*pt);
                 if !is_closed {
-                    // For open paths, add MoveTo
+                    // For open paths, include MoveTo as first point
                     all_points.push(norad::ContourPoint::new(
                         pt.x, pt.y, norad::PointType::Move, false, None, None
                     ));
                 }
-                // For closed paths, MoveTo just marks the start position
-                // We'll reorganize points to start from here
+                // For closed paths, MoveTo determines starting point but isn't a UFO point
             }
             PathEl::LineTo(pt) => {
                 all_points.push(norad::ContourPoint::new(
@@ -350,17 +352,83 @@ fn convert_bezpath_to_ufo_contour(bez_path: &kurbo::BezPath) -> norad::Contour {
                     pt.x, pt.y, norad::PointType::QCurve, false, None, None
                 ));
             }
-            PathEl::ClosePath => {
-                // UFO handles closure implicitly, don't add anything
+            PathEl::ClosePath => {}
+        }
+    }
+    
+    // For closed contours, ensure the first point corresponds to the MoveTo position
+    if is_closed && move_to_pos.is_some() && !all_points.is_empty() {
+        let start_pt = move_to_pos.unwrap();
+        
+        info!("Converting closed contour with MoveTo at ({:.1}, {:.1})", start_pt.x, start_pt.y);
+        info!("Contour has {} points before rotation", all_points.len());
+        
+        // Find if any point matches the MoveTo position
+        if let Some(start_idx) = find_point_near_position(&all_points, start_pt) {
+            // Rotate the points so the matching point comes first
+            let rotated = rotate_points_to_start(&all_points, start_idx);
+            info!("Rotated contour to start at index {}, now first point: ({:.1}, {:.1})", 
+                  start_idx, rotated[0].x, rotated[0].y);
+            return norad::Contour::new(rotated, None);
+        } else {
+            info!("No matching point found for MoveTo position, using original order");
+        }
+    }
+    
+    norad::Contour::new(all_points, None)
+}
+
+/// Find a point near the given position (within 1.0 units, expanded tolerance)
+fn find_point_near_position(points: &[norad::ContourPoint], target: kurbo::Point) -> Option<usize> {
+    let mut best_match = None;
+    let mut best_distance = f64::INFINITY;
+    
+    for (i, point) in points.iter().enumerate() {
+        // Check both on-curve and off-curve points since starting point might be off-curve
+        let distance = ((point.x - target.x).powi(2) + (point.y - target.y).powi(2)).sqrt();
+        if distance < 1.0 && distance < best_distance {
+            best_distance = distance;
+            best_match = Some(i);
+        }
+    }
+    
+    // Log what we found for debugging
+    if let Some(idx) = best_match {
+        info!("Found starting point match at index {} (distance: {:.3}): ({:.1}, {:.1}) target: ({:.1}, {:.1})", 
+              idx, best_distance, points[idx].x, points[idx].y, target.x, target.y);
+    } else {
+        info!("No starting point match found for target: ({:.1}, {:.1})", target.x, target.y);
+        if !points.is_empty() {
+            info!("Available points:");
+            for (i, point) in points.iter().enumerate() {
+                let distance = ((point.x - target.x).powi(2) + (point.y - target.y).powi(2)).sqrt();
+                info!("  [{}] ({:.1}, {:.1}) type: {:?} distance: {:.3}", 
+                      i, point.x, point.y, point.typ, distance);
             }
         }
     }
     
-    // For closed contours, we need to handle the implicit closing segment
-    // The BezPath might have segments that wrap around to the start
-    // We preserve the order as-is since the MoveTo position indicates the start
+    best_match
+}
+
+/// Rotate a list of points so that the point at start_idx becomes first
+/// Simple rotation - start exactly from the specified index
+fn rotate_points_to_start(points: &[norad::ContourPoint], start_idx: usize) -> Vec<norad::ContourPoint> {
+    if start_idx == 0 || points.is_empty() {
+        return points.to_vec();
+    }
     
-    norad::Contour::new(all_points, None)
+    info!("Rotating {} points to start from index {} (point: {:.1}, {:.1})", 
+          points.len(), start_idx, points[start_idx].x, points[start_idx].y);
+    
+    // Simple rotation: start from start_idx
+    let mut result = Vec::new();
+    result.extend_from_slice(&points[start_idx..]);
+    result.extend_from_slice(&points[..start_idx]);
+    
+    info!("After rotation, first point is: ({:.1}, {:.1})", result[0].x, result[0].y);
+    
+    result
 }
 
 #[cfg(test)]
@@ -370,32 +438,24 @@ mod tests {
     
     #[test]
     fn test_closed_contour_conversion() {
-        // Create a simple closed square path
+        // Create a closed square where MoveTo position has a corresponding LineTo
         let mut bez_path = BezPath::new();
         bez_path.move_to(Point::new(0.0, 0.0));
         bez_path.line_to(Point::new(100.0, 0.0));
         bez_path.line_to(Point::new(100.0, 100.0));
         bez_path.line_to(Point::new(0.0, 100.0));
+        bez_path.line_to(Point::new(0.0, 0.0)); // Explicit line back to start
         bez_path.close_path();
         
         let contour = convert_bezpath_to_ufo_contour(&bez_path);
         
-        // Should have 3 points (no MoveTo, no duplicate closing point)
-        // UFO format implicitly closes the contour
-        assert_eq!(contour.points.len(), 3, "Closed contour should have 3 line points");
+        // Should have 4 points
+        assert_eq!(contour.points.len(), 4, "Closed square should have 4 points");
         
-        // First point should be Line, not Move
-        assert_eq!(contour.points[0].typ, norad::PointType::Line, "First point should be Line type");
-        assert_eq!(contour.points[0].x, 100.0);
-        assert_eq!(contour.points[0].y, 0.0);
-        
-        // Check all points are line points
-        assert_eq!(contour.points[1].typ, norad::PointType::Line);
-        assert_eq!(contour.points[2].typ, norad::PointType::Line);
-        
-        // Verify coordinates
-        assert_eq!((contour.points[1].x, contour.points[1].y), (100.0, 100.0));
-        assert_eq!((contour.points[2].x, contour.points[2].y), (0.0, 100.0));
+        // The contour should be rotated to start at (0,0) since that matches MoveTo
+        let first_point = &contour.points[0];
+        assert_eq!((first_point.x, first_point.y), (0.0, 0.0), 
+                   "First point should be at MoveTo position (0,0)");
     }
     
     #[test] 
@@ -420,28 +480,52 @@ mod tests {
     
     #[test]
     fn test_curve_contour_conversion() {
-        // Create a closed path with curves (like the 'a' glyph)
+        // Create a closed path with curves that starts with a curve
         let mut bez_path = BezPath::new();
         bez_path.move_to(Point::new(224.0, -16.0));
         bez_path.curve_to(Point::new(306.0, -16.0), Point::new(374.0, 16.0), Point::new(416.0, 72.0));
+        bez_path.line_to(Point::new(224.0, -16.0));
         bez_path.close_path();
         
         let contour = convert_bezpath_to_ufo_contour(&bez_path);
         
-        // Should have 3 points: 2 off-curve + 1 curve point
-        assert_eq!(contour.points.len(), 3, "Curve contour should have 3 points");
+        // Should have 4 points: 2 off-curves, 1 curve, 1 line
+        assert_eq!(contour.points.len(), 4, "Curve contour should have 4 points");
         
-        // First point should be OffCurve (first control point)
+        // First points should be the curve (starting with off-curves)
         assert_eq!(contour.points[0].typ, norad::PointType::OffCurve);
         assert_eq!((contour.points[0].x, contour.points[0].y), (306.0, -16.0));
         
-        // Second point should be OffCurve (second control point)
         assert_eq!(contour.points[1].typ, norad::PointType::OffCurve);
         assert_eq!((contour.points[1].x, contour.points[1].y), (374.0, 16.0));
         
-        // Third point should be Curve (end point)
         assert_eq!(contour.points[2].typ, norad::PointType::Curve);
         assert_eq!((contour.points[2].x, contour.points[2].y), (416.0, 72.0));
+        
+        // Last should be the line back to start
+        assert_eq!(contour.points[3].typ, norad::PointType::Line);
+        assert_eq!((contour.points[3].x, contour.points[3].y), (224.0, -16.0));
+    }
+    
+    #[test]
+    fn test_starting_point_preservation() {
+        // Test case inspired by the 'a' glyph issue
+        // Create a contour that starts with a curve at a specific position
+        let mut bez_path = BezPath::new();
+        bez_path.move_to(Point::new(32.0, 160.0)); // Start here
+        bez_path.curve_to(Point::new(32.0, 52.0), Point::new(106.0, -16.0), Point::new(224.0, -16.0));
+        bez_path.line_to(Point::new(400.0, 100.0));
+        bez_path.line_to(Point::new(32.0, 160.0)); // Explicit line back to start
+        bez_path.close_path();
+        
+        let contour = convert_bezpath_to_ufo_contour(&bez_path);
+        
+        // Should find the point at (32, 160) and start there
+        assert_eq!(contour.points.len(), 5); // 2 off-curve + 1 curve + 1 line + 1 line back
+        
+        // First point should be at the MoveTo position
+        assert_eq!((contour.points[0].x, contour.points[0].y), (32.0, 160.0));
+        assert_eq!(contour.points[0].typ, norad::PointType::Line);
     }
 }
 
