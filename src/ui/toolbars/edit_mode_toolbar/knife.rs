@@ -627,15 +627,24 @@ fn perform_fontir_cut(
             let mut any_cuts_made = false;
             
             for contour in &working_copy.contours {
-                let sliced_paths = slice_path_with_line_simple(contour, &cutting_line);
+                // Find intersections with the cutting line
+                let hits = find_path_intersections_with_parameters(contour, &cutting_line);
                 
-                if sliced_paths.len() > 1 {
-                    // Path was successfully cut
-                    info!("Cut contour into {} pieces", sliced_paths.len());
+                if !hits.is_empty() {
+                    // Path has intersections - slice it
+                    let sliced_paths = slice_path_at_hits(contour, &hits);
                     
-                    // Add all the sliced paths as new contours
-                    new_contours.extend(sliced_paths);
-                    any_cuts_made = true;
+                    if sliced_paths.len() > 1 {
+                        info!("Cut contour into {} pieces at {} intersection points", 
+                              sliced_paths.len(), hits.len());
+                        
+                        // Add all the sliced paths as new contours
+                        new_contours.extend(sliced_paths);
+                        any_cuts_made = true;
+                    } else {
+                        // Shouldn't happen, but keep original if slicing failed
+                        new_contours.push(contour.clone());
+                    }
                 } else {
                     // Path was not cut, keep original
                     new_contours.push(contour.clone());
@@ -951,10 +960,165 @@ fn slice_path_at_hits(path: &BezPath, hits: &[Hit]) -> Vec<BezPath> {
         return vec![path.clone()];
     }
     
-    // For now, return two copies of the path to show the cut was detected
-    // TODO: Implement proper path slicing algorithm
-    info!("Slicing path with {} hits - returning split paths", hits.len());
-    vec![path.clone(), path.clone()]
+    // Sort hits by segment index and then by t parameter
+    let mut sorted_hits = hits.to_vec();
+    sorted_hits.sort_by(|a, b| {
+        a.segment_idx.cmp(&b.segment_idx)
+            .then(a.t.partial_cmp(&b.t).unwrap_or(std::cmp::Ordering::Equal))
+    });
+    
+    // Build segments between intersection points
+    let mut result_paths = Vec::new();
+    let mut current_path = BezPath::new();
+    let mut segment_start_t = 0.0;
+    let mut current_segment_idx = 0;
+    let mut path_started = false;
+    
+    // Convert path to segments for easier processing
+    let segments = path_to_segments(path);
+    
+    for (seg_idx, segment) in segments.iter().enumerate() {
+        // Find all hits for this segment
+        let segment_hits: Vec<&Hit> = sorted_hits.iter()
+            .filter(|h| h.segment_idx == seg_idx)
+            .collect();
+        
+        if segment_hits.is_empty() {
+            // No intersections in this segment, add it as-is
+            add_segment_to_path(&mut current_path, segment, &mut path_started);
+        } else {
+            // Split this segment at intersection points
+            let mut last_t = 0.0;
+            
+            for hit in &segment_hits {
+                // Add subsegment from last_t to hit.t
+                if hit.t > last_t {
+                    let subseg = extract_subsegment(segment, last_t, hit.t);
+                    add_segment_to_path(&mut current_path, &subseg, &mut path_started);
+                }
+                
+                // Start a new path after the intersection
+                if !current_path.elements().is_empty() {
+                    result_paths.push(current_path.clone());
+                    current_path = BezPath::new();
+                    path_started = false;
+                }
+                
+                last_t = hit.t;
+            }
+            
+            // Add remaining part of segment after last intersection
+            if last_t < 1.0 {
+                let subseg = extract_subsegment(segment, last_t, 1.0);
+                add_segment_to_path(&mut current_path, &subseg, &mut path_started);
+            }
+        }
+    }
+    
+    // Add the final path if it has content
+    if !current_path.elements().is_empty() {
+        result_paths.push(current_path);
+    }
+    
+    // If we somehow ended up with no paths, return the original
+    if result_paths.is_empty() {
+        vec![path.clone()]
+    } else {
+        info!("Successfully sliced path into {} segments", result_paths.len());
+        result_paths
+    }
+}
+
+/// Represent a path segment for processing
+#[derive(Debug, Clone)]
+enum PathSegment {
+    Line(kurbo::Line),
+    Quad(kurbo::QuadBez),
+    Cubic(kurbo::CubicBez),
+}
+
+/// Convert a BezPath to a vector of segments
+fn path_to_segments(path: &BezPath) -> Vec<PathSegment> {
+    let mut segments = Vec::new();
+    let mut current_point = Point::ZERO;
+    let mut start_point = Point::ZERO;
+    
+    for element in path.elements() {
+        match element {
+            PathEl::MoveTo(pt) => {
+                current_point = *pt;
+                start_point = *pt;
+            }
+            PathEl::LineTo(end) => {
+                segments.push(PathSegment::Line(kurbo::Line::new(current_point, *end)));
+                current_point = *end;
+            }
+            PathEl::CurveTo(c1, c2, end) => {
+                segments.push(PathSegment::Cubic(kurbo::CubicBez::new(current_point, *c1, *c2, *end)));
+                current_point = *end;
+            }
+            PathEl::QuadTo(c, end) => {
+                segments.push(PathSegment::Quad(kurbo::QuadBez::new(current_point, *c, *end)));
+                current_point = *end;
+            }
+            PathEl::ClosePath => {
+                // Add a line back to the start if needed
+                if current_point.distance(start_point) > 1e-6 {
+                    segments.push(PathSegment::Line(kurbo::Line::new(current_point, start_point)));
+                }
+            }
+        }
+    }
+    
+    segments
+}
+
+/// Extract a subsegment from a PathSegment
+fn extract_subsegment(segment: &PathSegment, t0: f64, t1: f64) -> PathSegment {
+    match segment {
+        PathSegment::Line(line) => {
+            let p0 = line.eval(t0);
+            let p1 = line.eval(t1);
+            PathSegment::Line(kurbo::Line::new(p0, p1))
+        }
+        PathSegment::Cubic(cubic) => {
+            // Use kurbo's subsegment method for cubic curves
+            let subseg = cubic.subsegment(t0..t1);
+            PathSegment::Cubic(subseg)
+        }
+        PathSegment::Quad(quad) => {
+            // Use kurbo's subsegment method for quadratic curves
+            let subseg = quad.subsegment(t0..t1);
+            PathSegment::Quad(subseg)
+        }
+    }
+}
+
+/// Add a segment to a BezPath
+fn add_segment_to_path(path: &mut BezPath, segment: &PathSegment, started: &mut bool) {
+    match segment {
+        PathSegment::Line(line) => {
+            if !*started {
+                path.move_to(line.p0);
+                *started = true;
+            }
+            path.line_to(line.p1);
+        }
+        PathSegment::Cubic(cubic) => {
+            if !*started {
+                path.move_to(cubic.p0);
+                *started = true;
+            }
+            path.curve_to(cubic.p1, cubic.p2, cubic.p3);
+        }
+        PathSegment::Quad(quad) => {
+            if !*started {
+                path.move_to(quad.p0);
+                *started = true;
+            }
+            path.quad_to(quad.p1, quad.p2);
+        }
+    }
 }
 
 /// Line-line intersection with parameter information
