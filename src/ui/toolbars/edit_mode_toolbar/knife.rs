@@ -125,6 +125,7 @@ impl Plugin for KnifeToolPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<KnifeModeActive>()
             .init_resource::<KnifeToolState>()
+            .init_resource::<KnifeCalculationCache>()
             .add_systems(Startup, register_knife_tool)
             .add_systems(
                 Update,
@@ -270,6 +271,14 @@ pub struct KnifeVisualUpdateTracker {
     pub last_gesture_state: Option<KnifeGestureState>,
 }
 
+/// Cache for knife tool calculations to avoid repeated computation
+#[derive(Resource, Default)]
+pub struct KnifeCalculationCache {
+    pub last_cutting_line: Option<(Vec2, Vec2)>,
+    pub cached_intersections: Vec<Vec2>,
+    pub last_glyph: Option<String>,
+}
+
 /// Render the knife tool preview
 pub fn render_knife_preview(
     mut commands: Commands,
@@ -283,6 +292,7 @@ pub fn render_knife_preview(
     current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
     mut update_tracker: Local<Option<crate::systems::input_consumer::KnifeGestureState>>,
     fontir_state: Option<Res<crate::core::state::FontIRAppState>>,
+    mut calc_cache: Local<KnifeCalculationCache>,
 ) {
     // Check if tool is active
     let is_knife_active = current_tool.get_current() == Some("knife") && 
@@ -322,10 +332,10 @@ pub fn render_knife_preview(
 
     // Draw the cutting line
     if let Some((start, end)) = knife_consumer.get_cutting_line() {
-        info!("🔪 RENDER_KNIFE_PREVIEW: Drawing cutting line from {:?} to {:?}", start, end);
+        debug!("🔪 RENDER_KNIFE_PREVIEW: Drawing cutting line from {:?} to {:?}", start, end);
         let line_color = theme.theme().knife_line_color();
         
-        // Create dashed line effect by drawing multiple segments
+        // Create dashed line effect with a single batched mesh for performance
         let direction = (end - start).normalize();
         let total_length = start.distance(end);
         let dash_length = theme.theme().knife_dash_length() * camera_scale.scale_factor;
@@ -333,26 +343,20 @@ pub fn render_knife_preview(
         let segment_length = dash_length + gap_length;
         let line_width = camera_scale.adjusted_line_width();
 
-        let mut current_pos = 0.0;
-        while current_pos < total_length {
-            let dash_start = start + direction * current_pos;
-            let dash_end_pos = (current_pos + dash_length).min(total_length);
-            let dash_end = start + direction * dash_end_pos;
-
-            let entity = spawn_knife_line_mesh(
-                &mut commands,
-                &mut meshes,
-                &mut materials,
-                dash_start,
-                dash_end,
-                line_width,
-                line_color,
-                18.0, // z-order (below intersection points but above other elements)
-            );
-            knife_entities.push(entity);
-
-            current_pos += segment_length;
-        }
+        // Batch all dashes into a single mesh
+        let dashed_line_entity = spawn_dashed_line_batched(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            start,
+            end,
+            dash_length,
+            gap_length,
+            line_width,
+            line_color,
+            18.0, // z-order (below intersection points but above other elements)
+        );
+        knife_entities.push(dashed_line_entity);
 
         // Draw start point (green circle)
         let start_color = theme.theme().knife_start_point_color();
@@ -399,7 +403,7 @@ pub fn render_knife_preview(
         );
         knife_entities.push(cross_v_entity);
         
-        info!("🔪 RENDER_KNIFE_PREVIEW: Created {} visual entities for knife preview", knife_entities.len());
+        debug!("🔪 RENDER_KNIFE_PREVIEW: Created {} visual entities for knife preview", knife_entities.len());
     } else {
         // Log when we're not drawing
         if matches!(knife_consumer.gesture, crate::systems::input_consumer::KnifeGestureState::Ready) {
@@ -409,10 +413,23 @@ pub fn render_knife_preview(
 
     // Calculate and draw intersection points from actual glyph data
     if let Some((start, end)) = knife_consumer.get_cutting_line() {
-        let intersection_color = theme.theme().knife_intersection_color();
-        let intersections = calculate_real_intersections(start, end, &fontir_state);
+        // Check if we need to recalculate intersections
+        let current_glyph = fontir_state.as_ref()
+            .and_then(|fs| fs.current_glyph.clone());
         
-        for &intersection in &intersections {
+        let needs_recalc = calc_cache.last_cutting_line != Some((start, end)) 
+            || calc_cache.last_glyph != current_glyph;
+        
+        if needs_recalc {
+            // Update cache with new intersections
+            calc_cache.cached_intersections = calculate_real_intersections(start, end, &fontir_state);
+            calc_cache.last_cutting_line = Some((start, end));
+            calc_cache.last_glyph = current_glyph;
+        }
+        
+        let intersection_color = theme.theme().knife_intersection_color();
+        
+        for &intersection in &calc_cache.cached_intersections {
             let cross_size = theme.theme().knife_cross_size() * camera_scale.scale_factor;
             let cross_width = camera_scale.adjusted_line_width();
             
@@ -464,15 +481,14 @@ fn calculate_real_intersections(
     if let Some(fontir_state) = fontir_state {
         if let Some(ref current_glyph) = fontir_state.current_glyph {
             if let Some(paths) = fontir_state.get_glyph_paths_with_edits(current_glyph) {
-                info!("🔪 CALCULATE_REAL_INTERSECTIONS: Found {} paths for glyph '{}'", paths.len(), current_glyph);
-                for (path_idx, path) in paths.iter().enumerate() {
+                debug!("🔪 CALCULATE_REAL_INTERSECTIONS: Found {} paths for glyph '{}'", paths.len(), current_glyph);
+                for path in &paths {
                     let path_intersections = find_path_intersections_simple(path, &cutting_line);
-                    info!("🔪 CALCULATE_REAL_INTERSECTIONS: Path {} has {} intersections", path_idx, path_intersections.len());
                     for intersection in path_intersections {
                         intersections.push(Vec2::new(intersection.x as f32, intersection.y as f32));
                     }
                 }
-                info!("🔪 CALCULATE_REAL_INTERSECTIONS: Total intersections found: {}", intersections.len());
+                debug!("🔪 CALCULATE_REAL_INTERSECTIONS: Total intersections found: {}", intersections.len());
                 return intersections;
             } else {
                 info!("🔪 CALCULATE_REAL_INTERSECTIONS: No paths found for glyph '{}'", current_glyph);
@@ -639,6 +655,75 @@ fn perform_fontir_cut(
     } else {
         info!("FontIR knife cut completed - no current glyph selected");
     }
+}
+
+/// Spawn a batched dashed line mesh for better performance
+fn spawn_dashed_line_batched(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    start: Vec2,
+    end: Vec2,
+    dash_length: f32,
+    gap_length: f32,
+    width: f32,
+    color: Color,
+    z: f32,
+) -> Entity {
+    use bevy::render::mesh::{Indices, PrimitiveTopology};
+    
+    let direction = (end - start).normalize();
+    let perpendicular = Vec2::new(-direction.y, direction.x) * width * 0.5;
+    let total_length = start.distance(end);
+    let segment_length = dash_length + gap_length;
+    
+    let mut vertices = Vec::new();
+    let mut indices = Vec::new();
+    let mut vertex_count = 0u32;
+    
+    // Generate all dash segments in a single mesh
+    let mut current_pos = 0.0;
+    while current_pos < total_length {
+        let dash_start = start + direction * current_pos;
+        let dash_end_pos = (current_pos + dash_length).min(total_length);
+        let dash_end = start + direction * dash_end_pos;
+        
+        // Add vertices for this dash segment
+        vertices.push([dash_start.x - perpendicular.x, dash_start.y - perpendicular.y, z]);
+        vertices.push([dash_start.x + perpendicular.x, dash_start.y + perpendicular.y, z]);
+        vertices.push([dash_end.x + perpendicular.x, dash_end.y + perpendicular.y, z]);
+        vertices.push([dash_end.x - perpendicular.x, dash_end.y - perpendicular.y, z]);
+        
+        // Add indices for this dash segment
+        indices.extend_from_slice(&[
+            vertex_count, vertex_count + 1, vertex_count + 2,
+            vertex_count, vertex_count + 2, vertex_count + 3,
+        ]);
+        
+        vertex_count += 4;
+        current_pos += segment_length;
+    }
+    
+    if vertices.is_empty() {
+        // Create a dummy entity if no dashes were created
+        return commands.spawn_empty().id();
+    }
+    
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        bevy::render::render_asset::RenderAssetUsages::default()
+    );
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+    mesh.insert_indices(Indices::U32(indices));
+    
+    let mesh_handle = meshes.add(mesh);
+    let material_handle = materials.add(ColorMaterial::from(color));
+    
+    commands.spawn((
+        Mesh2d(mesh_handle),
+        MeshMaterial2d(material_handle),
+        Transform::from_translation(Vec3::new(0.0, 0.0, z)),
+    )).id()
 }
 
 /// Spawn a line mesh for the knife tool
