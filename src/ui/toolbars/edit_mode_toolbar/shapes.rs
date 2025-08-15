@@ -197,6 +197,7 @@ pub fn handle_shape_mouse_events(
     corner_radius: Res<CurrentCornerRadius>,
     shapes_mode: Option<Res<ShapesModeActive>>,
     current_tool: Option<Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>>,
+    settings: Res<BezySettings>,
 ) {
     // Check if shapes mode is active via multiple methods (same as preview system)
     let shapes_is_active = shapes_mode.as_ref().is_some_and(|s| s.0) 
@@ -231,7 +232,6 @@ pub fn handle_shape_mouse_events(
         camera.viewport_to_world_2d(camera_transform, cursor_position)
     {
         // Apply grid snapping
-        let settings = BezySettings::default();
         let mut snapped_position = settings.apply_grid_snap(world_position);
         
         // Apply shift-key constraints for squares/circles
@@ -833,7 +833,7 @@ fn spawn_shape_dimension_lines(
         Text2d(format!("{:.0}", width)),
         TextFont {
             font: asset_server.load(MONO_FONT_PATH),
-            font_size: 10.0,
+            font_size: 14.0,
             ..default()
         },
         TextColor(dimension_color),
@@ -873,7 +873,7 @@ fn spawn_shape_dimension_lines(
         Text2d(format!("{:.0}", height)),
         TextFont {
             font: asset_server.load(MONO_FONT_PATH),
-            font_size: 10.0,
+            font_size: 14.0,
             ..default()
         },
         TextColor(dimension_color),
@@ -894,7 +894,7 @@ fn spawn_arrow(
     color: Color,
     camera_scale: &CameraResponsiveScale,
 ) {
-    let arrow_size = camera_scale.adjusted_line_width() * 3.0;
+    let arrow_size = camera_scale.adjusted_line_width() * 5.0;
     let direction = direction.normalize();
     
     // Create arrow vertices (triangle pointing in direction)
