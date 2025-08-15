@@ -360,15 +360,11 @@ fn convert_bezpath_to_ufo_contour(bez_path: &kurbo::BezPath) -> norad::Contour {
     if is_closed && move_to_pos.is_some() && !all_points.is_empty() {
         let start_pt = move_to_pos.unwrap();
         
-        info!("Converting closed contour with MoveTo at ({:.1}, {:.1})", start_pt.x, start_pt.y);
-        info!("Contour has {} points before rotation", all_points.len());
         
         // Find if any point matches the MoveTo position
         if let Some(start_idx) = find_point_near_position(&all_points, start_pt) {
             // Rotate the points so the matching point comes first
             let rotated = rotate_points_to_start(&all_points, start_idx);
-            info!("Rotated contour to start at index {}, now first point: ({:.1}, {:.1})", 
-                  start_idx, rotated[0].x, rotated[0].y);
             return norad::Contour::new(rotated, None);
         } else {
             info!("No matching point found for MoveTo position, using original order");
@@ -392,21 +388,6 @@ fn find_point_near_position(points: &[norad::ContourPoint], target: kurbo::Point
         }
     }
     
-    // Log what we found for debugging
-    if let Some(idx) = best_match {
-        info!("Found starting point match at index {} (distance: {:.3}): ({:.1}, {:.1}) target: ({:.1}, {:.1})", 
-              idx, best_distance, points[idx].x, points[idx].y, target.x, target.y);
-    } else {
-        info!("No starting point match found for target: ({:.1}, {:.1})", target.x, target.y);
-        if !points.is_empty() {
-            info!("Available points:");
-            for (i, point) in points.iter().enumerate() {
-                let distance = ((point.x - target.x).powi(2) + (point.y - target.y).powi(2)).sqrt();
-                info!("  [{}] ({:.1}, {:.1}) type: {:?} distance: {:.3}", 
-                      i, point.x, point.y, point.typ, distance);
-            }
-        }
-    }
     
     best_match
 }
@@ -418,15 +399,11 @@ fn rotate_points_to_start(points: &[norad::ContourPoint], start_idx: usize) -> V
         return points.to_vec();
     }
     
-    info!("Rotating {} points to start from index {} (point: {:.1}, {:.1})", 
-          points.len(), start_idx, points[start_idx].x, points[start_idx].y);
     
     // Simple rotation: start from start_idx
     let mut result = Vec::new();
     result.extend_from_slice(&points[start_idx..]);
     result.extend_from_slice(&points[..start_idx]);
-    
-    info!("After rotation, first point is: ({:.1}, {:.1})", result[0].x, result[0].y);
     
     result
 }
