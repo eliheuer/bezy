@@ -413,17 +413,35 @@ pub fn render_knife_preview(
         let intersections = calculate_real_intersections(start, end, &fontir_state);
         
         for &intersection in &intersections {
-            let point_size = camera_scale.adjusted_point_size(3.0);
-            let intersection_entity = spawn_knife_point_mesh(
+            let cross_size = theme.theme().knife_cross_size() * camera_scale.scale_factor;
+            let cross_width = camera_scale.adjusted_line_width();
+            
+            // Create X mark with two diagonal lines
+            // Diagonal line from top-left to bottom-right
+            let diagonal1_entity = spawn_knife_line_mesh(
                 &mut commands,
                 &mut meshes,
                 &mut materials,
-                intersection,
-                point_size,
+                Vec2::new(intersection.x - cross_size, intersection.y + cross_size),
+                Vec2::new(intersection.x + cross_size, intersection.y - cross_size),
+                cross_width,
                 intersection_color,
-                20.0, // z-order above everything else (higher than cursor at 15.0)
+                20.0, // z-order above everything else
             );
-            knife_entities.push(intersection_entity);
+            knife_entities.push(diagonal1_entity);
+            
+            // Diagonal line from top-right to bottom-left
+            let diagonal2_entity = spawn_knife_line_mesh(
+                &mut commands,
+                &mut meshes,
+                &mut materials,
+                Vec2::new(intersection.x + cross_size, intersection.y + cross_size),
+                Vec2::new(intersection.x - cross_size, intersection.y - cross_size),
+                cross_width,
+                intersection_color,
+                20.0, // z-order above everything else
+            );
+            knife_entities.push(diagonal2_entity);
         }
     }
 }
