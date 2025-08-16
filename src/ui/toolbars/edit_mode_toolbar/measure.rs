@@ -59,6 +59,7 @@ impl Plugin for MeasureToolPlugin {
                 Update,
                 (
                     manage_measure_mode_state,
+                    update_measure_shift_state, // Add shift key detection
                     render_measure_preview.after(manage_measure_mode_state),
                 ),
             );
@@ -86,6 +87,29 @@ pub fn manage_measure_mode_state(
         // Measure tool is not active but mode is set - deactivate it
         commands.insert_resource(MeasureModeActive(false));
         info!("📏 MANAGE_MEASURE_MODE: Deactivating measure mode");
+    }
+}
+
+/// System to update shift key state for axis-aligned measurements
+pub fn update_measure_shift_state(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    current_tool: Res<crate::ui::toolbars::edit_mode_toolbar::CurrentTool>,
+    mut measure_consumer: ResMut<crate::systems::input_consumer::MeasureInputConsumer>,
+) {
+    // Only update when measure tool is active
+    if current_tool.get_current() == Some("measure") {
+        let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft) 
+            || keyboard.pressed(KeyCode::ShiftRight);
+        
+        // Only log when state changes to avoid spam
+        if measure_consumer.shift_locked != shift_pressed {
+            measure_consumer.shift_locked = shift_pressed;
+            if shift_pressed {
+                info!("📏 MEASURE: Shift constraint enabled - lines will be horizontal/vertical");
+            } else {
+                info!("📏 MEASURE: Shift constraint disabled - lines can be any angle");
+            }
+        }
     }
 }
 
@@ -153,7 +177,7 @@ pub fn render_measure_preview(
     // Draw the measuring line
     if let Some((start, end)) = measure_consumer.get_measuring_line() {
         debug!("📏 RENDER_MEASURE_PREVIEW: Drawing measuring line from {:?} to {:?}", start, end);
-        let line_color = theme.theme().action_color(); // Use action color for measure line
+        let line_color = theme.theme().active_color(); // Use bright active green for measure line
         let line_width = camera_scale.adjusted_line_width();
         
         // Create solid line for measuring
@@ -169,8 +193,8 @@ pub fn render_measure_preview(
         );
         measure_entities.push(line_entity);
 
-        // Draw start point (green circle)
-        let start_color = theme.theme().selected_color();
+        // Draw start point (bright active green circle)
+        let start_color = theme.theme().active_color();
         let point_size = camera_scale.adjusted_point_size(4.0);
         let point_entity = spawn_measure_point_mesh(
             &mut commands,
@@ -183,8 +207,8 @@ pub fn render_measure_preview(
         );
         measure_entities.push(point_entity);
         
-        // Draw end point (orange circle)
-        let end_color = theme.theme().action_color();
+        // Draw end point (bright active green circle)
+        let end_color = theme.theme().active_color();
         let end_point_entity = spawn_measure_point_mesh(
             &mut commands,
             &mut meshes,
@@ -208,47 +232,44 @@ pub fn render_measure_preview(
     if let Some((start, end)) = measure_consumer.get_measuring_line() {
         let intersections = calculate_measure_intersections(start, end, &fontir_state);
         
-        let intersection_color = theme.theme().helper_color(); // Use helper color for intersection points
+        let intersection_color = theme.theme().action_color(); // Use orange action color for intersection points
         
         for &intersection in &intersections {
-            let cross_size = theme.theme().knife_cross_size() * camera_scale.scale_factor;
-            let cross_width = camera_scale.adjusted_line_width();
-            
-            // Create + mark with two perpendicular lines
-            // Horizontal line
-            let horizontal_entity = spawn_measure_line_mesh(
+            // Create orange filled circles for intersection points
+            let intersection_size = camera_scale.adjusted_point_size(3.0);
+            let intersection_entity = spawn_measure_point_mesh(
                 &mut commands,
                 &mut meshes,
                 &mut materials,
-                Vec2::new(intersection.x - cross_size, intersection.y),
-                Vec2::new(intersection.x + cross_size, intersection.y),
-                cross_width,
+                intersection,
+                intersection_size,
                 intersection_color,
                 20.0, // z-order above everything else
             );
-            measure_entities.push(horizontal_entity);
-            
-            // Vertical line
-            let vertical_entity = spawn_measure_line_mesh(
-                &mut commands,
-                &mut meshes,
-                &mut materials,
-                Vec2::new(intersection.x, intersection.y - cross_size),
-                Vec2::new(intersection.x, intersection.y + cross_size),
-                cross_width,
-                intersection_color,
-                20.0, // z-order above everything else
-            );
-            measure_entities.push(vertical_entity);
+            measure_entities.push(intersection_entity);
         }
         
         // Calculate and display distance measurement
         if intersections.len() >= 2 {
             let distance = intersections[0].distance(intersections[1]);
-            let _midpoint = (intersections[0] + intersections[1]) * 0.5;
+            let midpoint = (intersections[0] + intersections[1]) * 0.5;
             
-            // TODO: Add text label rendering for distance at midpoint
-            info!("📏 MEASURE: Distance between intersection points: {:.1} units", distance);
+            // Format distance value appropriately
+            let distance_text = format!("{:.1}", distance);
+            
+            // Spawn pill-shaped background for text with higher z-orders
+            let pill_entities = spawn_measure_text_with_pill_background(
+                &mut commands,
+                &mut meshes,
+                &mut materials,
+                midpoint,
+                &distance_text,
+                &theme,
+                &camera_scale,
+            );
+            measure_entities.extend(pill_entities);
+            
+            info!("📏 MEASURE: Distance between intersection points: {} units", distance_text);
         }
     }
 }
@@ -468,6 +489,122 @@ fn spawn_measure_point_mesh(
     // Create triangle indices
     for i in 0..segments {
         indices.extend_from_slice(&[0, i + 1, i + 2]);
+    }
+
+    let mut mesh = bevy::render::mesh::Mesh::new(PrimitiveTopology::TriangleList, bevy::render::render_asset::RenderAssetUsages::default());
+    mesh.insert_attribute(bevy::render::mesh::Mesh::ATTRIBUTE_POSITION, vertices);
+    mesh.insert_indices(Indices::U32(indices));
+
+    let mesh_handle = meshes.add(mesh);
+    let material_handle = materials.add(bevy::sprite::ColorMaterial::from(color));
+
+    commands.spawn((
+        bevy::render::mesh::Mesh2d(mesh_handle),
+        bevy::sprite::MeshMaterial2d(material_handle),
+        Transform::from_translation(Vec3::new(0.0, 0.0, z)),
+    )).id()
+}
+
+/// Spawn a text label with pill-shaped background for distance measurement
+fn spawn_measure_text_with_pill_background(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<bevy::render::mesh::Mesh>>,
+    materials: &mut ResMut<Assets<bevy::sprite::ColorMaterial>>,
+    position: Vec2,
+    text_content: &str,
+    theme: &Res<crate::ui::themes::CurrentTheme>,
+    camera_scale: &Res<crate::rendering::camera_responsive::CameraResponsiveScale>,
+) -> Vec<Entity> {
+    let mut entities = Vec::new();
+    
+    // Calculate camera-responsive font size
+    let base_font_size = 14.0;
+    let scaled_font_size = base_font_size * camera_scale.scale_factor;
+    
+    // Estimate text dimensions for background pill
+    let text_width = text_content.len() as f32 * scaled_font_size * 0.6; // Rough estimation
+    let text_height = scaled_font_size;
+    let pill_width = text_width + (8.0 * camera_scale.scale_factor); // Padding
+    let pill_height = text_height + (4.0 * camera_scale.scale_factor); // Padding
+    
+    // Create pill-shaped background (rounded rectangle) using orange color
+    let background_color = theme.theme().action_color(); // Same orange as hit points
+    let pill_entity = spawn_pill_background_mesh(
+        commands,
+        meshes,
+        materials,
+        position,
+        pill_width,
+        pill_height,
+        background_color,
+        100.0, // Much higher z-order below text
+    );
+    entities.push(pill_entity);
+    
+    // Create text label on top using black color
+    let text_color = Color::BLACK; // Black text for good contrast on orange
+    let text_entity = commands.spawn((
+        Text2d::new(text_content),
+        TextFont {
+            font_size: scaled_font_size,
+            ..default()
+        },
+        TextColor(text_color),
+        Transform::from_translation(Vec3::new(position.x, position.y, 200.0)), // Much higher z-order above background
+    )).id();
+    entities.push(text_entity);
+    
+    entities
+}
+
+/// Spawn a pill-shaped background mesh
+fn spawn_pill_background_mesh(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<bevy::render::mesh::Mesh>>,
+    materials: &mut ResMut<Assets<bevy::sprite::ColorMaterial>>,
+    position: Vec2,
+    width: f32,
+    height: f32,
+    color: bevy::color::Color,
+    z: f32,
+) -> Entity {
+    use bevy::render::mesh::{Indices, PrimitiveTopology};
+
+    // Create rounded rectangle (pill shape) using multiple segments
+    let radius = height * 0.5;
+    let rect_width = width - height; // Width of the rectangular part
+    let segments = 8; // Number of segments for each rounded end
+    
+    let mut vertices = Vec::new();
+    let mut indices = Vec::new();
+    
+    // Center vertex for triangle fan
+    vertices.push([position.x, position.y, z]);
+    let center_index = 0;
+    
+    // Left semicircle
+    let left_center = position.x - rect_width * 0.5;
+    for i in 0..=segments {
+        let angle = std::f32::consts::PI * 0.5 + (i as f32 / segments as f32) * std::f32::consts::PI;
+        let x = left_center + radius * angle.cos();
+        let y = position.y + radius * angle.sin();
+        vertices.push([x, y, z]);
+    }
+    
+    // Right semicircle
+    let right_center = position.x + rect_width * 0.5;
+    for i in 0..=segments {
+        let angle = -std::f32::consts::PI * 0.5 + (i as f32 / segments as f32) * std::f32::consts::PI;
+        let x = right_center + radius * angle.cos();
+        let y = position.y + radius * angle.sin();
+        vertices.push([x, y, z]);
+    }
+    
+    // Create triangle fan indices
+    let total_vertices = vertices.len() as u32;
+    for i in 1..total_vertices {
+        let next_i = if i == total_vertices - 1 { 1 } else { i + 1 };
+        indices.extend_from_slice(&[center_index, i, next_i]);
     }
 
     let mut mesh = bevy::render::mesh::Mesh::new(PrimitiveTopology::TriangleList, bevy::render::render_asset::RenderAssetUsages::default());
