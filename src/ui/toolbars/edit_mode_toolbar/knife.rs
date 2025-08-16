@@ -1020,13 +1020,81 @@ fn slice_path_at_hits(path: &BezPath, hits: &[Hit]) -> Vec<BezPath> {
         result_paths.push(current_path);
     }
     
+    // Create connecting bridges between intersection points
+    if sorted_hits.len() >= 2 {
+        result_paths.extend(create_connecting_bridges(&sorted_hits));
+    }
+    
     // If we somehow ended up with no paths, return the original
     if result_paths.is_empty() {
         vec![path.clone()]
     } else {
-        info!("Successfully sliced path into {} segments", result_paths.len());
+        info!("Successfully sliced path into {} segments with bridges", result_paths.len());
         result_paths
     }
+}
+
+/// Create connecting bridge segments between intersection points
+/// This creates the "cut" lines that can be moved apart to reveal the gap
+fn create_connecting_bridges(sorted_hits: &[Hit]) -> Vec<BezPath> {
+    if sorted_hits.len() < 2 {
+        return vec![];
+    }
+    
+    let mut bridges = Vec::new();
+    
+    // Sort hits by their position along the cutting line to ensure proper pairing
+    let mut line_sorted_hits = sorted_hits.to_vec();
+    line_sorted_hits.sort_by(|a, b| {
+        // Sort by the distance along the cutting line (not by segment index)
+        // This ensures we connect points in the order they appear on the cutting line
+        let a_dist = (a.point.x * a.point.x + a.point.y * a.point.y).sqrt();
+        let b_dist = (b.point.x * b.point.x + b.point.y * b.point.y).sqrt();
+        a_dist.partial_cmp(&b_dist).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    
+    // For typical knife cuts, we want to create bridges between adjacent intersection points
+    // This creates the segments that can be moved apart to reveal the cut
+    for i in 0..line_sorted_hits.len().saturating_sub(1) {
+        let start_hit = &line_sorted_hits[i];
+        let end_hit = &line_sorted_hits[i + 1];
+        
+        // Only create bridges between points that are reasonably close to each other
+        // This avoids creating very long bridges across the entire glyph
+        let distance = start_hit.point.distance(end_hit.point);
+        if distance > 5.0 && distance < 200.0 { // Reasonable bridge length
+            let mut bridge_path = BezPath::new();
+            bridge_path.move_to(start_hit.point);
+            bridge_path.line_to(end_hit.point);
+            
+            bridges.push(bridge_path);
+            
+            info!("Created bridge between ({:.1}, {:.1}) and ({:.1}, {:.1}), distance: {:.1}", 
+                  start_hit.point.x, start_hit.point.y,
+                  end_hit.point.x, end_hit.point.y, distance);
+        }
+    }
+    
+    // For complex shapes with multiple contours (like 'a' with inner and outer),
+    // also create a bridge connecting the extreme points to ensure proper cutting
+    if line_sorted_hits.len() >= 2 {
+        let first_hit = &line_sorted_hits[0];
+        let last_hit = &line_sorted_hits[line_sorted_hits.len() - 1];
+        let main_distance = first_hit.point.distance(last_hit.point);
+        
+        // Create the main bridge if the points are far enough apart and it's not redundant
+        if main_distance > 20.0 && main_distance < 300.0 {
+            let mut main_bridge = BezPath::new();
+            main_bridge.move_to(first_hit.point);
+            main_bridge.line_to(last_hit.point);
+            bridges.push(main_bridge);
+            
+            info!("Created main cutting bridge between extreme points, distance: {:.1}", main_distance);
+        }
+    }
+    
+    info!("Created {} connecting bridges total", bridges.len());
+    bridges
 }
 
 /// Represent a path segment for processing
