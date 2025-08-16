@@ -379,7 +379,7 @@ fn render_filled_outline(
     _theme: &CurrentTheme,
 ) {
     if let Some(fontir_state) = fontir_state {
-        if let Some(paths) = fontir_state.get_glyph_paths_with_edits(glyph_name) {
+        if let Some(paths) = fontir_state.get_glyph_paths_with_components(glyph_name) {
             // Combine all contours into a single Lyon path for proper winding rule handling
             let mut lyon_path_builder = Path::builder();
             
@@ -490,7 +490,7 @@ fn render_unified_outline(
     // Get original path structure and render with live positions
     if let Some(fontir_state) = fontir_state {
         if let Some(original_paths) = fontir_state
-            .get_glyph_paths_with_edits(&sort_points[0].2.glyph_name)
+            .get_glyph_paths_with_components(&sort_points[0].2.glyph_name)
         {
             render_fontir_outline_unified(
                 commands,
@@ -857,7 +857,7 @@ fn render_static_outline(
     camera_scale: &CameraResponsiveScale,
 ) {
     if let Some(fontir_state) = fontir_state {
-        if let Some(paths) = fontir_state.get_glyph_paths_with_edits(glyph_name)
+        if let Some(paths) = fontir_state.get_glyph_paths_with_components(glyph_name)
         {
             // Render static outline from FontIR working copy
             for path in paths {

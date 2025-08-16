@@ -5,7 +5,7 @@
 //! logic - serialization and deserialization between equivalent representations.
 
 use crate::core::state::{
-    ContourData, FontData, FontInfo, GlyphData, OutlineData, PointData,
+    ComponentData, ContourData, FontData, FontInfo, GlyphData, OutlineData, PointData,
     PointTypeData,
 };
 use norad::Font;
@@ -20,12 +20,18 @@ impl GlyphData {
             None
         };
 
+        // Convert components from norad format
+        let components = norad_glyph.components.iter()
+            .map(ComponentData::from_norad_component)
+            .collect();
+
         Self {
             name: norad_glyph.name().to_string(),
             advance_width: norad_glyph.width,
             advance_height: Some(norad_glyph.height),
             unicode_values: norad_glyph.codepoints.iter().collect(),
             outline,
+            components,
         }
     }
 
@@ -44,7 +50,46 @@ impl GlyphData {
             glyph.contours = outline_data.to_norad_contours();
         }
 
+        // Convert components back to norad format
+        glyph.components = self.components.iter()
+            .map(ComponentData::to_norad_component)
+            .collect();
+
         glyph
+    }
+}
+
+impl ComponentData {
+    /// Convert from norad component to our thread-safe version
+    pub fn from_norad_component(norad_component: &norad::Component) -> Self {
+        Self {
+            base_glyph: norad_component.base.to_string(),
+            transform: [
+                norad_component.transform.x_scale,
+                norad_component.transform.xy_scale,
+                norad_component.transform.yx_scale,
+                norad_component.transform.y_scale,
+                norad_component.transform.x_offset,
+                norad_component.transform.y_offset,
+            ],
+        }
+    }
+
+    /// Convert back to norad component
+    pub fn to_norad_component(&self) -> norad::Component {
+        let base_name: norad::Name = self.base_glyph.parse()
+            .unwrap_or_else(|_| "a".parse().unwrap()); // Fallback to 'a' if invalid name
+        
+        let transform = norad::AffineTransform {
+            x_scale: self.transform[0],
+            xy_scale: self.transform[1],
+            yx_scale: self.transform[2],
+            y_scale: self.transform[3],
+            x_offset: self.transform[4],
+            y_offset: self.transform[5],
+        };
+
+        norad::Component::new(base_name, transform, None)
     }
 }
 

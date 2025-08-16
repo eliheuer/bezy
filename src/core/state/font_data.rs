@@ -28,6 +28,27 @@ pub struct GlyphData {
     pub unicode_values: Vec<char>,
     /// Glyph outline data
     pub outline: Option<OutlineData>,
+    /// Component references for composite glyphs
+    pub components: Vec<ComponentData>,
+}
+
+/// Thread-safe component data for composite glyphs
+#[derive(Clone, Debug)]
+pub struct ComponentData {
+    /// Name of the base glyph being referenced
+    pub base_glyph: String,
+    /// Transformation matrix (6 values: xx, xy, yx, yy, x, y)
+    /// Default identity: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+    pub transform: [f64; 6],
+}
+
+impl Default for ComponentData {
+    fn default() -> Self {
+        Self {
+            base_glyph: String::new(),
+            transform: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0], // Identity matrix
+        }
+    }
 }
 
 /// Thread-safe outline data

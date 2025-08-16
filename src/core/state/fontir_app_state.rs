@@ -13,7 +13,7 @@ use fontir::ir::{Glyph as FontIRGlyph, GlyphInstance};
 use fontir::orchestration::{Context, Flags, WorkId};
 use fontir::paths::Paths;
 use fontir::source::Source;
-use kurbo::{BezPath, PathEl, Point};
+use kurbo::{Affine, BezPath, PathEl, Point};
 use norad::designspace::DesignSpaceDocument;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -426,6 +426,85 @@ impl FontIRAppState {
         // Fallback to original FontIR data
         info!("*** FontIR: Using ORIGINAL DATA for glyph '{}' (no working copy found)", glyph_name);
         self.get_glyph_paths(glyph_name)
+    }
+
+    /// Get glyph paths with component resolution for complete glyph rendering
+    /// This resolves component references and applies transformations
+    pub fn get_glyph_paths_with_components(
+        &self,
+        glyph_name: &str,
+    ) -> Option<Vec<BezPath>> {
+        let mut all_paths = Vec::new();
+        
+        // Get the main outline paths (if any)
+        if let Some(outline_paths) = self.get_glyph_paths_with_edits(glyph_name) {
+            all_paths.extend(outline_paths);
+        }
+        
+        // Load component data directly from UFO source for component resolution
+        if let Some(component_paths) = self.resolve_components(glyph_name) {
+            all_paths.extend(component_paths);
+        }
+        
+        if all_paths.is_empty() {
+            None
+        } else {
+            Some(all_paths)
+        }
+    }
+
+    /// Resolve component references by loading UFO data directly
+    /// This provides access to component data that FontIR doesn't currently expose
+    fn resolve_components(&self, glyph_name: &str) -> Option<Vec<BezPath>> {
+        // Load the UFO font directly to access component data
+        // This is a temporary approach until FontIR provides better component access
+        let ufo_font = if self.source_path.extension()? == "ufo" {
+            match norad::Font::load(&self.source_path) {
+                Ok(font) => font,
+                Err(e) => {
+                    warn!("Failed to load UFO for component resolution: {}", e);
+                    return None;
+                }
+            }
+        } else {
+            // For .designspace files, we'd need to load the specific UFO
+            // For now, skip component resolution for designspace files
+            debug!("Component resolution not yet implemented for designspace files");
+            return None;
+        };
+
+        // Get the glyph from UFO
+        let layer = ufo_font.default_layer();
+        let ufo_glyph = layer.get_glyph(glyph_name)?;
+        
+        // Check if this glyph has components
+        if ufo_glyph.components.is_empty() {
+            return None;
+        }
+        
+        let mut component_paths = Vec::new();
+        
+        // Resolve each component
+        for component in &ufo_glyph.components {
+            let base_glyph_name = component.base.as_str();
+            
+            // Get the base glyph's paths (recursively resolve components)
+            if let Some(base_paths) = self.get_glyph_paths_with_components(base_glyph_name) {
+                for base_path in base_paths {
+                    // Apply the component's transformation matrix
+                    let transformed_path = apply_affine_transform(&base_path, &component.transform);
+                    component_paths.push(transformed_path);
+                }
+            } else {
+                warn!("Component base glyph '{}' not found for glyph '{}'", base_glyph_name, glyph_name);
+            }
+        }
+        
+        if component_paths.is_empty() {
+            None
+        } else {
+            Some(component_paths)
+        }
     }
 
     /// Load all glyphs into cache
@@ -1179,4 +1258,23 @@ impl From<&PathEl> for FontIRPointType {
             PathEl::ClosePath => FontIRPointType::Move, // Treat as move for now
         }
     }
+}
+
+/// Apply an affine transformation to a BezPath
+/// Converts norad::AffineTransform to kurbo::Affine and transforms the path
+pub fn apply_affine_transform(path: &BezPath, transform: &norad::AffineTransform) -> BezPath {
+    // Convert norad::AffineTransform to kurbo::Affine
+    // norad format: [x_scale, xy_scale, yx_scale, y_scale, x_offset, y_offset]
+    // kurbo format: [xx, yx, xy, yy, x, y] (matrix form)
+    let affine = Affine::new([
+        transform.x_scale,
+        transform.yx_scale,
+        transform.xy_scale,
+        transform.y_scale,
+        transform.x_offset,
+        transform.y_offset,
+    ]);
+    
+    // Apply the transformation to the path
+    affine * path
 }

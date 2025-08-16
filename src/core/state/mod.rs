@@ -15,6 +15,9 @@ pub mod fontir_app_state;
 pub mod navigation;
 pub mod text_editor;
 
+#[cfg(test)]
+mod test_components;
+
 // Re-export all public items to maintain the existing API
 pub use app_state::*;
 pub use font_data::*;
