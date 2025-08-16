@@ -140,15 +140,19 @@ pub fn handle_sort_placement_input(
 fn create_independent_sort_with_fontir(
     text_editor_state: &mut crate::core::state::TextEditorState,
     world_position: bevy::math::Vec2,
-    _layout_mode: crate::core::state::text_editor::SortLayoutMode,
+    layout_mode: crate::core::state::text_editor::SortLayoutMode,
     fontir_app_state: Option<&crate::core::state::FontIRAppState>,
 ) {
     use crate::core::state::text_editor::{SortEntry, SortKind};
     
     info!("🖱️ INSIDE create_independent_sort_with_fontir: Starting function");
 
-    // Get the actual advance width from FontIR if available
-    let placeholder_glyph = "a".to_string();
+    // Choose appropriate default glyph based on layout mode
+    let (placeholder_glyph, placeholder_codepoint) = match &layout_mode {
+        crate::core::state::text_editor::SortLayoutMode::RTLText => ("alef-ar".to_string(), '\u{0627}'), // Arabic Alef
+        _ => ("a".to_string(), 'a'), // Latin lowercase a for LTR and Freeform
+    };
+    
     let advance_width = if let Some(fontir_state) = fontir_app_state {
         fontir_state.get_glyph_advance_width(&placeholder_glyph)
     } else {
@@ -158,7 +162,7 @@ fn create_independent_sort_with_fontir(
 
     let independent_sort = SortEntry {
         kind: SortKind::Glyph {
-            codepoint: Some('a'), // Default placeholder codepoint
+            codepoint: Some(placeholder_codepoint), // Use appropriate codepoint for layout mode
             glyph_name: placeholder_glyph,
             advance_width, // Get from FontIR runtime data
         },

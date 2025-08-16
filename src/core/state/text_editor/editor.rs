@@ -178,8 +178,12 @@ impl TextEditorState {
             debug!("Text root with existing buffer: Not clearing {} existing entries", self.buffer.len());
         }
 
-        // Get the actual advance width from FontIR if available
-        let placeholder_glyph = "a".to_string();
+        // Choose appropriate default glyph based on layout mode
+        let (placeholder_glyph, placeholder_codepoint) = match &layout_mode {
+            SortLayoutMode::RTLText => ("alef-ar".to_string(), '\u{0627}'), // Arabic Alef
+            _ => ("a".to_string(), 'a'), // Latin lowercase a for LTR and Freeform
+        };
+        
         let advance_width = if let Some(fontir_state) = fontir_app_state {
             fontir_state.get_glyph_advance_width(&placeholder_glyph)
         } else {
@@ -189,7 +193,7 @@ impl TextEditorState {
 
         let text_root = SortEntry {
             kind: SortKind::Glyph {
-                codepoint: Some('a'), // Default placeholder codepoint
+                codepoint: Some(placeholder_codepoint), // Use appropriate codepoint for layout mode
                 // Use a visible placeholder glyph instead of empty string
                 // This ensures the root has a visible outline and points for editing
                 glyph_name: placeholder_glyph,
