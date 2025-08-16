@@ -330,7 +330,7 @@ impl InputConsumer for KnifeInputConsumer {
 
 impl KnifeInputConsumer {
     /// Update intersection points for preview
-    fn update_intersections(&mut self, start: Vec2, end: Vec2) {
+    fn update_intersections(&mut self, _start: Vec2, _end: Vec2) {
         self.intersections.clear();
         // Real intersection detection will be handled by the render system
         // This is just a placeholder that gets overridden
@@ -513,33 +513,120 @@ impl InputConsumer for CameraInputConsumer {
 
 /// Input consumer for measurement tool functionality
 #[derive(Resource, Default)]
-pub struct MeasurementToolInputConsumer;
+pub struct MeasureInputConsumer {
+    /// The current gesture state
+    pub gesture: MeasureGestureState,
+    /// Whether shift key is pressed (for axis-aligned measurements)
+    pub shift_locked: bool,
+    /// Intersection points for visualization
+    pub intersections: Vec<Vec2>,
+}
 
-impl InputConsumer for MeasurementToolInputConsumer {
+/// The state of the measure gesture
+#[derive(Debug, Clone, PartialEq, Default, Copy)]
+pub enum MeasureGestureState {
+    /// Ready to start measuring
+    #[default]
+    Ready,
+    /// Currently dragging a measure line
+    Measuring { start: Vec2, current: Vec2 },
+}
+
+impl InputConsumer for MeasureInputConsumer {
     fn should_handle_input(
         &self,
         event: &InputEvent,
         input_state: &InputState,
     ) -> bool {
-        // Handle measurement tool events
-        matches!(
+        let is_right_event = matches!(
             event,
             InputEvent::MouseClick { .. } | InputEvent::MouseDrag { .. }
-        ) && helpers::is_input_mode(input_state, InputMode::Temporary)
+        );
+        let is_measure_mode = helpers::is_input_mode(input_state, InputMode::Measure);
+        
+        if is_right_event {
+            debug!("📏 MEASURE_INPUT_CONSUMER: should_handle_input - event: {:?}, is_measure_mode: {}, current_mode: {:?}", 
+                   event, is_measure_mode, input_state.mode);
+        }
+        
+        is_right_event && is_measure_mode
     }
 
     fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
-        if let InputEvent::MouseClick {
-            button,
-            position,
-            modifiers: _,
-        } = event
-        {
-            debug!(
-                "[MEASURE] Mouse click: {:?} at {:?}",
-                button, position
-            );
-            // Measurement tool logic would go here
+        info!("📏 MEASURE INPUT CONSUMER: Handling event: {:?}", event);
+        
+        match event {
+            InputEvent::MouseClick { button, position, .. } => {
+                info!("📏 MEASURE INPUT CONSUMER: Mouse click: {:?} at {:?} - EVENT CONSUMED", button, position);
+                if button == &bevy::input::mouse::MouseButton::Left {
+                    let world_position = Vec2::new(position.x as f32, position.y as f32);
+                    self.gesture = MeasureGestureState::Measuring {
+                        start: world_position,
+                        current: world_position,
+                    };
+                    self.intersections.clear();
+                    info!("📏 MEASURE INPUT CONSUMER: Started measuring at {:?}", world_position);
+                }
+            }
+            InputEvent::MouseDrag { current_position, .. } => {
+                debug!("📏 MEASURE INPUT CONSUMER: Mouse drag at {:?} - EVENT CONSUMED", current_position);
+                if let MeasureGestureState::Measuring { start, .. } = self.gesture {
+                    let world_position = Vec2::new(current_position.x as f32, current_position.y as f32);
+                    self.gesture = MeasureGestureState::Measuring {
+                        start,
+                        current: world_position,
+                    };
+                    
+                    // Update intersections for preview
+                    self.update_intersections(start, world_position);
+                    debug!("📏 MEASURE INPUT CONSUMER: Dragging to {:?}", world_position);
+                }
+            }
+            InputEvent::MouseRelease { button, position, .. } => {
+                debug!("📏 MEASURE INPUT CONSUMER: Mouse release: {:?} at {:?}", button, position);
+                if button == &bevy::input::mouse::MouseButton::Left {
+                    if let MeasureGestureState::Measuring { start, current } = self.gesture {
+                        info!("📏 MEASURE INPUT CONSUMER: Measure gesture completed from {:?} to {:?}", start, current);
+                    }
+                    
+                    // Reset state immediately after measurement
+                    self.gesture = MeasureGestureState::Ready;
+                    self.intersections.clear();
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+impl MeasureInputConsumer {
+    /// Update intersection points for preview
+    fn update_intersections(&mut self, _start: Vec2, _end: Vec2) {
+        self.intersections.clear();
+        // Real intersection detection will be handled by the render system
+        // This is just a placeholder that gets overridden
+    }
+    
+    /// Get the measuring line with axis locking if shift is pressed
+    pub fn get_measuring_line(&self) -> Option<(Vec2, Vec2)> {
+        match self.gesture {
+            MeasureGestureState::Measuring { start, current } => {
+                let actual_end = if self.shift_locked {
+                    // Apply axis constraint for shift key
+                    let delta = current - start;
+                    if delta.x.abs() > delta.y.abs() {
+                        // Horizontal line
+                        Vec2::new(current.x, start.y)
+                    } else {
+                        // Vertical line
+                        Vec2::new(start.x, current.y)
+                    }
+                } else {
+                    current
+                };
+                Some((start, actual_end))
+            }
+            MeasureGestureState::Ready => None,
         }
     }
 }
@@ -556,7 +643,7 @@ fn process_input_events(
     mut hyper_consumer: ResMut<HyperInputConsumer>,
     mut text_consumer: ResMut<TextInputConsumer>,
     mut camera_consumer: ResMut<CameraInputConsumer>,
-    mut measurement_consumer: ResMut<MeasurementToolInputConsumer>,
+    mut measure_consumer: ResMut<MeasureInputConsumer>,
     _pen_tool_state: Option<ResMut<crate::tools::pen::PenToolState>>,
     _fontir_app_state: Option<ResMut<crate::core::state::FontIRAppState>>,
     _app_state_changed: bevy::ecs::event::EventWriter<crate::editing::selection::events::AppStateChanged>,
@@ -609,8 +696,8 @@ fn process_input_events(
             continue;
         }
 
-        if measurement_consumer.should_handle_input(event, &input_state) {
-            measurement_consumer.handle_input(event, &input_state);
+        if measure_consumer.should_handle_input(event, &input_state) {
+            measure_consumer.handle_input(event, &input_state);
             continue;
         }
 
@@ -645,7 +732,7 @@ impl Plugin for InputConsumerPlugin {
             .init_resource::<HyperInputConsumer>()
             .init_resource::<TextInputConsumer>()
             .init_resource::<CameraInputConsumer>()
-            .init_resource::<MeasurementToolInputConsumer>()
+            .init_resource::<MeasureInputConsumer>()
             .add_systems(Update, process_input_events);
 
         info!("[INPUT CONSUMER] InputConsumerPlugin registration complete");
