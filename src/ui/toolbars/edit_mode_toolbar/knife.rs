@@ -572,7 +572,7 @@ fn perform_cut(
 #[allow(clippy::too_many_arguments)]
 pub fn handle_fontir_knife_cutting(
     mut fontir_state: Option<ResMut<crate::core::state::FontIRAppState>>,
-    knife_consumer: Res<crate::systems::input_consumer::KnifeInputConsumer>,
+    mut knife_consumer: ResMut<crate::systems::input_consumer::KnifeInputConsumer>,
     mut app_state_changed: EventWriter<crate::editing::selection::events::AppStateChanged>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mouse_input: Res<ButtonInput<MouseButton>>,
@@ -582,6 +582,11 @@ pub fn handle_fontir_knife_cutting(
         if let Some(ref mut fontir_state) = fontir_state {
             if let Some((start, end)) = knife_consumer.get_cutting_line() {
                 perform_fontir_cut(start, end, fontir_state, &mut app_state_changed);
+                
+                // Reset the knife gesture state after successful cut
+                knife_consumer.gesture = crate::systems::input_consumer::KnifeGestureState::Ready;
+                knife_consumer.intersections.clear();
+                info!("🔪 KNIFE CUTTING: Gesture state reset after successful cut");
             }
         }
     }
@@ -955,146 +960,130 @@ fn find_path_intersections_with_parameters(path: &BezPath, cutting_line: &kurbo:
 }
 
 /// Slice path at specific hit points
+/// This creates two complete closed contours from one closed contour
 fn slice_path_at_hits(path: &BezPath, hits: &[Hit]) -> Vec<BezPath> {
     if hits.is_empty() {
         return vec![path.clone()];
     }
     
-    // Sort hits by segment index and then by t parameter
+    if hits.len() != 2 {
+        info!("Knife tool requires exactly 2 intersection points, found {}", hits.len());
+        return vec![path.clone()];
+    }
+    
+    // Sort hits by their position along the original path
     let mut sorted_hits = hits.to_vec();
     sorted_hits.sort_by(|a, b| {
         a.segment_idx.cmp(&b.segment_idx)
             .then(a.t.partial_cmp(&b.t).unwrap_or(std::cmp::Ordering::Equal))
     });
     
-    // Build segments between intersection points
-    let mut result_paths = Vec::new();
-    let mut current_path = BezPath::new();
-    let mut segment_start_t = 0.0;
-    let mut current_segment_idx = 0;
-    let mut path_started = false;
+    let first_hit = &sorted_hits[0];
+    let second_hit = &sorted_hits[1];
+    
+    info!("Cutting path between intersection points at segments {} and {}", 
+          first_hit.segment_idx, second_hit.segment_idx);
     
     // Convert path to segments for easier processing
     let segments = path_to_segments(path);
     
+    // Create two complete closed contours
+    let mut path1 = BezPath::new(); // Path from first hit to second hit
+    let mut path2 = BezPath::new(); // Path from second hit back to first hit
+    
+    let mut path1_started = false;
+    let mut path2_started = false;
+    
+    // Build path1: from first intersection to second intersection
+    path1.move_to(first_hit.point);
+    path1_started = true;
+    
     for (seg_idx, segment) in segments.iter().enumerate() {
-        // Find all hits for this segment
-        let segment_hits: Vec<&Hit> = sorted_hits.iter()
-            .filter(|h| h.segment_idx == seg_idx)
-            .collect();
-        
-        if segment_hits.is_empty() {
-            // No intersections in this segment, add it as-is
-            add_segment_to_path(&mut current_path, segment, &mut path_started);
-        } else {
-            // Split this segment at intersection points
-            let mut last_t = 0.0;
-            
-            for hit in &segment_hits {
-                // Add subsegment from last_t to hit.t
-                if hit.t > last_t {
-                    let subseg = extract_subsegment(segment, last_t, hit.t);
-                    add_segment_to_path(&mut current_path, &subseg, &mut path_started);
-                }
-                
-                // Start a new path after the intersection
-                if !current_path.elements().is_empty() {
-                    result_paths.push(current_path.clone());
-                    current_path = BezPath::new();
-                    path_started = false;
-                }
-                
-                last_t = hit.t;
+        if seg_idx < first_hit.segment_idx {
+            // Before first intersection - ignore
+            continue;
+        } else if seg_idx == first_hit.segment_idx {
+            // Segment containing first intersection
+            if seg_idx == second_hit.segment_idx {
+                // Both intersections in same segment
+                let subseg = extract_subsegment(segment, first_hit.t, second_hit.t);
+                add_segment_to_path(&mut path1, &subseg, &mut path1_started);
+            } else {
+                // Start from first intersection to end of segment
+                let subseg = extract_subsegment(segment, first_hit.t, 1.0);
+                add_segment_to_path(&mut path1, &subseg, &mut path1_started);
             }
-            
-            // Add remaining part of segment after last intersection
-            if last_t < 1.0 {
-                let subseg = extract_subsegment(segment, last_t, 1.0);
-                add_segment_to_path(&mut current_path, &subseg, &mut path_started);
-            }
+        } else if seg_idx > first_hit.segment_idx && seg_idx < second_hit.segment_idx {
+            // Between intersections - add entire segment
+            add_segment_to_path(&mut path1, segment, &mut path1_started);
+        } else if seg_idx == second_hit.segment_idx {
+            // Segment containing second intersection - end here
+            let subseg = extract_subsegment(segment, 0.0, second_hit.t);
+            add_segment_to_path(&mut path1, &subseg, &mut path1_started);
+            break;
         }
     }
     
-    // Add the final path if it has content
-    if !current_path.elements().is_empty() {
-        result_paths.push(current_path);
+    // Close path1 - the cutting line is implicit in the close_path() operation
+    if !path1.elements().is_empty() {
+        path1.close_path();
     }
     
-    // Create connecting bridges between intersection points
-    if sorted_hits.len() >= 2 {
-        result_paths.extend(create_connecting_bridges(&sorted_hits));
+    // Build path2: from second intersection, around the rest, back to first intersection
+    // This path takes the "long way around" the original contour
+    path2.move_to(second_hit.point);
+    path2_started = true;
+    
+    // Start from the second intersection and go to the end of that segment
+    if second_hit.segment_idx < segments.len() && first_hit.segment_idx != second_hit.segment_idx {
+        let segment = &segments[second_hit.segment_idx];
+        let subseg = extract_subsegment(segment, second_hit.t, 1.0);
+        add_segment_to_path(&mut path2, &subseg, &mut path2_started);
     }
     
-    // If we somehow ended up with no paths, return the original
-    if result_paths.is_empty() {
-        vec![path.clone()]
-    } else {
-        info!("Successfully sliced path into {} segments with bridges", result_paths.len());
-        result_paths
+    // Add all segments after the second intersection
+    for (seg_idx, segment) in segments.iter().enumerate() {
+        if seg_idx > second_hit.segment_idx {
+            add_segment_to_path(&mut path2, segment, &mut path2_started);
+        }
     }
+    
+    // Add all segments before the first intersection (completing the loop around)
+    for (seg_idx, segment) in segments.iter().enumerate() {
+        if seg_idx < first_hit.segment_idx {
+            add_segment_to_path(&mut path2, segment, &mut path2_started);
+        }
+    }
+    
+    // Add the final segment up to the first intersection
+    if first_hit.segment_idx < segments.len() && first_hit.segment_idx != second_hit.segment_idx {
+        let segment = &segments[first_hit.segment_idx];
+        let subseg = extract_subsegment(segment, 0.0, first_hit.t);
+        add_segment_to_path(&mut path2, &subseg, &mut path2_started);
+    }
+    
+    // Close path2 - the cutting line is implicit in the close_path() operation  
+    if !path2.elements().is_empty() {
+        path2.close_path();
+    }
+    
+    let mut result_paths = Vec::new();
+    if !path1.elements().is_empty() {
+        result_paths.push(path1);
+    }
+    if !path2.elements().is_empty() {
+        result_paths.push(path2);
+    }
+    
+    info!("Successfully split closed contour into {} closed contours", result_paths.len());
+    result_paths
 }
 
-/// Create connecting bridge segments between intersection points
-/// This creates the "cut" lines that can be moved apart to reveal the gap
-fn create_connecting_bridges(sorted_hits: &[Hit]) -> Vec<BezPath> {
-    if sorted_hits.len() < 2 {
-        return vec![];
-    }
-    
-    let mut bridges = Vec::new();
-    
-    // Sort hits by their position along the cutting line to ensure proper pairing
-    let mut line_sorted_hits = sorted_hits.to_vec();
-    line_sorted_hits.sort_by(|a, b| {
-        // Sort by the distance along the cutting line (not by segment index)
-        // This ensures we connect points in the order they appear on the cutting line
-        let a_dist = (a.point.x * a.point.x + a.point.y * a.point.y).sqrt();
-        let b_dist = (b.point.x * b.point.x + b.point.y * b.point.y).sqrt();
-        a_dist.partial_cmp(&b_dist).unwrap_or(std::cmp::Ordering::Equal)
-    });
-    
-    // For typical knife cuts, we want to create bridges between adjacent intersection points
-    // This creates the segments that can be moved apart to reveal the cut
-    for i in 0..line_sorted_hits.len().saturating_sub(1) {
-        let start_hit = &line_sorted_hits[i];
-        let end_hit = &line_sorted_hits[i + 1];
-        
-        // Only create bridges between points that are reasonably close to each other
-        // This avoids creating very long bridges across the entire glyph
-        let distance = start_hit.point.distance(end_hit.point);
-        if distance > 5.0 && distance < 200.0 { // Reasonable bridge length
-            let mut bridge_path = BezPath::new();
-            bridge_path.move_to(start_hit.point);
-            bridge_path.line_to(end_hit.point);
-            
-            bridges.push(bridge_path);
-            
-            info!("Created bridge between ({:.1}, {:.1}) and ({:.1}, {:.1}), distance: {:.1}", 
-                  start_hit.point.x, start_hit.point.y,
-                  end_hit.point.x, end_hit.point.y, distance);
-        }
-    }
-    
-    // For complex shapes with multiple contours (like 'a' with inner and outer),
-    // also create a bridge connecting the extreme points to ensure proper cutting
-    if line_sorted_hits.len() >= 2 {
-        let first_hit = &line_sorted_hits[0];
-        let last_hit = &line_sorted_hits[line_sorted_hits.len() - 1];
-        let main_distance = first_hit.point.distance(last_hit.point);
-        
-        // Create the main bridge if the points are far enough apart and it's not redundant
-        if main_distance > 20.0 && main_distance < 300.0 {
-            let mut main_bridge = BezPath::new();
-            main_bridge.move_to(first_hit.point);
-            main_bridge.line_to(last_hit.point);
-            bridges.push(main_bridge);
-            
-            info!("Created main cutting bridge between extreme points, distance: {:.1}", main_distance);
-        }
-    }
-    
-    info!("Created {} connecting bridges total", bridges.len());
-    bridges
+/// DEPRECATED: We no longer create connecting bridges
+/// Instead, we create proper closed contours with the cutting line integrated
+fn create_connecting_bridges(_sorted_hits: &[Hit]) -> Vec<BezPath> {
+    // No longer needed - we create proper closed contours instead
+    vec![]
 }
 
 /// Represent a path segment for processing

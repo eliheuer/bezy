@@ -312,13 +312,15 @@ impl InputConsumer for KnifeInputConsumer {
                 debug!("🔪 KNIFE INPUT CONSUMER: Mouse release: {:?} at {:?}", button, position);
                 if button == &bevy::input::mouse::MouseButton::Left {
                     if let KnifeGestureState::Cutting { start, current } = self.gesture {
-                        info!("🔪 KNIFE INPUT CONSUMER: Performing knife cut from {:?} to {:?}", start, current);
-                        // TODO: Implement actual cutting logic here
+                        info!("🔪 KNIFE INPUT CONSUMER: Knife cut gesture completed from {:?} to {:?}", start, current);
+                        // Note: State reset is handled by the knife tool's cutting system
+                        // to avoid race conditions between input handling and cutting logic
                     }
                     
-                    // Reset state
-                    self.gesture = KnifeGestureState::Ready;
-                    self.intersections.clear();
+                    // DON'T reset state here - let the cutting system handle it
+                    // This prevents race conditions where state is reset before cutting happens
+                    // self.gesture = KnifeGestureState::Ready;
+                    // self.intersections.clear();
                 }
             }
             _ => {}
