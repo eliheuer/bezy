@@ -537,86 +537,86 @@ pub fn render_sort_preview(
 
     let _preview_color = Color::srgb(1.0, 0.5, 0.0).with_alpha(0.8);
 
-    if let Some(glyph_name) = &glyph_navigation.current_glyph {
-        debug!("[PREVIEW] current_glyph: {}", glyph_name);
+    // Determine the appropriate preview glyph based on placement mode
+    let preview_glyph_name = match current_placement_mode.0 {
+        TextPlacementMode::RTLText => "alef-ar".to_string(), // Arabic Alef for RTL
+        _ => glyph_navigation.current_glyph.clone().unwrap_or_else(|| "a".to_string()), // Current glyph or 'a' for LTR
+    };
+    
+    debug!("[PREVIEW] Using preview glyph: {} (placement mode: {:?})", preview_glyph_name, current_placement_mode.0);
 
-        // Try FontIR first, then fall back to AppState
-        if let Some(fontir_state) = &fontir_app_state {
-            debug!("[PREVIEW] Using FontIR for preview");
-            if let Some(_glyph_paths) =
-                fontir_state.get_glyph_paths_with_edits(glyph_name)
-            {
-                debug!(
-                    "[PREVIEW] Drawing FontIR preview for glyph '{}' at ({:.1}, {:.1})",
-                    glyph_name, snapped_position.x, snapped_position.y
-                );
+    // Try FontIR first, then fall back to AppState
+    if let Some(fontir_state) = &fontir_app_state {
+        debug!("[PREVIEW] Using FontIR for preview");
+        if let Some(_glyph_paths) =
+            fontir_state.get_glyph_paths_with_edits(&preview_glyph_name)
+        {
+            debug!(
+                "[PREVIEW] Drawing FontIR preview for glyph '{}' at ({:.1}, {:.1})",
+                preview_glyph_name, snapped_position.x, snapped_position.y
+            );
 
-                // TODO: Implement mesh-based glyph preview
-                // For now, just show metrics without glyph outline
+            // TODO: Implement mesh-based glyph preview
+            // For now, just show metrics without glyph outline
 
-                // Update mesh-based preview metrics state for FontIR
-                let advance_width =
-                    fontir_state.get_glyph_advance_width(glyph_name);
-                preview_metrics_state.active = true;
-                preview_metrics_state.position = snapped_position;
-                preview_metrics_state.glyph_name = glyph_name.clone();
-                preview_metrics_state.advance_width = advance_width;
-                preview_metrics_state.color =
-                    PRESSED_BUTTON_COLOR.with_alpha(0.8);
-                debug!(
-                    "[PREVIEW] Updated mesh-based preview metrics for '{}' at ({:.1}, {:.1})",
-                    glyph_name, snapped_position.x, snapped_position.y
-                );
-            } else {
-                // No glyph paths found - disable preview metrics
-                preview_metrics_state.active = false;
-                debug!(
-                    "[PREVIEW] No FontIR glyph_paths found for '{}', cannot draw preview - disabled metrics",
-                    glyph_name
-                );
-            }
-        } else if let Some(app_state) = &app_state {
-            debug!("[PREVIEW] Using AppState for preview");
-            if let Some(glyph_data) =
-                app_state.workspace.font.glyphs.get(glyph_name)
-            {
-                debug!(
-                    "[PREVIEW] Drawing AppState preview for glyph '{}' at ({:.1}, {:.1})",
-                    glyph_name, snapped_position.x, snapped_position.y
-                );
-
-                // TODO: Implement mesh-based glyph preview
-                // For now, just show metrics without glyph outline
-
-                // Update mesh-based preview metrics state for AppState
-                let advance_width = glyph_data.advance_width as f32;
-                preview_metrics_state.active = true;
-                preview_metrics_state.position = snapped_position;
-                preview_metrics_state.glyph_name = glyph_name.clone();
-                preview_metrics_state.advance_width = advance_width;
-                preview_metrics_state.color =
-                    PRESSED_BUTTON_COLOR.with_alpha(0.8);
-                debug!(
-                    "[PREVIEW] Updated mesh-based preview metrics for '{}' at ({:.1}, {:.1})",
-                    glyph_name, snapped_position.x, snapped_position.y
-                );
-            } else {
-                // No glyph data found - disable preview metrics
-                preview_metrics_state.active = false;
-                debug!(
-                    "[PREVIEW] No AppState glyph_data found for '{}', cannot draw preview - disabled metrics",
-                    glyph_name
-                );
-            }
+            // Update mesh-based preview metrics state for FontIR
+            let advance_width =
+                fontir_state.get_glyph_advance_width(&preview_glyph_name);
+            preview_metrics_state.active = true;
+            preview_metrics_state.position = snapped_position;
+            preview_metrics_state.glyph_name = preview_glyph_name.clone();
+            preview_metrics_state.advance_width = advance_width;
+            preview_metrics_state.color =
+                PRESSED_BUTTON_COLOR.with_alpha(0.8);
+            debug!(
+                "[PREVIEW] Updated mesh-based preview metrics for '{}' at ({:.1}, {:.1})",
+                preview_glyph_name, snapped_position.x, snapped_position.y
+            );
         } else {
-            // No font state available - disable preview metrics
+            // No glyph paths found - disable preview metrics
             preview_metrics_state.active = false;
-            debug!("[PREVIEW] Neither FontIR nor AppState available, cannot draw preview - disabled metrics preview");
+            debug!(
+                "[PREVIEW] No FontIR glyph_paths found for '{}', cannot draw preview - disabled metrics",
+                preview_glyph_name
+            );
+        }
+    } else if let Some(app_state) = &app_state {
+        debug!("[PREVIEW] Using AppState for preview");
+        if let Some(glyph_data) =
+            app_state.workspace.font.glyphs.get(&preview_glyph_name)
+        {
+            debug!(
+                "[PREVIEW] Drawing AppState preview for glyph '{}' at ({:.1}, {:.1})",
+                preview_glyph_name, snapped_position.x, snapped_position.y
+            );
+
+            // TODO: Implement mesh-based glyph preview
+            // For now, just show metrics without glyph outline
+
+            // Update mesh-based preview metrics state for AppState
+            let advance_width = glyph_data.advance_width as f32;
+            preview_metrics_state.active = true;
+            preview_metrics_state.position = snapped_position;
+            preview_metrics_state.glyph_name = preview_glyph_name.clone();
+            preview_metrics_state.advance_width = advance_width;
+            preview_metrics_state.color =
+                PRESSED_BUTTON_COLOR.with_alpha(0.8);
+            debug!(
+                "[PREVIEW] Updated mesh-based preview metrics for '{}' at ({:.1}, {:.1})",
+                preview_glyph_name, snapped_position.x, snapped_position.y
+            );
+        } else {
+            // No glyph data found - disable preview metrics
+            preview_metrics_state.active = false;
+            debug!(
+                "[PREVIEW] No AppState glyph_data found for '{}', cannot draw preview - disabled metrics",
+                preview_glyph_name
+            );
         }
     } else {
-        // No glyph available - disable preview metrics
+        // No font state available - disable preview metrics
         preview_metrics_state.active = false;
-        debug!("[PREVIEW] No current_glyph set, cannot draw preview - disabled metrics preview");
+        debug!("[PREVIEW] Neither FontIR nor AppState available, cannot draw preview - disabled metrics preview");
     }
 }
 

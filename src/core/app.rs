@@ -15,8 +15,8 @@ use crate::rendering::{
 };
 use crate::systems::{
     exit_on_esc, load_fontir_font, create_startup_layout, center_camera_on_startup_layout,
-    BezySystems, CommandsPlugin, InputConsumerPlugin, ProfessionalShapingPlugin, TextShapingPlugin, 
-    UiInteractionPlugin,
+    ArabicShapingPlugin, BezySystems, CommandsPlugin, InputConsumerPlugin, ProfessionalShapingPlugin, 
+    TextShapingPlugin, UiInteractionPlugin,
 };
 use crate::ui::hud::HudPlugin;
 use crate::ui::panes::coord_pane::CoordinatePanePlugin;
@@ -47,6 +47,7 @@ impl PluginGroup for CorePluginGroup {
             .add(FontEditorSystemSetsPlugin) // Must be added before other font editor plugins
             .add(TextEditorPlugin)
             .add(TextShapingPlugin)
+            .add(ArabicShapingPlugin)
             .add(ProfessionalShapingPlugin)
             .add(SelectionPlugin)
             .add(UndoPlugin)

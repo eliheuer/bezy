@@ -8,7 +8,7 @@
 
 use crate::core::state::fontir_app_state::FontIRAppState;
 use crate::core::state::{SortLayoutMode, TextEditorState};
-use crate::systems::arabic_shaping::{shape_arabic_text, ArabicShapingCache};
+use crate::systems::arabic_shaping::shape_arabic_text;
 use crate::systems::text_shaping::{ShapedText, TextDirection};
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -142,7 +142,6 @@ pub fn professional_shaping_system(
     mut text_editor_state: ResMut<TextEditorState>,
     fontir_state: Option<Res<FontIRAppState>>,
     mut prof_cache: ResMut<ProfessionalShapingCache>,
-    _arabic_cache: ResMut<ArabicShapingCache>,
 ) {
     let Some(fontir_state) = fontir_state else {
         return;
