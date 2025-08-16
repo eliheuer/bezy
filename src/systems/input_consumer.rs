@@ -46,37 +46,15 @@ impl InputConsumer for SelectionInputConsumer {
         matches!(
             event,
             InputEvent::MouseClick { .. } | InputEvent::MouseDrag { .. }
-        ) && helpers::is_input_mode(input_state, InputMode::Normal)
+        ) && helpers::is_input_mode(input_state, InputMode::Select)
     }
 
     fn handle_input(&mut self, event: &InputEvent, _input_state: &InputState) {
-        match event {
-            InputEvent::MouseClick {
-                button,
-                position,
-                modifiers: _,
-            } => {
-                debug!(
-                    "[SELECTION] Mouse click: {:?} at {:?}",
-                    button, position
-                );
-                // Selection logic would go here
-            }
-            InputEvent::MouseDrag {
-                button,
-                start_position,
-                current_position,
-                modifiers: _,
-                delta: _,
-            } => {
-                debug!(
-                    "[SELECTION] Mouse drag: {:?} from {:?} to {:?}",
-                    button, start_position, current_position
-                );
-                // Drag selection logic would go here
-            }
-            _ => {}
-        }
+        // The SelectionInputConsumer is just a placeholder for the InputConsumer pattern
+        // The actual selection logic is handled by the process_selection_input_events system
+        // in src/editing/selection/input/mouse.rs
+        debug!("[SELECTION INPUT CONSUMER] Received event: {:?}", event);
+        debug!("[SELECTION INPUT CONSUMER] Event routing to process_selection_input_events system");
     }
 }
 

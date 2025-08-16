@@ -54,28 +54,32 @@ pub fn process_selection_input_events(
     if event_count == 0 {
         return;
     }
+    
+    debug!("[process_selection_input_events] CALLED with {} events", event_count);
 
     // Check if select tool is active by checking InputMode
     if !crate::core::io::input::helpers::is_input_mode(&input_state, crate::core::io::input::InputMode::Select) {
-        debug!("[process_selection_input_events] Not in Select input mode, skipping all events");
+        info!("[process_selection_input_events] Not in Select input mode (current: {:?}), skipping all events", input_state.mode);
         return;
     }
+    debug!("[process_selection_input_events] In Select input mode - continuing");
 
     // Only log when we actually have events to process
     let mode_status = select_mode.as_ref().map(|s| s.0).unwrap_or(false);
-    debug!("[process_selection_input_events] System called with {} events, select_mode exists: {}, active: {}", 
-          event_count, select_mode.is_some(), mode_status);
+    debug!("[process_selection_input_events] SelectModeActive exists: {}, active: {}", 
+          select_mode.is_some(), mode_status);
 
     // Only process if in select mode
     if let Some(select_mode) = select_mode {
         if !select_mode.0 {
-            debug!("[process_selection_input_events] Select mode inactive, exiting");
+            info!("[process_selection_input_events] SelectModeActive is false, exiting");
             return;
         }
     } else {
-        debug!("[process_selection_input_events] SelectModeActive resource not found, exiting");
+        info!("[process_selection_input_events] SelectModeActive resource not found, exiting");
         return;
     }
+    debug!("[process_selection_input_events] All checks passed - processing events");
 
     for event in input_events.read() {
         debug!(
@@ -104,106 +108,115 @@ pub fn process_selection_input_events(
                 position,
                 modifiers,
             } => {
+                debug!("[process_selection_input_events] GOT MOUSE CLICK: button={:?}, position={:?}", button, position);
                 if *button == MouseButton::Left {
                     let world_position = position.to_raw();
                     let handle_tolerance = 50.0;
-                    let font_metrics = if let Some(state) = app_state.as_ref() {
-                        &state.workspace.info.metrics
-                    } else {
-                        warn!("[sort-handle-hit] AppState not available (using FontIR) - skipping sort handle detection");
-                        continue;
-                    };
-                    debug!("[sort-handle-hit] Mouse click at world position: ({:.1}, {:.1})", world_position.x, world_position.y);
-                    debug!(
-                        "[sort-handle-hit] Buffer has {} sorts",
-                        text_editor_state.buffer.len()
-                    );
+                    
+                    // Try to detect sort handle clicks if AppState is available
+                    let clicked_sort_handle = if let Some(state) = app_state.as_ref() {
+                        let font_metrics = &state.workspace.info.metrics;
+                        debug!("[sort-handle-hit] Mouse click at world position: ({:.1}, {:.1})", world_position.x, world_position.y);
+                        debug!(
+                            "[sort-handle-hit] Buffer has {} sorts",
+                            text_editor_state.buffer.len()
+                        );
 
-                    // Only log detailed handle positions if we have a small number of sorts to avoid spam
-                    if text_editor_state.buffer.len() <= 10 {
-                        for i in 0..text_editor_state.buffer.len() {
-                            if let Some(_sort) = text_editor_state.buffer.get(i)
-                            {
-                                if let Some(sort_pos) = text_editor_state
-                                    .get_sort_visual_position(i)
+                        // Only log detailed handle positions if we have a small number of sorts to avoid spam
+                        if text_editor_state.buffer.len() <= 10 {
+                            for i in 0..text_editor_state.buffer.len() {
+                                if let Some(_sort) = text_editor_state.buffer.get(i)
                                 {
-                                    let descender = font_metrics
-                                        .descender
-                                        .unwrap_or(-200.0)
-                                        as f32;
-                                    let handle_pos =
-                                        sort_pos + Vec2::new(0.0, descender);
-                                    let distance =
-                                        world_position.distance(handle_pos);
-                                    debug!("[sort-handle-hit] Sort {}: handle_pos=({:.1}, {:.1}), distance={:.1}, tolerance={:.1}",
-                                        i, handle_pos.x, handle_pos.y, distance, handle_tolerance);
+                                    if let Some(sort_pos) = text_editor_state
+                                        .get_sort_visual_position(i)
+                                    {
+                                        let descender = font_metrics
+                                            .descender
+                                            .unwrap_or(-200.0)
+                                            as f32;
+                                        let handle_pos =
+                                            sort_pos + Vec2::new(0.0, descender);
+                                        let distance =
+                                            world_position.distance(handle_pos);
+                                        debug!("[sort-handle-hit] Sort {}: handle_pos=({:.1}, {:.1}), distance={:.1}, tolerance={:.1}",
+                                            i, handle_pos.x, handle_pos.y, distance, handle_tolerance);
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    if let Some(clicked_sort_index) = text_editor_state
-                        .find_sort_handle_at_position(
-                            world_position,
-                            handle_tolerance,
-                            Some(font_metrics),
-                        )
-                    {
-                        info!("[process_selection_input_events] Clicked on sort handle at index {}", clicked_sort_index);
-
-                        // Find the entity corresponding to this buffer index
-                        if let Some(&sort_entity) =
-                            buffer_entities.entities.get(&clicked_sort_index)
+                        if let Some(clicked_sort_index) = text_editor_state
+                            .find_sort_handle_at_position(
+                                world_position,
+                                handle_tolerance,
+                                Some(font_metrics),
+                            )
                         {
-                            let is_ctrl_held = modifiers.ctrl;
+                            info!("[process_selection_input_events] Clicked on sort handle at index {}", clicked_sort_index);
 
-                            if is_ctrl_held {
-                                // Multi-select: toggle selection
-                                if selection_state
-                                    .selected
-                                    .contains(&sort_entity)
-                                {
-                                    // Remove from selection
-                                    commands.entity(sort_entity).remove::<crate::editing::selection::components::Selected>();
-                                    selection_state
+                            // Find the entity corresponding to this buffer index
+                            if let Some(&sort_entity) =
+                                buffer_entities.entities.get(&clicked_sort_index)
+                            {
+                                let is_ctrl_held = modifiers.ctrl;
+
+                                if is_ctrl_held {
+                                    // Multi-select: toggle selection
+                                    if selection_state
                                         .selected
-                                        .remove(&sort_entity);
-                                    info!("[process_selection_input_events] Ctrl+click: removed sort {} from selection", clicked_sort_index);
+                                        .contains(&sort_entity)
+                                    {
+                                        // Remove from selection
+                                        commands.entity(sort_entity).remove::<crate::editing::selection::components::Selected>();
+                                        selection_state
+                                            .selected
+                                            .remove(&sort_entity);
+                                        info!("[process_selection_input_events] Ctrl+click: removed sort {} from selection", clicked_sort_index);
+                                    } else {
+                                        // Add to selection
+                                        commands.entity(sort_entity).insert(crate::editing::selection::components::Selected);
+                                        selection_state
+                                            .selected
+                                            .insert(sort_entity);
+                                        info!("[process_selection_input_events] Ctrl+click: added sort {} to selection", clicked_sort_index);
+                                    }
                                 } else {
-                                    // Add to selection
+                                    // Single select: clear others and select this one
+                                    // Clear all current selections
+                                    for entity in selection_state.selected.clone() {
+                                        commands.entity(entity).remove::<crate::editing::selection::components::Selected>();
+                                    }
+                                    selection_state.selected.clear();
+
+                                    // Select this sort
                                     commands.entity(sort_entity).insert(crate::editing::selection::components::Selected);
-                                    selection_state
-                                        .selected
-                                        .insert(sort_entity);
-                                    info!("[process_selection_input_events] Ctrl+click: added sort {} to selection", clicked_sort_index);
+                                    selection_state.selected.insert(sort_entity);
+                                    info!("[process_selection_input_events] Single click: selected sort {} exclusively", clicked_sort_index);
                                 }
                             } else {
-                                // Single select: clear others and select this one
-                                // Clear all current selections
-                                for entity in selection_state.selected.clone() {
-                                    commands.entity(entity).remove::<crate::editing::selection::components::Selected>();
-                                }
-                                selection_state.selected.clear();
-
-                                // Select this sort
-                                commands.entity(sort_entity).insert(crate::editing::selection::components::Selected);
-                                selection_state.selected.insert(sort_entity);
-                                info!("[process_selection_input_events] Single click: selected sort {} exclusively", clicked_sort_index);
+                                warn!("[process_selection_input_events] Could not find entity for sort index {}", clicked_sort_index);
                             }
-                        } else {
-                            warn!("[process_selection_input_events] Could not find entity for sort index {}", clicked_sort_index);
-                        }
 
-                        // Early return: don't run the rest of the selection logic for this click
-                        return;
+                            true // Sort handle was clicked
+                        } else {
+                            false // No sort handle clicked
+                        }
                     } else {
-                        debug!("[sort-handle-hit] No sort handle hit detected");
+                        debug!("[sort-handle-hit] AppState not available (using FontIR) - skipping sort handle detection");
+                        false // AppState not available, proceed to point selection
+                    };
+
+                    // If no sort handle was clicked, proceed with individual point selection
+                    if !clicked_sort_handle {
+                        debug!("[sort-handle-hit] No sort handle hit detected - calling handle_selection_click for individual points");
 
                         // Fallback to general selection click handling
                         // Use a dummy entity if no active sort exists
                         let active_sort_entity = active_sort_state
                             .active_sort_entity
                             .unwrap_or(Entity::PLACEHOLDER);
+                        debug!("[sort-handle-hit] active_sort_state.active_sort_entity={:?}, using: {:?}", 
+                              active_sort_state.active_sort_entity, active_sort_entity);
                         handle_selection_click(
                             &mut commands,
                             position,
@@ -333,7 +346,7 @@ pub fn handle_selection_click(
     active_sort_entity: Entity,
     sort_point_entities: &Query<&crate::systems::sort_manager::SortPointEntity>,
 ) {
-    debug!("=== HANDLE SELECTION CLICK ===");
+    debug!("=== HANDLE SELECTION CLICK === position={:?}, active_sort={:?}", position, active_sort_entity);
     let cursor_pos = position.to_raw();
     debug!("Click position: {:?} (raw: {:?})", position, cursor_pos);
     debug!("Modifiers: {:?}", modifiers);
@@ -377,7 +390,8 @@ pub fn handle_selection_click(
 
         // Check if this entity belongs to the active sort
         if let Ok(sort_point_entity) = sort_point_entities.get(entity) {
-            if sort_point_entity.sort_entity != active_sort_entity {
+            // If we have a valid active sort, filter by it
+            if active_sort_entity != Entity::PLACEHOLDER && sort_point_entity.sort_entity != active_sort_entity {
                 continue; // Skip points that don't belong to the active sort
             }
             points_in_active_sort += 1;
