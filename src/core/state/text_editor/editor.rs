@@ -113,57 +113,42 @@ impl TextEditorState {
                     .map(|s| is_rtl_layout_mode(&s.layout_mode))
                     .unwrap_or(false);
 
-                // For RTL: accumulate from root up to target position to find where target goes
-                // For LTR: accumulate from root up to (but not including) target position  
-                let range_end = if is_rtl {
-                    buffer_position  // RTL: accumulate all characters before target
-                } else {
-                    buffer_position  // LTR: accumulate all characters before target
-                };
-
-                for i in (root_index + 1)..range_end {
-                    if let Some(sort_entry) = self.buffer.get(i) {
-                        // Stop if we hit another buffer root
-                        if sort_entry.is_buffer_root {
-                            break;
-                        }
-
-                        // Process this position's advance
-                        match &sort_entry.kind {
-                            SortKind::LineBreak => {
-                                // Line break: reset x_offset and move down a line
-                                x_offset = 0.0;
-                                y_offset -= line_height;
+                // EDGE-TO-EDGE POSITIONING using advance widths correctly
+                // For RTL: Each character's RIGHT edge touches the previous character's LEFT edge
+                // For LTR: Each character's LEFT edge touches the previous character's RIGHT edge
+                
+                if is_rtl {
+                    // RTL: Accumulate ALL advance widths from position 1 through target position
+                    // This positions each character so its RIGHT edge touches the previous character's LEFT edge
+                    for i in (root_index + 1)..=buffer_position {
+                        if let Some(sort_entry) = self.buffer.get(i) {
+                            if let SortKind::Glyph { advance_width, .. } = &sort_entry.kind {
+                                x_offset -= advance_width;  // Move LEFT by this character's width
                             }
-                            SortKind::Glyph { advance_width, .. } => {
-                                // Apply advance based on text direction
-                                if is_rtl {
-                                    x_offset -= advance_width;  // RTL: move left by advance width
-                                } else {
-                                    x_offset += advance_width;  // LTR: move right by advance width
-                                }
+                        }
+                    }
+                } else {
+                    // LTR: Standard positioning - accumulate advances of characters BEFORE target
+                    for i in (root_index + 1)..buffer_position {
+                        if let Some(sort_entry) = self.buffer.get(i) {
+                            if let SortKind::Glyph { advance_width, .. } = &sort_entry.kind {
+                                x_offset += advance_width;  // Move RIGHT by this character's width
                             }
                         }
                     }
                 }
                 
-                // For RTL, we need to position the new character so its RIGHT edge aligns 
-                // with the LEFT edge of where we've accumulated to
-                if is_rtl {
-                    // Get the advance width of the target character to position it correctly
-                    if let Some(target_sort) = self.buffer.get(buffer_position) {
-                        if let SortKind::Glyph { advance_width, .. } = &target_sort.kind {
-                            // Position so the right edge of new char aligns with left edge of previous chars
-                            x_offset -= advance_width;
-                        }
-                    }
-                }
+                info!("🔍 {} buffer[{}]: x_offset={:.1}", 
+                      if is_rtl { "RTL" } else { "LTR" }, buffer_position, x_offset);
 
                 // Return final position
-                Some(Vec2::new(
+                let final_pos = Vec2::new(
                     root_position.x + x_offset,
                     root_position.y + y_offset,
-                ))
+                );
+                info!("🎯 Position calc for buffer[{}]: root=({:.1},{:.1}), x_offset={:.1}, final=({:.1},{:.1}), is_rtl={}", 
+                      buffer_position, root_position.x, root_position.y, x_offset, final_pos.x, final_pos.y, is_rtl);
+                Some(final_pos)
             } else {
                 None
             }
