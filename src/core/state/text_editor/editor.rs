@@ -113,13 +113,12 @@ impl TextEditorState {
                     .map(|s| is_rtl_layout_mode(&s.layout_mode))
                     .unwrap_or(false);
 
-                // Unified positioning logic for both LTR and RTL
-                // The key difference: LTR accumulates up to (but not including) target,
-                // RTL accumulates up to and including target
+                // For RTL: accumulate from root up to target position to find where target goes
+                // For LTR: accumulate from root up to (but not including) target position  
                 let range_end = if is_rtl {
-                    buffer_position + 1  // RTL: include target position
+                    buffer_position  // RTL: accumulate all characters before target
                 } else {
-                    buffer_position      // LTR: exclude target position
+                    buffer_position  // LTR: accumulate all characters before target
                 };
 
                 for i in (root_index + 1)..range_end {
@@ -139,11 +138,23 @@ impl TextEditorState {
                             SortKind::Glyph { advance_width, .. } => {
                                 // Apply advance based on text direction
                                 if is_rtl {
-                                    x_offset -= advance_width;  // RTL: move left
+                                    x_offset -= advance_width;  // RTL: move left by advance width
                                 } else {
-                                    x_offset += advance_width;  // LTR: move right
+                                    x_offset += advance_width;  // LTR: move right by advance width
                                 }
                             }
+                        }
+                    }
+                }
+                
+                // For RTL, we need to position the new character so its RIGHT edge aligns 
+                // with the LEFT edge of where we've accumulated to
+                if is_rtl {
+                    // Get the advance width of the target character to position it correctly
+                    if let Some(target_sort) = self.buffer.get(buffer_position) {
+                        if let SortKind::Glyph { advance_width, .. } = &target_sort.kind {
+                            // Position so the right edge of new char aligns with left edge of previous chars
+                            x_offset -= advance_width;
                         }
                     }
                 }
