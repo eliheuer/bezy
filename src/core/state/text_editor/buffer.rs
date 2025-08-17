@@ -71,6 +71,19 @@ pub struct SortBuffer {
     gap_end: usize,
 }
 
+/// Unique identifier for text buffer flows
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct BufferId(pub u32);
+
+impl BufferId {
+    /// Create a new unique buffer ID
+    pub fn new() -> Self {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static NEXT_ID: AtomicU32 = AtomicU32::new(1);
+        BufferId(NEXT_ID.fetch_add(1, Ordering::SeqCst))
+    }
+}
+
 /// An entry in the sort buffer representing a glyph
 #[derive(Clone, Debug)]
 pub struct SortEntry {
@@ -85,6 +98,8 @@ pub struct SortEntry {
     pub is_buffer_root: bool,
     /// Cursor position within this buffer sequence (only for buffer roots)
     pub buffer_cursor_position: Option<usize>,
+    /// Buffer ID for text flow isolation (None for freeform sorts)
+    pub buffer_id: Option<BufferId>,
 }
 
 /// Grid layout configuration
@@ -125,6 +140,7 @@ impl Default for SortEntry {
             root_position: Vec2::ZERO,
             is_buffer_root: false,
             buffer_cursor_position: None,
+            buffer_id: None, // Default to no buffer ID (freeform)
         }
     }
 }

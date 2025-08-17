@@ -108,6 +108,8 @@ pub fn handle_sort_placement_input(
     
     // CRITICAL FIX: Deactivate all existing sorts before creating new active sort
     // This prevents multiple active sorts from existing simultaneously
+    // NOTE: Each text flow (LTR/RTL) maintains its own buffer root and text flow chain
+    // Buffer[0] might be LTR, Buffer[1] might be RTL - they are independent text flows
     for i in 0..text_editor_state.buffer.len() {
         if let Some(sort) = text_editor_state.buffer.get_mut(i) {
             if sort.is_active {
@@ -144,6 +146,7 @@ fn create_independent_sort_with_fontir(
     fontir_app_state: Option<&crate::core::state::FontIRAppState>,
 ) {
     use crate::core::state::text_editor::{SortEntry, SortKind, SortLayoutMode};
+    use crate::core::state::text_editor::buffer::BufferId;
     
     info!("🖱️ INSIDE create_independent_sort_with_fontir: Starting function");
 
@@ -158,48 +161,39 @@ fn create_independent_sort_with_fontir(
         500.0
     };
 
-    // CRITICAL FIX: Check if there's already a buffer root with the same layout mode
-    // If so, add to that text flow instead of creating a new buffer root
-    let mut existing_root_index = None;
-    for (i, existing_sort) in text_editor_state.buffer.iter().enumerate() {
-        if existing_sort.is_buffer_root && existing_sort.layout_mode == layout_mode {
-            existing_root_index = Some(i);
-            break;
-        }
-    }
-
-    let (is_buffer_root, cursor_position) = if let Some(_root_index) = existing_root_index {
-        // There's already a buffer root with this layout mode
-        // Add this sort to that existing text flow instead of creating a new root
-        info!("🖱️ Found existing {} buffer root, adding to existing text flow instead of creating new root", 
-              match layout_mode {
-                  SortLayoutMode::RTLText => "RTL",
-                  SortLayoutMode::LTRText => "LTR", 
-                  SortLayoutMode::Freeform => "Freeform",
-              });
-        (false, None) // Not a buffer root, no cursor position
-    } else {
-        // No existing buffer root with this layout mode, create a new one
-        info!("🖱️ No existing {} buffer root found, creating new buffer root", 
-              match layout_mode {
-                  SortLayoutMode::RTLText => "RTL",
-                  SortLayoutMode::LTRText => "LTR",
-                  SortLayoutMode::Freeform => "Freeform", 
-              });
-        (true, Some(0)) // Is a buffer root with cursor at start
-    };
+    // BUFFER SEPARATION POLICY:
+    // Each click with the text tool creates a NEW independent text flow (buffer root)
+    // This ensures clean separation between different text placement operations
+    // Even if the same layout mode (RTL/LTR) exists, we create a new root for independence
+    
+    // Create a new unique buffer ID for complete isolation
+    let buffer_id = BufferId::new();
+    
+    // Always create a new buffer root for each placement click
+    // This ensures complete separation between different text flows
+    let (is_buffer_root, cursor_position) = (true, Some(0));
+    
+    info!("🖱️ Creating new {} buffer root (ID: {:?}) for independent text flow at position ({:.1}, {:.1})", 
+          match layout_mode {
+              SortLayoutMode::RTLText => "RTL",
+              SortLayoutMode::LTRText => "LTR",
+              SortLayoutMode::Freeform => "Freeform", 
+          },
+          buffer_id,
+          world_position.x, world_position.y);
 
     let independent_sort = SortEntry {
         kind: SortKind::Glyph {
             codepoint: Some(placeholder_codepoint), // Use appropriate codepoint for layout mode
             glyph_name: placeholder_glyph,
-            advance_width, // Get from FontIR runtime data
+            advance_width: 0.0, // CRITICAL FIX: Root sorts should have zero width for positioning
         },
         is_active: true, // Automatically activate the new sort
         layout_mode, // Use the actual layout mode (RTL, LTR, etc.) not hardcoded Freeform
         root_position: world_position,
         is_buffer_root, // Only first sort in each layout mode becomes buffer root
         buffer_cursor_position: cursor_position, // Only buffer roots have cursor position
+        buffer_id: Some(buffer_id), // Assign unique buffer ID for complete isolation
     };
 
     // Insert at the end of the buffer (this creates a new independent sort)  

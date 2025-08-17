@@ -22,6 +22,50 @@ impl TextEditorState {
         text_sorts
     }
 
+    /// Get sorts belonging to a specific buffer ID
+    pub fn get_sorts_for_buffer(&self, buffer_id: BufferId) -> Vec<(usize, &SortEntry)> {
+        let mut buffer_sorts = Vec::new();
+
+        for i in 0..self.buffer.len() {
+            if let Some(sort) = self.buffer.get(i) {
+                if sort.buffer_id == Some(buffer_id) {
+                    buffer_sorts.push((i, sort));
+                }
+            }
+        }
+
+        buffer_sorts
+    }
+
+    /// Find the root sort for a specific buffer ID
+    pub fn find_buffer_root(&self, buffer_id: BufferId) -> Option<(usize, &SortEntry)> {
+        for i in 0..self.buffer.len() {
+            if let Some(sort) = self.buffer.get(i) {
+                if sort.buffer_id == Some(buffer_id) && sort.is_buffer_root {
+                    return Some((i, sort));
+                }
+            }
+        }
+        None
+    }
+
+    /// Get all unique buffer IDs
+    pub fn get_all_buffer_ids(&self) -> Vec<BufferId> {
+        let mut buffer_ids = Vec::new();
+        
+        for i in 0..self.buffer.len() {
+            if let Some(sort) = self.buffer.get(i) {
+                if let Some(buffer_id) = sort.buffer_id {
+                    if !buffer_ids.contains(&buffer_id) {
+                        buffer_ids.push(buffer_id);
+                    }
+                }
+            }
+        }
+        
+        buffer_ids
+    }
+
     /// Add a new freeform sort at the specified position
     pub fn add_freeform_sort(
         &mut self,
@@ -44,6 +88,7 @@ impl TextEditorState {
             root_position: position,
             is_buffer_root: false,
             buffer_cursor_position: None,
+            buffer_id: None, // Freeform sorts have no buffer ID
         };
 
         let insert_index = self.buffer.len();
@@ -75,20 +120,25 @@ impl TextEditorState {
                 let mut active_root_index = None;
                 let mut root_position = Vec2::ZERO;
 
-                // Look for the buffer root that matches this sort's layout mode
-                for i in (0..=buffer_position).rev() {
-                    if let Some(candidate) = self.buffer.get(i) {
-                        // CRITICAL FIX: Only use buffer roots that match the current sort's layout mode
-                        // This prevents RTL sorts from using LTR roots and vice versa
-                        if candidate.is_buffer_root && candidate.layout_mode == sort.layout_mode {
-                            active_root_index = Some(i);
-                            root_position = candidate.root_position;
-                            warn!("🔍 ROOT MATCH: Found matching buffer root at buffer[{}] for layout_mode={:?}", i, sort.layout_mode);
-                            println!("🔍 ROOT DEBUG: Using buffer[{}] as root at position ({:.1}, {:.1})", 
-                                     i, root_position.x, root_position.y);
-                            break;
+                // Look for the buffer root that matches this sort's buffer ID
+                if let Some(sort_buffer_id) = sort.buffer_id {
+                    for i in (0..=buffer_position).rev() {
+                        if let Some(candidate) = self.buffer.get(i) {
+                            // CRITICAL FIX: Only use buffer roots that match the current sort's buffer ID
+                            // This ensures complete isolation between different text flows
+                            if candidate.is_buffer_root && candidate.buffer_id == Some(sort_buffer_id) {
+                                active_root_index = Some(i);
+                                root_position = candidate.root_position;
+                                warn!("🔍 ROOT MATCH: Found matching buffer root at buffer[{}] for buffer_id={:?}", i, sort_buffer_id);
+                                println!("🔍 ROOT DEBUG: Using buffer[{}] as root at position ({:.1}, {:.1})", 
+                                         i, root_position.x, root_position.y);
+                                break;
+                            }
                         }
                     }
+                } else {
+                    // Fallback for sorts without buffer ID (shouldn't happen for text sorts)
+                    warn!("🔍 ROOT SEARCH: Sort at buffer[{}] has no buffer_id - this shouldn't happen for text sorts", buffer_position);
                 }
 
                 let root_index = active_root_index?;
@@ -127,17 +177,36 @@ impl TextEditorState {
                 }
                 
                 if is_rtl {
-                    // RTL: Accumulate ALL advance widths from position 1 through target position
-                    // This positions each character so its RIGHT edge touches the previous character's LEFT edge
+                    // RTL: Position characters to flow LEFT from the root
+                    // CRITICAL: In RTL, each character's RIGHT edge should be at the positioning point
+                    // So we need to offset by the character's own width first
                     println!("🔍 RTL CALC: Calculating offset for buffer[{}] from root at buffer[{}]", 
                              buffer_position, root_index);
-                    for i in (root_index + 1)..=buffer_position {
-                        if let Some(sort_entry) = self.buffer.get(i) {
-                            if let SortKind::Glyph { advance_width, glyph_name, .. } = &sort_entry.kind {
-                                let old_offset = x_offset;
-                                x_offset -= advance_width;  // Move LEFT by this character's width
-                                println!("🔍 RTL CALC: buffer[{}] '{}' advance={:.1}, offset: {:.1} -> {:.1}", 
-                                         i, glyph_name, advance_width, old_offset, x_offset);
+                    
+                    // RTL edge-to-edge positioning: Each character's RIGHT edge touches previous character's LEFT edge
+                    // Step 1: Position current character so its RIGHT edge is at the correct position
+                    if let Some(current_sort) = self.buffer.get(buffer_position) {
+                        if let SortKind::Glyph { advance_width: current_advance, glyph_name: current_glyph, .. } = &current_sort.kind {
+                            if buffer_position == root_index + 1 {
+                                // First character: RIGHT edge at root position
+                                x_offset = -current_advance;
+                                println!("🔍 RTL CALC: First character '{}' advance={:.1}, RIGHT edge at root, offset={:.1}", 
+                                         current_glyph, current_advance, x_offset);
+                            } else {
+                                // Subsequent characters: RIGHT edge at previous character's LEFT edge
+                                // Calculate where the previous character's left edge is
+                                let mut previous_left_edge = 0.0;
+                                for i in (root_index + 1)..buffer_position {
+                                    if let Some(sort_entry) = self.buffer.get(i) {
+                                        if let SortKind::Glyph { advance_width, .. } = &sort_entry.kind {
+                                            previous_left_edge -= advance_width;
+                                        }
+                                    }
+                                }
+                                // Position current character so its RIGHT edge is at previous LEFT edge
+                                x_offset = previous_left_edge - current_advance;
+                                println!("🔍 RTL CALC: Character '{}' advance={:.1}, RIGHT edge at previous LEFT edge {:.1}, offset={:.1}", 
+                                         current_glyph, current_advance, previous_left_edge, x_offset);
                             }
                         }
                     }
@@ -205,6 +274,7 @@ impl TextEditorState {
             500.0
         };
 
+        let buffer_id = BufferId::new();
         let text_root = SortEntry {
             kind: SortKind::Glyph {
                 codepoint: Some(placeholder_codepoint), // Use appropriate codepoint for layout mode
@@ -223,6 +293,7 @@ impl TextEditorState {
                 SortLayoutMode::RTLText => 0,
                 _ => 1,
             }),
+            buffer_id: Some(buffer_id), // Assign unique buffer ID for isolation
         };
 
         // Insert at the end of the buffer
@@ -525,12 +596,12 @@ impl TextEditorState {
             // For RTL text: always insert new characters, never replace the root
             // The root (like alef-ar) stays as the foundation of the RTL text buffer
 
-            // Get the layout mode from the buffer root
-            let root_layout_mode = self
+            // Get the layout mode and buffer ID from the buffer root
+            let (root_layout_mode, root_buffer_id) = self
                 .buffer
                 .get(root_index)
-                .map(|sort| sort.layout_mode.clone())
-                .unwrap_or(SortLayoutMode::LTRText);
+                .map(|sort| (sort.layout_mode.clone(), sort.buffer_id))
+                .unwrap_or((SortLayoutMode::LTRText, None));
 
             let new_sort = SortEntry {
                 kind: SortKind::Glyph {
@@ -543,6 +614,7 @@ impl TextEditorState {
                 root_position: Vec2::ZERO, // Will be calculated by flow
                 is_buffer_root: false,     // New sorts are not buffer roots
                 buffer_cursor_position: None,
+                buffer_id: root_buffer_id, // CRITICAL: Inherit buffer ID from root for isolation
             };
 
             // NEVER replace the root entity - always insert as a separate entity
@@ -902,6 +974,7 @@ impl TextEditorState {
         // FIXED: Use the provided position instead of hardcoded position
         self.clear_all_states();
 
+        let buffer_id = BufferId::new();
         let new_root = SortEntry {
             kind: SortKind::Glyph {
                 codepoint,
@@ -913,6 +986,7 @@ impl TextEditorState {
             root_position: world_position,
             is_buffer_root: true,
             buffer_cursor_position: Some(1), // Cursor is after the typed character.
+            buffer_id: Some(buffer_id), // Assign unique buffer ID
         };
 
         let insert_index = self.buffer.len();
@@ -928,11 +1002,11 @@ impl TextEditorState {
             );
 
             // Get the layout mode from the buffer root
-            let root_layout_mode = self
+            let (root_layout_mode, root_buffer_id) = self
                 .buffer
                 .get(root_index)
-                .map(|sort| sort.layout_mode.clone())
-                .unwrap_or(SortLayoutMode::LTRText);
+                .map(|sort| (sort.layout_mode.clone(), sort.buffer_id))
+                .unwrap_or((SortLayoutMode::LTRText, None));
 
             let new_sort = SortEntry {
                 kind: SortKind::LineBreak,
@@ -941,6 +1015,7 @@ impl TextEditorState {
                 root_position: Vec2::ZERO,
                 is_buffer_root: false,
                 buffer_cursor_position: None,
+                buffer_id: root_buffer_id, // Inherit buffer ID from root
             };
 
             // FIXED: Insert at the end of the buffer instead of using cursor position
