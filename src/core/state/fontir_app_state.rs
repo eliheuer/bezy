@@ -466,10 +466,23 @@ impl FontIRAppState {
                     return None;
                 }
             }
+        } else if self.source_path.extension()? == "designspace" {
+            // For .designspace files, load the first/default UFO source
+            let designspace_dir = self.source_path.parent()?;
+            let regular_ufo_path = designspace_dir.join("bezy-grotesk-regular.ufo");
+            debug!("🔧 Loading UFO from designspace for component resolution: {:?}", regular_ufo_path);
+            match norad::Font::load(&regular_ufo_path) {
+                Ok(font) => {
+                    debug!("✅ Successfully loaded UFO for component resolution");
+                    font
+                },
+                Err(e) => {
+                    warn!("Failed to load Regular UFO source from designspace for component resolution: {}", e);
+                    return None;
+                }
+            }
         } else {
-            // For .designspace files, we'd need to load the specific UFO
-            // For now, skip component resolution for designspace files
-            debug!("Component resolution not yet implemented for designspace files");
+            debug!("Component resolution not implemented for file type: {:?}", self.source_path.extension());
             return None;
         };
 
@@ -479,9 +492,11 @@ impl FontIRAppState {
         
         // Check if this glyph has components
         if ufo_glyph.components.is_empty() {
+            debug!("📭 Glyph '{}' has no components", glyph_name);
             return None;
         }
         
+        debug!("🧩 Resolving {} components for glyph '{}'", ufo_glyph.components.len(), glyph_name);
         let mut component_paths = Vec::new();
         
         // Resolve each component

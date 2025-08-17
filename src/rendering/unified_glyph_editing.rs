@@ -222,9 +222,13 @@ pub fn render_unified_glyph_editing(
         let sort_position = sort_transform.translation.truncate();
         let mut element_entities = Vec::new();
 
-        // In presentation mode, skip all editing helpers and render as filled
-        if presentation_active {
-            info!("🎭 Rendering active sort '{}' as filled outline (presentation mode)", sort.glyph_name);
+        // Check if this glyph has components - if so, render as filled even when active
+        let has_components = glyph_has_components(&sort.glyph_name, fontir_app_state.as_deref());
+        
+        // In presentation mode OR for component glyphs, skip all editing helpers and render as filled
+        if presentation_active || has_components {
+            let render_reason = if presentation_active { "presentation mode" } else { "has components" };
+            info!("🎭 Rendering active sort '{}' as filled outline ({})", sort.glyph_name, render_reason);
             render_filled_outline(
                 &mut commands,
                 &mut meshes,
@@ -380,6 +384,15 @@ fn render_filled_outline(
 ) {
     if let Some(fontir_state) = fontir_state {
         if let Some(paths) = fontir_state.get_glyph_paths_with_components(glyph_name) {
+            info!("🎨 Rendering filled outline for '{}' with {} paths (includes components)", glyph_name, paths.len());
+            
+            // Check if we actually have path data
+            let total_elements: usize = paths.iter().map(|p| p.elements().len()).sum();
+            if total_elements == 0 {
+                warn!("⚠️ Glyph '{}' has {} paths but 0 total elements - skipping fill", glyph_name, paths.len());
+                return;
+            }
+            
             // Combine all contours into a single Lyon path for proper winding rule handling
             let mut lyon_path_builder = Path::builder();
             
@@ -1438,5 +1451,23 @@ impl Plugin for UnifiedGlyphEditingPlugin {
                .after(crate::systems::text_editor_sorts::spawn_active_sort_points_optimized)
                .after(crate::editing::selection::nudge::handle_nudge_input));
     }
+}
+
+/// Check if a glyph has components by loading the UFO data directly
+fn glyph_has_components(glyph_name: &str, fontir_state: Option<&crate::core::state::FontIRAppState>) -> bool {
+    if let Some(fontir_state) = fontir_state {
+        // Check if the source is a UFO file
+        let source_path = &fontir_state.source_path;
+        if source_path.extension().map_or(false, |ext| ext == "ufo") {
+            // Load UFO directly to check for components
+            if let Ok(font) = norad::Font::load(source_path) {
+                let layer = font.default_layer();
+                if let Some(glyph) = layer.get_glyph(glyph_name) {
+                    return !glyph.components.is_empty();
+                }
+            }
+        }
+    }
+    false
 }
 

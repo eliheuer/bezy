@@ -9,6 +9,7 @@ use crate::core::state::{AppState, TextEditorState};
 use crate::systems::text_editor_sorts::input_utilities::{
     unicode_to_glyph_name, unicode_to_glyph_name_fontir,
 };
+use crate::systems::arabic_shaping::{get_arabic_position, ArabicPosition};
 use crate::ui::toolbars::edit_mode_toolbar::text::{
     CurrentTextPlacementMode, TextPlacementMode,
 };
@@ -180,13 +181,16 @@ fn handle_unicode_character(
     let glyph_name = if let Some(app_state) = app_state.as_ref() {
         unicode_to_glyph_name(character, app_state)
     } else if let Some(fontir_state) = fontir_app_state.as_ref() {
-        // For FontIR, use enhanced Arabic-aware glyph lookup
-        unicode_to_glyph_name_fontir(character, fontir_state)
+        // For FontIR, use enhanced Arabic-aware glyph lookup with contextual shaping
+        get_contextual_arabic_glyph_name(character, text_editor_state, fontir_state)
     } else {
         None
     };
 
     if let Some(glyph_name) = glyph_name {
+        info!("✅ Unicode input: Found glyph '{}' for character '{}' (U+{:04X})", 
+              glyph_name, character, character as u32);
+        
         // Get advance width
         let advance_width =
             get_glyph_advance_width(&glyph_name, app_state, fontir_app_state);
@@ -198,24 +202,22 @@ fn handle_unicode_character(
         // Insert the character
         match current_placement_mode.0 {
             TextPlacementMode::Insert => {
+                info!("🔍 DEBUG: About to insert character '{}' as glyph '{}' at cursor position {}", 
+                      character, glyph_name, text_editor_state.cursor_position);
+                info!("🔍 DEBUG: Buffer state BEFORE insert: {} sorts", text_editor_state.buffer.len());
+                
                 text_editor_state.insert_sort_at_cursor(
                     glyph_name.clone(),
                     advance_width,
                     Some(character),
                 );
+                
+                info!("🔍 DEBUG: Buffer state AFTER insert: {} sorts, cursor at {}", 
+                      text_editor_state.buffer.len(), text_editor_state.cursor_position);
                 info!("Unicode input: Inserted '{}' (U+{:04X}) as glyph '{}' in Insert mode", 
                       character, character as u32, glyph_name);
-                info!(
-                    "Text editor buffer now has {} sorts",
-                    text_editor_state.buffer.len()
-                );
             }
             TextPlacementMode::LTRText | TextPlacementMode::RTLText => {
-                text_editor_state.insert_sort_at_cursor(
-                    glyph_name.clone(),
-                    advance_width,
-                    Some(character),
-                );
                 let mode_name = if matches!(
                     current_placement_mode.0,
                     TextPlacementMode::LTRText
@@ -224,12 +226,21 @@ fn handle_unicode_character(
                 } else {
                     "RTL Text"
                 };
+                
+                info!("🔍 DEBUG: About to insert character '{}' as glyph '{}' at cursor position {} in {} mode", 
+                      character, glyph_name, text_editor_state.cursor_position, mode_name);
+                info!("🔍 DEBUG: Buffer state BEFORE insert: {} sorts", text_editor_state.buffer.len());
+                
+                text_editor_state.insert_sort_at_cursor(
+                    glyph_name.clone(),
+                    advance_width,
+                    Some(character),
+                );
+                
+                info!("🔍 DEBUG: Buffer state AFTER insert: {} sorts, cursor at {}", 
+                      text_editor_state.buffer.len(), text_editor_state.cursor_position);
                 info!("Unicode input: Inserted '{}' (U+{:04X}) as glyph '{}' in {} mode", 
                       character, character as u32, glyph_name, mode_name);
-                info!(
-                    "Text editor buffer now has {} sorts",
-                    text_editor_state.buffer.len()
-                );
             }
             TextPlacementMode::Freeform => {
                 // In freeform mode, characters are placed freely - for now use same logic
@@ -244,9 +255,14 @@ fn handle_unicode_character(
         }
     } else {
         warn!(
-            "Unicode input: No glyph found for character '{}' (U+{:04X})",
+            "❌ Unicode input: No glyph found for character '{}' (U+{:04X})",
             character, character as u32
         );
+        
+        // Try to check if this is an Arabic character
+        if (character as u32) >= 0x0600 && (character as u32) <= 0x06FF {
+            warn!("❌ Unicode input: This is an Arabic character but no glyph mapping found");
+        }
     }
 }
 
@@ -382,6 +398,75 @@ fn get_glyph_advance_width(
 
     // Fallback default width
     500.0
+}
+
+/// Get contextual Arabic glyph name by analyzing position in text buffer
+fn get_contextual_arabic_glyph_name(
+    character: char,
+    text_editor_state: &TextEditorState,
+    fontir_state: &FontIRAppState,
+) -> Option<String> {
+    // First get the base glyph name
+    let base_name = unicode_to_glyph_name_fontir(character, fontir_state)?;
+    
+    // Check if this is an Arabic character that needs contextual shaping
+    if (character as u32) < 0x0600 || (character as u32) > 0x06FF {
+        return Some(base_name);
+    }
+    
+    info!("🔤 Direct shaping: Analyzing Arabic character '{}' ({})", character, base_name);
+    
+    // Build text context from current buffer for position analysis
+    let mut text_chars = Vec::new();
+    for entry in text_editor_state.buffer.iter() {
+        if let crate::core::state::text_editor::buffer::SortKind::Glyph { codepoint: Some(ch), .. } = &entry.kind {
+            text_chars.push(*ch);
+        }
+    }
+    
+    // Add the current character at cursor position
+    let cursor_pos = text_editor_state.cursor_position;
+    if cursor_pos <= text_chars.len() {
+        text_chars.insert(cursor_pos, character);
+    } else {
+        text_chars.push(character);
+    }
+    
+    // Determine Arabic position
+    let position = get_arabic_position(&text_chars, cursor_pos);
+    
+    // Apply contextual form
+    let contextual_name = match position {
+        ArabicPosition::Isolated => base_name.clone(),
+        ArabicPosition::Initial => {
+            let contextual = format!("{}.init", base_name);
+            // Check if this form exists in the font
+            if fontir_state.get_glyph_names().contains(&contextual) {
+                contextual
+            } else {
+                base_name.clone()
+            }
+        },
+        ArabicPosition::Medial => {
+            let contextual = format!("{}.medi", base_name);
+            if fontir_state.get_glyph_names().contains(&contextual) {
+                contextual
+            } else {
+                base_name.clone()
+            }
+        },
+        ArabicPosition::Final => {
+            let contextual = format!("{}.fina", base_name);
+            if fontir_state.get_glyph_names().contains(&contextual) {
+                contextual
+            } else {
+                base_name.clone()
+            }
+        },
+    };
+    
+    info!("🔤 Direct shaping: '{}' at position {:?} → '{}'", base_name, position, contextual_name);
+    Some(contextual_name)
 }
 
 /// Legacy function - replaced by handle_unicode_text_input

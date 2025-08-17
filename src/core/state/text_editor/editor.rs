@@ -481,18 +481,39 @@ impl TextEditorState {
             info!("Inserting sort '{}' at cursor position {} in buffer root at index {}", 
                   glyph_name, cursor_pos_in_buffer, root_index);
 
-            // Special case: if cursor is at position 0, replace the root glyph instead of inserting
-            if cursor_pos_in_buffer == 0 {
+            // Check if this is the first character being typed into an empty text root
+            let is_empty_root = if let Some(root_sort) = self.buffer.get(root_index) {
+                match &root_sort.kind {
+                    SortKind::Glyph { glyph_name: root_glyph, .. } => {
+                        // Check if root is still a placeholder glyph (like "a" or "alef-ar")
+                        root_glyph == "a" || root_glyph == "alef-ar"
+                    },
+                    _ => false,
+                }
+            } else {
+                false
+            };
+
+            // Special case: if cursor is at position 0 AND this is an empty root, replace the placeholder
+            if cursor_pos_in_buffer == 0 && is_empty_root {
                 if let Some(root_sort) = self.buffer.get_mut(root_index) {
-                    // Replace the root glyph with the new character
+                    // Replace the placeholder root glyph with the new character
                     root_sort.kind = SortKind::Glyph {
                         codepoint,
                         glyph_name: glyph_name.clone(),
                         advance_width,
                     };
-                    // Move cursor to position 1 (after the new root character)
-                    root_sort.buffer_cursor_position = Some(1);
-                    info!("🔄 Replaced root glyph with '{}', cursor moved to position 1", glyph_name);
+                    // For RTL, cursor stays at 0 for next character; for LTR, move to 1
+                    match root_sort.layout_mode {
+                        SortLayoutMode::RTLText => {
+                            root_sort.buffer_cursor_position = Some(0);
+                            info!("🔄 RTL: Replaced placeholder root with '{}', cursor stays at position 0", glyph_name);
+                        },
+                        _ => {
+                            root_sort.buffer_cursor_position = Some(1);
+                            info!("🔄 LTR: Replaced placeholder root with '{}', cursor moved to position 1", glyph_name);
+                        }
+                    }
                 }
                 return;
             }

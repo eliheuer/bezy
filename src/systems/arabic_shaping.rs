@@ -117,7 +117,7 @@ fn can_connect_to_prev(ch: char) -> bool {
 }
 
 /// Determine the position of an Arabic letter in a word
-fn get_arabic_position(text: &[char], index: usize) -> ArabicPosition {
+pub fn get_arabic_position(text: &[char], index: usize) -> ArabicPosition {
     let ch = text[index];
     
     // Check previous character
@@ -245,13 +245,19 @@ pub fn shape_arabic_buffer_system(
         return;
     };
     
+    // TEMPORARY: Force shaping to always run for debugging
+    // if !text_editor_state.is_changed() {
+    //     return;
+    // }
+    
     // Check if we have any Arabic text that needs shaping
     let mut needs_shaping = false;
+    let mut arabic_chars = Vec::new();
     for entry in text_editor_state.buffer.iter() {
         if let SortKind::Glyph { codepoint: Some(ch), .. } = &entry.kind {
             if is_arabic_letter(*ch) {
                 needs_shaping = true;
-                break;
+                arabic_chars.push(*ch);
             }
         }
     }
@@ -259,6 +265,8 @@ pub fn shape_arabic_buffer_system(
     if !needs_shaping {
         return;
     }
+    
+    info!("🔤 Arabic shaping: Found {} Arabic characters, reshaping buffer", arabic_chars.len());
     
     // Collect text runs that need shaping
     let mut text_runs = Vec::new();
@@ -307,15 +315,21 @@ pub fn shape_arabic_buffer_system(
         
         // Shape the text
         if let Ok(shaped) = shape_arabic_text(&text, direction, &fontir_state) {
+            info!("🔤 Arabic shaping: Shaped text '{}' into {} glyphs", text, shaped.shaped_glyphs.len());
             // Update buffer entries with shaped glyph names
             for (buffer_idx, shaped_glyph) in indices.iter().zip(shaped.shaped_glyphs.iter()) {
                 if let Some(entry) = text_editor_state.buffer.get_mut(*buffer_idx) {
                     if let SortKind::Glyph { glyph_name, advance_width, .. } = &mut entry.kind {
+                        let old_name = glyph_name.clone();
                         *glyph_name = shaped_glyph.glyph_name.clone();
                         *advance_width = shaped_glyph.advance_width;
+                        info!("🔤 Arabic shaping: Updated '{}' (U+{:04X}) from '{}' to '{}'", 
+                              shaped_glyph.codepoint, shaped_glyph.codepoint as u32, old_name, shaped_glyph.glyph_name);
                     }
                 }
             }
+        } else {
+            warn!("🔤 Arabic shaping: Failed to shape text '{}'", text);
         }
     }
 }
@@ -326,6 +340,6 @@ pub struct ArabicShapingPlugin;
 impl Plugin for ArabicShapingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ArabicShapingCache>()
-            .add_systems(Update, shape_arabic_buffer_system);
+            .add_systems(Update, shape_arabic_buffer_system.in_set(crate::editing::FontEditorSets::TextBuffer));
     }
 }

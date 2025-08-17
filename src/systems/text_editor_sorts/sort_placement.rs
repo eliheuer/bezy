@@ -167,10 +167,10 @@ fn create_independent_sort_with_fontir(
             advance_width, // Get from FontIR runtime data
         },
         is_active: true, // Automatically activate the new sort
-        layout_mode: crate::core::state::text_editor::SortLayoutMode::Freeform, // Use Freeform for independent positioning
+        layout_mode, // Use the actual layout mode (RTL, LTR, etc.) not hardcoded Freeform
         root_position: world_position,
-        is_buffer_root: false, // This is NOT a buffer root - it's an independent sort
-        buffer_cursor_position: None, // Independent sorts don't have cursor positions
+        is_buffer_root: true, // Set as buffer root so it can be used for text input
+        buffer_cursor_position: Some(0), // Set cursor position at the beginning
     };
 
     // Insert at the end of the buffer (this creates a new independent sort)  
