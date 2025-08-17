@@ -54,6 +54,8 @@ pub fn render_text_editor_cursor(
     _existing_cursors: Query<Entity, With<TextEditorCursor>>,
     mut cursor_state: ResMut<CursorRenderingState>,
     mut entity_pools: ResMut<EntityPools>,
+    // NEW: Query actual sort positions
+    sort_query: Query<(&Transform, &crate::editing::sort::Sort, &crate::systems::text_editor_sorts::sort_entities::BufferSortIndex)>,
 ) {
     info!(
         "CURSOR: System called - tool: {:?}, mode: {:?}",
@@ -72,13 +74,16 @@ pub fn render_text_editor_cursor(
         return;
     }
 
-    // Only show cursor when in Insert mode
-    if current_placement_mode.0 != crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Insert {
+    // Only show cursor when in Insert mode or text placement modes (RTL/LTR)
+    if !matches!(current_placement_mode.0, 
+                 crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::Insert |
+                 crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::RTLText |
+                 crate::ui::toolbars::edit_mode_toolbar::text::TextPlacementMode::LTRText) {
         info!(
-            "CURSOR: Not rendering - not in Insert mode (current mode: {:?})",
+            "CURSOR: Not rendering - not in a text input mode (current mode: {:?})",
             current_placement_mode.0
         );
-        // Clear cursor entities when not in insert mode
+        // Clear cursor entities when not in text input modes
         entity_pools.return_cursor_entities(&mut commands);
         return;
     }
@@ -170,9 +175,10 @@ pub fn render_text_editor_cursor(
         return;
     };
 
-    // Calculate cursor visual position
-    if let Some(cursor_world_pos) = calculate_cursor_visual_position(
+    // SIMPLE APPROACH: Find the actual sort entity at cursor position and use its Transform
+    if let Some(cursor_world_pos) = calculate_simple_cursor_position(
         &text_editor_state,
+        &sort_query,
         &app_state,
         &fontir_app_state,
     ) {
@@ -222,12 +228,17 @@ pub fn render_text_editor_cursor(
     }
 }
 
-/// Calculate the visual world position of the cursor based on text buffer state
+/// Calculate the visual world position of the cursor based on text buffer state  
 fn calculate_cursor_visual_position(
     text_editor_state: &TextEditorState,
     app_state: &Option<Res<AppState>>,
     fontir_app_state: &Option<Res<crate::core::state::FontIRAppState>>,
 ) -> Option<Vec2> {
+    info!("🔍 CURSOR CALC: Starting cursor position calculation");
+    
+    // SIMPLE APPROACH: Find the sort at cursor position and get its actual world position
+    // For RTL: cursor goes at left edge, for LTR: cursor goes at right edge
+    
     // Find the active buffer root
     let mut active_root_index = None;
     let mut cursor_pos_in_buffer = 0;
@@ -262,9 +273,17 @@ fn calculate_cursor_visual_position(
     }
 
     let root_index = active_root_index?;
+    
+    // Get the root sort to check its layout mode
+    let root_sort = text_editor_state.buffer.get(root_index)?;
+    let is_rtl = root_sort.layout_mode == SortLayoutMode::RTLText;
+    
+    info!("🔍 CURSOR CALC: root_index={}, cursor_pos={}, is_rtl={}", 
+          root_index, cursor_pos_in_buffer, is_rtl);
 
     // If cursor at position 0, place at root position
     if cursor_pos_in_buffer == 0 {
+        info!("🔍 CURSOR CALC: Cursor at position 0, returning root position");
         return Some(root_position);
     }
 
@@ -320,28 +339,56 @@ fn calculate_cursor_visual_position(
                         }
                     }
                     SortKind::Glyph {
-                        glyph_name: _,
+                        glyph_name,
                         advance_width,
                         ..
                     } => {
-                        // If cursor is at this position, place it at the RIGHT edge of this glyph
+                        // Check if cursor should be positioned at this glyph
                         if glyph_count == cursor_pos_in_buffer {
-                            // For LTR: cursor goes at right edge (after advance)
-                            // For RTL: cursor goes at left edge (before advance)
+                            info!("🎯 CURSOR MATCH: glyph_count={}, cursor_pos={}, x_offset={}, glyph={:?}, advance={}, is_root={}", 
+                                  glyph_count, cursor_pos_in_buffer, x_offset, glyph_name, advance_width, i == root_index);
+                            
+                            // Place cursor at the appropriate edge based on text direction
                             if sort.layout_mode == SortLayoutMode::RTLText {
+                                // RTL: cursor at left edge of this glyph
+                                // For RTL text, when glyph_count == 1 (first char after root),
+                                // x_offset is still 0. We need to calculate where this char will be.
+                                // The first RTL character is positioned at -advance_width from root
+                                let cursor_x = if i == root_index {
+                                    // Cursor at root position (shouldn't happen for cursor_pos=1)
+                                    x_offset
+                                } else {
+                                    // For non-root chars in RTL, they're positioned to the left
+                                    // We need to account for the root's advance to find the left edge
+                                    // Get root's advance width
+                                    if let Some(root_sort) = text_editor_state.buffer.get(root_index) {
+                                        if let SortKind::Glyph { advance_width: root_advance, .. } = &root_sort.kind {
+                                            -root_advance  // First char is at -root_advance from root
+                                        } else {
+                                            x_offset
+                                        }
+                                    } else {
+                                        x_offset
+                                    }
+                                };
+                                
+                                info!("🎯 RTL CURSOR: Returning position x={} (root.x={} + cursor_x={})", 
+                                      root_position.x + cursor_x, root_position.x, cursor_x);
                                 return Some(Vec2::new(
-                                    root_position.x + x_offset,
+                                    root_position.x + cursor_x,
                                     root_position.y + y_offset,
                                 ));
                             } else {
+                                // LTR: cursor at right edge of this glyph
+                                // For LTR, we need to add the advance to get to the right edge
                                 return Some(Vec2::new(
                                     root_position.x + x_offset + advance_width,
                                     root_position.y + y_offset,
                                 ));
                             }
                         }
-
-                        // Add advance width for positioning next characters
+                        
+                        // Apply advance width for positioning next characters
                         if sort.layout_mode == SortLayoutMode::RTLText {
                             x_offset -= advance_width;
                         } else {
@@ -360,6 +407,112 @@ fn calculate_cursor_visual_position(
         root_position.x + x_offset,
         root_position.y + y_offset,
     ))
+}
+
+/// Simple approach: Find the actual sort entity at cursor position and use its Transform
+fn calculate_simple_cursor_position(
+    text_editor_state: &TextEditorState,
+    sort_query: &Query<(&Transform, &crate::editing::sort::Sort, &crate::systems::text_editor_sorts::sort_entities::BufferSortIndex)>,
+    _app_state: &Option<Res<AppState>>,
+    _fontir_app_state: &Option<Res<crate::core::state::FontIRAppState>>,
+) -> Option<Vec2> {
+    info!("🎯 SIMPLE CURSOR: Starting calculation");
+    
+    // Find the active buffer root
+    let mut active_root_index = None;
+    let mut cursor_pos_in_buffer = 0;
+    let mut is_rtl = false;
+
+    // Look for the active buffer root and get its cursor position
+    for i in 0..text_editor_state.buffer.len() {
+        if let Some(sort) = text_editor_state.buffer.get(i) {
+            if sort.is_buffer_root && sort.is_active {
+                active_root_index = Some(i);
+                cursor_pos_in_buffer = sort.buffer_cursor_position.unwrap_or(0);
+                is_rtl = sort.layout_mode == crate::core::state::text_editor::SortLayoutMode::RTLText;
+                break;
+            }
+        }
+    }
+
+    // If no active root found, check for any buffer root with cursor position
+    if active_root_index.is_none() {
+        for i in 0..text_editor_state.buffer.len() {
+            if let Some(sort) = text_editor_state.buffer.get(i) {
+                if sort.is_buffer_root && sort.buffer_cursor_position.is_some() {
+                    active_root_index = Some(i);
+                    cursor_pos_in_buffer = sort.buffer_cursor_position.unwrap_or(0);
+                    is_rtl = sort.layout_mode == crate::core::state::text_editor::SortLayoutMode::RTLText;
+                    break;
+                }
+            }
+        }
+    }
+
+    let root_index = active_root_index?;
+    
+    info!("🎯 SIMPLE CURSOR: root_index={}, cursor_pos={}, is_rtl={}", 
+          root_index, cursor_pos_in_buffer, is_rtl);
+
+    // For RTL at cursor position 1, we want to be at the LEFT edge of the first character after root
+    // For LTR at cursor position 1, we want to be at the RIGHT edge of the first character after root
+    
+    if cursor_pos_in_buffer == 0 {
+        // Cursor at position 0 - find the root sort entity and position at its left edge
+        for (transform, _sort, buffer_index) in sort_query.iter() {
+            if buffer_index.0 == root_index {
+                let root_pos = transform.translation.truncate();
+                info!("🎯 SIMPLE CURSOR: Cursor at position 0, found root at ({:.1}, {:.1})", 
+                      root_pos.x, root_pos.y);
+                return Some(root_pos);
+            }
+        }
+        // Fallback if no entity found for root
+        return text_editor_state.buffer.get(root_index).map(|sort| sort.root_position);
+    }
+
+    // Find the character at the cursor position
+    // cursor_pos_in_buffer=1 means cursor is after the first character
+    let target_char_index = root_index + cursor_pos_in_buffer;
+    
+    info!("🎯 SIMPLE CURSOR: Looking for character sort at buffer index {}", target_char_index);
+
+    // Find the actual rendered sort entity for the character
+    for (transform, _sort, buffer_index) in sort_query.iter() {
+        if buffer_index.0 == target_char_index {
+            let char_pos = transform.translation.truncate();
+            info!("🎯 SIMPLE CURSOR: Found character at buffer[{}] at position ({:.1}, {:.1})", 
+                  target_char_index, char_pos.x, char_pos.y);
+            
+            if is_rtl {
+                // RTL: cursor goes at LEFT edge of the character
+                let cursor_position = Vec2::new(char_pos.x, char_pos.y);
+                info!("🎯 SIMPLE CURSOR: RTL cursor at LEFT edge ({:.1}, {:.1})", 
+                      cursor_position.x, cursor_position.y);
+                return Some(cursor_position);
+            } else {
+                // LTR: cursor goes at RIGHT edge of the character
+                let advance_width = if let Some(sort_entry) = text_editor_state.buffer.get(target_char_index) {
+                    if let crate::core::state::text_editor::SortKind::Glyph { advance_width, .. } = &sort_entry.kind {
+                        *advance_width
+                    } else {
+                        0.0
+                    }
+                } else {
+                    0.0
+                };
+                
+                let cursor_position = Vec2::new(char_pos.x + advance_width, char_pos.y);
+                info!("🎯 SIMPLE CURSOR: LTR cursor at RIGHT edge ({:.1}, {:.1})", 
+                      cursor_position.x, cursor_position.y);
+                return Some(cursor_position);
+            }
+        }
+    }
+
+    // Fallback: if we can't find the character entity, use the root position
+    warn!("🎯 SIMPLE CURSOR: Character at buffer[{}] not found, using root position", target_char_index);
+    text_editor_state.buffer.get(root_index).map(|sort| sort.root_position)
 }
 
 /// Create a mesh-based cursor with triangular ends

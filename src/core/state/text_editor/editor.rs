@@ -589,26 +589,42 @@ impl TextEditorState {
                 }
             }
             
-            // Cursor positioning depends on text direction
-            let new_cursor_pos = calculate_cursor_position_for_direction(
-                &root_layout_mode, 
-                text_sort_count
-            );
+            // Cursor positioning depends on text direction and should match glyph_count in visual rendering
+            let new_cursor_pos = if is_rtl_layout_mode(&root_layout_mode) {
+                // For RTL: cursor should be at glyph_count of the newly inserted character
+                // Since we just inserted a character, we want the cursor at that character's position
+                // The newly inserted character is the rightmost one, which is always at buffer position root_index + 1
+                // In glyph_count terms, this is always glyph position 1 (root=0, first char=1)
+                1
+            } else {
+                // For LTR: cursor moves after all text sorts
+                text_sort_count + 1
+            };
             
             if let Some(root_sort) = self.buffer.get_mut(root_index) {
                 root_sort.buffer_cursor_position = Some(new_cursor_pos);
                 debug!(
                     "Inserting: Updated cursor position to {} (RTL: {}, text_sorts: {})",
-                    new_cursor_pos, root_layout_mode == SortLayoutMode::RTLText, text_sort_count
+                    new_cursor_pos, is_rtl_layout_mode(&root_layout_mode), text_sort_count
                 );
-                info!("📍 Updated root cursor position to {} (mode: {:?}, text sorts: {})", 
-                      new_cursor_pos, root_layout_mode, text_sort_count);
+                info!("📍 Updated root cursor position to {} (mode: {:?}, text sorts: {}, insert_pos: {})", 
+                      new_cursor_pos, root_layout_mode, text_sort_count, insert_buffer_index);
+                      
                 // CRITICAL: Keep the root active so it maintains its outline
                 info!(
                     "🔥 Root sort '{}' remains active with is_active={}",
                     root_sort.kind.glyph_name(),
                     root_sort.is_active
                 );
+            }
+            
+            // DEBUG: Show current buffer state after insertion (moved outside borrow)
+            info!("🔍 BUFFER STATE after insertion:");
+            for (i, entry) in self.buffer.iter().enumerate() {
+                if let SortKind::Glyph { glyph_name, advance_width, .. } = &entry.kind {
+                    info!("  Buffer[{}]: glyph='{}', advance_width={:.1}, is_root={}, layout={:?}", 
+                          i, glyph_name, advance_width, entry.is_buffer_root, entry.layout_mode);
+                }
             }
         } else {
             // No active text buffer, so create a new one with this character.
@@ -1106,9 +1122,10 @@ fn calculate_cursor_position_for_direction(
     text_sort_count: usize
 ) -> usize {
     if is_rtl_layout_mode(layout_mode) {
-        // For RTL: cursor stays at position 0 for continuous input
-        // New characters are inserted at the beginning (rightmost position)
-        0
+        // For RTL: cursor should be at the insertion position (where next character will go)
+        // Since RTL characters are inserted immediately after the root, the cursor stays at root_index + 1
+        // This represents the left edge of the rightmost character in the RTL sequence
+        1  // Always position 1 (immediately after root) for RTL continuous typing
     } else {
         // For LTR: cursor moves after all text sorts
         // Position 0 = before root, Position 1 = after root, Position 2 = after first character, etc.
