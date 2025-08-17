@@ -75,17 +75,15 @@ impl TextEditorState {
                 let mut active_root_index = None;
                 let mut root_position = Vec2::ZERO;
 
-                // Look for the buffer root for this position
+                // Look for the buffer root that matches this sort's layout mode
                 for i in (0..=buffer_position).rev() {
                     if let Some(candidate) = self.buffer.get(i) {
-                        if candidate.is_buffer_root
-                            && (candidate.layout_mode
-                                == SortLayoutMode::LTRText
-                                || candidate.layout_mode
-                                    == SortLayoutMode::RTLText)
-                        {
+                        // CRITICAL FIX: Only use buffer roots that match the current sort's layout mode
+                        // This prevents RTL sorts from using LTR roots and vice versa
+                        if candidate.is_buffer_root && candidate.layout_mode == sort.layout_mode {
                             active_root_index = Some(i);
                             root_position = candidate.root_position;
+                            warn!("🔍 ROOT MATCH: Found matching buffer root at buffer[{}] for layout_mode={:?}", i, sort.layout_mode);
                             break;
                         }
                     }
@@ -117,6 +115,15 @@ impl TextEditorState {
                 // For RTL: Each character's RIGHT edge touches the previous character's LEFT edge
                 // For LTR: Each character's LEFT edge touches the previous character's RIGHT edge
                 
+                // Position calculation for text flow
+                warn!("🔍 CALCULATING POSITION for buffer[{}], buffer_len={}", buffer_position, self.buffer.len());
+                warn!("🔍 BUFFER DUMP:");
+                for (i, entry) in self.buffer.iter().enumerate() {
+                    if let SortKind::Glyph { glyph_name, advance_width, .. } = &entry.kind {
+                        warn!("🔍   buffer[{}]: '{}' advance={:.1} is_root={}", i, glyph_name, advance_width, entry.is_buffer_root);
+                    }
+                }
+                
                 if is_rtl {
                     // RTL: Accumulate ALL advance widths from position 1 through target position
                     // This positions each character so its RIGHT edge touches the previous character's LEFT edge
@@ -137,17 +144,12 @@ impl TextEditorState {
                         }
                     }
                 }
-                
-                info!("🔍 {} buffer[{}]: x_offset={:.1}", 
-                      if is_rtl { "RTL" } else { "LTR" }, buffer_position, x_offset);
 
                 // Return final position
                 let final_pos = Vec2::new(
                     root_position.x + x_offset,
                     root_position.y + y_offset,
                 );
-                info!("🎯 Position calc for buffer[{}]: root=({:.1},{:.1}), x_offset={:.1}, final=({:.1},{:.1}), is_rtl={}", 
-                      buffer_position, root_position.x, root_position.y, x_offset, final_pos.x, final_pos.y, is_rtl);
                 Some(final_pos)
             } else {
                 None

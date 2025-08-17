@@ -143,7 +143,7 @@ fn create_independent_sort_with_fontir(
     layout_mode: crate::core::state::text_editor::SortLayoutMode,
     fontir_app_state: Option<&crate::core::state::FontIRAppState>,
 ) {
-    use crate::core::state::text_editor::{SortEntry, SortKind};
+    use crate::core::state::text_editor::{SortEntry, SortKind, SortLayoutMode};
     
     info!("🖱️ INSIDE create_independent_sort_with_fontir: Starting function");
 
@@ -158,6 +158,37 @@ fn create_independent_sort_with_fontir(
         500.0
     };
 
+    // CRITICAL FIX: Check if there's already a buffer root with the same layout mode
+    // If so, add to that text flow instead of creating a new buffer root
+    let mut existing_root_index = None;
+    for (i, existing_sort) in text_editor_state.buffer.iter().enumerate() {
+        if existing_sort.is_buffer_root && existing_sort.layout_mode == layout_mode {
+            existing_root_index = Some(i);
+            break;
+        }
+    }
+
+    let (is_buffer_root, cursor_position) = if let Some(_root_index) = existing_root_index {
+        // There's already a buffer root with this layout mode
+        // Add this sort to that existing text flow instead of creating a new root
+        info!("🖱️ Found existing {} buffer root, adding to existing text flow instead of creating new root", 
+              match layout_mode {
+                  SortLayoutMode::RTLText => "RTL",
+                  SortLayoutMode::LTRText => "LTR", 
+                  SortLayoutMode::Freeform => "Freeform",
+              });
+        (false, None) // Not a buffer root, no cursor position
+    } else {
+        // No existing buffer root with this layout mode, create a new one
+        info!("🖱️ No existing {} buffer root found, creating new buffer root", 
+              match layout_mode {
+                  SortLayoutMode::RTLText => "RTL",
+                  SortLayoutMode::LTRText => "LTR",
+                  SortLayoutMode::Freeform => "Freeform", 
+              });
+        (true, Some(0)) // Is a buffer root with cursor at start
+    };
+
     let independent_sort = SortEntry {
         kind: SortKind::Glyph {
             codepoint: Some(placeholder_codepoint), // Use appropriate codepoint for layout mode
@@ -167,16 +198,17 @@ fn create_independent_sort_with_fontir(
         is_active: true, // Automatically activate the new sort
         layout_mode, // Use the actual layout mode (RTL, LTR, etc.) not hardcoded Freeform
         root_position: world_position,
-        is_buffer_root: true, // Set as buffer root so it can be used for text input
-        buffer_cursor_position: Some(0), // Set cursor position at the beginning
+        is_buffer_root, // Only first sort in each layout mode becomes buffer root
+        buffer_cursor_position: cursor_position, // Only buffer roots have cursor position
     };
 
     // Insert at the end of the buffer (this creates a new independent sort)  
     let insert_index = text_editor_state.buffer.len();
-    info!("🖱️ Inserting independent sort at index {} into buffer with {} existing entries", insert_index, text_editor_state.buffer.len());
+    info!("🖱️ Inserting independent sort at index {} into buffer with {} existing entries (is_buffer_root: {})", 
+          insert_index, text_editor_state.buffer.len(), is_buffer_root);
     text_editor_state.buffer.insert(insert_index, independent_sort);
     info!("🖱️ Successfully inserted sort, buffer now has {} entries", text_editor_state.buffer.len());
 
-    info!("🖱️ Created independent sort at world position ({:.1}, {:.1}), index: {}", 
-          world_position.x, world_position.y, insert_index);
+    info!("🖱️ Created independent sort at world position ({:.1}, {:.1}), index: {}, is_buffer_root: {}", 
+          world_position.x, world_position.y, insert_index, is_buffer_root);
 }

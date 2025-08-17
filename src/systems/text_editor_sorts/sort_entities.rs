@@ -234,11 +234,13 @@ pub fn spawn_missing_sort_entities(
                         Some(sort_entry.root_position)
                     } else {
                         // Non-root text sorts flow from their text root using actual font metrics
-                        text_editor_state.get_text_sort_flow_position(
+                        let calculated_pos = text_editor_state.get_text_sort_flow_position(
                             i,
                             &font_metrics,
                             0.0,
-                        )
+                        );
+                        warn!("🔍 ENTITY POSITIONING: buffer[{}] calculated at {:?}", i, calculated_pos);
+                        calculated_pos
                     }
                 }
                 crate::core::state::SortLayoutMode::Freeform => {
@@ -353,11 +355,13 @@ pub fn update_buffer_sort_positions(
                             Some(sort.root_position)
                         } else {
                             // Non-root text sorts flow from their text root using actual font metrics
-                            text_editor_state.get_text_sort_flow_position(
+                            let calculated_pos = text_editor_state.get_text_sort_flow_position(
                                 buffer_index,
                                 &font_metrics,
                                 0.0,
-                            )
+                            );
+                            warn!("🔍 POSITION UPDATE: buffer[{}] calculated at {:?}", buffer_index, calculated_pos);
+                            calculated_pos
                         }
                     }
                     crate::core::state::SortLayoutMode::Freeform => {
