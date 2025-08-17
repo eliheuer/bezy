@@ -21,6 +21,7 @@ use crate::systems::text_editor_sorts::{
     render_text_editor_sorts,
     spawn_active_sort_points_optimized, // NEW: Optimized instant point spawning
     spawn_missing_sort_entities, // NEW: Spawn ECS entities for buffer sorts
+    sync_buffer_sort_activation_state, // NEW: Sync activation state from buffer to entities
 };
 
 use bevy::prelude::*;
@@ -45,6 +46,7 @@ impl Plugin for TextEditorPlugin {
             // Text buffer updates
             .add_systems(Update, (
                 spawn_missing_sort_entities,
+                sync_buffer_sort_activation_state, // NEW: Sync activation state after spawning
                 crate::systems::text_editor_sorts::sort_entities::update_buffer_sort_positions,
                 crate::systems::text_editor_sorts::sort_entities::auto_activate_selected_sorts,
                 manage_sort_activation,

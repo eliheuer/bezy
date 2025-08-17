@@ -474,6 +474,50 @@ pub fn auto_activate_selected_sorts(
     }
 }
 
+/// Sync activation state from text editor buffer to entities
+pub fn sync_buffer_sort_activation_state(
+    mut commands: Commands,
+    text_editor_state: Res<TextEditorState>,
+    buffer_entities: Res<BufferSortEntities>,
+    active_sort_query: Query<Entity, With<ActiveSort>>,
+    inactive_sort_query: Query<Entity, With<InactiveSort>>,
+    buffer_index_query: Query<&BufferSortIndex>,
+) {
+    // Only run when text editor state has changed to avoid unnecessary work
+    if !text_editor_state.is_changed() {
+        return;
+    }
+
+    debug!("🔄 sync_buffer_sort_activation_state: Syncing activation state from buffer to entities");
+
+    // Iterate through all tracked entities and sync their activation state
+    for (&buffer_index, &entity) in buffer_entities.entities.iter() {
+        if let Some(sort_entry) = text_editor_state.buffer.get(buffer_index) {
+            let should_be_active = sort_entry.is_active;
+            
+            // Check current entity state
+            let is_currently_active = active_sort_query.get(entity).is_ok();
+            let is_currently_inactive = inactive_sort_query.get(entity).is_ok();
+            
+            if should_be_active && !is_currently_active {
+                // Should be active but isn't - activate it
+                if is_currently_inactive {
+                    commands.entity(entity).remove::<InactiveSort>();
+                }
+                commands.entity(entity).insert(ActiveSort);
+                info!("🟢 ACTIVATION SYNC: Activated entity for buffer[{}] - glyph '{}'", 
+                      buffer_index, sort_entry.kind.glyph_name());
+            } else if !should_be_active && is_currently_active {
+                // Should be inactive but is active - deactivate it
+                commands.entity(entity).remove::<ActiveSort>();
+                commands.entity(entity).insert(InactiveSort);
+                info!("🔴 ACTIVATION SYNC: Deactivated entity for buffer[{}] - glyph '{}'", 
+                      buffer_index, sort_entry.kind.glyph_name());
+            }
+        }
+    }
+}
+
 /// Despawn missing buffer sort entities
 #[allow(clippy::too_many_arguments)]
 pub fn despawn_missing_buffer_sort_entities(
