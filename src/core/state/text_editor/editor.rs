@@ -552,12 +552,9 @@ impl TextEditorState {
             // NEVER replace the root entity - always insert as a separate entity
             // This preserves the root entity for consistent rendering
 
-            // Insert position depends on text direction
-            let insert_buffer_index = calculate_insertion_position_for_direction(
-                &root_layout_mode,
-                root_index,
-                self.buffer.len()
-            );
+            // Insert at the cursor position relative to root
+            // cursor_pos_in_buffer=0 means "after root", cursor_pos_in_buffer=1 means "after first character", etc.
+            let insert_buffer_index = root_index + cursor_pos_in_buffer + 1;
             
             debug!(
                 "Inserting: Before insert - buffer has {} entries",
@@ -600,17 +597,8 @@ impl TextEditorState {
                 }
             }
             
-            // Cursor positioning depends on text direction and should match glyph_count in visual rendering
-            let new_cursor_pos = if is_rtl_layout_mode(&root_layout_mode) {
-                // For RTL: cursor should be at glyph_count of the newly inserted character
-                // Since we just inserted a character, we want the cursor at that character's position
-                // The newly inserted character is the rightmost one, which is always at buffer position root_index + 1
-                // In glyph_count terms, this is always glyph position 1 (root=0, first char=1)
-                1
-            } else {
-                // For LTR: cursor moves after all text sorts
-                text_sort_count + 1
-            };
+            // After insertion, cursor moves one position forward - same for RTL and LTR
+            let new_cursor_pos = cursor_pos_in_buffer + 1;
             
             if let Some(root_sort) = self.buffer.get_mut(root_index) {
                 root_sort.buffer_cursor_position = Some(new_cursor_pos);
