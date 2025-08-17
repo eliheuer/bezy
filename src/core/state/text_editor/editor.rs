@@ -84,6 +84,8 @@ impl TextEditorState {
                             active_root_index = Some(i);
                             root_position = candidate.root_position;
                             warn!("🔍 ROOT MATCH: Found matching buffer root at buffer[{}] for layout_mode={:?}", i, sort.layout_mode);
+                            println!("🔍 ROOT DEBUG: Using buffer[{}] as root at position ({:.1}, {:.1})", 
+                                     i, root_position.x, root_position.y);
                             break;
                         }
                     }
@@ -127,10 +129,15 @@ impl TextEditorState {
                 if is_rtl {
                     // RTL: Accumulate ALL advance widths from position 1 through target position
                     // This positions each character so its RIGHT edge touches the previous character's LEFT edge
+                    println!("🔍 RTL CALC: Calculating offset for buffer[{}] from root at buffer[{}]", 
+                             buffer_position, root_index);
                     for i in (root_index + 1)..=buffer_position {
                         if let Some(sort_entry) = self.buffer.get(i) {
-                            if let SortKind::Glyph { advance_width, .. } = &sort_entry.kind {
+                            if let SortKind::Glyph { advance_width, glyph_name, .. } = &sort_entry.kind {
+                                let old_offset = x_offset;
                                 x_offset -= advance_width;  // Move LEFT by this character's width
+                                println!("🔍 RTL CALC: buffer[{}] '{}' advance={:.1}, offset: {:.1} -> {:.1}", 
+                                         i, glyph_name, advance_width, old_offset, x_offset);
                             }
                         }
                     }
@@ -150,6 +157,8 @@ impl TextEditorState {
                     root_position.x + x_offset,
                     root_position.y + y_offset,
                 );
+                println!("🎯 FINAL POSITION: buffer[{}] '{}' at ({:.1}, {:.1}) (x_offset={:.1})", 
+                         buffer_position, sort.kind.glyph_name(), final_pos.x, final_pos.y, x_offset);
                 Some(final_pos)
             } else {
                 None
