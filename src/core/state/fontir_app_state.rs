@@ -500,24 +500,33 @@ impl FontIRAppState {
         let mut component_paths = Vec::new();
         
         // Resolve each component
-        for component in &ufo_glyph.components {
+        for (i, component) in ufo_glyph.components.iter().enumerate() {
             let base_glyph_name = component.base.as_str();
+            info!("🧩 Component {}/{}: base='{}', transform=[{}, {}, {}, {}, {}, {}]", 
+                  i + 1, ufo_glyph.components.len(), base_glyph_name,
+                  component.transform.x_scale, component.transform.xy_scale, component.transform.yx_scale,
+                  component.transform.y_scale, component.transform.x_offset, component.transform.y_offset);
             
             // Get the base glyph's paths (recursively resolve components)
             if let Some(base_paths) = self.get_glyph_paths_with_components(base_glyph_name) {
-                for base_path in base_paths {
+                info!("🧩 Found {} paths for component '{}'", base_paths.len(), base_glyph_name);
+                for (path_idx, base_path) in base_paths.iter().enumerate() {
                     // Apply the component's transformation matrix
-                    let transformed_path = apply_affine_transform(&base_path, &component.transform);
+                    let transformed_path = apply_affine_transform(base_path, &component.transform);
+                    let path_elements = transformed_path.elements().len();
+                    info!("🧩 Applied transform to path {}: {} elements", path_idx, path_elements);
                     component_paths.push(transformed_path);
                 }
             } else {
-                warn!("Component base glyph '{}' not found for glyph '{}'", base_glyph_name, glyph_name);
+                warn!("🧩 Component base glyph '{}' not found for glyph '{}'", base_glyph_name, glyph_name);
             }
         }
         
         if component_paths.is_empty() {
+            warn!("🧩 No component paths resolved for glyph '{}'", glyph_name);
             None
         } else {
+            info!("🧩 Successfully resolved {} total paths for composite glyph '{}'", component_paths.len(), glyph_name);
             Some(component_paths)
         }
     }

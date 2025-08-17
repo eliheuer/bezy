@@ -148,10 +148,8 @@ fn create_independent_sort_with_fontir(
     info!("🖱️ INSIDE create_independent_sort_with_fontir: Starting function");
 
     // Choose appropriate default glyph based on layout mode
-    let (placeholder_glyph, placeholder_codepoint) = match &layout_mode {
-        crate::core::state::text_editor::SortLayoutMode::RTLText => ("alef-ar".to_string(), '\u{0627}'), // Arabic Alef
-        _ => ("a".to_string(), 'a'), // Latin lowercase a for LTR and Freeform
-    };
+    let (placeholder_glyph, placeholder_codepoint) = 
+        crate::core::state::text_editor::editor::get_default_glyph_for_direction(&layout_mode);
     
     let advance_width = if let Some(fontir_state) = fontir_app_state {
         fontir_state.get_glyph_advance_width(&placeholder_glyph)

@@ -46,10 +46,10 @@ pub fn handle_unicode_text_input(
         return;
     }
 
-    // ONLY handle typing when in Insert mode - placement modes should use mouse clicks only
-    if !matches!(current_placement_mode.0, TextPlacementMode::Insert) {
+    // Handle typing in Insert mode and text placement modes (RTL/LTR)
+    if !matches!(current_placement_mode.0, TextPlacementMode::Insert | TextPlacementMode::RTLText | TextPlacementMode::LTRText) {
         debug!(
-            "Unicode input blocked: Not in Insert mode (current: {:?})",
+            "Unicode input blocked: Not in a text input mode (current: {:?})",
             current_placement_mode.0
         );
         return;
@@ -57,8 +57,8 @@ pub fn handle_unicode_text_input(
 
     if key_count > 0 {
         debug!(
-            "Unicode input: Processing {} keyboard events in Insert mode",
-            key_count
+            "Unicode input: Processing {} keyboard events in text input mode ({:?})",
+            key_count, current_placement_mode.0
         );
     }
 
@@ -241,6 +241,14 @@ fn handle_unicode_character(
                       text_editor_state.buffer.len(), text_editor_state.cursor_position);
                 info!("Unicode input: Inserted '{}' (U+{:04X}) as glyph '{}' in {} mode", 
                       character, character as u32, glyph_name, mode_name);
+                      
+                // DEBUG: Check what was actually inserted
+                for (i, entry) in text_editor_state.buffer.iter().enumerate() {
+                    if let crate::core::state::text_editor::buffer::SortKind::Glyph { glyph_name: g, .. } = &entry.kind {
+                        info!("🔍 BUFFER[{}]: glyph='{}', is_active={}, layout_mode={:?}", 
+                              i, g, entry.is_active, entry.layout_mode);
+                    }
+                }
             }
             TextPlacementMode::Freeform => {
                 // In freeform mode, characters are placed freely - for now use same logic

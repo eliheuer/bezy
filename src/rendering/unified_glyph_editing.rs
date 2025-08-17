@@ -397,7 +397,10 @@ fn render_filled_outline(
             let mut lyon_path_builder = Path::builder();
             
             // Convert all kurbo paths (contours) to a single Lyon path
-            for kurbo_path in paths {
+            for (path_idx, kurbo_path) in paths.iter().enumerate() {
+                let elements_count = kurbo_path.elements().len();
+                info!("🎨 Processing path {}/{}: {} elements", path_idx + 1, paths.len(), elements_count);
+                
                 for element in kurbo_path.elements().iter() {
                     match element {
                         kurbo::PathEl::MoveTo(pt) => {
@@ -441,6 +444,9 @@ fn render_filled_outline(
             );
             
             if tessellation_result.is_ok() && !geometry.vertices.is_empty() {
+                info!("🎨 Tessellation successful: {} vertices, {} indices for '{}'", 
+                      geometry.vertices.len(), geometry.indices.len(), glyph_name);
+                
                 // Convert tessellated geometry to Bevy mesh
                 let vertices: Vec<[f32; 3]> = geometry.vertices
                     .iter()
@@ -472,6 +478,12 @@ fn render_filled_outline(
                 )).id();
                 
                 element_entities.push(entity);
+            } else {
+                if tessellation_result.is_err() {
+                    warn!("🎨 Tessellation FAILED for glyph '{}': {:?}", glyph_name, tessellation_result.err());
+                } else {
+                    warn!("🎨 Tessellation produced EMPTY geometry for glyph '{}'", glyph_name);
+                }
             }
         }
     }

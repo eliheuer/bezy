@@ -18,9 +18,16 @@ pub struct BufferSortEntities {
     pub entities: HashMap<usize, Entity>,
 }
 
+/// Resource to track buffer sorts that need entity respawning due to content changes
+#[derive(Resource, Default)]
+pub struct BufferSortRespawnQueue {
+    pub indices: Vec<usize>,
+}
+
 /// Initialize text editor sorts
 pub fn initialize_text_editor_sorts(mut commands: Commands) {
     commands.init_resource::<BufferSortEntities>();
+    commands.init_resource::<BufferSortRespawnQueue>();
     info!("Initialized text editor sorts system");
 }
 
@@ -130,6 +137,7 @@ pub fn spawn_missing_sort_entities(
     mut commands: Commands,
     text_editor_state: ResMut<TextEditorState>,
     mut buffer_entities: ResMut<BufferSortEntities>,
+    mut respawn_queue: ResMut<BufferSortRespawnQueue>,
     app_state: Option<Res<AppState>>,
     fontir_app_state: Option<Res<crate::core::state::FontIRAppState>>,
     _existing_active_sorts: Query<
@@ -146,17 +154,27 @@ pub fn spawn_missing_sort_entities(
         for i in 0..text_editor_state.buffer.len() {
             if let Some(sort) = text_editor_state.buffer.get(i) {
                 info!(
-                    "  📋 Buffer[{}]: glyph='{}', is_buffer_root={}, is_active={}, layout_mode={:?}",
+                    "  📋 Buffer[{}]: glyph='{}', is_buffer_root={}, is_active={}, layout_mode={:?}, pos=({:.1},{:.1})",
                     i,
                     sort.kind.glyph_name(),
                     sort.is_buffer_root,
                     sort.is_active,
-                    sort.layout_mode
+                    sort.layout_mode,
+                    sort.root_position.x, sort.root_position.y
                 );
             }
         }
     }
     // Silently skip logging when buffer is empty to reduce spam
+
+    // Handle respawn requests first
+    for &index in &respawn_queue.indices {
+        if let Some(entity) = buffer_entities.entities.remove(&index) {
+            info!("🔄 Respawning entity for buffer index {} due to content change", index);
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+    respawn_queue.indices.clear(); // Clear the queue after processing
 
     // Iterate through all sorts in the buffer
     for i in 0..text_editor_state.buffer.len() {

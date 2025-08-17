@@ -107,34 +107,41 @@ impl TextEditorState {
                 let descender = font_metrics.descender.unwrap_or(-256.0) as f32;
                 let line_height = upm - descender;
 
-                // Start from the root and accumulate advances up to (but not including) target position
-                for i in root_index..buffer_position {
+                // Determine text direction from target sort's layout mode
+                let target_sort = self.buffer.get(buffer_position);
+                let is_rtl = target_sort
+                    .map(|s| is_rtl_layout_mode(&s.layout_mode))
+                    .unwrap_or(false);
+
+                // Unified positioning logic for both LTR and RTL
+                // The key difference: LTR accumulates up to (but not including) target,
+                // RTL accumulates up to and including target
+                let range_end = if is_rtl {
+                    buffer_position + 1  // RTL: include target position
+                } else {
+                    buffer_position      // LTR: exclude target position
+                };
+
+                for i in (root_index + 1)..range_end {
                     if let Some(sort_entry) = self.buffer.get(i) {
                         // Stop if we hit another buffer root
-                        if i != root_index && sort_entry.is_buffer_root {
+                        if sort_entry.is_buffer_root {
                             break;
                         }
 
                         // Process this position's advance
-                        if i == root_index
-                            || sort_entry.layout_mode == SortLayoutMode::LTRText
-                            || sort_entry.layout_mode == SortLayoutMode::RTLText
-                        {
-                            match &sort_entry.kind {
-                                SortKind::LineBreak => {
-                                    // Line break: reset x_offset and move down a line (same as cursor)
-                                    x_offset = 0.0;
-                                    y_offset -= line_height;
-                                }
-                                SortKind::Glyph { advance_width, .. } => {
-                                    // For RTL, subtract advance width instead of adding
-                                    if sort_entry.layout_mode
-                                        == SortLayoutMode::RTLText
-                                    {
-                                        x_offset -= advance_width;
-                                    } else {
-                                        x_offset += advance_width;
-                                    }
+                        match &sort_entry.kind {
+                            SortKind::LineBreak => {
+                                // Line break: reset x_offset and move down a line
+                                x_offset = 0.0;
+                                y_offset -= line_height;
+                            }
+                            SortKind::Glyph { advance_width, .. } => {
+                                // Apply advance based on text direction
+                                if is_rtl {
+                                    x_offset -= advance_width;  // RTL: move left
+                                } else {
+                                    x_offset += advance_width;  // LTR: move right
                                 }
                             }
                         }
@@ -461,6 +468,17 @@ impl TextEditorState {
         advance_width: f32,
         codepoint: Option<char>,
     ) {
+        self.insert_sort_at_cursor_with_respawn(glyph_name, advance_width, codepoint, None);
+    }
+
+    /// Insert a new sort at the cursor position with optional respawn queue for entity management
+    pub fn insert_sort_at_cursor_with_respawn(
+        &mut self,
+        glyph_name: String,
+        advance_width: f32,
+        codepoint: Option<char>,
+        respawn_queue: Option<&mut crate::systems::text_editor_sorts::sort_entities::BufferSortRespawnQueue>,
+    ) {
         debug!("Insert at cursor: Starting insertion of '{}'", glyph_name);
         info!(
             "insert_sort_at_cursor called with glyph '{}', advance_width {}",
@@ -478,15 +496,18 @@ impl TextEditorState {
                 .and_then(|rs| rs.buffer_cursor_position)
                 .unwrap_or(0);
 
-            info!("Inserting sort '{}' at cursor position {} in buffer root at index {}", 
-                  glyph_name, cursor_pos_in_buffer, root_index);
+            warn!("🔍 INSERT DEBUG: glyph='{}', cursor_pos={}, root_index={}, buffer_len={}", 
+                  glyph_name, cursor_pos_in_buffer, root_index, self.buffer.len());
 
             // Check if this is the first character being typed into an empty text root
             let is_empty_root = if let Some(root_sort) = self.buffer.get(root_index) {
                 match &root_sort.kind {
                     SortKind::Glyph { glyph_name: root_glyph, .. } => {
-                        // Check if root is still a placeholder glyph (like "a" or "alef-ar")
-                        root_glyph == "a" || root_glyph == "alef-ar"
+                        // Check if root is still a placeholder glyph
+                        let is_placeholder = root_glyph == "a" || root_glyph == "alef-ar";
+                        warn!("🔍 PLACEHOLDER CHECK: root_glyph='{}', is_placeholder={}, layout_mode={:?}", 
+                              root_glyph, is_placeholder, root_sort.layout_mode);
+                        is_placeholder
                     },
                     _ => false,
                 }
@@ -494,29 +515,8 @@ impl TextEditorState {
                 false
             };
 
-            // Special case: if cursor is at position 0 AND this is an empty root, replace the placeholder
-            if cursor_pos_in_buffer == 0 && is_empty_root {
-                if let Some(root_sort) = self.buffer.get_mut(root_index) {
-                    // Replace the placeholder root glyph with the new character
-                    root_sort.kind = SortKind::Glyph {
-                        codepoint,
-                        glyph_name: glyph_name.clone(),
-                        advance_width,
-                    };
-                    // For RTL, cursor stays at 0 for next character; for LTR, move to 1
-                    match root_sort.layout_mode {
-                        SortLayoutMode::RTLText => {
-                            root_sort.buffer_cursor_position = Some(0);
-                            info!("🔄 RTL: Replaced placeholder root with '{}', cursor stays at position 0", glyph_name);
-                        },
-                        _ => {
-                            root_sort.buffer_cursor_position = Some(1);
-                            info!("🔄 LTR: Replaced placeholder root with '{}', cursor moved to position 1", glyph_name);
-                        }
-                    }
-                }
-                return;
-            }
+            // For RTL text: always insert new characters, never replace the root
+            // The root (like alef-ar) stays as the foundation of the RTL text buffer
 
             // Get the layout mode from the buffer root
             let root_layout_mode = self
@@ -532,7 +532,7 @@ impl TextEditorState {
                     advance_width,
                 },
                 is_active: false, // Don't make new sorts active by default
-                layout_mode: root_layout_mode,
+                layout_mode: root_layout_mode.clone(),
                 root_position: Vec2::ZERO, // Will be calculated by flow
                 is_buffer_root: false,     // New sorts are not buffer roots
                 buffer_cursor_position: None,
@@ -541,16 +541,20 @@ impl TextEditorState {
             // NEVER replace the root entity - always insert as a separate entity
             // This preserves the root entity for consistent rendering
 
-            // FIXED: Insert at the end of the buffer instead of using cursor position
-            // The cursor position was getting out of sync with the actual buffer
-            let insert_buffer_index = self.buffer.len();
+            // Insert position depends on text direction
+            let insert_buffer_index = calculate_insertion_position_for_direction(
+                &root_layout_mode,
+                root_index,
+                self.buffer.len()
+            );
+            
             debug!(
                 "Inserting: Before insert - buffer has {} entries",
                 self.buffer.len()
             );
             debug!(
-                "Inserting: Inserting at index {} (end of buffer)",
-                insert_buffer_index
+                "Inserting: Inserting at index {} (mode: {:?}, root at {})",
+                insert_buffer_index, root_layout_mode, root_index
             );
 
             self.buffer.insert(insert_buffer_index, new_sort);
@@ -564,6 +568,8 @@ impl TextEditorState {
                 "🔤 Buffer now has {} entries after insertion",
                 self.buffer.len()
             );
+            info!("🔤 Layout mode: {:?}, insertion was RTL: {}", 
+                  root_layout_mode, root_layout_mode == SortLayoutMode::RTLText);
 
             // Update the cursor position in the root to point after the inserted character
             // Count how many text sorts are in this sequence after insertion
@@ -583,17 +589,20 @@ impl TextEditorState {
                 }
             }
             
-            // Cursor should be after all text sorts
-            // Position 0 = before root, Position 1 = after root, Position 2 = after first character, etc.
-            // So cursor position = text_sort_count + 1 (to account for the root)
-            let new_cursor_pos = text_sort_count + 1;
+            // Cursor positioning depends on text direction
+            let new_cursor_pos = calculate_cursor_position_for_direction(
+                &root_layout_mode, 
+                text_sort_count
+            );
+            
             if let Some(root_sort) = self.buffer.get_mut(root_index) {
                 root_sort.buffer_cursor_position = Some(new_cursor_pos);
                 debug!(
-                    "Inserting: Updated cursor position to {}",
-                    new_cursor_pos
+                    "Inserting: Updated cursor position to {} (RTL: {}, text_sorts: {})",
+                    new_cursor_pos, root_layout_mode == SortLayoutMode::RTLText, text_sort_count
                 );
-                info!("📍 Updated root cursor position to {} (text sorts in sequence: {}, +1 for root)", new_cursor_pos, text_sort_count);
+                info!("📍 Updated root cursor position to {} (mode: {:?}, text sorts: {})", 
+                      new_cursor_pos, root_layout_mode, text_sort_count);
                 // CRITICAL: Keep the root active so it maintains its outline
                 info!(
                     "🔥 Root sort '{}' remains active with is_active={}",
@@ -1083,6 +1092,52 @@ impl TextEditorState {
                 root_sort.buffer_cursor_position = Some(best_idx);
             }
         }
+    }
+}
+
+/// Helper function to check if a layout mode is right-to-left
+fn is_rtl_layout_mode(layout_mode: &SortLayoutMode) -> bool {
+    matches!(layout_mode, SortLayoutMode::RTLText)
+}
+
+/// Helper function to calculate cursor position based on text direction
+fn calculate_cursor_position_for_direction(
+    layout_mode: &SortLayoutMode, 
+    text_sort_count: usize
+) -> usize {
+    if is_rtl_layout_mode(layout_mode) {
+        // For RTL: cursor stays at position 0 for continuous input
+        // New characters are inserted at the beginning (rightmost position)
+        0
+    } else {
+        // For LTR: cursor moves after all text sorts
+        // Position 0 = before root, Position 1 = after root, Position 2 = after first character, etc.
+        // So cursor position = text_sort_count + 1 (to account for the root)
+        text_sort_count + 1
+    }
+}
+
+/// Helper function to calculate insertion position based on text direction
+fn calculate_insertion_position_for_direction(
+    layout_mode: &SortLayoutMode,
+    root_index: usize,
+    buffer_len: usize
+) -> usize {
+    if is_rtl_layout_mode(layout_mode) {
+        // For RTL: insert immediately after root
+        root_index + 1
+    } else {
+        // For LTR: insert at end of buffer
+        buffer_len
+    }
+}
+
+/// Helper function to get appropriate default glyph and codepoint for text direction
+pub fn get_default_glyph_for_direction(layout_mode: &SortLayoutMode) -> (String, char) {
+    if is_rtl_layout_mode(layout_mode) {
+        ("alef-ar".to_string(), '\u{0627}') // Arabic Alef
+    } else {
+        ("a".to_string(), 'a') // Latin lowercase a for LTR and Freeform
     }
 }
 
