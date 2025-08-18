@@ -46,9 +46,10 @@ impl PluginGroup for CorePluginGroup {
             .add(InputConsumerPlugin)
             .add(FontEditorSystemSetsPlugin) // Must be added before other font editor plugins
             .add(TextEditorPlugin)
-            .add(TextShapingPlugin)
-            .add(ArabicShapingPlugin)
-            .add(ProfessionalShapingPlugin)
+            // TEMPORARILY DISABLED: Text shaping systems to test RTL gap fix
+            // .add(TextShapingPlugin)
+            // .add(ArabicShapingPlugin)
+            // .add(ProfessionalShapingPlugin)
             .add(SelectionPlugin)
             .add(UndoPlugin)
             .add(UiInteractionPlugin)
