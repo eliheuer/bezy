@@ -215,28 +215,16 @@ fn perform_harfbuzz_shaping(
 
 /// Get glyph name from glyph ID using FontIR
 fn get_glyph_name_from_id(glyph_id: u32, fontir_state: &FontIRAppState) -> String {
-    // Try to find glyph name by ID
-    // This is a simplified approach - in a full implementation we'd maintain
-    // a proper glyph ID to name mapping from the font
+    // CRITICAL FIX: We need to properly map HarfBuzz glyph IDs to FontIR glyph names
+    // For now, as a working solution, let HarfBuzz handle the shaping logic
+    // and use a simpler approach based on the actual font structure
     
-    for glyph_name in fontir_state.get_glyph_names() {
-        // For now, use a simple heuristic based on font conventions
-        // A proper implementation would query the font's cmap and post tables
-        if glyph_name.contains("alef-ar") && glyph_id >= 100 && glyph_id < 110 {
-            return glyph_name.clone();
-        }
-        if glyph_name.contains("sheen-ar") && glyph_id >= 110 && glyph_id < 120 {
-            return glyph_name.clone();
-        }
-        if glyph_name.contains("heh-ar") && glyph_id >= 120 && glyph_id < 130 {
-            return glyph_name.clone();
-        }
-        if glyph_name.contains("dal-ar") && glyph_id >= 130 && glyph_id < 140 {
-            return glyph_name.clone();
-        }
-    }
+    // TODO: Implement proper glyph ID mapping from the compiled font
+    // For now, we should use the original codepoint-based approach
+    // since the glyph ID mapping is complex and font-specific
     
-    // Fallback to glyph ID
+    // Fallback: use glyph ID directly - this will be improved later
+    // The real solution needs font's cmap and post table parsing
     format!("gid{}", glyph_id)
 }
 
@@ -281,6 +269,8 @@ pub fn harfbuzz_shaping_system(
         return;
     }
     
+    info!("🔤 HarfBuzz: Detected text that needs complex shaping!");
+    
     // Collect text runs for shaping
     let mut text_runs = Vec::new();
     let mut current_run = String::new();
@@ -317,24 +307,29 @@ pub fn harfbuzz_shaping_system(
     
     // Shape each text run
     for (text, indices, direction) in text_runs {
+        info!("🔤 HarfBuzz: Attempting to shape text '{}' with direction {:?}", text, direction);
         match shape_text_with_harfbuzz(&text, direction, &mut hb_cache, &fontir_state) {
             Ok(shaped) => {
+                info!("🔤 HarfBuzz: Successfully shaped '{}' into {} glyphs", text, shaped.shaped_glyphs.len());
                 // Update buffer with shaped results
                 for (buffer_idx, shaped_glyph) in indices.iter().zip(shaped.shaped_glyphs.iter()) {
                     if let Some(entry) = text_editor_state.buffer.get_mut(*buffer_idx) {
                         if let crate::core::state::text_editor::buffer::SortKind::Glyph { 
                             glyph_name, advance_width, .. 
                         } = &mut entry.kind {
+                            let old_name = glyph_name.clone();
                             *glyph_name = shaped_glyph.glyph_name.clone();
                             *advance_width = shaped_glyph.advance_width;
+                            info!("🔤 HarfBuzz: Updated glyph U+{:04X} from '{}' to '{}'", 
+                                  shaped_glyph.codepoint as u32, old_name, shaped_glyph.glyph_name);
                         }
                     }
                 }
                 
-                info!("Professionally shaped text: '{}' → {} glyphs", text, shaped.shaped_glyphs.len());
+                info!("🔤 HarfBuzz: Professionally shaped text: '{}' → {} glyphs", text, shaped.shaped_glyphs.len());
             }
             Err(e) => {
-                warn!("Professional shaping failed: {}", e);
+                error!("🔤 HarfBuzz: Professional shaping failed for '{}': {}", text, e);
             }
         }
     }
@@ -346,6 +341,6 @@ pub struct HarfBuzzShapingPlugin;
 impl Plugin for HarfBuzzShapingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<HarfBuzzShapingCache>()
-            .add_systems(Update, harfbuzz_shaping_system);
+            .add_systems(Update, harfbuzz_shaping_system.in_set(crate::editing::FontEditorSets::TextBuffer));
     }
 }
