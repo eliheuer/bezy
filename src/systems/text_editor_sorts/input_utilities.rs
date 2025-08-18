@@ -7,7 +7,7 @@
 
 use crate::core::state::{AppState, FontIRAppState};
 use crate::systems::text_shaping::{
-    get_script_for_text, needs_complex_shaping,
+    needs_complex_shaping,
 };
 use bevy::prelude::*;
 

@@ -15,8 +15,8 @@ use crate::rendering::{
 };
 use crate::systems::{
     exit_on_esc, load_fontir_font, create_startup_layout, center_camera_on_startup_layout,
-    ArabicShapingPlugin, BezySystems, CommandsPlugin, InputConsumerPlugin, ProfessionalShapingPlugin, 
-    TextShapingPlugin, UiInteractionPlugin,
+    BezySystems, CommandsPlugin, InputConsumerPlugin, HarfBuzzShapingPlugin, 
+    UiInteractionPlugin,
 };
 use crate::ui::hud::HudPlugin;
 use crate::ui::panes::coord_pane::CoordinatePanePlugin;
@@ -46,10 +46,8 @@ impl PluginGroup for CorePluginGroup {
             .add(InputConsumerPlugin)
             .add(FontEditorSystemSetsPlugin) // Must be added before other font editor plugins
             .add(TextEditorPlugin)
-            // TEMPORARILY DISABLED: Text shaping systems to test RTL gap fix
-            // .add(TextShapingPlugin)
-            // .add(ArabicShapingPlugin)
-            // .add(ProfessionalShapingPlugin)
+            // RE-ENABLED: HarfBuzz text shaping for RTL support
+            .add(HarfBuzzShapingPlugin)
             .add(SelectionPlugin)
             .add(UndoPlugin)
             .add(UiInteractionPlugin)

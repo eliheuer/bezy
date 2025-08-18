@@ -25,7 +25,7 @@ pub mod ui_interaction;
 pub use arabic_shaping::ArabicShapingPlugin;
 pub use commands::CommandsPlugin;
 pub use fontir_lifecycle::load_fontir_font;
-pub use harfbuzz_shaping::ProfessionalShapingPlugin;
+pub use harfbuzz_shaping::HarfBuzzShapingPlugin;
 pub use startup_layout::{create_startup_layout, center_camera_on_startup_layout};
 pub use input_consumer::InputConsumerPlugin;
 pub use lifecycle::{exit_on_esc, load_ufo_font};

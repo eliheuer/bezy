@@ -12,7 +12,6 @@
 
 use crate::core::state::{SortLayoutMode, TextEditorState};
 use bevy::prelude::*;
-use harfrust::{Direction, Script, Tag};
 use std::collections::HashMap;
 
 /// Resource to cache text shaping information
@@ -73,16 +72,6 @@ impl From<SortLayoutMode> for TextDirection {
     }
 }
 
-impl From<TextDirection> for Direction {
-    fn from(direction: TextDirection) -> Self {
-        match direction {
-            TextDirection::LeftToRight => Direction::LeftToRight,
-            TextDirection::RightToLeft => Direction::RightToLeft,
-            TextDirection::TopToBottom => Direction::TopToBottom,
-            TextDirection::BottomToTop => Direction::BottomToTop,
-        }
-    }
-}
 
 /// System to perform text shaping for Arabic and complex scripts
 pub fn shape_arabic_text_system(
@@ -199,24 +188,6 @@ pub fn needs_complex_shaping(text: &str) -> bool {
     })
 }
 
-/// Get the appropriate script for HarfBuzz based on Unicode ranges
-pub fn get_script_for_text(text: &str) -> Option<Script> {
-    use harfrust::Tag;
-
-    if text.chars().any(|ch| {
-        let code = ch as u32;
-        (0x0600..=0x06FF).contains(&code) // Basic Arabic block
-    }) {
-        Script::from_iso15924_tag(Tag::new(b"arab")) // Arabic script tag
-    } else if text.chars().any(|ch| {
-        let code = ch as u32;
-        (0x0590..=0x05FF).contains(&code) // Hebrew block
-    }) {
-        Script::from_iso15924_tag(Tag::new(b"hebr")) // Hebrew script tag
-    } else {
-        Script::from_iso15924_tag(Tag::new(b"latn")) // Latin script tag
-    }
-}
 
 /// Plugin to register the Arabic text shaping system
 pub struct TextShapingPlugin;
