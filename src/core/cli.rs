@@ -18,6 +18,7 @@ use std::path::PathBuf;
 ///   bezy --load-ufo ~/Fonts/MyFont.ufo  # Load font with full path
 ///   bezy --theme lightmode              # Use light mode theme
 ///   bezy --theme strawberry             # Use strawberry theme
+///   bezy --no-default-buffer            # Start without default LTR buffer (for testing)
 #[derive(Parser, Debug, Resource)]
 #[clap(
     name = "bezy",
@@ -51,6 +52,18 @@ pub struct CliArgs {
         long_help = "Theme to use for the interface. Available themes: darkmode (default), lightmode, strawberry, campfire"
     )]
     pub theme: Option<String>,
+
+    /// Disable creation of default buffer on startup (for testing/debugging)
+    ///
+    /// By default, Bezy creates an LTR text buffer at startup to provide
+    /// an immediate editing environment. This flag disables that behavior
+    /// for testing isolated text flows or debugging positioning issues.
+    #[clap(
+        long = "no-default-buffer",
+        help = "Disable default LTR buffer creation on startup",
+        long_help = "Disable creation of the default LTR text buffer on startup. Useful for testing isolated text flows or debugging positioning issues."
+    )]
+    pub no_default_buffer: bool,
 }
 
 impl CliArgs {
@@ -128,6 +141,7 @@ impl CliArgs {
         Self {
             ufo_path: Some(PathBuf::from(DEFAULT_UFO_PATH)),
             theme: None, // Use default theme for web builds
+            no_default_buffer: false, // Enable default buffer for web builds
         }
     }
 

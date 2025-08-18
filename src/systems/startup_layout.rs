@@ -25,9 +25,17 @@ pub fn create_startup_layout(
     fontir_state: Option<Res<FontIRAppState>>,
     mut text_editor_state: ResMut<TextEditorState>,
     mut commands: Commands,
+    cli_args: Res<crate::core::cli::CliArgs>,
 ) {
     // Only create default layout if no sorts exist yet
     if !text_editor_state.buffer.is_empty() {
+        return;
+    }
+
+    // Check if default buffer creation is disabled via CLI flag
+    if cli_args.no_default_buffer {
+        info!("Skipping default LTR buffer creation due to --no-default-buffer flag");
+        info!("Ready for isolated text flow testing - use text tool to place sorts manually");
         return;
     }
 
